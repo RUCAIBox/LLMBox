@@ -8,17 +8,17 @@ def parse_argument():
         Namespace: the parsed arguments
     """
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", type=str, default="curie")
-    parser.add_argument("--dataset", type=str, default="copa")
-    parser.add_argument("--batch_size", type=int, default=1)
-    parser.add_argument("--num_shots", type=int, default=0)
-    parser.add_argument("--seed", type=int, default=2023)
-    parser.add_argument("--max_example_tokens", type=int, default=1024)
-    parser.add_argument("--example_set", type=str, default="train")
-    parser.add_argument("--evaluation_set", type=str, default="validation")
-    parser.add_argument("--example_separator_string", type=str, default="\n\n")
-    parser.add_argument("--instruction", type=str, default="")
-    parser.add_argument("--openai_api_key", type=str, default="")
+    parser.add_argument("-m", "--model", type=str, default="curie", help="The model name, e.g., cuire, llama")
+    parser.add_argument("-d", "--dataset", type=str, default="copa", help="The model name, e.g., copa, gsm")
+    parser.add_argument("-bsz", "--batch_size", type=int, default=1, help="The evaluation batch size")
+    parser.add_argument("--evaluation_set", type=str, default="validation", help="The set name for evaluation")
+    parser.add_argument("--seed", type=int, default=2023, help="The random seed")
+    parser.add_argument("-inst", "--instruction", type=str, default="", help="The instruction to format each instance")
+    parser.add_argument("--example_set", type=str, default="train", help="The set name for demonstration")
+    parser.add_argument("-shots", "--num_shots", type=int, default=0, help="The few-shot number for demonstration")
+    parser.add_argument("--max_example_tokens", type=int, default=1024, help="The maximum token number of demonstration")
+    parser.add_argument("--example_separator_string", type=str, default="\n\n", help="The string to separate each demonstration")
+    parser.add_argument("-api", "--openai_api_key", type=str, default="", help="The OpenAI API key")
 
     args, unparsed = parser.parse_known_args()
 
