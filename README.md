@@ -1,6 +1,11 @@
 # LLMBox
 
 ## Quick start
+```python
+python main.py
+```
+This is default to run the OpenAI curie model on the Copa dataset in a zero-shot manner.
+
 ```
 usage: main.py [-m MODEL] [-d DATASET] [-bsz BATCH_SIZE] [--evaluation_set EVALUATION_SET] [--seed SEED] [-inst INSTRUCTION] [--example_set EXAMPLE_SET] [-shots NUM_SHOTS]
                [--max_example_tokens MAX_EXAMPLE_TOKENS] [--example_separator_string EXAMPLE_SEPARATOR_STRING] [-api OPENAI_API_KEY]
