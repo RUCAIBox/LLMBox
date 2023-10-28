@@ -1,16 +1,16 @@
+from argparse import Namespace
 from logging import getLogger
-from typing import Dict, Any, Tuple
 from time import perf_counter
+from typing import Any, Dict, Tuple
 
 import numpy as np
-from tqdm import tqdm
-from argparse import Namespace
 from torch.utils.data import DataLoader
+from tqdm import tqdm
 
-from dataset.utils import load_dataset
-from dataset.dataset import Dataset as LLMDataset
-from model import load_model
-from model.model import Model
+from .dataset.dataset import Dataset as LLMDataset
+from .dataset.utils import load_dataset
+from .model import load_model
+from .model.model import Model
 
 logger = getLogger(__name__)
 
