@@ -1,5 +1,10 @@
 import torch
 import numpy as np
+from typing import Set, Literal, Optional
+
+from torch.utils.data import DataLoader
+
+from .utils import NotImplementedField
 
 
 class Dataset(torch.utils.data.Dataset):
@@ -8,14 +13,14 @@ class Dataset(torch.utils.data.Dataset):
     Args:
         args (Namespace): The global configurations.
         model (Model): Our class for model.
-    
+
     Attributes:
         name (str): The name of this dataset.
         tokenizer (Union[transformers.PreTrainedTokenizer, tiktoken.Encoding]): The tokenizer of corresponding model.
         evaluation_data (List[dict]): The list of data for evaluation.
         evaluation_instances (List[Union[str, Tuple(str, str)]]): The list of formatted evaluation instances.
         evaluation_type (str): The method for evaluation, which can be set to either 'ranking' or 'generation'.
-        metric (str): The metric for evaluating the predictions and references.        
+        metric (str): The metric for evaluating the predictions and references.
         instruction (str, *optional*): The instruction for this task.
         option_nums (List[int], *optional*): The list of the number of options for each instance (mainly used for multi-choice tasks).
         example_data (List[dict], *optional*): The list of demonstration data.
@@ -25,7 +30,8 @@ class Dataset(torch.utils.data.Dataset):
     name = ""
     metric = ""
     instruction = ""
-    evaluation_type = ""
+
+    evaluation_type: Literal['ranking', 'generation'] = NotImplementedField
 
     def __init__(self, args, model):
         super().__init__()
@@ -59,12 +65,17 @@ class Dataset(torch.utils.data.Dataset):
 
         Args:
             instance (Dict): an instance dict of multiple key-value pairs.
-        
+
         Returns:
             Dict:
+<<<<<<< HEAD
                 source: str
                 target: str
                 options (*optional*): List[str]
+=======
+                ground_truth: Union[str, Tuple(str, str)]
+                options (*optional*): List[Tuple(str, str)]
+>>>>>>> cddbdb6 (Evaluator add support for datasets with multiple subsets, and add time performance)
         """
         raise NotImplementedError(f"{self.name} dataset must implement the `format_instance` function.")
 
@@ -137,13 +148,23 @@ class Dataset(torch.utils.data.Dataset):
             elif self.evaluation_type == "generation":
                 self.evaluation_instances.append(self.format_instruction_and_examples(formatted_instance["source"]))
 
-    def calculate_metric(self, predictions):
-        r"""Calculate the metric score betwwen `predictions` and `references`.
+    def calculate_metrics(self):
+        r"""Calculate the metrics for the predictions.
 
         Args:
-            predictions (List[str]): The predicted answers.
+            predictions (List[str]): The list of predictions.
 
         Returns:
-            dict: The metric results.
+            Dict[str, float]: The metrics for the predictions.
         """
         raise NotImplementedError(f"{self.name} dataset must implement the `calcuate_metric` function.")
+
+    def get_dataloader(self, **kwargs):
+        default_kwargs = dict(
+            batch_size=self.args.batch_size,
+            collate_fn=lambda x: x,
+            shuffle=False,
+            pin_memory=True,
+        )
+        default_kwargs.update(kwargs)
+        return DataLoader(self, **default_kwargs)

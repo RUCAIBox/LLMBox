@@ -1,4 +1,27 @@
 import argparse
+import importlib
+import inspect
+from typing import Type, TypeVar
+
+T = TypeVar('T')
+
+
+def import_main_class(module_path, main_cls_type: Type[T]) -> Type[T]:
+    """Import a module at module_path and return its main class, a Metric by default"""
+    module = importlib.import_module(module_path)
+
+    # Find the main class in our imported module
+    module_main_cls = None
+    for name, obj in module.__dict__.items():
+        if isinstance(obj, type) and issubclass(obj, main_cls_type):
+            if inspect.isabstract(obj):
+                continue
+            module_main_cls = obj
+            break
+
+    if module_main_cls is None:
+        raise ValueError(f'Cannot find a class in {module_path} that is a subclass of {main_cls_type}')
+    return module_main_cls
 
 
 def parse_argument():

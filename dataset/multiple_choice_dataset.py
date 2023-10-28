@@ -1,4 +1,4 @@
-import numpy as np
+from typing import Set
 from .dataset import Dataset
 
 
@@ -7,11 +7,9 @@ class MultipleChoiceDataset(Dataset):
     """
 
     evaluation_type = "ranking"
-    metric = "accuracy"
 
     def __init__(self, args, model):
         super().__init__(args, model)
 
-    def calculate_metric(self, predictions):
-        score_list = np.asarray(predictions) == np.asarray(self.references)
-        return {'Accuracy': np.mean(score_list)}
+    def metrics(self) -> Set[str]:
+        return {"accuracy"}

@@ -1,16 +1,28 @@
-import importlib
+import torch
+from torch.utils.data import DataLoader
+from prefetch_generator import BackgroundGenerator
+
+from .dataset import Dataset as LLMDataset
+from ..utils import import_main_class
+
+__all__ = ['load_dataset']
 
 
-def load_dataset(args, model):
+@property
+def NotImplementedField(self):
+    raise NotImplementedError(f"{self.__class__.__name__} has not implemented field.")
+
+
+def load_dataset(dataset: str, *args, **kwargs) -> LLMDataset:
     r"""Load corresponding dataset class.
 
     Args:
-        args (Namespace): The global configurations.
-        model (Model): Our class for model.
+        dataset (str): The name of dataset.
 
     Returns:
         Dataset: Our class for dataset.
     """
-    dataset = importlib.import_module(f"dataset.{args.dataset}")
-    dataset = getattr(dataset, args.dataset.capitalize())(args, model)
+    # find the relative path from `main`
+    dataset_cls = import_main_class('dataset.' + dataset, LLMDataset)
+    dataset = dataset_cls(*args, **kwargs)
     return dataset
