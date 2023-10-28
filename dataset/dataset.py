@@ -1,5 +1,9 @@
 import torch
 import numpy as np
+from typing import Set, Literal, Optional
+
+from ...metric import MetricModule
+from .utils import NotImplementedField, DataLoaderX
 
 
 class Dataset(torch.utils.data.Dataset):
@@ -7,14 +11,14 @@ class Dataset(torch.utils.data.Dataset):
 
     Args:
         args (Namespace): The global configurations.
-    
+
     Attributes:
         name (str): The name of this dataset.
         tokenizer (Union[transformers.PreTrainedTokenizer, tiktoken.Encoding]): The tokenizer of corresponding model.
         evaluation_data (List[dict]): The list of data for evaluation.
         evaluation_instances (List[Union[str, Tuple(str, str)]]): The list of formatted evaluation instances.
         evaluation_type (str): The method for evaluation, which can be set to either 'ranking' or 'generation'.
-        metric (str): The metric for evaluating the predictions and references.        
+        metric (str): The metric for evaluating the predictions and references.
         instruction (str, *optional*): The instruction for this task.
         option_nums (List[int], *optional*): The list of the number of options for each instance (mainly used for multi-choice tasks).
         example_data (List[dict], *optional*): The list of demonstration data.
@@ -22,6 +26,9 @@ class Dataset(torch.utils.data.Dataset):
         max_example_tokens (int, *optional*): The number of maximum tokens in the demonstration.
         example_separator_string (str, *optional*): The string to separate each demonstration example.
     """
+
+    metrics: Set[str] = NotImplementedField
+    evaluation_type: Literal['ranking', 'generation'] = NotImplementedField
 
     def __init__(self, args):
         super().__init__()
@@ -35,6 +42,8 @@ class Dataset(torch.utils.data.Dataset):
         self.example_separator_string = args.example_separator_string
         self.examples = self.construct_examples()
         self.construct_instances()
+
+        self.metric_modules = MetricModule(self.metrics)
 
     def __len__(self):
         return len(self.evaluation_instances)
@@ -56,9 +65,9 @@ class Dataset(torch.utils.data.Dataset):
 
         Args:
             instance (Dict): an instance dict of multiple key-value pairs.
-        
+
         Returns:
-            Dict: 
+            Dict:
                 ground_truth: Union[str, Tuple(str, str)]
                 options (*optional*): List[Tuple(str, str)]
         """
@@ -129,13 +138,24 @@ class Dataset(torch.utils.data.Dataset):
                     self.format_instruction_and_examples(self.format_instance(instance)['ground_truth'])
                 )
 
-    def calculate_metric(self, predictions):
-        r"""Calculate the metric score betwwen `predictions` and `references`.
+    def calculate_metrics(self):
+        r"""Calculate the metrics for the predictions.
 
         Args:
-            predictions (List[str]): The predicted answers.
+            predictions (List[str]): The list of predictions.
 
         Returns:
-            dict: The metric results.
+            Dict[str, float]: The metrics for the predictions.
         """
-        raise NotImplementedError(f"{self.name} dataset must implement the `calcuate_metric` function.")
+        return self.metric_modules.calculate_metric()
+
+    def get_dataloader(self, **kwargs):
+        default_kwargs = dict(
+            batch_size=self.args.batch_size,
+            collate_fn=lambda x: x,
+            shuffle=False,
+            pin_memory=True,
+        )
+        default_kwargs.update(kwargs)
+        return DataLoaderX(self, **default_kwargs)
+
