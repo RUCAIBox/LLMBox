@@ -3,6 +3,7 @@ from logging import getLogger
 from time import perf_counter
 from typing import Any, Dict, Tuple
 
+from accelerate.utils import set_seed
 import numpy as np
 from torch.utils.data import DataLoader
 from tqdm import tqdm
@@ -29,11 +30,12 @@ class Evaluator:
 
     def __init__(self, args: Namespace):
         self.args = args
+        set_seed(args.seed)
 
         self.model = load_model(args)
         args.tokenizer = self.model.tokenizer
 
-        self.dataset = load_dataset(args)
+        self.all_datasets = args.dataset.split(",")
         # TODO: change to logger
         # filename = args.model + "-" + args.dataset + "-" + str(args.num_shots)
         # self.args.filename = filename
@@ -51,15 +53,16 @@ class Evaluator:
             self.dataset = {"default": self.dataset}
 
         results = {}
-        for subset, dataset in self.dataset.items():
-            results[subset] = self._evaluate_once(self.model, subset, dataset)
+        for name_dataset_and_subset in self.all_datasets:
+            name_dataset, subset = name_dataset_and_subset.split(":")
+            dataset = load_dataset(self.args, name_dataset, subset)
+            results[subset] = self._evaluate_once(self.model, dataset)
 
         return results
 
     @staticmethod
     def _evaluate_once(
         model: Model,
-        subset: str,
         dataset: LLMDataset,
     ) -> dict:
 
@@ -80,7 +83,7 @@ class Evaluator:
         )
         metric_results.update(pref_results)
 
-        Evaluator._summarize(subset, metric_results)
+        Evaluator._summarize(dataset.name + ":" + dataset.subset_name, metric_results)
 
     @staticmethod
     def _predictions_processor(dataset: LLMDataset, evaluation_type: str, predictions: list) -> Dict:

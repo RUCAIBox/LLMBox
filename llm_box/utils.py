@@ -2,6 +2,9 @@ import argparse
 import importlib
 import inspect
 from typing import Type, TypeVar
+from argparse import Namespace
+
+import torch
 
 T = TypeVar('T')
 
@@ -22,6 +25,28 @@ def import_main_class(module_path, main_cls_type: Type[T]) -> Type[T]:
     if module_main_cls is None:
         raise ValueError(f'Cannot find a class in {module_path} that is a subclass of {main_cls_type}')
     return module_main_cls
+
+
+def _read_args_to_dict(args, results, name, value):
+    results[name] = getattr(args, name, value)
+
+
+def args_to_tokenizer_kwargs(args: Namespace):
+    kwargs = dict()
+    _read_args_to_dict(args, kwargs, "use_fast", False)
+    _read_args_to_dict(args, kwargs, "padding_side", "left")
+    return kwargs
+
+
+def args_to_model_kwargs(args: Namespace):
+    kwargs = dict()
+    # `model.half()` is equivalent to `model.to(torch.float16)`
+    torch_dtype = torch.float16 if getattr(args, "load_in_half", True) else torch.float32
+    _read_args_to_dict(args, kwargs, "torch_dtype", torch_dtype)
+    _read_args_to_dict(args, kwargs, "device_map", "auto")
+    _read_args_to_dict(args, kwargs, "trust_remote_code", True)
+    _read_args_to_dict(args, kwargs, "load_in_8bit", False)
+    return kwargs
 
 
 def parse_argument():
