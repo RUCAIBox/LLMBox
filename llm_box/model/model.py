@@ -19,7 +19,7 @@ class Model:
         self.args = args
         self.tokenizer = None
 
-    def get_ppl(self, batch):
+    def get_ppl(self, batched_inputs):
         r"""Compute the PPL score of the option given the context for this batch.
 
         Args:
@@ -30,7 +30,7 @@ class Model:
         """
         raise NotImplementedError(f"{self.name} model must implement the `get_ppl` function.")
 
-    def generation(self, batch):
+    def generation(self, batched_inputs):
         r"""Generate the response of given question for this batch.
 
         Args:

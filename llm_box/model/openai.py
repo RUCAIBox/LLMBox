@@ -69,11 +69,11 @@ class Openai(Model):
                 time.sleep(1)
         raise ConnectionError("OpenAI API error")
 
-    def get_ppl(self, batch):
-        prompt = [src + tgt for src, tgt in batch]
+    def get_ppl(self, batched_inputs):
+        prompt = [src + tgt for src, tgt in batched_inputs]
         results = self.request(prompt, self.ppl_kwargs)
         ppls = []
-        for result, (src, _) in zip(results, batch):
+        for result, (src, _) in zip(results, batched_inputs):
             tgt_start = result['logprobs']['text_offset'].index(len(src))
             tgt_end = len(result['logprobs']['text_offset'])
             ppl = -sum(result['logprobs']['token_logprobs'][tgt_start:])

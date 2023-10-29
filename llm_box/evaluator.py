@@ -1,5 +1,5 @@
 from logging import getLogger
-from typing import Tuple, Dict
+from typing import Dict, Tuple
 
 from accelerate.utils import set_seed
 from torch.utils.data import DataLoader
@@ -7,7 +7,7 @@ from tqdm import tqdm
 
 from .dataset import load_dataset
 from .model import load_model
-from .utils import ModelArguments, DatasetArguments, EvaluationArguments
+from .utils import DatasetArguments, EvaluationArguments, ModelArguments
 
 logger = getLogger(__name__)
 

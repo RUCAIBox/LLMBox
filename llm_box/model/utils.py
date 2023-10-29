@@ -1,26 +1,27 @@
-import importlib
 from logging import getLogger
+from typing import Optional
+
+from transformers import AutoModelForCausalLM, AutoTokenizer
 
 logger = getLogger(__name__)
 
 OPENAI_MODELS = ['ada', 'babbage', 'curie', 'davinci', 'babbage-002', 'davinci-002', 'gpt-3.5-turbo']
 
 
-def load_model(args):
-    r"""Load corresponding model class.
+def load_llm_and_tokenizer(
+    model_name_or_path: str,
+    tokenizer_name_or_path: Optional[str] = None,
+):
 
-    Args:
-        args (ModelArguments): The global configurations.
+    model = AutoModelForCausalLM.from_pretrained(model_name_or_path).eval()
+    tokenizer = AutoTokenizer.from_pretrained(tokenizer_name_or_path or model_name_or_path)
 
-    Returns:
-        Model: Our class for model.
-    """
-    if args.model_name_or_path.lower() in OPENAI_MODELS:
-        logger.info(f"Loading OpenAI API model `{args.model_name_or_path.lower()}`.")
-        from .openai import Openai
-        model = Openai(args)
-    else:
-        logger.info(f"Loading HuggingFace pretrained model `{args.model_name_or_path}`.")
-        model = importlib.import_module(f".{args.model_name_or_path}")
-        model = getattr(model, args.model_name_or_path)(args)
-    return model
+    # set `pad` token to `eos` token
+    if hasattr(model.config, 'eos_token'):
+        model.config.pad_token = model.config.eos_token
+    if hasattr(model.config, 'eos_token_id'):
+        model.config.pad_token_id = model.config.eos_token_id
+    tokenizer.pad_token = tokenizer.eos_token
+    tokenizer.pad_token_id = tokenizer.eos_token_id
+
+    return model, tokenizer
