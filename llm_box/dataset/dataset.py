@@ -2,16 +2,16 @@ import os
 from argparse import Namespace
 from logging import getLogger
 from pathlib import Path
-from typing import Dict, List, Literal, Optional, Set, Union
+from typing import Iterator, List, Literal, Optional, Set, Union, Dict
 
 import numpy as np
 import torch
 import datasets as d
 
 from ..metric import MetricModule
-from ..utils import import_main_class
+from ..utils import import_main_class, NotImplementedField
 from .raw_dataset_loader import load_raw_dataset, raw_dataset_config
-from .utils import DataLoaderX, NotImplementedField
+from .utils import DataLoaderX
 
 logger = getLogger(__name__)
 
@@ -89,7 +89,7 @@ class Dataset(torch.utils.data.Dataset):
 
         self.construct_instances()
 
-        self.metric_module = MetricModule(self.metrics)
+        self.metric_modules = MetricModule(self.metrics)
 
     def __len__(self):
         return len(self.evaluation_instances)
@@ -187,7 +187,7 @@ class Dataset(torch.utils.data.Dataset):
                     self.format_instruction_and_examples(self.format_instance(instance)['ground_truth'])
                 )
 
-    def calculate_metrics(self):
+    def calculate_metrics(self) -> Dict[str, float]:
         r"""Calculate the metrics for the predictions.
 
         Args:
@@ -225,9 +225,9 @@ def load_dataset(
     dataset_name_or_path: Union[str, Path],
     subset_names: Optional[Union[str, List[str]]] = None,
     split: Optional[str] = None,
-    methods: Optional[Union[str, List[str]]] = None,
+    methods: Union[str, List[str]] = "load_dataset",
     **kwargs
-) -> List[Dataset]:
+) -> Union[Iterator[Dataset], List[Dataset]]:
     r"""Load corresponding dataset class.
 
     Args:
@@ -264,7 +264,7 @@ def load_dataset(
         subset_names = [subset_names] if isinstance(subset_names, str) else subset_names
 
     # load all subsets from dataset
-    logger.debug(f"Loading raw dataset from {dataset_path} - {subset_names} with {kwargs}")
+    logger.debug(f"Loading raw dataset from {dataset_path} - {subset_names} with arguments {kwargs}")
     filter = lambda obj: isinstance(obj._name, str)
     subset_cls = True
     for n in [dataset_name, dataset_path.split("/")[-1]]:
@@ -272,7 +272,7 @@ def load_dataset(
         if n is not None:
             try:
                 dataset_cls = import_main_class('..' + n, Dataset, __name__, filter)
-                logger.debug(f"Loading dataset {dataset_cls.__name__}")
+                logger.debug(f"Dataset class `{dataset_cls.__name__}` loaded.")
                 subset_cls = False
             except Exception:
                 continue

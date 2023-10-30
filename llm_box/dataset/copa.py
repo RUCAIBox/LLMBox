@@ -19,14 +19,6 @@ class CoPA(MultipleChoiceDataset):
     example_set = None
     evaluation_set = "test"
 
-    def __init__(self, args, raw_dataset):
-        super().__init__(args, raw_dataset)
-        print(self._name)
-        print(self._subset_name)
-        print("==>", self.metrics)
-        print("==>", self.evaluation_type)
-
-
     def format_instance(self, instance):
         source_text = instance["premise"][:-1]
         if instance["question"] == "cause":
