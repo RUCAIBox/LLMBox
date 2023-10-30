@@ -1,23 +1,26 @@
 import argparse
 import importlib
 import inspect
-from typing import Type, TypeVar
+from typing import Type, TypeVar, Callable, Optional
 from argparse import Namespace
+import coloredlogs
 
 import torch
 
 T = TypeVar('T')
 
 
-def import_main_class(module_path, main_cls_type: Type[T]) -> Type[T]:
+def import_main_class(module_path, main_cls_type: Type[T], package: Optional[str] = None, filter: Callable[[Type[T]], bool]=None) -> Type[T]:
     """Import a module at module_path and return its main class, a Metric by default"""
-    module = importlib.import_module(module_path)
+    module = importlib.import_module(module_path, package)
+    if filter is None:
+        filter = lambda obj: True
 
     # Find the main class in our imported module
     module_main_cls = None
     for name, obj in module.__dict__.items():
         if isinstance(obj, type) and issubclass(obj, main_cls_type):
-            if inspect.isabstract(obj):
+            if inspect.isabstract(obj) or not filter(obj):
                 continue
             module_main_cls = obj
             break
@@ -92,5 +95,7 @@ def parse_argument():
             setattr(args, key, value)
             kwargs[key] = value
     args.kwargs = kwargs
+
+    coloredlogs.install("DEBUG")
 
     return args

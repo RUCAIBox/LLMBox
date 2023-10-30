@@ -11,6 +11,6 @@ def load_metric(metric: str, *args, **kwargs):
     Returns:
         Metric: Our class for metric.
     """
-    metric_cls = import_main_class('dataset.' + metric, LLMMetric)
+    metric_cls = import_main_class('..' + metric, LLMMetric, package=__name__)
     metric = metric_cls(*args, **kwargs)
     return metric

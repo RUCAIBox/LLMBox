@@ -1,4 +1,5 @@
 from typing import Set
+
 from .dataset import Dataset
 
 
@@ -7,9 +8,4 @@ class MultipleChoiceDataset(Dataset):
     """
 
     evaluation_type = "ranking"
-
-    def __init__(self, args):
-        super().__init__(args)
-
-    def metrics(self) -> Set[str]:
-        return {"accuracy"}
+    metrics = {"accuracy"}
