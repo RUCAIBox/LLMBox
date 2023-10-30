@@ -1,3 +1,5 @@
+from ..utils import NotImplementedField
+
 class Model:
     r"""The base model object for all models.
 
@@ -11,6 +13,7 @@ class Model:
         generation_kwargs (dict): The configurations for open-ended generation.
         ppl_kwargs (dict, *optional*): The configurations for computing PPL score.
     """
+    name: str = NotImplementedField
 
     def __init__(self, args):
         self.args = args
@@ -36,3 +39,6 @@ class Model:
             List(str): The list of generation results.
         """
         raise NotImplementedError(f"{self.name} model must implement the `generation` function.")
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}({self.name})"

@@ -1,17 +1,19 @@
+import threading
 from argparse import Namespace
 from logging import getLogger
 from time import perf_counter
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Tuple, NoReturn
 
-from accelerate.utils import set_seed
 import numpy as np
+from accelerate.utils import set_seed
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
+from .dataset import load_dataset
 from .dataset.dataset import Dataset as LLMDataset
-from .dataset.utils import load_dataset
-from .model import load_model
+from .model import load_model, load_tokenizer
 from .model.model import Model
+from .utils import args_to_tokenizer_kwargs
 
 logger = getLogger(__name__)
 
@@ -32,13 +34,47 @@ class Evaluator:
         self.args = args
         set_seed(args.seed)
 
-        self.model = load_model(args)
-        args.tokenizer = self.model.tokenizer
+        tokenizer_kwargs = args_to_tokenizer_kwargs(args)
+        args.tokenizer = load_tokenizer(
+            args.model,
+            # set `pad` token to `eos` token if pad token is not set
+            # (as is the case for llama models)
+            {'pad': 'eos'},
+            tokenizer_kwargs,
+        )
+        self.model = None
+        self.loaded_datasets = None
+        self._load_model_and_dataset()
 
-        self.all_datasets = args.dataset.split(",")
         # TODO: change to logger
         # filename = args.model + "-" + args.dataset + "-" + str(args.num_shots)
         # self.args.filename = filename
+
+    def _load_model_and_dataset(self, multi_thread: bool = True):
+        if multi_thread:
+            model_thread = threading.Thread(target=self._load_model)
+            dataset_thread = threading.Thread(target=self._load_dataset)
+
+            dataset_thread.start()
+            model_thread.start()
+
+            model_thread.join()
+            dataset_thread.join()
+        else:
+            self._load_model()
+            self._load_dataset()
+
+    def _load_model(self) -> NoReturn:
+        self.model = load_model(self.args)
+        print("==>", self.model)
+
+    def _load_dataset(self) -> NoReturn:
+        results = []
+        for dataset_name in self.args.dataset.split(","):
+            loaded_dataset = load_dataset(self.args, *dataset_name.split(":"))
+            results.extend(loaded_dataset)
+        self.loaded_datasets = results
+        print("==>", self.args.dataset.split(","), self.loaded_datasets)
 
     def evaluate(self) -> dict:
         r"""It conducts the evaluation on the dataset with corresponding models.
@@ -49,15 +85,9 @@ class Evaluator:
 
         Finally, we call the `calcuate_metric` to get the metric score of prediction results.
         """
-        if isinstance(self.dataset, LLMDataset):
-            self.dataset = {"default": self.dataset}
-
         results = {}
-        for name_dataset_and_subset in self.all_datasets:
-            name_dataset, subset = name_dataset_and_subset.split(":")
-            dataset = load_dataset(self.args, name_dataset, subset)
-            results[subset] = self._evaluate_once(self.model, dataset)
-
+        for dataset in self.loaded_datasets:
+            results[dataset.name] = self._evaluate_once(self.model, dataset)
         return results
 
     @staticmethod
@@ -78,12 +108,11 @@ class Evaluator:
         predictions, pref_results = Evaluator._call_model(call_model, dataloader)
         metric_inputs = Evaluator._predictions_processor(dataset.evaluation_type, predictions)
 
-        metric_results = Evaluator._compute_metric(
-            metric_inputs,
-        )
+        metric_results = dataset.calculate_metrics(metric_inputs)
         metric_results.update(pref_results)
 
-        Evaluator._summarize(dataset.name + ":" + dataset.subset_name, metric_results)
+        Evaluator._summarize(dataset.name, metric_results)
+        return metric_results
 
     @staticmethod
     def _predictions_processor(dataset: LLMDataset, evaluation_type: str, predictions: list) -> Dict:
@@ -98,15 +127,6 @@ class Evaluator:
             return results
 
     @staticmethod
-    def _compute_metric(
-        self,
-        dataset: LLMDataset,
-        metric_inputs: Dict,
-    ):
-        results = dataset.calculate_metric(metric_inputs)
-        return results
-
-    @staticmethod
     def _call_model(call_model: callable, dataloader: DataLoader) -> Tuple[list, Dict[str, float]]:
         start_time = perf_counter()
         results = []
@@ -114,8 +134,8 @@ class Evaluator:
             results.extend(call_model(batch))
         end_time = perf_counter()
 
-        assert len(results) == len(dataloader),\
-            "The number of results should be equal to the number of samples in the dataset."
+        if len(results) != len(dataloader):
+            raise RuntimeError("The number of results should be equal to the number of samples in the dataset.")
         return results, Evaluator._compute_time_perf(start_time, end_time, len(results))
 
     @staticmethod
@@ -123,7 +143,7 @@ class Evaluator:
         """Print the evaluation results."""
         print('#' * 5, desc, '#' * 5)
         for key, value in metric_results.items():
-            print("{}: {:.2f}".format(key, value))
+            print("{}: {:.2f}".format(key, float(value)))
 
     @staticmethod
     def _compute_time_perf(start_time: float, end_time: float, num_samples: int) -> Dict[str, Any]:

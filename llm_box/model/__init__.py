@@ -1,6 +1,6 @@
 from .openai import Openai
 from .huggingface_model import HuggingFaceModel
-from .utils import OPENAI_MODELS
+from .utils import OPENAI_MODELS, load_tokenizer
 
 
 def load_model(args):

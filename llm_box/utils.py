@@ -10,6 +10,11 @@ import torch
 T = TypeVar('T')
 
 
+@property
+def NotImplementedField(self):
+    raise NotImplementedError(f"{self.__class__.__name__} has not implemented field.")
+
+
 def import_main_class(module_path, main_cls_type: Type[T], package: Optional[str] = None, filter: Callable[[Type[T]], bool]=None) -> Type[T]:
     """Import a module at module_path and return its main class, a Metric by default"""
     module = importlib.import_module(module_path, package)
