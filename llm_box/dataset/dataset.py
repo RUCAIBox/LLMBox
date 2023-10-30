@@ -47,14 +47,29 @@ class Dataset(torch.utils.data.Dataset):
     def __init__(
         self,
         args: Namespace,
+        subset_name: Optional[str] = None,
         raw_dataset: Optional[Union[d.DatasetDict, d.Dataset, d.IterableDataset, d.IterableDatasetDict]] = None,
     ):
         super().__init__()
         self.args = args
 
-        self.use_example = args.num_shots > 0 and self.example_set is not None
+        if self._subset_name is None:
+            self._subset_name = subset_name
 
         logger.debug(f"Raw dataset loaded: {raw_dataset}")
+        if not isinstance(self.evaluation_set, str) or args.evaluation_set is not None:
+            self.evaluation_set = args.evaluation_set
+        if not isinstance(self.example_set, str) or args.example_set is not None:
+            self.example_set = args.example_set
+        if self.evaluation_set is None:
+            raise ValueError("`evaluation_set` must be specified either in Dataset or in command line arguments.")
+        msg = f"Using `{self.evaluation_set}` as evaluation_set"
+
+        self.use_example = args.num_shots > 0 and self.example_set is not None and self.example_set in raw_dataset
+        if self.use_example:
+            msg += f" and `{self.example_set}` as example_set"
+        logger.debug(msg)
+
         if isinstance(raw_dataset, (d.Dataset, d.IterableDataset)):
             self.evaluation_data = list(raw_dataset)
         elif isinstance(raw_dataset, (d.DatasetDict, d.IterableDatasetDict)):
@@ -74,9 +89,7 @@ class Dataset(torch.utils.data.Dataset):
 
         self.construct_instances()
 
-        self.metric_module = MetricModule(["accuracy"])
-        print(self.evaluation_type)
-        print(self.metrics)
+        self.metric_module = MetricModule(self.metrics)
 
     def __len__(self):
         return len(self.evaluation_instances)
@@ -199,6 +212,13 @@ class Dataset(torch.utils.data.Dataset):
     def name(self):
         return self._name + (f":{self._subset_name}" if self._subset_name else "")
 
+    def __repr__(self):
+        content = f"{self.name}[{self.evaluation_set}"
+        if self.use_example:
+            content += f", {self.example_set}"
+        content += "]"
+        return f"{self.__class__.__name__}({content})"
+
 
 def load_dataset(
     args: Namespace,
@@ -270,7 +290,11 @@ def load_dataset(
     for subset_name, raw_dataset in raw_datasets.items():
         if subset_cls:
             dataset_cls = import_main_class('.' + subset_name, Dataset, __name__, filter)
-        dataset = dataset_cls(raw_dataset=raw_dataset, args=args)
+        dataset = dataset_cls(
+            args=args,
+            subset_name=subset_name,
+            raw_dataset=raw_dataset
+        )
         results.append(dataset)
 
     return results

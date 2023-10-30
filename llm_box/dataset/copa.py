@@ -14,8 +14,8 @@ class CoPA(MultipleChoiceDataset):
         label: 1
     """
 
-    _name = "copa"
-    _subset_name = None
+    _name = "super_glue"
+    _subset_name = "copa"
     example_set = None
     evaluation_set = "test"
 
