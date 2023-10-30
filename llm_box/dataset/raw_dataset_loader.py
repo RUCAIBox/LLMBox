@@ -14,11 +14,9 @@ raw_dataset_config = {
     "super_glue": {"axb", "axg", "boolq", "cb", "copa", "multirc", "record", "wic", "wsc"},
 }
 
-
 _raw_dataset_loader_registry = dict()
 
 _required_parameters = {'dataset_path', 'subset_names', 'split'}
-
 
 
 def register_raw_dataset_loader(fn: Callable[..., Any]) -> Callable[..., Any]:
@@ -45,8 +43,10 @@ def get_dataset_subset_names(dataset_path, by_split="test", local=False, **kwarg
         try:
             return datasets.get_dataset_config_names(dataset_path, **kwargs)
         except Exception as e:
-            logger.debug(f"Failed to fetch dataset config names from huggingface "
-                            f"with `{dataset_path}`: {e}. Trying with local files.")
+            logger.debug(
+                f"Failed to fetch dataset config names from huggingface "
+                f"with `{dataset_path}`: {e}. Trying with local files."
+            )
 
     files = os.listdir(os.path.join(dataset_path, by_split))
     filter = lambda f: f.endswith(f"_{by_split}.csv") and not f.startswith(".")
@@ -70,23 +70,14 @@ def load_dataset(
 
     if isinstance(subset_names, str):
         return {
-            "default": datasets.load_dataset(
-                path=dataset_path,
-                name=subset_names,
-                split=split,
-                **load_dataset_kwargs
-            )
+            "default": datasets.load_dataset(path=dataset_path, name=subset_names, split=split, **load_dataset_kwargs)
         }
     else:
         if subset_names is None:
             subset_names = datasets.get_dataset_config_names(dataset_path)
         return {
-            subset: datasets.load_dataset(
-                path=dataset_path,
-                name=subset,
-                split=split,
-                **load_dataset_kwargs
-            ) for subset in subset_names
+            subset: datasets.load_dataset(path=dataset_path, name=subset, split=split, **load_dataset_kwargs)
+            for subset in subset_names
         }
 
 
@@ -97,7 +88,7 @@ def load_from_disk(
     *,
     load_from_disk_kwargs: Optional[Dict] = None,
     **ignored_kwargs
-)  -> Dict[str, Union[DatasetDict, Dataset]]:
+) -> Dict[str, Union[DatasetDict, Dataset]]:
     if load_from_disk_kwargs is None:
         load_from_disk_kwargs = dict()
 
@@ -168,12 +159,19 @@ def load_raw_dataset(
     not_registered = set(methods) - set(_raw_dataset_loader_registry.keys())
     if len(not_registered) > 0:
         registerd = "{" + ", ".join(_raw_dataset_loader_registry.keys()) + "}"
-        raise ValueError(f"Raw dataset loading methods {not_registered} not registered in {registerd}. Consider register with `register_raw_dataset_loader`.")
+        raise ValueError(
+            f"Raw dataset loading methods {not_registered} not registered in {registerd}. Consider register with `register_raw_dataset_loader`."
+        )
     methods = [_raw_dataset_loader_registry[m] for m in methods]
 
     logger.debug(f"disable_download: {disable_download}")
     if disable_download:
-        load_dataset_kwargs['download_config'] = datasets.DownloadConfig(local_files_only=True, storage_options={'hf': {'token': None, 'endpoint': ''}})
+        load_dataset_kwargs['download_config'] = datasets.DownloadConfig(
+            local_files_only=True, storage_options={'hf': {
+                'token': None,
+                'endpoint': ''
+            }}
+        )
 
     # try load with methods
     raw_dataset = None
@@ -193,7 +191,8 @@ def load_raw_dataset(
             continue
 
     if raw_dataset is None:
-        raise RuntimeError("Failed to load from huggingface or local disk. "
-                    "Please check the dataset path or implement your own dataset loader.")
+        raise RuntimeError(
+            "Failed to load from huggingface or local disk. "
+            "Please check the dataset path or implement your own dataset loader."
+        )
     return raw_dataset
-

@@ -1,7 +1,6 @@
 from typing import Set, Dict, Any
 
 
-
 class Metric:
     r"""The base class object for all datasets."""
 
@@ -27,4 +26,3 @@ class Metric:
 
     def __add__(self, other):
         pass
-

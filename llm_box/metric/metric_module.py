@@ -3,7 +3,6 @@ from typing import Dict, Iterable, Optional, Set, Union
 from .utils import load_metric
 
 
-
 class MetricModule(Metric):
     r"""A MetricModule is a collection of metrics."""
 
@@ -31,4 +30,3 @@ class MetricModule(Metric):
             metric_results = metric.calculate_metric(**required_data)
             all_results.update(metric_results)
         return all_results
-

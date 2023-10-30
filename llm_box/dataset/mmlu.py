@@ -26,29 +26,22 @@ def load_origin_mmlu(
         subset_names = [subset_names]
     subset = set(dataset_subset) & set(subset_names)
     splits = [split] if split is not None else ['dev', 'test']
-    files = {
-        f"{s}.{split}": f"{dataset_path}/{split}/{s}_{split}.csv"
-            for split in splits for s in subset
-    }
+    files = {f"{s}.{split}": f"{dataset_path}/{split}/{s}_{split}.csv" for split in splits for s in subset}
 
     # load all files at once to accelerate I/O
     raw_dataset = datasets.load_dataset(
-        "csv",
-        data_files=files,
-        header=None,
-        **getattr(kwargs, "load_dataset_kwargs", dict())
+        "csv", data_files=files, header=None, **getattr(kwargs, "load_dataset_kwargs", dict())
     )
-    processed_dataset = raw_dataset.map(lambda x: {
-        'question': x['0'],
-        'choices': [x['1'], x['2'], x['3'], x['4']],
-        'labels': x['5'],
-    }, remove_columns=['0', '1', '2', '3', '4', '5'])
+    processed_dataset = raw_dataset.map(
+        lambda x: {
+            'question': x['0'],
+            'choices': [x['1'], x['2'], x['3'], x['4']],
+            'labels': x['5'],
+        },
+        remove_columns=['0', '1', '2', '3', '4', '5']
+    )
 
-    dataset = {
-        s: DatasetDict(
-            { split: processed_dataset[f"{s}.{split}"] for split in splits }
-        ) for s in subset
-    }
+    dataset = {s: DatasetDict({split: processed_dataset[f"{s}.{split}"] for split in splits}) for s in subset}
     return dataset
 
 

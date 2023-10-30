@@ -1,5 +1,6 @@
 from ..utils import NotImplementedField
 
+
 class Model:
     r"""The base model object for all models.
 

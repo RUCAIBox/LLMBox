@@ -15,7 +15,12 @@ def NotImplementedField(self):
     raise NotImplementedError(f"{self.__class__.__name__} has not implemented field.")
 
 
-def import_main_class(module_path, main_cls_type: Type[T], package: Optional[str] = None, filter: Callable[[Type[T]], bool]=None) -> Type[T]:
+def import_main_class(
+    module_path,
+    main_cls_type: Type[T],
+    package: Optional[str] = None,
+    filter: Callable[[Type[T]], bool] = None
+) -> Type[T]:
     """Import a module at module_path and return its main class, a Metric by default"""
     module = importlib.import_module(module_path, package)
     if filter is None:
@@ -72,8 +77,12 @@ def parse_argument():
     parser.add_argument("-inst", "--instruction", type=str, default="", help="The instruction to format each instance")
     parser.add_argument("--example_set", type=str, default=None, help="The set name for demonstration")
     parser.add_argument("-shots", "--num_shots", type=int, default=0, help="The few-shot number for demonstration")
-    parser.add_argument("--max_example_tokens", type=int, default=1024, help="The maximum token number of demonstration")
-    parser.add_argument("--example_separator_string", type=str, default="\n\n", help="The string to separate each demonstration")
+    parser.add_argument(
+        "--max_example_tokens", type=int, default=1024, help="The maximum token number of demonstration"
+    )
+    parser.add_argument(
+        "--example_separator_string", type=str, default="\n\n", help="The string to separate each demonstration"
+    )
     parser.add_argument("-api", "--openai_api_key", type=str, default="", help="The OpenAI API key")
 
     args, unparsed = parser.parse_known_args()

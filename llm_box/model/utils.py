@@ -15,10 +15,7 @@ def load_tokenizer(
     if tokenizer_kwargs is None:
         tokenizer_kwargs = {}
 
-    tokenizer = AutoTokenizer.from_pretrained(
-        tokenizer_name_or_path,
-        **tokenizer_kwargs
-    )
+    tokenizer = AutoTokenizer.from_pretrained(tokenizer_name_or_path, **tokenizer_kwargs)
 
     if copy_special_tokens is not None:
         for tgt, src in copy_special_tokens.items():
@@ -40,18 +37,12 @@ def load_raw_model(
 
     if getattr(args, "gptq", False):
         from auto_gptq import AutoGPTQForCausalLM
-        model_wrapper = AutoGPTQForCausalLM.from_quantized(
-            model_name_or_path, device="cuda:0", use_triton=True
-        )
+        model_wrapper = AutoGPTQForCausalLM.from_quantized(model_name_or_path, device="cuda:0", use_triton=True)
         model = model_wrapper.model
 
     else:
         model_kwargs = args_to_model_kwargs(args)
-        model = AutoModelForCausalLM.from_pretrained(
-            model_name_or_path,
-            **model_kwargs
-        )
+        model = AutoModelForCausalLM.from_pretrained(model_name_or_path, **model_kwargs)
     model.eval()
 
     return model
-

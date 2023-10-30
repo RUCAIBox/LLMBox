@@ -77,7 +77,9 @@ class Dataset(torch.utils.data.Dataset):
             if self.use_example:
                 self.example_data = list(raw_dataset[self.example_set])
         else:
-            raise ValueError(f"Cannot load Dataset from {raw_dataset}. If you are loading dataset with multiple subsets, try to load each subset seperately.")
+            raise ValueError(
+                f"Cannot load Dataset from {raw_dataset}. If you are loading dataset with multiple subsets, try to load each subset seperately."
+            )
 
         self.tokenizer = args.tokenizer
         self.instruction = args.instruction
@@ -281,20 +283,12 @@ def load_dataset(
     # load LLMDataset for each subset
     results = []
     raw_datasets = load_raw_dataset(
-        dataset_path=dataset_path,
-        subset_names=subset_names,
-        split=split,
-        methods=methods,
-        **kwargs
+        dataset_path=dataset_path, subset_names=subset_names, split=split, methods=methods, **kwargs
     )
     for subset_name, raw_dataset in raw_datasets.items():
         if subset_cls:
             dataset_cls = import_main_class('.' + subset_name, Dataset, __name__, filter)
-        dataset = dataset_cls(
-            args=args,
-            subset_name=subset_name,
-            raw_dataset=raw_dataset
-        )
+        dataset = dataset_cls(args=args, subset_name=subset_name, raw_dataset=raw_dataset)
         results.append(dataset)
 
     return results
