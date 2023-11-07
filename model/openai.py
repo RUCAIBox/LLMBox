@@ -17,6 +17,7 @@ class Openai(Model):
         super().__init__(args)
         openai.api_key = os.environ.get("OPENAI_API_SECRET_KEY") or args.openai_api_key
         self.name = args.model
+        self.type = "base"
         # TODO: compatible for gpt-3.5-turbo
         self.tokenizer = tiktoken.get_encoding("r50k_base")
         # TODO: compatible for gpt-3.5-turbo (enum_type?)

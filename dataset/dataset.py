@@ -7,6 +7,7 @@ class Dataset(torch.utils.data.Dataset):
 
     Args:
         args (Namespace): The global configurations.
+        model (Model): Our class for model.
     
     Attributes:
         name (str): The name of this dataset.
@@ -20,19 +21,21 @@ class Dataset(torch.utils.data.Dataset):
         example_data (List[dict], *optional*): The list of demonstration data.
         num_shots (int, *optional*): The number of demonstration instances.
         max_example_tokens (int, *optional*): The number of maximum tokens in the demonstration.
-        example_separator_string (str, *optional*): The string to separate each demonstration example.
     """
+    name = ""
+    metric = ""
+    instruction = ""
+    evaluation_type = ""
 
-    def __init__(self, args):
+    def __init__(self, args, model):
         super().__init__()
         self.args = args
 
-        self.tokenizer = args.tokenizer
-        self.instruction = args.instruction
+        self.model = model
+        self.tokenizer = model.tokenizer
 
         self.num_shots = args.num_shots
         self.max_example_tokens = args.max_example_tokens
-        self.example_separator_string = args.example_separator_string
         self.examples = self.construct_examples()
         self.construct_instances()
 
@@ -52,40 +55,47 @@ class Dataset(torch.utils.data.Dataset):
         raise NotImplementedError(f"{self.name} dataset must implement the `references` property.")
 
     def format_instance(self, instance):
-        r"""Format one instance into source text and optinal all target texts (for ranking).
+        r"""Format the dataset instance into task source text, target text, and options (for ranking).
 
         Args:
             instance (Dict): an instance dict of multiple key-value pairs.
         
         Returns:
-            Dict: 
-                ground_truth: Union[str, Tuple(str, str)]
-                options (*optional*): List[Tuple(str, str)]
+            Dict:
+                source: str
+                target: str
+                options (*optional*): List[str]
         """
         raise NotImplementedError(f"{self.name} dataset must implement the `format_instance` function.")
 
-    def format_instruction_and_examples(self, instance):
+    def format_instruction_and_examples(self, source, target=""):
         r"""Format one instance with the instruction and demonstration.
 
         Args:
-            instance (Union[str, Tuple(str, str)]): a pre-formatted instance.
+            source (str): the pre-formatted source text.
+            target (str, *optional*): the pre-formatted target text (default to "").
 
         Returns:
             Union[str, Tuple(str, str)]: The final formatted instance.
         """
         # TODO: instruction template
         # TODO: ICL
-        if isinstance(instance, tuple):
-            source, target = instance
-            return self.instruction + self.examples + source, target
+
+        if self.model.type == 'base':
+            source = self.examples + source
+        elif self.model.type == 'instruction':
+            source = self.instruction + "\n\n" + self.examples + source
+
+        if target:
+            return source, target
         else:
-            return self.instruction + self.examples + instance
+            return source
 
     def construct_examples(self, instance=None):
         r"""Format one instance with the instruction and demonstration.
 
         Args:
-            instance (Union[str, Tuple(str, str)], *optional*): a pre-formatted evaluation instance.
+            instance (Dict): a pre-formatted evaluation instance.
 
         Returns:
             str: The constructed demonstration text.
@@ -99,10 +109,8 @@ class Dataset(torch.utils.data.Dataset):
         example_text = ""
         example_token_nums = 0
         for index in indice:
-            cur_example_text = self.format_instance(self.example_data[index])['ground_truth']
-            if isinstance(cur_example_text, tuple):
-                cur_example_text = ''.join(cur_example_text)
-            cur_example_text += self.example_separator_string
+            example = self.format_instance(self.example_data[index])
+            cur_example_text = self.args.instance_format.format_map(example) + "\n\n"
             cur_token_num = len(self.tokenizer.encode(cur_example_text))
             if cur_token_num + example_token_nums <= self.max_example_tokens:
                 example_text += cur_example_text
@@ -118,16 +126,16 @@ class Dataset(torch.utils.data.Dataset):
         self.evaluation_instances = []
         self.option_nums = []
         for instance in self.evaluation_data:
+            formatted_instance = self.format_instance(instance)
             if self.evaluation_type == "ranking":
                 options = [
-                    self.format_instruction_and_examples(option) for option in self.format_instance(instance)['options']
+                    self.format_instruction_and_examples(formatted_instance["source"], option)
+                    for option in formatted_instance['options']
                 ]
                 self.evaluation_instances.extend(options)
                 self.option_nums.append(len(options))
             elif self.evaluation_type == "generation":
-                self.evaluation_instances.append(
-                    self.format_instruction_and_examples(self.format_instance(instance)['ground_truth'])
-                )
+                self.evaluation_instances.append(self.format_instruction_and_examples(formatted_instance["source"]))
 
     def calculate_metric(self, predictions):
         r"""Calculate the metric score betwwen `predictions` and `references`.
