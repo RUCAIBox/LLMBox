@@ -1,8 +1,7 @@
 from .multiple_choice_dataset import MultipleChoiceDataset
-from datasets import load_dataset, load_from_disk
 
 
-class Copa(MultipleChoiceDataset):
+class CoPA(MultipleChoiceDataset):
     """The dataset of Copa.
 
     The Choice Of Plausible Alternatives (COPA, Roemmele et al., 2011) dataset is a causal reasoning task in which a system is given a premise sentence and two possible alternatives.
@@ -15,15 +14,11 @@ class Copa(MultipleChoiceDataset):
         label: 1
     """
 
-    def __init__(self, args, model):
-        self.name = "copa"
-        # dataset = load_dataset("super_glue", "copa")
-        dataset = load_from_disk("../dataset/copa")
-        self.example_data = list(dataset[args.example_set])
-        self.evaluation_data = list(dataset[args.evaluation_set])
-        self.instruction = "Complete the following the sentence."
-
-        super().__init__(args, model)
+    _name = "super_glue"
+    _subset_name = "copa"
+    example_set = None
+    evaluation_set = "test"
+    instruction = "Complete the following the sentence."
 
     def format_instance(self, instance):
         source = instance["premise"][:-1]

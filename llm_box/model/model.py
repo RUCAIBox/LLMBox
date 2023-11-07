@@ -1,9 +1,14 @@
+from typing import Literal
+
+from ..utils import NotImplementedField
+
+
 class Model:
     r"""The base model object for all models.
 
     Args:
         args (Namespace): The global configurations.
-    
+
     Attributes:
         name (str): The name of this model.
         type (str): The type of this model, which can be chosen from `base` and `instruction`.
@@ -12,30 +17,34 @@ class Model:
         generation_kwargs (dict): The configurations for open-ended generation.
         ppl_kwargs (dict, *optional*): The configurations for computing PPL score.
     """
-    name = ""
-    type = ""
+
+    name: str = NotImplementedField
+    type: Literal['base', 'instruction'] = NotImplementedField
 
     def __init__(self, args):
         self.args = args
 
-    def get_ppl(self, batch):
+    def get_ppl(self, batched_inputs):
         r"""Compute the PPL score of the option given the context for this batch.
 
         Args:
-            batch (List[Tuple(str, str)]): The batch of context and option pairs.
-        
+            batched_inputs (List[Tuple(str, str)]): The batch of context and option pairs.
+
         Returns:
             List(float): The list of PPL scores.
         """
         raise NotImplementedError(f"{self.name} model must implement the `get_ppl` function.")
 
-    def generation(self, batch):
+    def generation(self, batched_inputs):
         r"""Generate the response of given question for this batch.
 
         Args:
-            batch (List[str]): The batch of questions.
-        
+            batched_inputs (List[str]): The batch of questions.
+
         Returns:
             List(str): The list of generation results.
         """
         raise NotImplementedError(f"{self.name} model must implement the `generation` function.")
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}({self.name})"
