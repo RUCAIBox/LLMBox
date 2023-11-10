@@ -21,8 +21,7 @@ class Evaluator:
         self.args = args
 
         self.model = load_model(args)
-        args.tokenizer = self.model.tokenizer
-        self.dataset = load_dataset(args)
+        self.dataset = load_dataset(args, self.model)
         # TODO: change to logger
         # filename = args.model + "-" + args.dataset + "-" + str(args.num_shots)
         # self.args.filename = filename

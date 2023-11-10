@@ -6,11 +6,14 @@ class Model:
     
     Attributes:
         name (str): The name of this model.
+        type (str): The type of this model, which can be chosen from `base` and `instruction`.
         tokenizer (Union[transformers.PreTrainedTokenizer, tiktoken.Encoding]): The tokenizer of this model.
         max_tokens (int): The maximum token length of this model.
         generation_kwargs (dict): The configurations for open-ended generation.
         ppl_kwargs (dict, *optional*): The configurations for computing PPL score.
     """
+    name = ""
+    type = ""
 
     def __init__(self, args):
         self.args = args

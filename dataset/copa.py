@@ -15,33 +15,34 @@ class Copa(MultipleChoiceDataset):
         label: 1
     """
 
-    def __init__(self, args):
+    def __init__(self, args, model):
         self.name = "copa"
         # dataset = load_dataset("super_glue", "copa")
-        dataset = load_from_disk("copa")
+        dataset = load_from_disk("../dataset/copa")
         self.example_data = list(dataset[args.example_set])
         self.evaluation_data = list(dataset[args.evaluation_set])
+        self.instruction = "Complete the following the sentence."
 
-        super().__init__(args)
+        super().__init__(args, model)
 
     def format_instance(self, instance):
-        source_text = instance["premise"][:-1]
+        source = instance["premise"][:-1]
         if instance["question"] == "cause":
-            source_text += " because"
+            source += " because"
         elif instance["question"] == "effect":
-            source_text += " therefore"
+            source += " therefore"
 
         label2text = {
-            -1: "",
             0: " " + instance["choice1"][0].lower() + instance["choice1"][1:],
             1: " " + instance["choice2"][0].lower() + instance["choice2"][1:],
         }
 
-        options = []
-        for option in [0, 1]:
-            target_text = label2text[option]
-            options.append((source_text, target_text))
-        return dict(ground_truth=(source_text, label2text[instance['label']]), options=options)
+        options = [label2text[option] for option in [0, 1]]
+        return dict(
+            source=source,
+            target=label2text[instance['label']],
+            options=options,
+        )
 
     @property
     def references(self):
