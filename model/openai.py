@@ -1,7 +1,9 @@
 import os
 import time
+
 import openai
 import tiktoken
+
 from .model import Model
 
 
@@ -24,9 +26,7 @@ class Openai(Model):
         self.max_tokens = 2048
         self.max_try_times = 5
 
-        ppl_default_kwargs = dict(echo=True, max_tokens=0, logprobs=0)
-        self.ppl_kwargs = {**ppl_default_kwargs, **self.args.kwargs}
-        self.generation_kwargs = self.args.kwargs
+        self.ppl_kwargs = dict(echo=True, max_tokens=0, logprobs=0)
 
     def request(self, prompt, model_args):
         r"""Call the OpenAI API.
@@ -35,7 +35,7 @@ class Openai(Model):
             prompt (List[str]): The list of input prompts.
 
             model_args (dict): The additional calling configurations.
-        
+
         Returns:
             List[dict]: The responsed JSON results.
         """

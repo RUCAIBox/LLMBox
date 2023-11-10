@@ -1,5 +1,5 @@
-import torch
 import numpy as np
+import torch
 
 
 class Dataset(torch.utils.data.Dataset):
@@ -8,14 +8,14 @@ class Dataset(torch.utils.data.Dataset):
     Args:
         args (Namespace): The global configurations.
         model (Model): Our class for model.
-    
+
     Attributes:
         name (str): The name of this dataset.
         tokenizer (Union[transformers.PreTrainedTokenizer, tiktoken.Encoding]): The tokenizer of corresponding model.
         evaluation_data (List[dict]): The list of data for evaluation.
         evaluation_instances (List[Union[str, Tuple(str, str)]]): The list of formatted evaluation instances.
         evaluation_type (str): The method for evaluation, which can be set to either 'ranking' or 'generation'.
-        metric (str): The metric for evaluating the predictions and references.        
+        metric (str): The metric for evaluating the predictions and references.
         instruction (str, *optional*): The instruction for this task.
         option_nums (List[int], *optional*): The list of the number of options for each instance (mainly used for multi-choice tasks).
         example_data (List[dict], *optional*): The list of demonstration data.
@@ -59,7 +59,7 @@ class Dataset(torch.utils.data.Dataset):
 
         Args:
             instance (Dict): an instance dict of multiple key-value pairs.
-        
+
         Returns:
             Dict:
                 source: str
