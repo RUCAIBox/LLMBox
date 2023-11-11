@@ -1,4 +1,4 @@
-from utils import parse_argument
+from llm_box.utils import parse_argument
 
 
 def main():
@@ -8,7 +8,7 @@ def main():
 
     # TODO: init logger
 
-    from evaluator import Evaluator
+    from llm_box.evaluator import Evaluator
     evaluator = Evaluator(args)
     evaluator.evaluate()
 

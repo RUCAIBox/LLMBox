@@ -1,11 +1,10 @@
-from typing import Tuple
-
 import numpy as np
 from accelerate.utils import set_seed
-from dataset import load_dataset
-from model import load_model
 from torch.utils.data import DataLoader
 from tqdm import tqdm
+
+from .dataset import load_dataset
+from .model import load_model
 
 
 class Evaluator:

@@ -1,4 +1,3 @@
-from argparse import ArgumentParser
 from dataclasses import MISSING, dataclass
 from typing import Tuple
 
@@ -86,7 +85,6 @@ def parse_argument() -> Tuple[ModelArguments, DatasetArguments, EvaluationArgume
     Returns:
         Namespace: the parsed arguments
     """
-    ArgumentParser()
     parser = HfArgumentParser((ModelArguments, DatasetArguments, EvaluationArguments), description="LLMBox description")
     model_args, dataset_args, evaluation_args = parser.parse_args_into_dataclasses()
 
