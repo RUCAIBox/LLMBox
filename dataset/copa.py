@@ -1,5 +1,6 @@
-from .multiple_choice_dataset import MultipleChoiceDataset
 from datasets import load_dataset, load_from_disk
+
+from .multiple_choice_dataset import MultipleChoiceDataset
 
 
 class Copa(MultipleChoiceDataset):

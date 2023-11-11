@@ -1,7 +1,10 @@
+from typing import Tuple
+
 import numpy as np
-from torch.utils.data import DataLoader
-from model import load_model
+from accelerate.utils import set_seed
 from dataset import load_dataset
+from model import load_model
+from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 
@@ -18,10 +21,15 @@ class Evaluator:
     """
 
     def __init__(self, args):
-        self.args = args
+        model_args, dataset_args, evaluation_args = args
+        self.model_args = model_args
+        self.dataset_args = dataset_args
+        self.evaluation_args = evaluation_args
 
-        self.model = load_model(args)
-        self.dataset = load_dataset(args, self.model)
+        set_seed(self.evaluation_args.seed)
+
+        self.model = load_model(self.model_args)
+        self.dataset = load_dataset(self.dataset_args, self.model)
         # TODO: change to logger
         # filename = args.model + "-" + args.dataset + "-" + str(args.num_shots)
         # self.args.filename = filename
@@ -32,11 +40,15 @@ class Evaluator:
 
             - `Ranking`, ranking several options given a context, mainly applicable for multi-choice tasks. We compute the PPL scores of each option and select the one with lowest PPL.
             - `Generation`, generating the response based on the context, applicable for most of tasks. We directly call the `generation` interface of each model or API.
-        
+
         Finally, we call the `calcuate_metric` to get the metric score of prediction results.
         """
         dataloader = DataLoader(
-            self.dataset, batch_size=self.args.batch_size, collate_fn=lambda x: x, shuffle=False, pin_memory=True
+            self.dataset,
+            batch_size=self.dataset_args.batch_size,
+            collate_fn=lambda x: x,
+            shuffle=False,
+            pin_memory=True
         )
 
         results = []

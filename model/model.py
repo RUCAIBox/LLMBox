@@ -2,8 +2,8 @@ class Model:
     r"""The base model object for all models.
 
     Args:
-        args (Namespace): The global configurations.
-    
+        args (ModelArguments): The global configurations.
+
     Attributes:
         name (str): The name of this model.
         type (str): The type of this model, which can be chosen from `base` and `instruction`.
@@ -23,7 +23,7 @@ class Model:
 
         Args:
             batch (List[Tuple(str, str)]): The batch of context and option pairs.
-        
+
         Returns:
             List(float): The list of PPL scores.
         """
@@ -34,7 +34,7 @@ class Model:
 
         Args:
             batch (List[str]): The batch of questions.
-        
+
         Returns:
             List(str): The list of generation results.
         """
