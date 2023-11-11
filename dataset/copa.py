@@ -17,8 +17,8 @@ class Copa(MultipleChoiceDataset):
 
     def __init__(self, args):
         self.name = "copa"
-        # dataset = load_dataset("super_glue", "copa")
-        dataset = load_from_disk("copa")
+        dataset = load_dataset("super_glue", "copa")
+        # dataset = load_from_disk("copa")
         self.example_data = list(dataset[args.example_set])
         self.evaluation_data = list(dataset[args.evaluation_set])
 

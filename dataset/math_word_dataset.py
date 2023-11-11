@@ -1,12 +1,11 @@
 import numpy as np
 from .dataset import Dataset
 
-
-class MultipleChoiceDataset(Dataset):
-    r"""The dataset for multiple choice tasks. It ranks given options and is evaluated using `accuracy` score.
+class MathWordDataset(Dataset):
+    r"""The dataset for math word probles. It sloves math word problems in nature language and is evaluated using `accuracy` score.
     """
 
-    evaluation_type = "ranking"
+    evaluation_type = "generation"
     metric = "accuracy"
 
     def __init__(self, args):
