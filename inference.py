@@ -1,5 +1,4 @@
-from utils import parse_argument
-from accelerate.utils import set_seed
+from llm_box.utils import parse_argument
 
 
 def main():
@@ -7,10 +6,9 @@ def main():
     """
     args = parse_argument()
 
-    set_seed(args.seed)
     # TODO: init logger
 
-    from evaluator import Evaluator
+    from llm_box.evaluator import Evaluator
     evaluator = Evaluator(args)
     evaluator.evaluate()
 

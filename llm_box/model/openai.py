@@ -1,7 +1,9 @@
 import os
 import time
+
 import openai
 import tiktoken
+
 from .model import Model
 
 
@@ -17,6 +19,7 @@ class Openai(Model):
         super().__init__(args)
         openai.api_key = os.environ.get("OPENAI_API_SECRET_KEY") or args.openai_api_key
         self.name = args.model
+        self.type = "base"
         # TODO: compatible for gpt-3.5-turbo
         self.tokenizer = tiktoken.get_encoding("r50k_base")
         # TODO: compatible for gpt-3.5-turbo (enum_type?)
@@ -28,6 +31,7 @@ class Openai(Model):
 
         generation_default_kwargs = dict(max_tokens=self.max_tokens, stop=None)
         self.generation_kwargs = {**generation_default_kwargs, **self.args.kwargs}
+        self.ppl_kwargs = dict(echo=True, max_tokens=0, logprobs=0)
 
     def request(self, prompt, model_args):
         r"""Call the OpenAI API.
@@ -36,7 +40,7 @@ class Openai(Model):
             prompt (List[str]): The list of input prompts.
 
             model_args (dict): The additional calling configurations.
-        
+
         Returns:
             List[dict]: The responsed JSON results.
         """
@@ -68,8 +72,7 @@ class Openai(Model):
             except openai.error.APIConnectionError:
                 print('openai.error.APIConnectionError\nRetrying...')
                 time.sleep(1)
-            except Exception as e:
-                print(e)
+            except:
                 print("UnknownError")
                 time.sleep(1)
         raise ConnectionError("OpenAI API error")
