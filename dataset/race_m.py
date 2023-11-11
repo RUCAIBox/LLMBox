@@ -3,8 +3,8 @@ from datasets import load_dataset, load_from_disk
 import random
 
 
-class Race_h(MultipleChoiceDataset):
-    """The dataset of RACE_h.
+class Race_m(MultipleChoiceDataset):
+    """The dataset of RACE_m.
 
     The ReAding Comprehension dataset from Examinations (RACE) dataset is a machine reading comprehension dataset 
     consisting of 27,933 passages and 97,867 questions from English exams, targeting Chinese students aged 12-18.
@@ -30,9 +30,9 @@ class Race_h(MultipleChoiceDataset):
     """
 
     def __init__(self, args, model):
-        self.name = "race_h"
-        dataset = load_dataset("race", "high")
-        # dataset = load_from_disk("../dataset/race_h")
+        self.name = "race_m"
+        dataset = load_dataset("race", "middle")
+        # dataset = load_from_disk("../dataset/race_m")
         self.example_data = list(dataset[args.example_set])
         raw_data = list(dataset[args.evaluation_set])
         self.evaluation_data = random.sample(raw_data, 500)

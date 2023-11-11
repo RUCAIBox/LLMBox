@@ -22,7 +22,7 @@ class Openai(Model):
         self.tokenizer = tiktoken.get_encoding("r50k_base")
         # TODO: compatible for gpt-3.5-turbo (enum_type?)
         self.max_tokens = 2048
-        self.max_try_times = 5
+        self.max_try_times = 50
 
         ppl_default_kwargs = dict(echo=True, max_tokens=0, logprobs=0)
         self.ppl_kwargs = {**ppl_default_kwargs, **self.args.kwargs}
@@ -65,15 +65,31 @@ class Openai(Model):
         raise ConnectionError("OpenAI API error")
 
     def get_ppl(self, batch):
-        prompt = [src + tgt for src, tgt in batch]
-        results = self.request(prompt, self.ppl_kwargs)
-        ppls = []
-        for result, (src, _) in zip(results, batch):
-            tgt_start = result['logprobs']['text_offset'].index(len(src))
-            tgt_end = len(result['logprobs']['text_offset'])
-            ppl = -sum(result['logprobs']['token_logprobs'][tgt_start:]) / (tgt_end - tgt_start)
-            ppls.append(ppl)
-        return ppls
+        # else dataset
+        # prompt = [src + tgt for src, tgt in batch]
+        # results = self.request(prompt, self.ppl_kwargs)
+        # ppls = []
+        # for result, (src, _) in zip(results, batch):
+        #     tgt_start = result['logprobs']['text_offset'].index(len(src))
+        #     tgt_end = len(result['logprobs']['text_offset'])
+        #     ppl = -sum(result['logprobs']['token_logprobs'][tgt_start:]) / (tgt_end - tgt_start)
+        #     ppls.append(ppl)
+        # return ppls
+
+
+        # ARC, OpenBookQA, and RACE 
+        context = [src + tgt for src, tgt in batch]
+        results_context = self.request(context,self.ppl_kwargs)
+        a_context = ["A:" + tgt for _ ,tgt in batch]
+        results_a_context = self.request(a_context,self.ppl_kwargs)
+
+        probs = []
+        for (result_context,result_a_context),(src,_) in zip(zip(results_context,results_a_context),batch):
+            tgt_start = result_context['logprobs']['text_offset'].index(len(src))
+            a_tgt_start = result_a_context['logprobs']['text_offset'].index(len("A:"))
+            prob =  sum(result_context['logprobs']['token_logprobs'][tgt_start:]) - sum(result_a_context['logprobs']['token_logprobs'][a_tgt_start:])
+            probs.append(-prob)
+        return probs
 
     def generation(self, batch):
         pass
