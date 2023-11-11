@@ -1,5 +1,9 @@
+from logging import getLogger
+
 import numpy as np
 import torch
+
+logger = getLogger(__name__)
 
 
 class Dataset(torch.utils.data.Dataset):

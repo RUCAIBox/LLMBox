@@ -1,4 +1,7 @@
 import importlib
+from logging import getLogger
+
+logger = getLogger(__name__)
 
 
 def load_dataset(args, model):
@@ -11,6 +14,7 @@ def load_dataset(args, model):
     Returns:
         Dataset: Our class for dataset.
     """
-    dataset = importlib.import_module(f"dataset.{args.dataset}")
-    dataset = getattr(dataset, args.dataset.capitalize())(args, model)
+    logger.info(f"Loading dataset `{args.dataset_name}`.")
+    dataset = importlib.import_module(f"dataset.{args.dataset_name}")
+    dataset = getattr(dataset, args.dataset_name.capitalize())(args, model)
     return dataset
