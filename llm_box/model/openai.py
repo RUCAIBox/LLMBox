@@ -26,6 +26,11 @@ class Openai(Model):
         self.max_try_times = 5
 
         self.ppl_kwargs = dict(echo=True, max_tokens=0, logprobs=0)
+        ppl_default_kwargs = dict(echo=True, max_tokens=0, logprobs=0)
+        self.ppl_kwargs = {**ppl_default_kwargs, **self.args.kwargs}
+
+        generation_default_kwargs = dict(max_tokens=self.max_tokens, stop=None)
+        self.generation_kwargs = {**generation_default_kwargs, **self.args.kwargs}
 
     def request(self, prompt, model_args):
         r"""Call the OpenAI API.
@@ -41,8 +46,16 @@ class Openai(Model):
         for _ in range(self.max_try_times):
             try:
                 # TODO: compatible for gpt-3.5-turbo
-                response = openai.Completion.create(model=self.name, prompt=prompt, **model_args)
-                return response["choices"]
+                if self.name == "gpt-3.5-turbo":
+                    r = []
+                    for p in prompt:
+                        message = [{'role': 'user', 'content': p}]
+                        response = openai.ChatCompletion.create(model=self.name, messages=message, **model_args)
+                        r.append(response["choices"])
+                    return r
+                else:
+                    response = openai.Completion.create(model=self.name, prompt=prompt, **model_args)
+                    return response["choices"]
             except openai.error.RateLimitError:
                 print('openai.error.ServiceUnavailableError\nRetrying...')
                 time.sleep(10)
@@ -75,4 +88,13 @@ class Openai(Model):
         return ppls
 
     def generation(self, batch):
-        pass
+        prompt = [question for question, _ in batch]
+        results = self.request(prompt, self.generation_kwargs)
+        answers = []
+        for result, (_, _) in zip(results, batch):
+            if self.name == 'gpt-3.5-turbo':
+                answer = result[0]['message']['content']
+            else:
+                answer = result['text']
+            answers.append(answer)
+        return answers

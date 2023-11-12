@@ -41,6 +41,8 @@ class Evaluator:
             - `Generation`, generating the response based on the context, applicable for most of tasks. We directly call the `generation` interface of each model or API.
 
         Finally, we call the `calcuate_metric` to get the metric score of prediction results.
+
+        Finally, we call the `calculate_metric` to get the metric score of prediction results.
         """
         dataloader = DataLoader(
             self.dataset,
@@ -69,6 +71,9 @@ class Evaluator:
                 st += num
             results = labels
             assert len(results) == len(self.dataset.references)
+
+        if self.dataset.evaluation_type == 'generation':
+            results = [self.dataset.answer_cleansing(result) for result in results]
 
         print('#' * 5, self.dataset.name, '#' * 5)
         scores = self.dataset.calculate_metric(results)

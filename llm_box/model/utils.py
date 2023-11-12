@@ -1,6 +1,7 @@
 import importlib
+import re
 
-OPENAI_MODELS = ['ada', 'babbage', 'curie', 'davinci', 'babbage-002', 'davinci-002']
+OPENAI_MODELS = ['ada', 'babbage', 'curie', 'davinci', 'babbage-002', 'davinci-002', 'gpt-3.5-turbo']
 
 
 def load_model(args):
