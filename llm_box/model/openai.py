@@ -20,8 +20,7 @@ class Openai(Model):
         openai.api_key = os.environ.get("OPENAI_API_SECRET_KEY") or args.openai_api_key
         self.name = args.model
         self.type = "base"
-        # TODO: compatible for gpt-3.5-turbo
-        self.tokenizer = tiktoken.get_encoding("r50k_base")
+        self.tokenizer = tiktoken.get_encoding(tiktoken.encoding_name_for_model(self.name))
         # TODO: compatible for gpt-3.5-turbo (enum_type?)
         self.max_tokens = 2048
         self.max_try_times = 5
