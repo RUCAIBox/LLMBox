@@ -70,8 +70,8 @@ class Openai(Model):
         for result, (src, _) in zip(results, batch):
             tgt_start = result['logprobs']['text_offset'].index(len(src))
             tgt_end = len(result['logprobs']['text_offset'])
-            ppl = -sum(result['logprobs']['token_logprobs'][tgt_start:]) / (tgt_end - tgt_start)
-            ppls.append(ppl)
+            ppl = -sum(result['logprobs']['token_logprobs'][tgt_start:])
+            ppls.append((ppl, tgt_end - tgt_start))
         return ppls
 
     def generation(self, batch):

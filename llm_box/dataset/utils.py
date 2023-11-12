@@ -11,6 +11,7 @@ def load_dataset(args, model):
     Returns:
         Dataset: Our class for dataset.
     """
-    dataset = importlib.import_module(f"dataset.{args.dataset}")
-    dataset = getattr(dataset, args.dataset.capitalize())(args, model)
+    args.dataset = args.dataset.split(":")
+    dataset = importlib.import_module(f"dataset.{args.dataset[0]}")
+    dataset = getattr(dataset, args.dataset[0].capitalize())(args, model)
     return dataset
