@@ -1,9 +1,9 @@
-from .arithmetic_reasoning_dataset import ArithmeticReasoningDataset
+from .generation_dataset import GenerationDataset
 from datasets import load_dataset, load_from_disk
 import re
 
 
-class Gsm8k(ArithmeticReasoningDataset):
+class Gsm8k(GenerationDataset):
     """The dataset of GSM8K.
 
     GSM8K(Cobbe et al. 2021), linguistically diverse grade school math word problems
@@ -22,6 +22,7 @@ class Gsm8k(ArithmeticReasoningDataset):
 
         self.answer_trigger = "\nTherefore, the answer (arabic numerals) is "
         super().__init__(args, model)
+
     def answer_cleansing(self, pred, must_choice=False):
         preds = pred.split(self.answer_trigger)
         answer_flag = True if len(preds) > 1 else False
@@ -48,8 +49,8 @@ class Gsm8k(ArithmeticReasoningDataset):
         return pred
 
     def format_instance(self, instance):
-        instance["answer"] = instance["answer"].replace("\n#### ", self.answer_trigger)
-        instance["question"] = "Q: " + instance["question"] + "\n" + "A: "
+        instance["answer"] = " " + instance["answer"].replace("\n#### ", self.answer_trigger)
+        instance["question"] = "Q: " + instance["question"] + "\n" + "A:"
         return dict(
             source=instance["question"],
             target=instance["answer"],

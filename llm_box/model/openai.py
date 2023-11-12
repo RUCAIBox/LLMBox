@@ -27,7 +27,7 @@ class Openai(Model):
         # TODO: gpt-3.5-turbo doesn't support echo and logprobs, and it doesn't support max_tokens=0
         self.ppl_kwargs = dict(echo=True, max_tokens=0, logprobs=0)
 
-        self.generation_kwargs = dict(max_tokens=self.max_tokens, stop=None)
+        self.generation_kwargs = dict(max_tokens=self.max_tokens)
 
     def request(self, prompt, model_args):
         r"""Call the OpenAI API.
