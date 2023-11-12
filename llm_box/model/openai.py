@@ -17,20 +17,19 @@ class Openai(Model):
 
     def __init__(self, args):
         super().__init__(args)
-        openai.api_key = os.environ.get("OPENAI_API_SECRET_KEY") or args.openai_api_key
-        self.name = args.model
+        openai.api_base = "https://api.aiguoguo199.com/v1"
+        # openai.api_key = os.environ.get("OPENAI_API_SECRET_KEY") or args.openai_api_key
+        openai.api_key = 'sk-zI3SuS0FlRGfs9pMF76cDc4040304d308e51D48321AaB6D8'
+        self.name = args.model_name_or_path
         self.type = "base"
         self.tokenizer = tiktoken.get_encoding(tiktoken.encoding_name_for_model(self.name))
         # TODO: compatible for gpt-3.5-turbo (enum_type?)
         self.max_tokens = 2048
         self.max_try_times = 5
-
+        # TODO: gpt-3.5-turbo doesn't support echo and logprobs, and it doesn't support max_tokens=0
         self.ppl_kwargs = dict(echo=True, max_tokens=0, logprobs=0)
-        ppl_default_kwargs = dict(echo=True, max_tokens=0, logprobs=0)
-        self.ppl_kwargs = {**ppl_default_kwargs, **self.args.kwargs}
 
-        generation_default_kwargs = dict(max_tokens=self.max_tokens, stop=None)
-        self.generation_kwargs = {**generation_default_kwargs, **self.args.kwargs}
+        self.generation_kwargs = dict(max_tokens=self.max_tokens, stop=None)
 
     def request(self, prompt, model_args):
         r"""Call the OpenAI API.
@@ -71,7 +70,8 @@ class Openai(Model):
             except openai.error.APIConnectionError:
                 print('openai.error.APIConnectionError\nRetrying...')
                 time.sleep(1)
-            except:
+            except Exception as e:
+                print(e)
                 print("UnknownError")
                 time.sleep(1)
         raise ConnectionError("OpenAI API error")
@@ -88,10 +88,10 @@ class Openai(Model):
         return ppls
 
     def generation(self, batch):
-        prompt = [question for question, _ in batch]
+        prompt = [question for question in batch]
         results = self.request(prompt, self.generation_kwargs)
         answers = []
-        for result, (_, _) in zip(results, batch):
+        for result, _ in zip(results, batch):
             if self.name == 'gpt-3.5-turbo':
                 answer = result[0]['message']['content']
             else:

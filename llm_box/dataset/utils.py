@@ -11,6 +11,6 @@ def load_dataset(args, model):
     Returns:
         Dataset: Our class for dataset.
     """
-    dataset = importlib.import_module(f"dataset.{args.dataset}")
+    dataset = importlib.import_module(f".{args.dataset}", package="llm_box.dataset")
     dataset = getattr(dataset, args.dataset.capitalize())(args, model)
     return dataset

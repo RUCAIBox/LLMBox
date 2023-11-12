@@ -13,7 +13,7 @@ class Gsm8k(MathWordDataset):
         answer: Natalia sold 48/2 = <<48/2=24>>24 clips in May. Natalia sold 48+24 = <<48+24=72>>72 clips altogether in April and May. #### 72
     """
 
-    def __init__(self, args):
+    def __init__(self, args, model):
         self.name = "gsm8k"
         dataset = load_dataset('gsm8k', 'main')
         # dataset = load_from_disk("gsm8k")
@@ -21,7 +21,7 @@ class Gsm8k(MathWordDataset):
         self.evaluation_data = list(dataset["test"])
 
         self.answer_trigger = "\nTherefore, the answer (arabic numerals) is "
-        super().__init__(args)
+        super().__init__(args, model)
     def answer_cleansing(self, pred, must_choice=False):
         preds = pred.split(self.answer_trigger)
         answer_flag = True if len(preds) > 1 else False
@@ -50,7 +50,10 @@ class Gsm8k(MathWordDataset):
     def format_instance(self, instance):
         instance["answer"] = instance["answer"].replace("\n#### ", self.answer_trigger)
         instance["question"] = "Q: " + instance["question"] + "\n" + "A: "
-        return dict(ground_truth=(instance["question"], instance["answer"]))
+        return dict(
+            source=instance["question"],
+            target=instance["answer"],
+        )
 
 
     @property

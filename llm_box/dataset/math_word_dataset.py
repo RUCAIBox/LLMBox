@@ -8,8 +8,8 @@ class MathWordDataset(Dataset):
     evaluation_type = "generation"
     metric = "accuracy"
 
-    def __init__(self, args):
-        super().__init__(args)
+    def __init__(self, args, model):
+        super().__init__(args, model)
 
     def calculate_metric(self, predictions):
         score_list = np.asarray(predictions) == np.asarray(self.references)
