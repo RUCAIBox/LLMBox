@@ -137,11 +137,11 @@ class Dataset(torch.utils.data.Dataset):
             elif self.evaluation_type == "generation":
                 self.evaluation_instances.append(self.format_instruction_and_examples(formatted_instance["source"]))
 
-    def calculate_metric(self, predictions):
-        r"""Calculate the metric score betwwen `predictions` and `references`.
+    def calculate_metric(self, results):
+        r"""Calculate the metric score betwwen `results` and `references`.
 
         Args:
-            predictions (List[str]): The predicted answers.
+            results (List[str]): The ppl results.
 
         Returns:
             dict: The metric results.
