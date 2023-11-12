@@ -31,10 +31,10 @@ class Race(MultipleChoiceDataset):
 
     def __init__(self, args, model):
         self.name = "race_" + args.dataset[1]
-        if args.dataset[1] == "h":
+        if args.dataset[1] in ["h","high"]:
             dataset = load_dataset("race", "high")
             # dataset = load_from_disk("../dataset/race_h")
-        elif args.dataset[1] == "m":
+        elif args.dataset[1] in ["m","middle"]:
             dataset = load_dataset("race", "middle")
             # dataset = load_from_disk("../dataset/race_m")
         self.example_data = list(dataset[args.example_set])
@@ -61,15 +61,15 @@ class Race(MultipleChoiceDataset):
                 for option in formatted_instance["options"]
             ]
             self.option_nums.append(len(options))
-            A_options = [("A:", option) for option in formatted_instance["options"]]
-            options = [item for pair in zip(options, A_options) for item in pair]
+            answer_options = [("A:", option) for option in formatted_instance["options"]]
+            options = [item for pair in zip(options, answer_options) for item in pair]
             self.evaluation_instances.extend(options)
 
     def calculate_metric(self, results):
         labels = []
         st = 0
         results = list(map(lambda _r: _r[0], results))
-        results = np.array([results[i] - results[i + 1] for i in range(0, len(results) - 1, 2)])
+        results = np.array([rc - ra for rc, ra in zip(results[::2], results[1::2])])
         for num in self.option_nums:
             labels.append(results[st:st + num].argmin())
             st += num
