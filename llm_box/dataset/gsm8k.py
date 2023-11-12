@@ -1,9 +1,9 @@
-from .math_word_dataset import MathWordDataset
+from .arithmetic_reasoning_dataset import ArithmeticReasoningDataset
 from datasets import load_dataset, load_from_disk
 import re
 
 
-class Gsm8k(MathWordDataset):
+class Gsm8k(ArithmeticReasoningDataset):
     """The dataset of GSM8K.
 
     GSM8K(Cobbe et al. 2021), linguistically diverse grade school math word problems
