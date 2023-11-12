@@ -49,7 +49,7 @@ class ModelArguments:
 @dataclass
 class DatasetArguments:
 
-    dataset_name: str = HfArg(default=MISSING, aliases=["--dataset", "-d"], help="The dataset name, e.g., copa, gsm")
+    dataset: str = HfArg(default=MISSING, aliases=["-d"], help="The dataset name, e.g., copa, gsm")
     evaluation_set: str = HfArg(
         default="validation",
         help="The set name for evaluation, e.g., validation, test",
@@ -125,7 +125,7 @@ def set_logging(
 
     # set the log file
     model_name = model_args.model_name_or_path.strip("/").split("/")[-1]
-    dataset_name = dataset_args.dataset_name
+    dataset_name = dataset_args.dataset
     num_shots = str(dataset_args.num_shots)
     execution_time = datetime.datetime.now().strftime(DEFAULT_DATETIME_FORMAT)
     log_filename = f"{model_name}-{dataset_name}-{num_shots}-{execution_time}.log"
