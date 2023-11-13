@@ -65,7 +65,7 @@ class Openai(Model):
             except KeyboardInterrupt as e:
                 raise e
             except:
-                print("UnknownError")
+                logger.info(f"{e}\nRetrying...")
                 time.sleep(1)
         raise ConnectionError("OpenAI API error")
 

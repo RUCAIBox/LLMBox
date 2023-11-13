@@ -86,9 +86,9 @@ class Evaluator:
         metric_results = dataset.calculate_metric(predictions)
         metric_results.update(pref_results)
 
-        print('#' * 5, dataset.name, '#' * 5)
+        logger.warning('#' * 5 + dataset.name + '#' * 5)
         for key, value in metric_results.items():
-            print("{}: {:.2f}".format(key, value))
+            logger.warning("{}: {:.2f}".format(key, value))
         return metric_results
 
     @staticmethod
