@@ -26,6 +26,56 @@ DEFAULT_LOG_FORMAT = '%(asctime)s %(hostname)s %(name)s[%(process)d] %(levelname
 DEFAULT_DATETIME_FORMAT = '%Y_%m_%d-%H:%M:%S'
 
 
+def _is_abstract(obj: object, metaclass_type: type) -> bool:
+    if inspect.isabstract(obj):
+        return True
+    for key, value in metaclass_type.__dict__.items():
+        if value == NotImplementedField and getattr(obj, key) == NotImplementedField:
+            return True
+    return False
+
+
+def import_subclass(
+    module_path,
+    metaclass_type: Type[T],
+    package: Optional[str] = None,
+    strict_subclass: bool = True,
+    allow_abstract: bool = False,
+) -> Type[T]:
+    """Import a module at module_path and return the sub class of given `metaclass_type`. If `strict_subclass` is True, the returned class must be a strict subclass of `metaclass_type`. If `allow_abstract` is True, the returned class can be an abstract class."""
+    module = importlib.import_module(module_path, package=package)
+
+    # Find the sub class in our imported module
+    module_sub_cls = None
+    for name, obj in module.__dict__.items():
+        if isinstance(obj, type) and issubclass(obj, metaclass_type):
+            if not allow_abstract and _is_abstract(obj, metaclass_type):
+                continue
+            if strict_subclass and obj == metaclass_type:
+                continue
+            module_sub_cls = obj
+            break
+
+    if module_sub_cls is None:
+        msg = f'Cannot find a class in `{module_path}` that is a subclass of `{metaclass_type.__name__}`.'
+        msg += '' if allow_abstract else f' Check if all the unimplemented fields are overrided.'
+        raise ValueError(msg)
+    logger.debug(
+        f'Imported `{module_sub_cls.__name__}` from `{module_path}` as a subclass of `{metaclass_type.__name__}`.'
+    )
+    return module_sub_cls
+
+
+@property
+def NotImplementedField(self):
+    class_name = self.__class__.__name__
+    position = inspect.stack()[1].positions
+    st, ed = position.col_offset, position.end_col_offset
+    code_context = inspect.stack()[1].code_context[0][st:ed]
+    field_name = code_context.split(".")[-1]
+    raise NotImplementedError(f"{class_name} has not implemented field `{field_name}`.")
+
+
 @dataclass
 class ModelArguments:
 
@@ -145,10 +195,10 @@ def set_logging(
 
     # set the log file
     model_name = model_args.model_name_or_path.strip("/").split("/")[-1]
-    dataset_name = dataset_args.dataset
+    dataset_names = dataset_args.datasets
     num_shots = str(dataset_args.num_shots)
     execution_time = datetime.datetime.now().strftime(DEFAULT_DATETIME_FORMAT)
-    log_filename = f"{model_name}-{dataset_name}-{num_shots}-{execution_time}.log"
+    log_filename = f"{model_name}-{dataset_names}-{num_shots}-{execution_time}.log"
     log_path = f"{evaluation_args.logging_dir}/{log_filename}"
 
     # add file handler to root logger
@@ -159,7 +209,7 @@ def set_logging(
     root_logger.addHandler(handler)
 
     # finish logging initialization
-    logger.info(f"Saving logs to {log_path}")
+    logger.debug(f"Saving logs to {log_path}")
 
 
 def parse_argument() -> Tuple[ModelArguments, DatasetArguments, EvaluationArguments]:
@@ -171,6 +221,11 @@ def parse_argument() -> Tuple[ModelArguments, DatasetArguments, EvaluationArgume
     parser = HfArgumentParser((ModelArguments, DatasetArguments, EvaluationArguments), description="LLMBox description")
     model_args, dataset_args, evaluation_args = parser.parse_args_into_dataclasses()
 
-    set_logging(model_args, dataset_args, evaluation_args)
+    set_logging(
+        model_args,
+        dataset_args,
+        evaluation_args,
+        file_log_level='debug' if evaluation_args.log_level == 'debug' else 'info',
+    )
 
     return model_args, dataset_args, evaluation_args

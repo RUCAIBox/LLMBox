@@ -6,8 +6,6 @@ def main():
     """
     args = parse_argument()
 
-    # TODO: init logger
-
     from llm_box.evaluator import Evaluator
     evaluator = Evaluator(args)
     evaluator.evaluate()
