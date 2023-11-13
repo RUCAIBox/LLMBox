@@ -1,6 +1,4 @@
-import os
 from logging import getLogger
-from pathlib import Path
 from typing import List, Literal, Optional, Union
 
 import datasets as d
@@ -9,8 +7,7 @@ import torch
 from torch.utils.data import DataLoader
 
 from ..model.model import Model
-from ..utils import DatasetArguments, NotImplementedField, import_subclass
-from .raw_dataset_loader import RAW_DATASET_COLLECTIONS, load_raw_dataset
+from ..utils import DatasetArguments, NotImplementedField
 
 logger = getLogger(__name__)
 
@@ -58,26 +55,32 @@ class Dataset(torch.utils.data.Dataset):
         self,
         args: DatasetArguments,
         model: Model,
-        subset_name: Optional[str] = None,
+        subset: Optional[str] = None,
         raw_dataset: Optional[Union[d.DatasetDict, d.Dataset, d.IterableDataset, d.IterableDatasetDict]] = None,
     ):
+        """
+        Args:
+            - `DatasetArguments`: The global configurations.
+            - `Model`:
+            - `Optional[str]`
+            - `Optional[Union[DatasetDict, Dataset, IterableDataset, IterableDatasetDict]]`: The loaded raw dataset. By default it will be loaded as evaluation set if it is a `Dataset` or `IterableDataset`.
+        """
         super().__init__()
         self.args = args
-        self._check_fields_implementation()
 
         self.model = model
         self.model_type = model.type
         self.tokenizer = model.tokenizer
 
-        if self._subset_name is None:
-            self._subset_name = subset_name
+        if self._subset is None:
+            self._subset = subset
 
         # Set evaluation split
         if not isinstance(self.evaluation_set, str) or args.evaluation_set is not None:
             self.evaluation_set = args.evaluation_set
         if self.evaluation_set is None:
             raise ValueError("`evaluation_set` must be specified either in Dataset or in command line arguments.")
-        msg = f"Formatting {raw_dataset}: Using `{self.evaluation_set}` as evaluation_set"
+        msg = f"Formatting `{self.name}` - Using `{self.evaluation_set}` as evaluation_set"
 
         # Set example split
         if not isinstance(self.example_set, str) or args.example_set is not None:
@@ -87,6 +90,7 @@ class Dataset(torch.utils.data.Dataset):
             msg += f" and `{self.example_set}` as example_set"
         else:
             self.use_example = False
+        logger.debug(msg)
 
         # Load splits from raw dataset
         if isinstance(raw_dataset, (d.Dataset, d.IterableDataset)):
@@ -99,13 +103,18 @@ class Dataset(torch.utils.data.Dataset):
             raise ValueError(
                 f"Cannot load Dataset from {raw_dataset}. If you are loading dataset with multiple subsets, try to load each subset seperately."
             )
+        logger.debug(f"Evaluation data: loaded {len(self.evaluation_data)} instances from raw dataset.")
+        logger.debug(f"Evaluation data: the first instance is:\n{self.evaluation_data[0]}")
 
         self.num_shots = args.num_shots
         self.max_example_tokens = args.max_example_tokens
         self.examples = self.construct_examples()
+        if self.use_example:
+            logger.debug(f"Examples data: constructed examples {self.examples} with {self.num_shots} shots.")
 
         self.construct_instances()
-        logger.debug(msg)
+        logger.info(f"Dataset `{self.name}` initalized: constructed {len(self.evaluation_instances)} instances.")
+        logger.info(f"The first instance is:\n{self.evaluation_instances[0]}")
 
     def __len__(self):
         return len(self.evaluation_instances)
@@ -146,8 +155,6 @@ class Dataset(torch.utils.data.Dataset):
         Returns:
             Union[str, Tuple(str, str)]: The final formatted instance.
         """
-        if not self.use_example:
-            return ""
         # TODO: instruction template
         # TODO: ICL
 
@@ -170,6 +177,8 @@ class Dataset(torch.utils.data.Dataset):
         Returns:
             str: The constructed demonstration text.
         """
+        if not self.use_example:
+            return ""
         # selection algorithm
         # TODO: ICL
         indice = np.random.choice(len(self.example_data), self.args.num_shots)
@@ -224,20 +233,9 @@ class Dataset(torch.utils.data.Dataset):
             collate_fn=lambda x: x,
             shuffle=False,
             pin_memory=True,
-            padding_side="left",
         )
         default_kwargs.update(kwargs)
         return DataLoader(self, **default_kwargs)
-
-    def _check_fields_implementation(self):
-        r"""Check whether all required fields are implemented."""
-        for field in ['metric', 'evaluation_type', 'instruction', 'evaluation_set', 'example_set']:
-            try:
-                getattr(self, field)
-            except NotImplementedError as e:
-                raise NotImplementedError(
-                    f"{self.name} dataset must implement the `{field}` field. Set it as a class variable or specified during initalization."
-                ) from e
 
     @property
     def name(self):
@@ -249,81 +247,3 @@ class Dataset(torch.utils.data.Dataset):
             content += f", {self.example_set}"
         content += "]"
         return f"{self.__class__.__name__}({content})"
-
-
-def load_dataset(
-    args: DatasetArguments,
-    model: Model,
-    dataset_name_or_path: Union[str, Path],
-    subset_names: Optional[Union[str, List[str]]] = None,
-    split: Optional[str] = None,
-    methods: Optional[Union[str, List[str]]] = None,
-) -> List[Dataset]:
-    r"""Load corresponding dataset class. Raw dataset will be automatically loaded and formatted into `Dataset` class.
-
-    Args:
-        dataset (str): The name of dataset.
-
-    Returns:
-        List[Dataset]: A list of our class for dataset.
-    """
-    # find the relative path from `main`
-    dataset_name_or_path = str(os.path.normpath(dataset_name_or_path))
-
-    if subset_names is None:
-        # load from config, e.g. `copa`
-        loaded_from_config = False
-        for dataset_collection, subset_names in RAW_DATASET_COLLECTIONS.items():
-            if dataset_name_or_path in subset_names:
-                loaded_from_config = True
-                dataset_name = dataset_name_or_path
-                dataset_path = dataset_collection
-                subset_names = [dataset_name_or_path]
-                break
-
-        # load all subsets from path, e.g. `mmlu`, `super_glue`
-        if not loaded_from_config:
-            dataset_name = None
-            dataset_path = dataset_name_or_path
-            subset_names = None
-
-    else:
-        # load specific subsets from path,
-        # e.g. `super_glue:copa` and `mmlu:abstract_algebra`
-        dataset_name = None
-        dataset_path = dataset_name_or_path
-        subset_names = [subset_names] if isinstance(subset_names, str) else subset_names
-
-    # load all subsets from dataset
-    logger.debug(f"Loading raw dataset from {dataset_path} - {subset_names}")
-    subset_cls = True
-    for n in [dataset_name, dataset_path.split("/")[-1]]:
-        if n is not None:
-            try:
-                dataset_cls = import_subclass(
-                    module_path='llm_box.dataset.' + n,
-                    metaclass_type=Dataset,
-                )
-                logger.debug(f"Dataset class `{dataset_cls.__name__}` loaded.")
-                subset_cls = False
-            except Exception:
-                continue
-            break
-
-    # fianlly load LLMDataset for each subset
-    results = []
-    if not subset_cls and methods is None:
-        methods = subset_cls.load_methods
-    elif methods is None:
-        methods = ['load_datasets', 'load_from_disk']
-    raw_datasets = load_raw_dataset(dataset_path=dataset_path, subset_names=subset_names, split=split, methods=methods)
-    for subset_name, raw_dataset in raw_datasets.items():
-        if subset_cls:
-            dataset_cls = import_subclass(
-                module_path='llm_box.dataset.' + subset_name,
-                metaclass_type=Dataset,
-            )
-        dataset = dataset_cls(args=args, model=model, subset_name=subset_name, raw_dataset=raw_dataset)
-        results.append(dataset)
-
-    return results

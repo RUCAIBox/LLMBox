@@ -3,7 +3,7 @@ import os
 import traceback
 from logging import getLogger
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, NamedTuple, Optional, Union
 
 import datasets
 from datasets import Dataset, DatasetDict, IterableDataset, IterableDatasetDict
@@ -12,13 +12,25 @@ __all__ = ["RAW_DATASET_COLLECTIONS", "load_raw_dataset", "register_raw_dataset_
 
 logger = getLogger(__name__)
 
+
+class Collection(NamedTuple):
+    r"""`(indexable: bool, subsets: List[str])`"""
+    indexable: bool
+    subsets: List[str]
+
+
 RAW_DATASET_COLLECTIONS = {
-    "super_glue": {"axb", "axg", "boolq", "cb", "copa", "multirc", "record", "wic", "wsc"},
+    "super_glue": Collection(
+        True,
+        ["axb", "axg", "boolq", "cb", "copa", "multirc", "record", "wic", "wsc"],
+    ),
+    "race": Collection(False, ["middle", "high"]),
 }
+r"""Configuration for known collections of raw datasets. This is useful when only subset name is provided or duplicate subsets exist in dataset. """
 
 _raw_dataset_loader_registry = dict()
 
-_required_parameters = {'dataset_path', 'subset_names', 'split'}
+_required_parameters = {'dataset_path', 'subsets', 'split'}
 """Parameters required for raw dataset loaders."""
 
 
@@ -45,36 +57,36 @@ def list_raw_dataset_loader() -> List[str]:
 
 def load_dataset(
     dataset_path: Union[str, Path] = None,
-    subset_names: Optional[Union[str, List[str]]] = None,
+    subsets: Optional[Union[str, List[str]]] = None,
     split: Optional[str] = None,
 ) -> Dict[str, Union[DatasetDict, Dataset, IterableDatasetDict, IterableDataset]]:
-    """A wrapper for `datasets.load_dataset` to load raw datasets from huggingface. If `subset_names` is not specified, all subsets will be loaded.
+    """A wrapper for `datasets.load_dataset` to load raw datasets from huggingface. If `subsets` is not specified, all subsets will be loaded.
 
     Returns:
         - `Dict[str, Union[DatasetDict, Dataset, IterableDatasetDict, IterableDataset]`:
         A dictionary of datasets, with subset names as keys. If it fails to infer the subset names, the key will be `'default'`.
     """
-    if isinstance(subset_names, str):
-        # TODO: determine whether it should return `subset_names` or `"default"`
-        return {subset_names: datasets.load_dataset(path=dataset_path, name=subset_names, split=split)}
+    if isinstance(subsets, str):
+        # TODO: determine whether it should return `subsets` or `"default"`
+        return {subsets: datasets.load_dataset(path=dataset_path, name=subsets, split=split)}
     else:
-        if subset_names is None:
-            subset_names = datasets.get_dataset_config_names(dataset_path)
-        return {subset: datasets.load_dataset(path=dataset_path, name=subset, split=split) for subset in subset_names}
+        if subsets is None:
+            subsets = datasets.get_dataset_config_names(dataset_path)
+        return {subset: datasets.load_dataset(path=dataset_path, name=subset, split=split) for subset in subsets}
 
 
 def load_from_disk(
     dataset_path: Union[str, Path] = None,
-    subset_names: Optional[Union[str, List[str]]] = None,
+    subsets: Optional[Union[str, List[str]]] = None,
     split: Optional[str] = None,
 ) -> Dict[str, Union[DatasetDict, Dataset]]:
-    """A wrapper for `datasets.load_from_disk` to load raw datasets from local disk. If `subset_names` is not specified, all subsets will be loaded.
+    """A wrapper for `datasets.load_from_disk` to load raw datasets from local disk. If `subsets` is not specified, all subsets will be loaded.
 
     Returns:
         - `Dict[str, Union[DatasetDict, Dataset]]`: A dictionary of datasets, with subset names as keys. If it fails to infer the subset names, the key will be `'default'`.
     """
-    if not isinstance(subset_names, list):
-        dataset_path = subset_names | dataset_path
+    if not isinstance(subsets, list):
+        dataset_path = subsets or dataset_path
 
     dataset = datasets.load_from_disk(dataset_path=dataset_path)
     if split is not None:
@@ -88,7 +100,7 @@ register_raw_dataset_loader(load_from_disk)
 
 def load_raw_dataset(
     dataset_path: Union[str, Path] = None,
-    subset_names: Optional[Union[str, List[str]]] = None,
+    subsets: Optional[Union[str, List[str]]] = None,
     split: Optional[str] = None,
     *,
     methods: Union[str, List[str]] = "load_dataset",
@@ -118,19 +130,21 @@ def load_raw_dataset(
     {"default": DatasetDict(...)}
     """
     # normalize parameters
-    if isinstance(subset_names, str):
-        subset_names = [subset_names]
+    if isinstance(subsets, str):
+        subsets = [subsets]
     if isinstance(methods, str):
         methods = [methods]
     dataset_path = str(os.path.normpath(dataset_path))
     assert "," not in dataset_path and ":" not in dataset_path, "Dataset path should not contain comma or colon."
-    assert subset_names is None or all(["," not in n and ":" not in n
-                                        for n in subset_names]), "Subset names should not contain comma or colon."
+    assert subsets is None or all(["," not in n and ":" not in n
+                                   for n in subsets]), "Subset names should not contain comma or colon."
 
     # logging
-    msg = f"Loading raw dataset {dataset_path}" + \
-        ("" if subset_names is None else ":" + ",".join(subset_names)) + \
-        (" with methods " + ", ".join(methods))
+    msg = f"Loading raw dataset "
+    if subsets is None:
+        msg += f"{dataset_path}"
+    else:
+        msg += ",".join(f"{dataset_path}:{s}" for s in subsets)
     logger.info(msg)
 
     # map method names into functions
@@ -148,9 +162,10 @@ def load_raw_dataset(
         try:
             raw_dataset = loadder_fn(
                 dataset_path=dataset_path,
-                subset_names=subset_names,
+                subsets=subsets,
                 split=split,
             )
+            break
         except Exception as e:
             logger.info(f"{loadder_fn.__name__}: {e}")
             logger.debug("\n" + traceback.format_exc())
@@ -161,4 +176,5 @@ def load_raw_dataset(
             "Failed to load from huggingface or local disk. "
             "Please check the dataset path or implement your own dataset loader."
         )
+    logger.debug(f"Successfully loaded raw dataset {raw_dataset}")
     return raw_dataset

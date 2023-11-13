@@ -1,6 +1,6 @@
-from .multiple_choice_dataset import MultipleChoiceDataset
-from datasets import load_dataset, load_from_disk
 import numpy as np
+
+from .multiple_choice_dataset import MultipleChoiceDataset
 
 
 class Race(MultipleChoiceDataset):

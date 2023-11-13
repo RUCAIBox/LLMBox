@@ -152,10 +152,10 @@ class DatasetArguments:
         for dataset_name in self.datasets.split(","):
             dataset_name = dataset_name.strip()
             if ":" in dataset_name:
-                dataset_name, subset_name = dataset_name.split(":")
+                dataset_name, subset = dataset_name.split(":")
             else:
-                subset_name = None
-            yield dataset_name, subset_name
+                subset = None
+            yield dataset_name, subset
 
 
 @dataclass

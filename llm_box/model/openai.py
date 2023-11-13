@@ -1,10 +1,14 @@
 import os
 import time
+from logging import getLogger
 
 import openai
 import tiktoken
 
 from .model import Model
+from ..utils import ModelArguments
+
+logger = getLogger(__name__)
 
 
 class Openai(Model):
@@ -15,10 +19,10 @@ class Openai(Model):
     We now support base GPT-3 models (`ada`, `babbage`, `curie', `davinci`, `babbage-002`, and `davinci-002`).
     """
 
-    def __init__(self, args):
+    def __init__(self, args: ModelArguments):
         super().__init__(args)
         openai.api_key = os.environ.get("OPENAI_API_SECRET_KEY") or args.openai_api_key
-        self.name = args.model
+        self.name = args.model_name_or_path
         self.type = "base"
         self.tokenizer = tiktoken.get_encoding(tiktoken.encoding_name_for_model(self.name))
         # TODO: compatible for gpt-3.5-turbo (enum_type?)
@@ -44,20 +48,22 @@ class Openai(Model):
                 response = openai.Completion.create(model=self.name, prompt=prompt, **model_args)
                 return response["choices"]
             except openai.error.RateLimitError:
-                print('openai.error.ServiceUnavailableError\nRetrying...')
+                logger.warning('openai.error.ServiceUnavailableError\nRetrying...')
                 time.sleep(10)
             except openai.error.ServiceUnavailableError:
-                print('openai.error.ServiceUnavailableError\nRetrying...')
+                logger.warning('openai.error.ServiceUnavailableError\nRetrying...')
                 time.sleep(1)
             except openai.error.Timeout:
-                print('openai.error.Timeout\nRetrying...')
+                logger.warning('openai.error.Timeout\nRetrying...')
                 time.sleep(1)
             except openai.error.APIError:
-                print('openai.error.APIError\nRetrying...')
+                logger.warning('openai.error.APIError\nRetrying...')
                 time.sleep(1)
             except openai.error.APIConnectionError:
-                print('openai.error.APIConnectionError\nRetrying...')
+                logger.warning('openai.error.APIConnectionError\nRetrying...')
                 time.sleep(1)
+            except KeyboardInterrupt as e:
+                raise e
             except:
                 print("UnknownError")
                 time.sleep(1)

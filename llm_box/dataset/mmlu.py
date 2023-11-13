@@ -1,30 +1,38 @@
-from argparse import Namespace
-from typing import List, Union, Optional, Dict
+import os
 from pathlib import Path
+from typing import Dict, List, Optional, Union
 
 import datasets
 from datasets import DatasetDict
 
 from .multiple_choice_dataset import MultipleChoiceDataset
-from .raw_dataset_loader import get_dataset_subset_names, register_raw_dataset_loader
+from .raw_dataset_loader import register_raw_dataset_loader
+
+
+def get_dataset_subsets(dataset_path, by_split="test") -> List[str]:
+    r"""Get the list of available subset names for a particular dataset such as MMLU."""
+    files = os.listdir(os.path.join(dataset_path, by_split))
+    filter = lambda f: f.endswith(f"_{by_split}.csv") and not f.startswith(".")
+    dataset_subset = sorted({f.split("_test.csv")[0] for f in files if filter(f)})
+    return dataset_subset
 
 
 @register_raw_dataset_loader
 def load_origin_mmlu(
-    dataset_path: Union[str, Path] = None,
-    subset_names: Optional[Union[str, List[str]]] = None,
+    dataset_path: Union[str, Path],
+    subsets: Optional[Union[str, List[str]]] = None,
     split: Optional[str] = None,
     **kwargs
 ) -> Dict[str, DatasetDict]:
     """An example loader for the original MMLU dataset."""
 
-    # get subset to load (if not specified, load all)
-    dataset_subset = get_dataset_subset_names(dataset_path, local=True)
-    if subset_names is None:
-        subset_names = dataset_subset
-    elif isinstance(subset_names, str):
-        subset_names = [subset_names]
-    subset = set(dataset_subset) & set(subset_names)
+    # get subset in folder to load (if not specified, load all)
+    dataset_subset = get_dataset_subsets(dataset_path)
+    if subsets is None:
+        subsets = dataset_subset
+    elif isinstance(subsets, str):
+        subsets = [subsets]
+    subset = set(dataset_subset) & set(subsets)
     splits = [split] if split is not None else ['dev', 'test']
     files = {f"{s}.{split}": f"{dataset_path}/{split}/{s}_{split}.csv" for split in splits for s in subset}
 

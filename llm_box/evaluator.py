@@ -36,8 +36,8 @@ class Evaluator:
 
         self.model = load_model(self.model_args)
         self.loaded_datasets = []
-        for dataset_name, subset_name in self.dataset_args.parse_dataset_names():
-            loaded_dataset = load_dataset(self.dataset_args, self.model, dataset_name, subset_name)
+        for dataset_name, subset in self.dataset_args.parse_dataset_names():
+            loaded_dataset = load_dataset(self.dataset_args, self.model, dataset_name, subset)
             self.loaded_datasets.extend(loaded_dataset)
 
     def evaluate(self) -> dict:
@@ -49,6 +49,7 @@ class Evaluator:
 
         Finally, we call the `calcuate_metric` to get the metric score of prediction results.
         """
+        logger.info(f"Start evaluating {self.model.name} on {self.dataset_args.datasets}.")
         results = {}
         for dataset in self.loaded_datasets:
             results[dataset.name] = self._evaluate_once(self.model, dataset)
@@ -68,6 +69,8 @@ class Evaluator:
             raise ValueError(f"We only support two evaluation types: `ranking` and `generation`.")
 
         dataloader = dataset.get_dataloader()
+        logger.debug(f"The number of samples in the dataset: {len(dataloader)}")
+        logger.debug(f"The first batch of the dataset: {next(iter(dataloader))}")
 
         # call model
         start_time = perf_counter()
@@ -80,7 +83,7 @@ class Evaluator:
         if len(predictions) != len(dataloader):
             raise RuntimeError("The number of results should be equal to the number of samples in the dataset.")
 
-        metric_results = dataset.calculate_metrics(predictions)
+        metric_results = dataset.calculate_metric(predictions)
         metric_results.update(pref_results)
 
         print('#' * 5, dataset.name, '#' * 5)
