@@ -1,5 +1,3 @@
-from datasets import load_dataset, load_from_disk
-
 from .multiple_choice_dataset import MultipleChoiceDataset
 
 
@@ -16,15 +14,13 @@ class Copa(MultipleChoiceDataset):
         label: 1
     """
 
-    def __init__(self, args, model):
-        self.name = "copa"
-        # dataset = load_dataset("super_glue", "copa")
-        dataset = load_from_disk("../dataset/copa")
-        self.example_data = list(dataset[args.example_set])
-        self.evaluation_data = list(dataset[args.evaluation_set])
-        self.instruction = "Complete the following the sentence."
+    _name = "super_glue"
+    _subset = "copa"
 
-        super().__init__(args, model)
+    instruction = "Complete the following the sentence."
+
+    example_set = None
+    evaluation_set = "test"
 
     def format_instance(self, instance):
         source = instance["premise"][:-1]
