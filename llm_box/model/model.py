@@ -1,3 +1,8 @@
+from typing import Literal
+
+from ..utils import NotImplementedField
+
+
 class Model:
     r"""The base model object for all models.
 
@@ -12,8 +17,8 @@ class Model:
         generation_kwargs (dict): The configurations for open-ended generation.
         ppl_kwargs (dict, *optional*): The configurations for computing PPL score.
     """
-    name = ""
-    type = ""
+    name: str = NotImplementedField
+    type: Literal['base', 'instruction'] = NotImplementedField
 
     def __init__(self, args):
         self.args = args
