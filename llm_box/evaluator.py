@@ -1,12 +1,15 @@
 from logging import getLogger
+from time import perf_counter
+from typing import Any, Dict, Tuple
 
-import numpy as np
 from accelerate.utils import set_seed
-from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from .dataset import load_dataset
+from .dataset.dataset import Dataset as LLMDataset
 from .model import load_model
+from .model.model import Model
+from .utils import ModelArguments, DatasetArguments, EvaluationArguments
 
 logger = getLogger(__name__)
 
@@ -23,7 +26,7 @@ class Evaluator:
         dataset (Dataset): Our class for dataset.
     """
 
-    def __init__(self, args):
+    def __init__(self, args: Tuple[ModelArguments, DatasetArguments, EvaluationArguments]):
         model_args, dataset_args, evaluation_args = args
         self.model_args = model_args
         self.dataset_args = dataset_args
@@ -32,12 +35,12 @@ class Evaluator:
         set_seed(self.evaluation_args.seed)
 
         self.model = load_model(self.model_args)
-        self.dataset = load_dataset(self.dataset_args, self.model)
-        # TODO: change to logger
-        # filename = args.model + "-" + args.dataset + "-" + str(args.num_shots)
-        # self.args.filename = filename
+        self.loaded_datasets = []
+        for dataset_name, subset_name in self.dataset_args.parse_dataset_names():
+            loaded_dataset = load_dataset(self.dataset_args, self.model, dataset_name, subset_name)
+            self.loaded_datasets.extend(loaded_dataset)
 
-    def evaluate(self):
+    def evaluate(self) -> dict:
         r"""It conducts the evaluation on the dataset with corresponding models.
         We support two evaluation types:
 
@@ -46,25 +49,61 @@ class Evaluator:
 
         Finally, we call the `calcuate_metric` to get the metric score of prediction results.
         """
-        dataloader = DataLoader(
-            self.dataset,
-            batch_size=self.dataset_args.batch_size,
-            collate_fn=lambda x: x,
-            shuffle=False,
-            pin_memory=True
-        )
+        results = {}
+        for dataset in self.loaded_datasets:
+            results[dataset.name] = self._evaluate_once(self.model, dataset)
+        return results
 
-        results = []
+    @staticmethod
+    def _evaluate_once(
+        model: Model,
+        dataset: LLMDataset,
+    ) -> dict:
+
+        if dataset.evaluation_type == 'ranking':
+            call_model = model.get_ppl
+        elif dataset.evaluation_type == 'generation':
+            call_model = model.generation
+        else:
+            raise ValueError(f"We only support two evaluation types: `ranking` and `generation`.")
+
+        dataloader = dataset.get_dataloader()
+
+        # call model
+        start_time = perf_counter()
+        predictions = []
         for batch in tqdm(dataloader, dynamic_ncols=True, desc="Evaluating"):
-            if self.dataset.evaluation_type == 'ranking':
-                results.extend(self.model.get_ppl(batch))
-            elif self.dataset.evaluation_type == 'generation':
-                results.extend(self.model.generation(batch))
-            else:
-                raise ValueError(f"We only support two evaluation types: `ranking` and `generation`.")
-        assert len(results) == len(self.dataset)
+            predictions.extend(call_model(batch))
+        end_time = perf_counter()
+        pref_results = Evaluator._compute_time_perf(start_time, end_time, len(predictions))
 
-        print('#' * 5, self.dataset.name, '#' * 5)
-        scores = self.dataset.calculate_metric(results)
-        for key, value in scores.items():
+        if len(predictions) != len(dataloader):
+            raise RuntimeError("The number of results should be equal to the number of samples in the dataset.")
+
+        metric_results = dataset.calculate_metrics(predictions)
+        metric_results.update(pref_results)
+
+        print('#' * 5, dataset.name, '#' * 5)
+        for key, value in metric_results.items():
             print("{}: {:.2f}".format(key, value))
+        return metric_results
+
+    @staticmethod
+    def _compute_time_perf(start_time: float, end_time: float, num_samples: int) -> Dict[str, Any]:
+        """
+        A utility function computing time performance metrics:
+            - `total_time_in_seconds` - pipeline inference runtime for the evaluation data in seconds,
+            - `samples_per_second` - pipeline throughput in the number of samples per second.
+            - `latency_in_seconds` - pipeline inference runtime for the evaluation data in seconds per sample,
+
+        Reference: https://github.com/huggingface/evaluate/blob/ec46ca2cbb77433622057a74cabe611defae669d/src/evaluate/evaluator/base.py#L163
+        """
+        latency = end_time - start_time
+        throughput = num_samples / latency
+        latency_sample = 1.0 / throughput
+
+        return {
+            "total_time_in_seconds": latency,
+            "samples_per_second": throughput,
+            "latency_in_seconds": latency_sample,
+        }

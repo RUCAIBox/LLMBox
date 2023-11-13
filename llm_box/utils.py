@@ -3,7 +3,7 @@ import inspect
 import logging
 from dataclasses import MISSING, dataclass
 from logging import getLogger
-from typing import Optional, Tuple, Type, TypeVar
+from typing import Optional, Tuple, Type, TypeVar, Iterator
 import datetime
 
 import coloredlogs
@@ -49,7 +49,12 @@ class ModelArguments:
 @dataclass
 class DatasetArguments:
 
-    dataset: str = HfArg(default=MISSING, aliases=["-d"], help="The dataset name, e.g., copa, gsm")
+    datasets: str = HfArg(
+        default=MISSING,
+        aliases=["-d"],
+        help=
+        "Accepts comma-separated dataset names, with optional subsets. Format: 'dataset' or 'dataset:subset'. E.g., 'copa', 'super_glue:copa' or 'copa,gsm'."
+    )
     evaluation_set: str = HfArg(
         default="validation",
         help="The set name for evaluation, e.g., validation, test",
@@ -87,6 +92,21 @@ class DatasetArguments:
         help="Whether to trust the remote code",
     )
 
+    def parse_dataset_names(self) -> Iterator[Tuple[str, Optional[str]]]:
+        """Parse the dataset names and optionally their corresponding subset names.
+
+        Yields:
+            - `str`: The dataset name.
+            - `Optional[str]`: The subset name, or None if not specified.
+        """
+        for dataset_name in self.datasets.split(","):
+            dataset_name = dataset_name.strip()
+            if ":" in dataset_name:
+                dataset_name, subset_name = dataset_name.split(":")
+            else:
+                subset_name = None
+            yield dataset_name, subset_name
+
 
 @dataclass
 class EvaluationArguments:
@@ -102,7 +122,7 @@ class EvaluationArguments:
     log_level: Optional[str] = HfArg(
         default="warning",
         help=
-        "Logger level to use on the main node.ossible choices are the log levels as strings: 'debug', 'info', 'warning', 'error' and 'critical'",
+        "Logger level to use on the main node. Possible choices are the log levels as strings: 'debug', 'info', 'warning', 'error' and 'critical'",
         metadata={"choices": log_levels.keys()},
     )
 
