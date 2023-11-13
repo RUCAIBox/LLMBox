@@ -1,3 +1,5 @@
+from logging import getLogger
+
 import numpy as np
 from accelerate.utils import set_seed
 from torch.utils.data import DataLoader
@@ -5,6 +7,8 @@ from tqdm import tqdm
 
 from .dataset import load_dataset
 from .model import load_model
+
+logger = getLogger(__name__)
 
 
 class Evaluator:
@@ -59,16 +63,6 @@ class Evaluator:
             else:
                 raise ValueError(f"We only support two evaluation types: `ranking` and `generation`.")
         assert len(results) == len(self.dataset)
-
-        if self.dataset.evaluation_type == 'ranking':
-            labels = []
-            st = 0
-            results = np.array(results)
-            for num in self.dataset.option_nums:
-                labels.append(results[st:st + num].argmin())
-                st += num
-            results = labels
-            assert len(results) == len(self.dataset.references)
 
         print('#' * 5, self.dataset.name, '#' * 5)
         scores = self.dataset.calculate_metric(results)
