@@ -1,4 +1,7 @@
 import importlib
+from logging import getLogger
+
+logger = getLogger(__name__)
 
 
 def load_dataset(args, model):
@@ -11,6 +14,8 @@ def load_dataset(args, model):
     Returns:
         Dataset: Our class for dataset.
     """
+    logger.info(f"Loading dataset `{args.dataset}`.")
+    args.dataset = args.dataset.split(":")
     dataset = importlib.import_module(f".{args.dataset}", package="llm_box.dataset")
     dataset = getattr(dataset, args.dataset.capitalize())(args, model)
     return dataset

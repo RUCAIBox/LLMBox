@@ -1,7 +1,29 @@
+import importlib
+import inspect
+import logging
 from dataclasses import MISSING, dataclass
-from typing import Tuple
+from logging import getLogger
+from typing import Optional, Tuple, Type, TypeVar
+import datetime
 
+import coloredlogs
 from transformers.hf_argparser import HfArg, HfArgumentParser
+
+T = TypeVar('T')
+
+logger = getLogger(__name__)
+
+log_levels = {
+    "debug": logging.DEBUG,
+    "info": logging.INFO,
+    "warning": logging.WARNING,
+    "error": logging.ERROR,
+    "critical": logging.CRITICAL,
+}
+
+DEFAULT_LOG_FORMAT = '%(asctime)s %(hostname)s %(name)s[%(process)d] %(levelname)s %(message)s'
+
+DEFAULT_DATETIME_FORMAT = '%Y_%m_%d-%H:%M:%S'
 
 
 @dataclass
@@ -77,6 +99,47 @@ class EvaluationArguments:
         default="logs",
         help="The logging directory",
     )
+    log_level: Optional[str] = HfArg(
+        default="warning",
+        help=
+        "Logger level to use on the main node.ossible choices are the log levels as strings: 'debug', 'info', 'warning', 'error' and 'critical'",
+        metadata={"choices": log_levels.keys()},
+    )
+
+
+def set_logging(
+    model_args: ModelArguments,
+    dataset_args: DatasetArguments,
+    evaluation_args: EvaluationArguments,
+    file_log_level: str = 'info',
+) -> None:
+    """Set the logging level for standard output and file."""
+
+    # use root logger to disable logging of other packages
+    root_logger = logging.getLogger(__package__)
+    coloredlogs.install(
+        level=log_levels[evaluation_args.log_level],
+        logger=root_logger,
+        fmt=DEFAULT_LOG_FORMAT,
+    )
+
+    # set the log file
+    model_name = model_args.model_name_or_path.strip("/").split("/")[-1]
+    dataset_name = dataset_args.dataset
+    num_shots = str(dataset_args.num_shots)
+    execution_time = datetime.datetime.now().strftime(DEFAULT_DATETIME_FORMAT)
+    log_filename = f"{model_name}-{dataset_name}-{num_shots}-{execution_time}.log"
+    log_path = f"{evaluation_args.logging_dir}/{log_filename}"
+
+    # add file handler to root logger
+    handler = logging.FileHandler(log_path)
+    formatter = coloredlogs.BasicFormatter(fmt=DEFAULT_LOG_FORMAT)
+    handler.setLevel(level=log_levels[file_log_level])
+    handler.setFormatter(formatter)
+    root_logger.addHandler(handler)
+
+    # finish logging initialization
+    logger.info(f"Saving logs to {log_path}")
 
 
 def parse_argument() -> Tuple[ModelArguments, DatasetArguments, EvaluationArguments]:
@@ -87,5 +150,7 @@ def parse_argument() -> Tuple[ModelArguments, DatasetArguments, EvaluationArgume
     """
     parser = HfArgumentParser((ModelArguments, DatasetArguments, EvaluationArguments), description="LLMBox description")
     model_args, dataset_args, evaluation_args = parser.parse_args_into_dataclasses()
+
+    set_logging(model_args, dataset_args, evaluation_args)
 
     return model_args, dataset_args, evaluation_args
