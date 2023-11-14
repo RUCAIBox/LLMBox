@@ -18,6 +18,8 @@ class Openai(Model):
     def __init__(self, args):
         super().__init__(args)
         openai.api_key = os.environ.get("OPENAI_API_SECRET_KEY") or args.openai_api_key
+        openai.api_base = "https://api.aiguoguo199.com/v1"
+        openai.api_key = 'sk-zI3SuS0FlRGfs9pMF76cDc4040304d308e51D48321AaB6D8'
         self.name = args.model_name_or_path
         self.type = "base"
         self.tokenizer = tiktoken.get_encoding(tiktoken.encoding_name_for_model(self.name))
@@ -44,12 +46,9 @@ class Openai(Model):
             try:
                 # TODO: compatible for gpt-3.5-turbo
                 if self.name == "gpt-3.5-turbo":
-                    r = []
-                    for p in prompt:
-                        message = [{'role': 'user', 'content': p}]
-                        response = openai.ChatCompletion.create(model=self.name, messages=message, **model_args)
-                        r.append(response["choices"])
-                    return r
+                    message = [{'role': 'user', 'content': prompt[0]}]
+                    response = openai.ChatCompletion.create(model=self.name, messages=message, **model_args)
+                    return [response["choices"]]
                 else:
                     response = openai.Completion.create(model=self.name, prompt=prompt, **model_args)
                     return response["choices"]

@@ -1,6 +1,8 @@
 from .generation_dataset import GenerationDataset
 from datasets import load_dataset, load_from_disk
 import re
+import numpy as np
+import evaluate
 
 
 class Gsm8k(GenerationDataset):
@@ -20,35 +22,26 @@ class Gsm8k(GenerationDataset):
         self.example_data = list(dataset["train"])
         self.evaluation_data = list(dataset["test"])
 
+        self.metric = "accuracy"
         self.answer_trigger = "\nTherefore, the answer (arabic numerals) is "
         super().__init__(args, model)
 
-    def answer_cleansing(self, pred, must_choice=False):
-        preds = pred.split(self.answer_trigger)
-        answer_flag = True if len(preds) > 1 else False
-        pred = preds[-1]
+    def answer_cleansing(self, preds):
+        predictions = []
+        for pred in preds:
+            # replace numbers like `x,xxx` with `xxxx`
+            pred = re.sub(r"(\d),(\d)", r"\1\2", pred)
+            numbers = re.findall(r"[-+]?\d*\.\d+|\d+", pred)
+            if numbers:
+                predictions.append(numbers[-1])
+            else:
+                predictions.append(pred)
 
-        pred = pred.replace(",", "")
-        pred = [s for s in re.findall(r'-?\d+\.?\d*', pred)]
-
-        # If there is no candidate in list, null is set.
-        if len(pred) == 0:
-            pred = ""
-
-        if answer_flag:
-            # choose the first element in list ...
-            pred = pred[0]
-        else:
-            # choose the last element in list ...
-            pred = pred[-1]
-
-        if pred != "":
-            if pred[-1] == ".":
-                pred = pred[:-1]
-
-        return pred
+        return predictions
 
     def format_instance(self, instance):
+        instance["answer"] = re.sub(r"(\d),(\d)", r"\1\2", instance["answer"])
+        instance["short_answer"] = instance["answer"].split("####")[-1]             # used in no_cot
         instance["answer"] = " " + instance["answer"].replace("\n#### ", self.answer_trigger)
         instance["question"] = "Q: " + instance["question"] + "\n" + "A:"
         return dict(
@@ -56,6 +49,11 @@ class Gsm8k(GenerationDataset):
             target=instance["answer"],
         )
 
+    def calculate_metric(self, predictions):
+        predictions = self.answer_cleansing(predictions)
+        exact_match = evaluate.load("exact_match")
+        em_score = exact_match.compute(predictions=predictions, references=self.references, ignore_case=True, ignore_punctuation=True)["exact_match"]
+        return {'Accuracy': em_score}
 
     @property
     def references(self):

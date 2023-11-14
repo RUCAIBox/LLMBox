@@ -1,19 +1,24 @@
 import importlib
+import warnings
 
 OPENAI_MODELS = ['ada', 'babbage', 'curie', 'davinci', 'babbage-002', 'davinci-002', 'gpt-3.5-turbo']
 
 
-def load_model(args):
+def load_model(args, batch_size):
     r"""Load corresponding model class.
 
     Args:
         args (ModelArguments): The global configurations.
+        batch_size (int): The batch size for model.
 
     Returns:
         Model: Our class for model.
     """
     if args.model_name_or_path.lower() in OPENAI_MODELS:
         from .openai import Openai
+        if args.model_name_or_path.lower() == 'gpt-3.5-turbo' and batch_size > 1:
+            args.batch_size = 1
+            warnings.warn("gpt-3.5-turbo doesn't support batch_size > 1, automatically set batch_size=1.")
         model = Openai(args)
     else:
         model = importlib.import_module(f".{args.model_name_or_path}")

@@ -27,7 +27,7 @@ class Evaluator:
 
         set_seed(self.evaluation_args.seed)
 
-        self.model = load_model(self.model_args)
+        self.model = load_model(self.model_args, self.dataset_args.batch_size)
         self.dataset = load_dataset(self.dataset_args, self.model)
         # TODO: change to logger
         # filename = args.model + "-" + args.dataset + "-" + str(args.num_shots)
