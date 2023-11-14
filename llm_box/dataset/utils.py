@@ -16,6 +16,6 @@ def load_dataset(args, model):
     """
     logger.info(f"Loading dataset `{args.dataset}`.")
     args.dataset = args.dataset.split(":")
-    dataset = importlib.import_module(f".{args.dataset}", package="llm_box.dataset")
-    dataset = getattr(dataset, args.dataset.capitalize())(args, model)
+    dataset = importlib.import_module(f".{args.dataset[0]}", package="llm_box.dataset")
+    dataset = getattr(dataset, args.dataset[0].capitalize())(args, model)
     return dataset
