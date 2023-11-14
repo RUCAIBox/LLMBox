@@ -23,7 +23,7 @@ log_levels = {
 
 DEFAULT_LOG_FORMAT = '%(asctime)s %(hostname)s %(name)s[%(process)d] %(levelname)s %(message)s'
 
-DEFAULT_DATETIME_FORMAT = '%Y_%m_%d-%H:%M:%S'
+DEFAULT_DATETIME_FORMAT = '%Y_%m_%d-%H_%M_%S'       # Compatible with windows, which does not support ':' in filename
 
 
 @dataclass
