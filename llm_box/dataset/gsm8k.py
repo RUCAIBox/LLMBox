@@ -1,7 +1,6 @@
 from .generation_dataset import GenerationDataset
 from datasets import load_dataset, load_from_disk
 import re
-import numpy as np
 import evaluate
 
 
@@ -21,6 +20,7 @@ class Gsm8k(GenerationDataset):
         # dataset = load_from_disk("gsm8k")
         self.example_data = list(dataset["train"])
         self.evaluation_data = list(dataset["test"])
+        self.instruction = "Answer the following questions."
 
         self.metric = "accuracy"
         self.answer_trigger = "\nTherefore, the answer (arabic numerals) is "
@@ -41,7 +41,6 @@ class Gsm8k(GenerationDataset):
 
     def format_instance(self, instance):
         instance["answer"] = re.sub(r"(\d),(\d)", r"\1\2", instance["answer"])
-        instance["short_answer"] = instance["answer"].split("####")[-1]             # used in no_cot
         instance["answer"] = " " + instance["answer"].replace("\n#### ", self.answer_trigger)
         instance["question"] = "Q: " + instance["question"] + "\n" + "A:"
         return dict(

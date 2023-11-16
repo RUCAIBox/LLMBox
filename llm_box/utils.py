@@ -5,6 +5,7 @@ from dataclasses import MISSING, dataclass
 from logging import getLogger
 from typing import Optional, Tuple, Type, TypeVar
 import datetime
+import warnings
 
 import coloredlogs
 from transformers.hf_argparser import HfArg, HfArgumentParser
@@ -150,7 +151,9 @@ def parse_argument() -> Tuple[ModelArguments, DatasetArguments, EvaluationArgume
     """
     parser = HfArgumentParser((ModelArguments, DatasetArguments, EvaluationArguments), description="LLMBox description")
     model_args, dataset_args, evaluation_args = parser.parse_args_into_dataclasses()
-
+    if model_args.model_name_or_path.lower() == 'gpt-3.5-turbo' and dataset_args.batch_size > 1:
+        dataset_args.batch_size = 1
+        warnings.warn("gpt-3.5-turbo doesn't support batch_size > 1, automatically set batch_size=1.")
     set_logging(model_args, dataset_args, evaluation_args)
 
     return model_args, dataset_args, evaluation_args
