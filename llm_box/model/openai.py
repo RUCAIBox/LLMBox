@@ -18,14 +18,16 @@ class Openai(Model):
     def __init__(self, args):
         super().__init__(args)
         openai.api_key = os.environ.get("OPENAI_API_SECRET_KEY") or args.openai_api_key
-        self.name = args.model
+        self.name = args.model_name_or_path
         self.type = "base"
         self.tokenizer = tiktoken.get_encoding(tiktoken.encoding_name_for_model(self.name))
         # TODO: compatible for gpt-3.5-turbo (enum_type?)
         self.max_tokens = 2048
         self.max_try_times = 5
-
+        # TODO: gpt-3.5-turbo doesn't support echo and logprobs, and it doesn't support max_tokens=0
         self.ppl_kwargs = dict(echo=True, max_tokens=0, logprobs=0)
+
+        self.generation_kwargs = dict(max_tokens=self.max_tokens)
 
     def request(self, prompt, model_args):
         r"""Call the OpenAI API.
@@ -41,8 +43,13 @@ class Openai(Model):
         for _ in range(self.max_try_times):
             try:
                 # TODO: compatible for gpt-3.5-turbo
-                response = openai.Completion.create(model=self.name, prompt=prompt, **model_args)
-                return response["choices"]
+                if self.name == "gpt-3.5-turbo":
+                    message = [{'role': 'user', 'content': prompt[0]}]
+                    response = openai.ChatCompletion.create(model=self.name, messages=message, **model_args)
+                    return [response["choices"]]
+                else:
+                    response = openai.Completion.create(model=self.name, prompt=prompt, **model_args)
+                    return response["choices"]
             except openai.error.RateLimitError:
                 print('openai.error.ServiceUnavailableError\nRetrying...')
                 time.sleep(10)
@@ -58,7 +65,8 @@ class Openai(Model):
             except openai.error.APIConnectionError:
                 print('openai.error.APIConnectionError\nRetrying...')
                 time.sleep(1)
-            except:
+            except Exception as e:
+                print(e)
                 print("UnknownError")
                 time.sleep(1)
         raise ConnectionError("OpenAI API error")
@@ -75,4 +83,13 @@ class Openai(Model):
         return ppls
 
     def generation(self, batch):
-        pass
+        prompt = [question for question in batch]
+        results = self.request(prompt, self.generation_kwargs)
+        answers = []
+        for result, _ in zip(results, batch):
+            if self.name == 'gpt-3.5-turbo':
+                answer = result[0]['message']['content']
+            else:
+                answer = result['text']
+            answers.append(answer)
+        return answers

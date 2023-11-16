@@ -44,7 +44,7 @@ class Evaluator:
             - `Ranking`, ranking several options given a context, mainly applicable for multi-choice tasks. We compute the PPL scores of each option and select the one with lowest PPL.
             - `Generation`, generating the response based on the context, applicable for most of tasks. We directly call the `generation` interface of each model or API.
 
-        Finally, we call the `calcuate_metric` to get the metric score of prediction results.
+        Finally, we call the `calculate_metric` to get the metric score of prediction results.
         """
         dataloader = DataLoader(
             self.dataset,
