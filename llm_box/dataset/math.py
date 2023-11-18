@@ -1,6 +1,5 @@
 from .generation_dataset import GenerationDataset
 from datasets import load_dataset, load_from_disk
-import re
 import evaluate
 
 
@@ -29,7 +28,7 @@ class Math(GenerationDataset):
         super().__init__(args, model)
 
     def extract_inner_content(self, text):
-        # \boxed{...}, where{} can be nested
+        # extract from \boxed{...}, where{} can be nested
         start = text.find("\\boxed{") + 7
         count = 1
         end = start
