@@ -28,14 +28,26 @@ class Math(GenerationDataset):
         self.metric = "accuracy"
         super().__init__(args, model)
 
+    def extract_inner_content(self, text):
+        # \boxed{...}, where{} can be nested
+        start = text.find("\\boxed{") + 7
+        count = 1
+        end = start
+        while count > 0 and end < len(text):
+            if text[end] == "{":
+                count += 1
+            elif text[end] == "}":
+                count -= 1
+            end += 1
+        return text[start:end - 1]
+
     def answer_cleansing(self, preds):
-        # TODO: does 0 shot knows to box the answer?
+        # TODO: 0 shot doesn't know to put the answer in '\boxed{...}'.
         predictions = []
         for pred in preds:
-            pattern = r"\\boxed{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}"
-            matches = re.findall(pattern, pred)
-            if matches:
-                predictions.append(matches[-1])
+            match = self.extract_inner_content(pred)
+            if match:
+                predictions.append(match)
             else:
                 predictions.append(pred)
 
@@ -57,5 +69,4 @@ class Math(GenerationDataset):
 
     @property
     def references(self):
-        pattern = r"\\boxed{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}"  # \boxed{...}, where{} can be nested
-        return [re.findall(pattern, instance["solution"])[-1] for instance in self.evaluation_data]
+        return [self.extract_inner_content(instance["solution"]) for instance in self.evaluation_data]
