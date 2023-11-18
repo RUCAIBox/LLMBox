@@ -11,7 +11,6 @@ def load_model(args):
 
     Args:
         args (ModelArguments): The global configurations.
-        batch_size (int): The batch size for model.
 
     Returns:
         Model: Our class for model.
