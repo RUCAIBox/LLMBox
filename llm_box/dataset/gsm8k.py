@@ -1,7 +1,7 @@
 from .generation_dataset import GenerationDataset
 from datasets import load_dataset, load_from_disk
 import re
-import evaluate
+import numpy as np
 
 
 class Gsm8k(GenerationDataset):
@@ -20,13 +20,14 @@ class Gsm8k(GenerationDataset):
         # dataset = load_from_disk("gsm8k")
         self.example_data = list(dataset["train"])
         self.evaluation_data = list(dataset["test"])
-        self.instruction = "Answer the following questions."
+        self.instruction = "Answer the following question."
 
         self.metric = "accuracy"
         self.answer_trigger = "\nTherefore, the answer (arabic numerals) is "
         super().__init__(args, model)
 
-    def answer_cleansing(self, preds):
+    @staticmethod
+    def answer_cleansing(preds):
         predictions = []
         for pred in preds:
             # replace numbers like `x,xxx` with `xxxx`
@@ -50,9 +51,8 @@ class Gsm8k(GenerationDataset):
 
     def calculate_metric(self, predictions):
         predictions = self.answer_cleansing(predictions)
-        exact_match = evaluate.load("exact_match")
-        em_score = exact_match.compute(predictions=predictions, references=self.references, ignore_case=True, ignore_punctuation=True)["exact_match"]
-        return {'Accuracy': em_score}
+        score_list = np.asarray(predictions) == np.asarray(self.references)
+        return {'Accuracy': np.mean(score_list)}
 
     @property
     def references(self):
