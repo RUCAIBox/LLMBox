@@ -43,8 +43,8 @@ class Math(GenerationDataset):
         self.metric = "accuracy"
         super().__init__(args, model)
 
-    @classmethod
-    def normalize_final_answer(cls, final_answer: str) -> str:
+    @staticmethod
+    def normalize_final_answer(final_answer: str) -> str:
         """Normalize a final answer to a quantitative reasoning question."""
         final_answer = final_answer.split('=')[-1]
 
@@ -77,8 +77,8 @@ class Math(GenerationDataset):
 
         return final_answer
 
-    @classmethod
-    def extract_inner_content(cls, text):
+    @staticmethod
+    def extract_inner_content(text):
         # extract from \boxed{...}, where{} can be nested
         start = text.find("\\boxed{")
         if start == -1:
@@ -94,8 +94,8 @@ class Math(GenerationDataset):
             end += 1
         return text[start:end - 1]
 
-    @classmethod
-    def answer_cleansing(cls, preds):
+    @staticmethod
+    def answer_cleansing(preds):
         predictions = []
         pattern = r'\$(.*?)\$'
         for pred in preds:
@@ -103,7 +103,7 @@ class Math(GenerationDataset):
                 pred = pred.split('The answer is ')[-1].strip()
             final_answer = re.findall(pattern, pred)
             if final_answer:
-                predictions.append(cls.normalize_final_answer(final_answer[-1]))
+                predictions.append(Math.normalize_final_answer(final_answer[-1]))
             else:
                 numbers = re.findall(r"[-+]?\d*\.\d+|\d+", pred)
                 predictions.append(numbers[-1] if numbers else pred)
@@ -111,7 +111,7 @@ class Math(GenerationDataset):
         return predictions
 
     def format_instance(self, instance):
-        instance["short_answer"] = Math.extract_inner_content(instance["solution"])
+        instance["short_answer"] = self.extract_inner_content(instance["solution"])
         instance["problem"] = "Q: " + instance["problem"] + "\n" + "A:"
         instance["solution"] = " " + instance[
             "solution"] + f"\nFinal Answer: The final answer is ${instance['short_answer']}$. I hope it is correct."
@@ -121,7 +121,7 @@ class Math(GenerationDataset):
         )
 
     def calculate_metric(self, predictions):
-        predictions = Math.answer_cleansing(predictions)
+        predictions = self.answer_cleansing(predictions)
         score_list = np.asarray(predictions) == np.asarray(self.references)
         return {'Accuracy': np.mean(score_list)}
 

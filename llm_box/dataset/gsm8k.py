@@ -26,8 +26,8 @@ class Gsm8k(GenerationDataset):
         self.answer_trigger = "\nTherefore, the answer (arabic numerals) is "
         super().__init__(args, model)
 
-    @classmethod
-    def answer_cleansing(cls, preds):
+    @staticmethod
+    def answer_cleansing(preds):
         predictions = []
         for pred in preds:
             # replace numbers like `x,xxx` with `xxxx`
@@ -50,7 +50,7 @@ class Gsm8k(GenerationDataset):
         )
 
     def calculate_metric(self, predictions):
-        predictions = Gsm8k.answer_cleansing(predictions)
+        predictions = self.answer_cleansing(predictions)
         score_list = np.asarray(predictions) == np.asarray(self.references)
         return {'Accuracy': np.mean(score_list)}
 
