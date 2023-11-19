@@ -1,7 +1,22 @@
 from .generation_dataset import GenerationDataset
 from datasets import load_dataset, load_from_disk
-import evaluate
+import numpy as np
+import re
 
+SUBSTITUTIONS = [
+    ('an ', ''), ('a ', ''), ('.$', '$'), ('\\$', ''), (r'\ ', ''),
+    (' ', ''), ('mbox', 'text'), (',\\text{and}', ','),
+    ('\\text{and}', ','), ('\\text{m}', '\\text{}')
+]
+REMOVED_EXPRESSIONS = [
+    'square', 'ways', 'integers', 'dollars', 'mph', 'inches', 'ft',
+    'hours', 'km', 'units', '\\ldots', 'sue', 'points', 'feet',
+    'minutes', 'digits', 'cents', 'degrees', 'cm', 'gm', 'pounds',
+    'meters', 'meals', 'edges', 'students', 'childrentickets', 'multiples',
+    '\\text{s}', '\\text{.}', '\\text{\ns}', '\\text{}^2',
+    '\\text{}^3', '\\text{\n}', '\\text{}', r'\mathrm{th}',
+    r'^\circ', r'^{\circ}', r'\;', r',\!', '{,}', '"', '\\dots'
+ ]
 
 class Math(GenerationDataset):
     """The dataset of MATH.
@@ -18,18 +33,55 @@ class Math(GenerationDataset):
 
     def __init__(self, args, model):
         self.name = "math"
-        dataset = load_dataset("lighteval/MATH")
-        # dataset = load_from_disk("lighteval/MATH")
+        dataset = load_dataset("hendrycks/competition_math")
+        # dataset = load_from_disk("hendrycks/competition_math")
         self.example_data = list(dataset["train"])
         self.evaluation_data = list(dataset["test"])
-        self.instruction = "Answer the following questions."
+        self.instruction = "Answer the following question."
 
         self.metric = "accuracy"
         super().__init__(args, model)
 
+    def normalize_final_answer(self, final_answer: str) -> str:
+        """Normalize a final answer to a quantitative reasoning question."""
+        final_answer = final_answer.split('=')[-1]
+
+        for before, after in SUBSTITUTIONS:
+            final_answer = final_answer.replace(before, after)
+        for expr in REMOVED_EXPRESSIONS:
+            final_answer = final_answer.replace(expr, '')
+
+        # Extract answer that is in LaTeX math, is bold,
+        # is surrounded by a box, etc.
+        final_answer = re.sub(r'(.*?)(\$)(.*?)(\$)(.*)', '$\\3$', final_answer)
+        print(final_answer)
+        final_answer = re.sub(r'(\\text\{)(.*?)(\})', '\\2', final_answer)
+        final_answer = re.sub(r'(\\textbf\{)(.*?)(\})', '\\2', final_answer)
+        final_answer = re.sub(r'(\\overline\{)(.*?)(\})', '\\2', final_answer)
+        final_answer = re.sub(r'(\\boxed\{)(.*)(\})', '\\2', final_answer)
+
+        # Normalize shorthand TeX:
+        # \fracab -> \frac{a}{b}
+        # \frac{abc}{bef} -> \frac{abc}{bef}
+        # \fracabc -> \frac{a}{b}c
+        # \sqrta -> \sqrt{a}
+        # \sqrtab -> sqrt{a}b
+        final_answer = re.sub(r'(frac)([^{])(.)', 'frac{\\2}{\\3}', final_answer)
+        final_answer = re.sub(r'(sqrt)([^{])', 'sqrt{\\2}', final_answer)
+        final_answer = final_answer.replace('$', '')
+
+        # Normalize 100,000 -> 100000
+        if final_answer.replace(',', '').isdigit():
+            final_answer = final_answer.replace(',', '')
+
+        return final_answer
+
     def extract_inner_content(self, text):
         # extract from \boxed{...}, where{} can be nested
-        start = text.find("\\boxed{") + 7
+        start = text.find("\\boxed{")
+        if start == -1:
+            return None
+        start += 7
         count = 1
         end = start
         while count > 0 and end < len(text):
@@ -41,20 +93,24 @@ class Math(GenerationDataset):
         return text[start:end - 1]
 
     def answer_cleansing(self, preds):
-        # TODO: 0 shot doesn't know to put the answer in '\boxed{...}'.
         predictions = []
+        pattern = r'\$(.*?)\$'
         for pred in preds:
-            match = self.extract_inner_content(pred)
-            if match:
-                predictions.append(match)
+            if ('The answer is ' in pred):
+                pred = pred.split('The answer is ')[-1].strip()
+            final_answer = re.findall(pattern, pred)
+            if final_answer:
+                predictions.append(self.normalize_final_answer(final_answer[-1]))
             else:
-                predictions.append(pred)
+                numbers = re.findall(r"[-+]?\d*\.\d+|\d+", pred)
+                predictions.append(numbers[-1] if numbers else pred)
 
         return predictions
 
     def format_instance(self, instance):
+        ans = self.extract_inner_content(instance["solution"])
         instance["problem"] = "Q: " + instance["problem"] + "\n" + "A:"
-        instance["solution"] = " " + instance["solution"]
+        instance["solution"] = " " + instance["solution"] + f"\nThe answer is ${ans}$"
         return dict(
             source=instance["problem"],
             target=instance["solution"],
@@ -62,9 +118,8 @@ class Math(GenerationDataset):
 
     def calculate_metric(self, predictions):
         predictions = self.answer_cleansing(predictions)
-        exact_match = evaluate.load("exact_match")
-        em_score = exact_match.compute(predictions=predictions, references=self.references, ignore_case=True, ignore_punctuation=True)["exact_match"]
-        return {'Accuracy': em_score}
+        score_list = np.asarray(predictions) == np.asarray(self.references)
+        return {'Accuracy': np.mean(score_list)}
 
     @property
     def references(self):
