@@ -2,6 +2,7 @@ from .generation_dataset import GenerationDataset
 from datasets import load_dataset, load_from_disk
 import re
 import numpy as np
+from statistics import mode
 
 
 class Gsm8k(GenerationDataset):
@@ -19,7 +20,7 @@ class Gsm8k(GenerationDataset):
         dataset = load_dataset('gsm8k', 'main')
         # dataset = load_from_disk("gsm8k")
         self.example_data = list(dataset["train"])
-        self.evaluation_data = list(dataset["test"])
+        self.evaluation_data = list(dataset["test"])[:5]
         self.instruction = "Answer the following question."
 
         self.metric = "accuracy"
@@ -53,6 +54,15 @@ class Gsm8k(GenerationDataset):
         predictions = self.answer_cleansing(predictions)
         score_list = np.asarray(predictions) == np.asarray(self.references)
         return {'Accuracy': np.mean(score_list)}
+
+    def calculate_metric_sc(self, predictions: list[list[str]]):
+        vote_answer = []
+        for samples in predictions:
+            samples = self.answer_cleansing(samples)
+            vote_answer.append(mode(samples))
+        score_list = np.asarray(vote_answer) == np.asarray(self.references)
+        return {'Accuracy': np.mean(score_list)}
+
 
     @property
     def references(self):

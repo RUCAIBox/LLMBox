@@ -31,6 +31,7 @@ class Evaluator:
 
         set_seed(self.evaluation_args.seed)
 
+        self.model_args.use_sc = self.evaluation_args.use_sc
         self.model = load_model(self.model_args)
         self.dataset = load_dataset(self.dataset_args, self.model)
         # TODO: change to logger
@@ -56,15 +57,31 @@ class Evaluator:
 
         results = []
         for batch in tqdm(dataloader, dynamic_ncols=True, desc="Evaluating"):
-            if self.dataset.evaluation_type == 'ranking':
-                results.extend(self.model.get_ppl(batch))
-            elif self.dataset.evaluation_type == 'generation':
-                results.extend(self.model.generation(batch))
+            if not self.evaluation_args.use_sc:
+                if self.dataset.evaluation_type == 'ranking':
+                    results.extend(self.model.get_ppl(batch))
+                elif self.dataset.evaluation_type == 'generation':
+                    results.extend(self.model.generation(batch))
+                else:
+                    raise ValueError(f"We only support two evaluation types: `ranking` and `generation`.")
             else:
-                raise ValueError(f"We only support two evaluation types: `ranking` and `generation`.")
+                if self.dataset.evaluation_type == 'ranking':
+                    batch_results = []
+                    for _ in range(self.evaluation_args.sample_path):
+                        batch_results.append(self.model.get_ppl(batch))
+                    batch_results = list(map(list, zip(*batch_results)))    # transpose
+                    results.extend(batch_results)
+                elif self.dataset.evaluation_type == 'generation':
+                    batch_results = []
+                    for _ in range(self.evaluation_args.sample_path):
+                        batch_results.append(self.model.generation(batch))
+                    batch_results = list(map(list, zip(*batch_results)))    # transpose
+                    results.extend(batch_results)
+                else:
+                    raise ValueError(f"We only support two evaluation types: `ranking` and `generation`.")
         assert len(results) == len(self.dataset)
 
         print('#' * 5, self.dataset.name, '#' * 5)
-        scores = self.dataset.calculate_metric(results)
+        scores = self.dataset.calculate_metric(results) if not self.evaluation_args.use_sc else self.dataset.calculate_metric_sc(results)
         for key, value in scores.items():
             print("{}: {:.2f}".format(key, value))
