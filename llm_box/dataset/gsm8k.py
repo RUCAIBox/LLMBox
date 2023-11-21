@@ -20,7 +20,7 @@ class Gsm8k(GenerationDataset):
         dataset = load_dataset('gsm8k', 'main')
         # dataset = load_from_disk("gsm8k")
         self.example_data = list(dataset["train"])
-        self.evaluation_data = list(dataset["test"])[:5]
+        self.evaluation_data = list(dataset["test"])
         self.instruction = "Answer the following question."
 
         self.metric = "accuracy"
