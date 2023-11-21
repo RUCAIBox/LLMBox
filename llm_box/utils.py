@@ -106,10 +106,6 @@ class EvaluationArguments:
         "Logger level to use on the main node.ossible choices are the log levels as strings: 'debug', 'info', 'warning', 'error' and 'critical'",
         metadata={"choices": log_levels.keys()},
     )
-    use_sc: bool = HfArg(
-        default=False,
-        help="Whether to use self-consistency",
-    )
     sample_path: int = HfArg(
         default=1,
         help="The path number for sampling for self-consistency",

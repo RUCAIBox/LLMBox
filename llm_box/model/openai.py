@@ -24,7 +24,7 @@ class Openai(Model):
         # TODO: compatible for gpt-3.5-turbo (enum_type?)
         self.max_tokens = 2048
         self.max_try_times = 5
-        self.temperature = 0.7 if args.use_sc else 1.0
+        self.temperature = 0.7 if args.sample_path > 1 else 1.0
         # TODO: gpt-3.5-turbo doesn't support echo and logprobs, and it doesn't support max_tokens=0
         self.ppl_kwargs = dict(echo=True, max_tokens=0, logprobs=0)
 

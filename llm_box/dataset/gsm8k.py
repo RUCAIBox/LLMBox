@@ -50,12 +50,7 @@ class Gsm8k(GenerationDataset):
             target=instance["answer"],
         )
 
-    def calculate_metric(self, predictions):
-        predictions = self.answer_cleansing(predictions)
-        score_list = np.asarray(predictions) == np.asarray(self.references)
-        return {'Accuracy': np.mean(score_list)}
-
-    def calculate_metric_sc(self, predictions: list[list[str]]):
+    def calculate_metric(self, predictions: list[list[str]]):
         vote_answer = []
         for samples in predictions:
             samples = self.answer_cleansing(samples)
