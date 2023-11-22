@@ -1,9 +1,7 @@
-import importlib
-import inspect
 import logging
 from dataclasses import MISSING, dataclass
 from logging import getLogger
-from typing import Optional, Tuple, Type, TypeVar
+from typing import Optional, Tuple, TypeVar
 import datetime
 import warnings
 
@@ -24,7 +22,7 @@ log_levels = {
 
 DEFAULT_LOG_FORMAT = '%(asctime)s %(hostname)s %(name)s[%(process)d] %(levelname)s %(message)s'
 
-DEFAULT_DATETIME_FORMAT = '%Y_%m_%d-%H_%M_%S'       # Compatible with windows, which does not support ':' in filename
+DEFAULT_DATETIME_FORMAT = '%Y_%m_%d-%H_%M_%S'  # Compatible with windows, which does not support ':' in filename
 
 
 @dataclass
@@ -103,7 +101,7 @@ class EvaluationArguments:
     log_level: Optional[str] = HfArg(
         default="warning",
         help=
-        "Logger level to use on the main node.ossible choices are the log levels as strings: 'debug', 'info', 'warning', 'error' and 'critical'",
+        "Logger level to use on the main node. Possible choices are the log levels as strings: 'debug', 'info', 'warning', 'error' and 'critical'",
         metadata={"choices": log_levels.keys()},
     )
 
@@ -154,6 +152,7 @@ def check_args(model_args, dataset_args, evaluation_args):
     if model_args.model_name_or_path.lower() == 'gpt-3.5-turbo' and dataset_args.batch_size > 1:
         dataset_args.batch_size = 1
         warnings.warn("gpt-3.5-turbo doesn't support batch_size > 1, automatically set batch_size=1.")
+
 
 def parse_argument() -> Tuple[ModelArguments, DatasetArguments, EvaluationArguments]:
     r"""Parse arguments from command line. Using `argparse` for predefined ones, and an easy mannal parser for others (saved in `kwargs`).

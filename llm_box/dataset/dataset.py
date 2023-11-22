@@ -1,4 +1,6 @@
 from logging import getLogger
+from typing import Dict
+from pprint import pformat
 
 import numpy as np
 import torch
@@ -95,7 +97,7 @@ class Dataset(torch.utils.data.Dataset):
         else:
             return source
 
-    def construct_examples(self, instance=None):
+    def construct_examples(self, instance=None) -> str:
         r"""Format one instance with the instruction and demonstration.
 
         Args:
@@ -104,6 +106,13 @@ class Dataset(torch.utils.data.Dataset):
         Returns:
             str: The constructed demonstration text.
         """
+        if self.num_shots == 0:
+            return ""
+        elif len(self.example_data) == 0:
+            raise ValueError(
+                f"Receive num_shots={self.num_shots}, but cannot construct examples for dataset {self.name} without example data."
+            )
+
         # selection algorithm
         # TODO: ICL
         indice = np.random.choice(len(self.example_data), self.args.num_shots)
@@ -119,6 +128,8 @@ class Dataset(torch.utils.data.Dataset):
             if cur_token_num + example_token_nums <= self.max_example_tokens:
                 example_text += cur_example_text
                 example_token_nums += cur_token_num
+
+        logger.info("Few-shot examples:\n" + pformat(example_text))
         return example_text
 
     def construct_instances(self):
@@ -141,7 +152,7 @@ class Dataset(torch.utils.data.Dataset):
             elif self.evaluation_type == "generation":
                 self.evaluation_instances.append(self.format_instruction_and_examples(formatted_instance["source"]))
 
-    def calculate_metric(self, predictions):
+    def calculate_metric(self, predictions) -> Dict[str, float]:
         r"""Calculate the metric score betwwen `predictions` and `references`.
 
         Args:

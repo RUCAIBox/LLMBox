@@ -1,7 +1,9 @@
-from .generation_dataset import GenerationDataset
 from datasets import load_dataset, load_from_disk
 import re
+
 import numpy as np
+
+from .generation_dataset import GenerationDataset
 
 
 class Gsm8k(GenerationDataset):
@@ -27,7 +29,7 @@ class Gsm8k(GenerationDataset):
         super().__init__(args, model)
 
     @staticmethod
-    def answer_cleansing(preds):
+    def answer_cleaning(preds):
         predictions = []
         for pred in preds:
             # replace numbers like `x,xxx` with `xxxx`
@@ -50,7 +52,7 @@ class Gsm8k(GenerationDataset):
         )
 
     def calculate_metric(self, predictions):
-        predictions = self.answer_cleansing(predictions)
+        predictions = self.answer_cleaning(predictions)
         score_list = np.asarray(predictions) == np.asarray(self.references)
         return {'Accuracy': np.mean(score_list)}
 

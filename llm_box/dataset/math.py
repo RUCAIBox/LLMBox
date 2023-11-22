@@ -3,19 +3,14 @@ from datasets import load_dataset, load_from_disk
 import numpy as np
 import re
 
-SUBSTITUTIONS = [
-    ('an ', ''), ('a ', ''), ('.$', '$'), ('\\$', ''), (r'\ ', ''),
-    (' ', ''), ('mbox', 'text'), (',\\text{and}', ','),
-    ('\\text{and}', ','), ('\\text{m}', '\\text{}')
-]
+SUBSTITUTIONS = [('an ', ''), ('a ', ''), ('.$', '$'), ('\\$', ''), (r'\ ', ''), (' ', ''), ('mbox', 'text'),
+                 (',\\text{and}', ','), ('\\text{and}', ','), ('\\text{m}', '\\text{}')]
+
 REMOVED_EXPRESSIONS = [
-    'square', 'ways', 'integers', 'dollars', 'mph', 'inches', 'ft',
-    'hours', 'km', 'units', '\\ldots', 'sue', 'points', 'feet',
-    'minutes', 'digits', 'cents', 'degrees', 'cm', 'gm', 'pounds',
-    'meters', 'meals', 'edges', 'students', 'childrentickets', 'multiples',
-    '\\text{s}', '\\text{.}', '\\text{\ns}', '\\text{}^2',
-    '\\text{}^3', '\\text{\n}', '\\text{}', r'\mathrm{th}',
-    r'^\circ', r'^{\circ}', r'\;', r',\!', '{,}', '"', '\\dots'
+    'square', 'ways', 'integers', 'dollars', 'mph', 'inches', 'ft', 'hours', 'km', 'units', '\\ldots', 'sue', 'points',
+    'feet', 'minutes', 'digits', 'cents', 'degrees', 'cm', 'gm', 'pounds', 'meters', 'meals', 'edges', 'students',
+    'childrentickets', 'multiples', '\\text{s}', '\\text{.}', '\\text{\ns}', '\\text{}^2', '\\text{}^3', '\\text{\n}',
+    '\\text{}', r'\mathrm{th}', r'^\circ', r'^{\circ}', r'\;', r',\!', '{,}', '"', '\\dots'
 ]
 
 
