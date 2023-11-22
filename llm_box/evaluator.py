@@ -1,6 +1,7 @@
 from logging import getLogger
 
 import numpy as np
+from statistics import mode
 from accelerate.utils import set_seed
 from torch.utils.data import DataLoader
 from tqdm import tqdm
@@ -65,6 +66,15 @@ class Evaluator:
         assert len(results) == len(self.dataset)
 
         print('#' * 5, self.dataset.name, '#' * 5)
-        scores = self.dataset.calculate_metric(results)
+
+        # reshape
+        reshaped_results = np.asarray(results).reshape(self.dataset_args.sample_num, -1)
+        for i in range(self.dataset_args.sample_num):
+            reshaped_results[i] = self.dataset.answer_cleansing(reshaped_results[i])
+
+        transposed_results = list(map(list, zip(*reshaped_results)))
+        mode_results = [mode(column) for column in transposed_results]
+
+        scores = self.dataset.calculate_metric(mode_results)
         for key, value in scores.items():
             print("{}: {:.2f}".format(key, value))

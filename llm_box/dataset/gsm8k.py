@@ -50,7 +50,6 @@ class Gsm8k(GenerationDataset):
         )
 
     def calculate_metric(self, predictions):
-        predictions = self.answer_cleansing(predictions)
         score_list = np.asarray(predictions) == np.asarray(self.references)
         return {'Accuracy': np.mean(score_list)}
 

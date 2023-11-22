@@ -13,7 +13,7 @@ class MultipleChoiceDataset(Dataset):
     def __init__(self, args, model):
         super().__init__(args, model)
 
-    def calculate_metric(self, results):
+    def answer_cleansing(self, results):
         labels = []
         st = 0
         results = np.array([result / length for result, length in results])
@@ -23,5 +23,8 @@ class MultipleChoiceDataset(Dataset):
         results = labels
         assert len(results) == len(self.references)
 
+        return results
+
+    def calculate_metric(self, results):
         score_list = np.asarray(results) == np.asarray(self.references)
         return {'Accuracy': np.mean(score_list)}
