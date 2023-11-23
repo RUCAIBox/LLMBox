@@ -1,50 +1,77 @@
 import os
 from logging import getLogger
 from os.path import normpath
-from typing import Dict, Optional, Tuple, Union
+from typing import Dict, Optional, Tuple, Union, Literal
 from pprint import pformat
 
 import datasets as d
 import numpy as np
 import torch
 
-from ..utils import DatasetArguments
+from ..utils import DatasetArguments, NotImplementedField
 from ..model.model import Model
 
 logger = getLogger(__name__)
 
 
 class Dataset(torch.utils.data.Dataset):
-    r"""The base class object for all datasets.
+    r"""The base class representing a dataset for a specific task.
 
-    Args:
-        args (Namespace): The global configurations.
-        model (Model): Our class for model.
+    Class Attributes:
+        - `name (str)`: The name of this dataset.
+        instruction (str): Dataset-specific instruction for this task.
+        - `metric (str)`: The metric used for evaluation.
+        - `evaluation_type (Literal['ranking', 'generation'])`: The type of evaluation for the dataset.
+        - `evaluation_set (str)`: The evaluation split of the dataset. Evaluation data will be automatically loaded.
+        - `example_set (Optional[str])`: The example split of the dataset. Example data will be automatically loaded if this is not None.
+        - `load_args (Union[Tuple[str], Tuple[str, str]])`: Arguments for loading the dataset with huggingface `load_dataset`.
 
     Attributes:
-        name (str): The name of this dataset.
-        tokenizer (Union[transformers.PreTrainedTokenizer, tiktoken.Encoding]): The tokenizer of corresponding model.
-        evaluation_data (List[dict]): The list of data for evaluation.
-        evaluation_instances (List[Union[str, Tuple(str, str)]]): The list of formatted evaluation instances.
-        evaluation_type (str): The method for evaluation, which can be set to either 'ranking' or 'generation'.
-        metric (str): The metric for evaluating the predictions and references.
-        instruction (str, *optional*): The instruction for this task.
-        option_nums (List[int], *optional*): The list of the number of options for each instance (mainly used for multi-choice tasks).
-        example_data (List[dict], *optional*): The list of demonstration data.
-        num_shots (int, *optional*): The number of demonstration instances.
-        max_example_tokens (int, *optional*): The number of maximum tokens in the demonstration.
+        - `args (DatasetArguments)`: The arguments for the dataset.
+        - `model (Model)`: The model used for the dataset.
+        - `tokenizer (Tokenizer)`: The tokenizer used for the dataset.
+        - `num_shots (int)`: The number of few-shot examples to construct.
+        - `max_example_tokens (int)`: The maximum number of tokens allowed for the few-shot examples.
+        - `examples (str)`: The constructed demonstration text.
+        - `evaluation_data (List[Dict])`: The loaded evaluation data.
+        - `example_data (List[Dict])`: The loaded example data.
+        - `evaluation_instances (List[str])`: The final formatted instances for evaluation.
+        - `option_nums (List[int])`: The number of options for each evaluation instance.
     """
-    name = ""
-    metric = ""
-    instruction = ""
-    evaluation_type = ""
 
-    evaluation_set: str = ""
-    example_set: Optional[str] = None
+    name = NotImplementedField
+    r"""The name of this dataset. Should be identical to the file name."""
 
-    load_args: Union[Tuple[str], Tuple[str, str]] = None
+    instruction: str = NotImplementedField
+    r"""Dataset-specific instruction for the task."""
+
+    metric: str = NotImplementedField
+    r"""The metric used for evaluation."""
+
+    evaluation_type: Literal['ranking', 'generation'] = NotImplementedField
+    r"""The type of evaluation for the dataset."""
+
+    evaluation_set: str = NotImplementedField
+    r"""The evaluation split of dataset. Evaluation data will be automatically loaded."""
+
+    example_set: Optional[str] = NotImplementedField
+    r"""The example split of dataset. Example data will be automatically loaded if this is not None."""
+
+    load_args: Union[Tuple[str], Tuple[str, str]] = NotImplementedField
+    r"""Arguments for loading the dataset with huggingface `load_dataset`.
+
+    Supported formats:
+        - `(dataset_name,)`: If the dataset supports specifying subset name from command line, or only has one subset. E.g., `('race',)` and `('hendrycks/competition_math',)` respectively.
+        - `(dataset_name, subset_name)`: If the dataset itself is a subset of a dataset collection. E.g., `('super_glue', 'copa')`.
+    """
 
     def __init__(self, args: DatasetArguments, model: Model):
+        r"""This should be called by the subclass.
+
+        Args:
+            - `args (DatasetArguments)`: The arguments for the dataset.
+            - `model (Model)`: Our class for model.
+        """
         super().__init__()
         self.args = args
 
@@ -64,7 +91,7 @@ class Dataset(torch.utils.data.Dataset):
         self.construct_instances()
 
     def _load_raw_dataset(self, dataset_path, subset_name, evaluation_set, example_set):
-        """Load the raw dataset from huggingface or local path."""
+        r"""Load the raw dataset from huggingface or local path."""
         logger.debug(
             f"Loading raw dataset `{self.name}:{subset_name}`" + (f" from `{dataset_path}`" if dataset_path else "") +
             f" with evaluation set `{evaluation_set}`" + (f" and example set `{example_set}`" if example_set else "")
@@ -127,10 +154,10 @@ class Dataset(torch.utils.data.Dataset):
             instance (Dict): an instance dict of multiple key-value pairs.
 
         Returns:
-            Dict:
-                source: str
-                target: str
-                options (*optional*): List[str]
+            Dict: A dictionary containing the formatted instance.
+                source (str): The source text.
+                target (str): The target text.
+                options (List[str], optional): The options for ranking.
         """
         raise NotImplementedError(f"{self.name} dataset must implement the `format_instance` function.")
 
@@ -139,7 +166,7 @@ class Dataset(torch.utils.data.Dataset):
 
         Args:
             source (str): the pre-formatted source text.
-            target (str, *optional*): the pre-formatted target text (default to "").
+            target (str, optional): the pre-formatted target text (default to "".
 
         Returns:
             Union[str, Tuple(str, str)]: The final formatted instance.
@@ -219,7 +246,7 @@ class Dataset(torch.utils.data.Dataset):
             predictions (List[str]): The predicted answers.
 
         Returns:
-            dict: The metric results.
+            Dict[str, float]: The metric results.
         """
         raise NotImplementedError(f"{self.name} dataset must implement the `calcuate_metric` function.")
 
