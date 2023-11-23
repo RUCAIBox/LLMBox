@@ -29,11 +29,12 @@ class Math(GenerationDataset):
     """
 
     name = "math"
-    load_args = ("hendrycks/competition_math",)
+    instruction = "Answer the following question."
+
     example_set = "train"
     evaluation_set = "test"
-    metric = "accuracy"
-    instruction = "Answer the following question."
+
+    load_args = ("hendrycks/competition_math",)
 
     @staticmethod
     def normalize_final_answer(final_answer: str) -> str:

@@ -17,12 +17,12 @@ class Gsm8k(GenerationDataset):
 
     name = "gsm8k"
     instruction = "Answer the following question."
-    load_args = ("gsm8k", "main")
+    answer_trigger = "\nTherefore, the answer (arabic numerals) is "
 
     evaluation_set = "test"
     example_set = "train"
-    metric = "accuracy"
-    answer_trigger = "\nTherefore, the answer (arabic numerals) is "
+
+    load_args = ("gsm8k", "main")
 
     @staticmethod
     def answer_cleaning(preds):

@@ -30,9 +30,12 @@ class Race(MultipleChoiceDataset):
     """
 
     name = "race"
-    load_args = ("race",)  # specify subset from command line
+    instruction = ""
+
     evaluation_set = "validation"
     example_set = "train"
+
+    load_args = ("race",)  # specify subset from command line
 
     def format_instance(self, instance):
         source_text = "Article:\n" + instance["article"] + "\n\n" + "Q: " + instance["question"] + "\n\nA:"

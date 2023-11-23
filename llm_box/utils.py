@@ -26,6 +26,11 @@ DEFAULT_LOG_FORMAT = '%(asctime)s %(hostname)s %(name)s[%(process)d] %(levelname
 DEFAULT_DATETIME_FORMAT = '%Y_%m_%d-%H_%M_%S'  # Compatible with windows, which does not support ':' in filename
 
 
+@property
+def NotImplementedField(self):
+    raise NotImplementedError(f"{self.__class__.__name__} has not implemented field.")
+
+
 @dataclass
 class ModelArguments:
 
