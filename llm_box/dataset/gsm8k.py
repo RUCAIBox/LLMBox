@@ -1,4 +1,3 @@
-from datasets import load_dataset, load_from_disk
 import re
 
 import numpy as np
@@ -16,17 +15,14 @@ class Gsm8k(GenerationDataset):
         answer: Natalia sold 48/2 = <<48/2=24>>24 clips in May. Natalia sold 48+24 = <<48+24=72>>72 clips altogether in April and May. #### 72
     """
 
-    def __init__(self, args, model):
-        self.name = "gsm8k"
-        dataset = load_dataset('gsm8k', 'main')
-        # dataset = load_from_disk("gsm8k")
-        self.example_data = list(dataset["train"])
-        self.evaluation_data = list(dataset["test"])
-        self.instruction = "Answer the following question."
+    name = "gsm8k"
+    instruction = "Answer the following question."
+    load_args = ("gsm8k", "main")
 
-        self.metric = "accuracy"
-        self.answer_trigger = "\nTherefore, the answer (arabic numerals) is "
-        super().__init__(args, model)
+    evaluation_set = "test"
+    example_set = "train"
+    metric = "accuracy"
+    answer_trigger = "\nTherefore, the answer (arabic numerals) is "
 
     @staticmethod
     def answer_cleaning(preds):

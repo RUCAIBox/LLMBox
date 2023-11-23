@@ -1,9 +1,15 @@
+import os
 from logging import getLogger
-from typing import Dict
+from os.path import normpath
+from typing import Dict, Optional, Tuple, Union
 from pprint import pformat
 
+import datasets as d
 import numpy as np
 import torch
+
+from ..utils import DatasetArguments
+from ..model.model import Model
 
 logger = getLogger(__name__)
 
@@ -33,9 +39,21 @@ class Dataset(torch.utils.data.Dataset):
     instruction = ""
     evaluation_type = ""
 
-    def __init__(self, args, model):
+    evaluation_set: str = ""
+    example_set: Optional[str] = None
+
+    load_args: Union[Tuple[str], Tuple[str, str]] = None
+
+    def __init__(self, args: DatasetArguments, model: Model):
         super().__init__()
         self.args = args
+
+        self._load_raw_dataset(
+            dataset_path=args.dataset_path,
+            subset_name=args.subset_name,
+            evaluation_set=args.evaluation_set or self.evaluation_set,
+            example_set=args.example_set or self.example_set,
+        )
 
         self.model = model
         self.tokenizer = model.tokenizer
@@ -44,6 +62,48 @@ class Dataset(torch.utils.data.Dataset):
         self.max_example_tokens = args.max_example_tokens
         self.examples = self.construct_examples()
         self.construct_instances()
+
+    def _load_raw_dataset(self, dataset_path, subset_name, evaluation_set, example_set):
+        """Load the raw dataset from huggingface or local path."""
+        logger.debug(
+            f"Loading raw dataset `{self.name}:{subset_name}`" + (f" from `{dataset_path}`" if dataset_path else "") +
+            f" with evaluation set `{evaluation_set}`" + (f" and example set `{example_set}`" if example_set else "")
+        )
+        if len(self.load_args) == 1:
+            load_args = self.load_args + (subset_name,)
+
+        if dataset_path is not None:
+            loadders = []
+            dataset_path = "./" + normpath(dataset_path)
+            if os.path.exists(dataset_path + "/dataset_infos.json"):
+                loadders.append(lambda s: d.load_dataset(dataset_path, split=s))
+            elif os.path.exists(dataset_path + "/dataset_dict.json"):
+                loadders.append(lambda s: d.load_from_disk(dataset_path)[s])
+            elif os.path.exists(dataset_path + "/" + subset_name + "/dataset_dict.json"):
+                loadders.append(lambda s: d.load_from_disk(dataset_path + "/" + subset_name)[s])
+        else:
+            loadders = [lambda s: d.load_dataset(*load_args, split=s)]
+
+        for fn in loadders:
+            try:
+                self.evaluation_data = list(fn(evaluation_set))
+                self.example_data = list(fn(example_set)) if example_set else []
+                logger.info(
+                    f"Evaluation data with {len(self.evaluation_data)} instances:\n{pformat(self.evaluation_data[0])}"
+                )
+                return
+            except KeyError as e:
+                raise ValueError(f'Unknown split "{e}" of dataset "{self.name}"')
+            except ValueError as e:
+                raise e
+            except Exception as e:
+                logger.info(f"{e.__class__.__name__} when loading dataset: {e}")
+
+        msg = f"Cannot load dataset {self.name}"
+        if dataset_path:
+            raise ValueError(msg + f" from local path `{dataset_path}` or `{dataset_path}/{subset_name}`")
+        else:
+            raise ValueError(msg + f" from huggingface ({', '.join(load_args)})")
 
     def __len__(self):
         return len(self.evaluation_instances)
@@ -162,3 +222,42 @@ class Dataset(torch.utils.data.Dataset):
             dict: The metric results.
         """
         raise NotImplementedError(f"{self.name} dataset must implement the `calcuate_metric` function.")
+
+
+class DatasetCollection(torch.utils.data.Dataset):
+
+    def __init__(self, datasets: Dict[str, Dataset]):
+        super().__init__()
+        self._subset_names = list(datasets.keys())
+        self._datasets = list(datasets.values())
+        self._cur_idx = 0
+
+    def __len__(self):
+        return sum(len(d) for d in self._datasets)
+
+    def __getitem__(self, idx):
+        if idx > self.__len__():
+            raise IndexError(f"Index {idx} out of range")
+        self._cur_idx = 0
+        while idx >= len(self._datasets[self._cur_idx]):
+            idx -= len(self._datasets[self._cur_idx])
+            self._cur_idx += 1
+        return self._datasets[self._cur_idx][idx]
+
+    def __iter__(self):
+        for self._cur_idx, d in enumerate(self._datasets):
+            yield from d
+
+    def __getattr__(self, attr):
+        return getattr(self._datasets[self._cur_idx], attr)
+
+    def calculate_metric(self, predictions) -> Dict[str, Dict[str, float]]:
+        results = dict()
+        cur_len = 0
+        for s, d in zip(self._subset_names, self._datasets):
+            results[d.name + ":" + s] = d.calculate_metric(predictions[cur_len:cur_len + len(d)])
+            cur_len += len(d)
+        return results
+
+    def __repr__(self):
+        return f"DatasetCollection({self._datasets})"

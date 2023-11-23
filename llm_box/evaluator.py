@@ -71,7 +71,14 @@ class Evaluator:
 
         metric_results = self.dataset.calculate_metric(predictions)
 
-        print('#' * 5, self.dataset.name, '#' * 5)
-        for key, value in metric_results.items():
-            print("{}: {:.2f}".format(key, value))
+        msg = f'Evaluation finished successfully:'
+        if not isinstance(next(iter(metric_results.values())), dict):
+            metric_results = {self.dataset.name: metric_results}
+
+        for dataset_name, result in metric_results.items():
+            msg += f'\n##### {dataset_name} #####'
+            for key, value in result.items():
+                msg += "\n{}: {:.2f}".format(key, value)
+
+        logger.warning(msg)
         return metric_results

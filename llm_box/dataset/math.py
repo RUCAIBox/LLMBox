@@ -1,7 +1,8 @@
-from .generation_dataset import GenerationDataset
-from datasets import load_dataset, load_from_disk
-import numpy as np
 import re
+
+import numpy as np
+
+from .generation_dataset import GenerationDataset
 
 SUBSTITUTIONS = [('an ', ''), ('a ', ''), ('.$', '$'), ('\\$', ''), (r'\ ', ''), (' ', ''), ('mbox', 'text'),
                  (',\\text{and}', ','), ('\\text{and}', ','), ('\\text{m}', '\\text{}')]
@@ -27,16 +28,12 @@ class Math(GenerationDataset):
         solution: For the piecewise function to be continuous, the cases must "meet" at $2$ and $-2$. For example, $ax+3$ and $x-5$ must be equal when $x=2$. This implies $a(2)+3=2-5$, which we solve to get $2a=-6 \Rightarrow a=-3$. Similarly, $x-5$ and $2x-b$ must be equal when $x=-2$. Substituting, we get $-2-5=2(-2)-b$, which implies $b=3$. So $a+b=-3+3=\boxed{0}$.
     """
 
-    def __init__(self, args, model):
-        self.name = "math"
-        dataset = load_dataset("hendrycks/competition_math")
-        # dataset = load_from_disk("hendrycks/competition_math")
-        self.example_data = list(dataset["train"])
-        self.evaluation_data = list(dataset["test"])
-        self.instruction = "Answer the following question."
-
-        self.metric = "accuracy"
-        super().__init__(args, model)
+    name = "math"
+    load_args = ("hendrycks/competition_math",)
+    example_set = "train"
+    evaluation_set = "test"
+    metric = "accuracy"
+    instruction = "Answer the following question."
 
     @staticmethod
     def normalize_final_answer(final_answer: str) -> str:
