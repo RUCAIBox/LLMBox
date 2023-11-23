@@ -1,12 +1,13 @@
 from logging import getLogger
+from typing import Tuple, Dict
 
-import numpy as np
 from accelerate.utils import set_seed
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from .dataset import load_dataset
 from .model import load_model
+from .utils import ModelArguments, DatasetArguments, EvaluationArguments
 
 logger = getLogger(__name__)
 
@@ -23,7 +24,7 @@ class Evaluator:
         dataset (Dataset): Our class for dataset.
     """
 
-    def __init__(self, args):
+    def __init__(self, args: Tuple[ModelArguments, DatasetArguments, EvaluationArguments]):
         model_args, dataset_args, evaluation_args = args
         self.model_args = model_args
         self.dataset_args = dataset_args
@@ -33,11 +34,8 @@ class Evaluator:
 
         self.model = load_model(self.model_args)
         self.dataset = load_dataset(self.dataset_args, self.model)
-        # TODO: change to logger
-        # filename = args.model + "-" + args.dataset + "-" + str(args.num_shots)
-        # self.args.filename = filename
 
-    def evaluate(self):
+    def evaluate(self) -> Dict[str, float]:
         r"""It conducts the evaluation on the dataset with corresponding models.
         We support two evaluation types:
 
@@ -54,17 +52,33 @@ class Evaluator:
             pin_memory=True
         )
 
-        results = []
-        for batch in tqdm(dataloader, dynamic_ncols=True, desc="Evaluating"):
-            if self.dataset.evaluation_type == 'ranking':
-                results.extend(self.model.get_ppl(batch))
-            elif self.dataset.evaluation_type == 'generation':
-                results.extend(self.model.generation(batch))
-            else:
-                raise ValueError(f"We only support two evaluation types: `ranking` and `generation`.")
-        assert len(results) == len(self.dataset)
+        if self.dataset.evaluation_type == 'ranking':
+            call_model = self.model.get_ppl
+        elif self.dataset.evaluation_type == 'generation':
+            call_model = self.model.generation
+        else:
+            raise ValueError(
+                f"We only support two evaluation types: `ranking` and `generation`, but got `{self.dataset.evaluation_type}`."
+            )
 
-        print('#' * 5, self.dataset.name, '#' * 5)
-        scores = self.dataset.calculate_metric(results)
-        for key, value in scores.items():
-            print("{}: {:.2f}".format(key, value))
+        # call model
+        predictions = []
+        for batch in tqdm(dataloader, dynamic_ncols=True, desc="Evaluating"):
+            predictions.extend(call_model(batch))
+
+        if len(predictions) != len(dataloader):
+            raise RuntimeError("The number of results should be equal to the number of samples in the dataset.")
+
+        metric_results = self.dataset.calculate_metric(predictions)
+
+        msg = f'Evaluation finished successfully:'
+        if not isinstance(next(iter(metric_results.values())), dict):
+            metric_results = {self.dataset.name: metric_results}
+
+        for dataset_name, result in metric_results.items():
+            msg += f'\n##### {dataset_name} #####'
+            for key, value in result.items():
+                msg += "\n{}: {:.2f}".format(key, value)
+
+        logger.warning(msg)
+        return metric_results
