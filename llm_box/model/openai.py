@@ -21,6 +21,8 @@ class Openai(Model):
 
     def __init__(self, args: ModelArguments):
         super().__init__(args)
+        if not args.openai_api_key:
+            raise ValueError("OpenAI API key is required")
         openai.api_key = args.openai_api_key
         secret_key = openai.api_key[:8] + "*" * 39 + openai.api_key[-4:]
         logger.info(f"OpenAI API key: {secret_key}, base: {openai.api_base}")

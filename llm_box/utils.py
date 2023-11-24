@@ -130,6 +130,10 @@ class EvaluationArguments:
         metadata={"choices": log_levels.keys()},
     )
 
+    def __post_init__(self):
+        if not os.path.exists(self.logging_dir):
+            os.makedirs(self.logging_dir)
+
 
 def set_logging(
     model_args: ModelArguments,
