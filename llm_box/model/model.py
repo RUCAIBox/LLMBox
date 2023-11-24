@@ -17,6 +17,7 @@ class Model:
 
     def __init__(self, args):
         self.args = args
+        self.tokenizer = None
 
     def get_ppl(self, batch):
         r"""Compute the PPL score of the option given the context for this batch.
