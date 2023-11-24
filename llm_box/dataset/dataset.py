@@ -8,6 +8,8 @@ import datasets as d
 import numpy as np
 import torch
 
+from utils import *
+from instance_utils import ape,global_entropy_ordering_strategy,knn_construct_examples
 from ..utils import DatasetArguments, NotImplementedField
 from ..model.model import Model
 
@@ -189,11 +191,17 @@ class Dataset(torch.utils.data.Dataset):
             Union[str, Tuple(str, str)]: The final formatted instance.
         """
         # TODO: instruction template
+
         # TODO: ICL
 
         if self.model.type == 'base':
             source = self.examples + source
         elif self.model.type == 'instruction':
+            preformatted_example_dataset = formatted_copa_data(self.example_data)
+            preformatted_evaluation_dataset = formatted_copa_data(self.evaluation_data)
+            # construct instructions using ape
+            instrctions,instructions_scores = ape(preformatted_example_dataset,preformatted_evaluation_dataset)
+            self.instruction = instrctions[0]
             source = self.instruction + "\n\n" + self.examples + source
 
         if target:
@@ -219,7 +227,17 @@ class Dataset(torch.utils.data.Dataset):
 
         # selection algorithm
         # TODO: ICL
-        indice = np.random.choice(len(self.example_data), self.args.num_shots)
+        # select demonstrations based on knn algorithm
+        preformatted_dataset = formatted_copa_data(self.example_data)
+        knn_indice = knn_construct_examples(instance["source"],preformatted_dataset,self.num_shots)
+
+        # rank demonstrations based on global entropy
+        labels = []
+        for i in range(len(self.example_data)):
+            labels.append(str(self.example_data[i]["label"]))
+        labels = list(set(labels))
+        indice = global_entropy_ordering_strategy(knn_indice,labels,preformatted_dataset)
+        # indice = np.random.choice(len(self.example_data), self.args.num_shots)
 
         # TODO: tokenizer efficiency
         # construct few-shot examples
