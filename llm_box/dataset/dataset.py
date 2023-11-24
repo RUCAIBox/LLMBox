@@ -98,6 +98,8 @@ class Dataset(torch.utils.data.Dataset):
         )
         if len(self.load_args) == 1:
             load_args = self.load_args + (subset_name,)
+        else:
+            load_args = self.load_args
 
         if dataset_path is not None:
             loadders = []
