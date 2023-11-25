@@ -1,6 +1,6 @@
 import os
 from logging import getLogger
-from os.path import normpath
+from os.path import abspath
 from typing import Dict, Optional, Tuple, Union, Literal
 from pprint import pformat
 
@@ -39,7 +39,7 @@ class Dataset(torch.utils.data.Dataset):
         - `option_nums (List[int])`: The number of options for each evaluation instance.
     """
 
-    name = NotImplementedField
+    name: str = NotImplementedField
     r"""The name of this dataset. Should be identical to the file name."""
 
     instruction: str = NotImplementedField
@@ -65,19 +65,20 @@ class Dataset(torch.utils.data.Dataset):
         - `(dataset_name, subset_name)`: If the dataset itself is a subset of a dataset collection. E.g., `('super_glue', 'copa')`.
     """
 
-    def __init__(self, args: DatasetArguments, model: Model):
+    def __init__(self, args: DatasetArguments, model: Model, subset_name: Optional[str] = None):
         r"""This should be called by the subclass.
 
         Args:
             - `args (DatasetArguments)`: The arguments for the dataset.
             - `model (Model)`: Our class for model.
+            - `subset_name (Optional[str])`: The subset name of the dataset. Used when loading raw dataset from huggingface.
         """
         super().__init__()
         self.args = args
 
         self._load_raw_dataset(
             dataset_path=args.dataset_path,
-            subset_name=args.subset_name,
+            subset_name=subset_name,
             evaluation_set=args.evaluation_set or self.evaluation_set,
             example_set=args.example_set or self.example_set,
         )
@@ -90,28 +91,43 @@ class Dataset(torch.utils.data.Dataset):
         self.examples = self.construct_examples()
         self.construct_instances()
 
-    def _load_raw_dataset(self, dataset_path, subset_name, evaluation_set, example_set):
-        r"""Load the raw dataset from huggingface or local path."""
-        logger.debug(
-            f"Loading raw dataset `{self.name}:{subset_name}`" + (f" from `{dataset_path}`" if dataset_path else "") +
-            f" with evaluation set `{evaluation_set}`" + (f" and example set `{example_set}`" if example_set else "")
-        )
-        if len(self.load_args) == 1:
-            load_args = self.load_args + (subset_name,)
-        else:
-            load_args = self.load_args
+    def _load_raw_dataset(
+        self,
+        dataset_path: Optional[str],
+        subset_name: Optional[str],
+        evaluation_set: str,
+        example_set: Optional[str],
+    ):
+        r"""Load the raw dataset from huggingface or local path into `self.evaluation_data` and `self.example_data`. If `dataset_path` is not None, the dataset will be loaded from the given local path."""
 
+        msg = f"Loading raw dataset `{self.name}:{subset_name}`"
         if dataset_path is not None:
             loadders = []
-            dataset_path = "./" + normpath(dataset_path)
+            dataset_path = abspath(dataset_path)
+            msg += f" from local path `{dataset_path}`"
             if os.path.exists(dataset_path + "/dataset_infos.json"):
-                loadders.append(lambda s: d.load_dataset(dataset_path, split=s))
+                loadders.append(lambda s: d.load_dataset(dataset_path, self.name, split=s))
+                loadders.append(lambda s: d.load_dataset(dataset_path, subset_name, split=s))
             elif os.path.exists(dataset_path + "/dataset_dict.json"):
                 loadders.append(lambda s: d.load_from_disk(dataset_path)[s])
-            elif os.path.exists(dataset_path + "/" + subset_name + "/dataset_dict.json"):
+            elif isinstance(subset_name, str) and os.path.exists(f"{dataset_path}/{subset_name}/dataset_dict.json"):
                 loadders.append(lambda s: d.load_from_disk(dataset_path + "/" + subset_name)[s])
         else:
+            if len(self.load_args) == 1 and isinstance(subset_name, str):
+                load_args = self.load_args + (subset_name,)
+            elif isinstance(subset_name, str):
+                raise ValueError(
+                    f"Failed to specify {subset_name} subset since dataset `{self.name}` already has defined one to load ({', '.join(self.load_args)}). Please use `{self.name}`."
+                )
+            else:
+                load_args = self.load_args
+            msg += f" from huggingface ({', '.join(load_args)})"
             loadders = [lambda s: d.load_dataset(*load_args, split=s)]
+
+        logger.debug(
+            msg + f" with evaluation set `{evaluation_set}`" +
+            (f" and example set `{example_set}`" if example_set else "")
+        )
 
         for fn in loadders:
             try:
@@ -124,15 +140,14 @@ class Dataset(torch.utils.data.Dataset):
             except KeyError as e:
                 raise ValueError(f'Unknown split "{e}" of dataset "{self.name}"')
             except ValueError as e:
-                raise e
+                # catch unknown split error raise from load_dataset
+                if "Unknown split" in str(e):
+                    raise e
             except Exception as e:
+                # continue to try other loaders
                 logger.info(f"{e.__class__.__name__} when loading dataset: {e}")
 
-        msg = f"Cannot load dataset {self.name}"
-        if dataset_path:
-            raise ValueError(msg + f" from local path `{dataset_path}` or `{dataset_path}/{subset_name}`")
-        else:
-            raise ValueError(msg + f" from huggingface ({', '.join(load_args)})")
+        raise ValueError("Failed to load" + msg[7:])
 
     def __len__(self):
         return len(self.evaluation_instances)
@@ -261,6 +276,10 @@ class DatasetCollection(torch.utils.data.Dataset):
         self._datasets = list(datasets.values())
         self._cur_idx = 0
 
+    @property
+    def name(self) -> str:
+        return self._datasets[0].name
+
     def __len__(self):
         return sum(len(d) for d in self._datasets)
 
@@ -275,7 +294,7 @@ class DatasetCollection(torch.utils.data.Dataset):
 
     def __iter__(self):
         for self._cur_idx, d in enumerate(self._datasets):
-            yield from d
+            yield from d.__iter__()
 
     def __getattr__(self, attr):
         return getattr(self._datasets[self._cur_idx], attr)

@@ -2,7 +2,7 @@ import os
 import logging
 from dataclasses import MISSING, dataclass
 from logging import getLogger
-from typing import Optional, Tuple, TypeVar, ClassVar
+from typing import Optional, Tuple, TypeVar, ClassVar, Set
 import datetime
 import warnings
 
@@ -64,17 +64,21 @@ class DatasetArguments:
         help=
         "The name of a dataset or the name of a subset in a dataset. Format: 'dataset' or 'dataset:subset'. E.g., copa, gsm, race, or race:high"
     )
-    """The name of a dataset without subset name. Refer to `subset_name` for the subset name."""
+    """The name of a dataset without subset name. Refer to `subset_names` for the subset name."""
 
-    subset_name: ClassVar[Optional[str]] = None
+    subset_names: ClassVar[Set[str]] = set()
     """The name of a subset in a dataset, derived from `dataset_name` argument on initalization"""
 
-    dataset_path: Optional[str] = HfArg(default=None, help="The path of dataset if loading from local")
-    evaluation_set: str = HfArg(
+    dataset_path: Optional[str] = HfArg(
+        default=None,
+        help=
+        "The path of dataset if loading from local. Supports repository cloned from huggingface or dataset saved by `save_to_disk`."
+    )
+    evaluation_set: Optional[str] = HfArg(
         default=None,
         help="The set name for evaluation, supporting slice, e.g., validation, test, validation[:10]",
     )
-    example_set: str = HfArg(
+    example_set: Optional[str] = HfArg(
         default=None,
         help="The set name for demonstration, supporting slice, e.g., train, dev, train[:10]",
     )
@@ -109,7 +113,8 @@ class DatasetArguments:
 
     def __post_init__(self):
         if ":" in self.dataset_name:
-            self.dataset_name, self.subset_name = self.dataset_name.split(":")
+            self.dataset_name, subset_names = self.dataset_name.split(":")
+            self.subset_names = set(subset_names.split(","))
 
 
 @dataclass
@@ -130,6 +135,10 @@ class EvaluationArguments:
         metadata={"choices": log_levels.keys()},
     )
 
+    def __post_init__(self):
+        if not os.path.exists(self.logging_dir):
+            os.makedirs(self.logging_dir)
+
 
 def set_logging(
     model_args: ModelArguments,
@@ -149,7 +158,9 @@ def set_logging(
 
     # set the log file
     model_name = model_args.model_name_or_path.strip("/").split("/")[-1]
-    dataset_name = dataset_args.dataset_name + ("_" + dataset_args.subset_name if dataset_args.subset_name else "")
+    dataset_name = dataset_args.dataset_name + (
+        "_" + ",".join(dataset_args.subset_names) if dataset_args.subset_names else ""
+    )
     num_shots = str(dataset_args.num_shots)
     execution_time = datetime.datetime.now().strftime(DEFAULT_DATETIME_FORMAT)
     log_filename = f"{model_name}-{dataset_name}-{num_shots}-{execution_time}.log"
@@ -179,14 +190,14 @@ def check_args(model_args, dataset_args, evaluation_args):
         warnings.warn("gpt-3.5-turbo doesn't support batch_size > 1, automatically set batch_size=1.")
 
 
-def parse_argument() -> Tuple[ModelArguments, DatasetArguments, EvaluationArguments]:
+def parse_argument(args=None) -> Tuple[ModelArguments, DatasetArguments, EvaluationArguments]:
     r"""Parse arguments from command line. Using `argparse` for predefined ones, and an easy mannal parser for others (saved in `kwargs`).
 
     Returns:
         Namespace: the parsed arguments
     """
     parser = HfArgumentParser((ModelArguments, DatasetArguments, EvaluationArguments), description="LLMBox description")
-    model_args, dataset_args, evaluation_args = parser.parse_args_into_dataclasses()
+    model_args, dataset_args, evaluation_args = parser.parse_args_into_dataclasses(args)
     check_args(model_args, dataset_args, evaluation_args)
     set_logging(model_args, dataset_args, evaluation_args)
 
