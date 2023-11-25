@@ -18,7 +18,7 @@ class MultipleChoiceDataset(Dataset):
             labels.append(results[st:st + num].argmin())
             st += num
         results = labels
-        assert len(results) == len(self.references)
+
 
         return results
 

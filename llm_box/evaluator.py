@@ -1,7 +1,7 @@
 from logging import getLogger
 from typing import Tuple, Dict
 
-from statistics import mode
+from torch import mode, tensor
 from accelerate.utils import set_seed
 from torch.utils.data import DataLoader
 from tqdm import tqdm
@@ -73,7 +73,7 @@ class Evaluator:
         predictions = self.dataset.post_processing(predictions)
 
         step = len(predictions) // self.dataset_args.sample_num
-        mode_results = [mode(predictions[i::step]) for i in range(step)]
+        mode_results = [mode(tensor(predictions[i::step])).values.item() for i in range(step)]
 
         metric_results = self.dataset.calculate_metric(mode_results)
 
