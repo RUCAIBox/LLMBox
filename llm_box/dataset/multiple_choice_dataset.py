@@ -10,9 +10,6 @@ class MultipleChoiceDataset(Dataset):
     evaluation_type = "ranking"
     metric = "accuracy"
 
-    def __init__(self, args, model):
-        super().__init__(args, model)
-
     def answer_cleansing(self, results):
         labels = []
         st = 0

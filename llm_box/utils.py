@@ -1,9 +1,8 @@
-import importlib
-import inspect
+import os
 import logging
 from dataclasses import MISSING, dataclass
 from logging import getLogger
-from typing import Optional, Tuple, Type, TypeVar
+from typing import Optional, Tuple, TypeVar, ClassVar
 import datetime
 import warnings
 
@@ -24,7 +23,12 @@ log_levels = {
 
 DEFAULT_LOG_FORMAT = '%(asctime)s %(hostname)s %(name)s[%(process)d] %(levelname)s %(message)s'
 
-DEFAULT_DATETIME_FORMAT = '%Y_%m_%d-%H_%M_%S'       # Compatible with windows, which does not support ':' in filename
+DEFAULT_DATETIME_FORMAT = '%Y_%m_%d-%H_%M_%S'  # Compatible with windows, which does not support ':' in filename
+
+
+@property
+def NotImplementedField(self):
+    raise NotImplementedError(f"{self.__class__.__name__} has not implemented field.")
 
 
 @dataclass
@@ -34,7 +38,7 @@ class ModelArguments:
         default=MISSING, aliases=["--model", "-m"], help="The model name or path, e.g., cuire, llama"
     )
     openai_api_key: str = HfArg(
-        default="",
+        default=None,
         help="The OpenAI API key",
     )
     load_in_half: bool = HfArg(
@@ -50,18 +54,33 @@ class ModelArguments:
         help="The temperature for models",
     )
 
+    def __post_init__(self):
+        if "OPENAI_API_KEY" in os.environ and self.openai_api_key is None:
+            self.openai_api_key = os.environ["OPENAI_API_KEY"]
+
 
 @dataclass
 class DatasetArguments:
 
-    dataset: str = HfArg(default=MISSING, aliases=["-d"], help="The dataset name, e.g., copa, gsm")
+    dataset_name: str = HfArg(
+        default=MISSING,
+        aliases=["-d", "--dataset"],
+        help=
+        "The name of a dataset or the name of a subset in a dataset. Format: 'dataset' or 'dataset:subset'. E.g., copa, gsm, race, or race:high"
+    )
+    """The name of a dataset without subset name. Refer to `subset_name` for the subset name."""
+
+    subset_name: ClassVar[Optional[str]] = None
+    """The name of a subset in a dataset, derived from `dataset_name` argument on initalization"""
+
+    dataset_path: Optional[str] = HfArg(default=None, help="The path of dataset if loading from local")
     evaluation_set: str = HfArg(
-        default="validation",
-        help="The set name for evaluation, e.g., validation, test",
+        default=None,
+        help="The set name for evaluation, supporting slice, e.g., validation, test, validation[:10]",
     )
     example_set: str = HfArg(
-        default="train",
-        help="The set name for demonstration, e.g., train, dev",
+        default=None,
+        help="The set name for demonstration, supporting slice, e.g., train, dev, train[:10]",
     )
     system_prompt: str = HfArg(
         aliases=["-sys"],
@@ -96,6 +115,10 @@ class DatasetArguments:
         help="The path number for sampling for self-consistency",
     )
 
+    def __post_init__(self):
+        if ":" in self.dataset_name:
+            self.dataset_name, self.subset_name = self.dataset_name.split(":")
+
 
 @dataclass
 class EvaluationArguments:
@@ -111,7 +134,7 @@ class EvaluationArguments:
     log_level: Optional[str] = HfArg(
         default="warning",
         help=
-        "Logger level to use on the main node.ossible choices are the log levels as strings: 'debug', 'info', 'warning', 'error' and 'critical'",
+        "Logger level to use on the main node. Possible choices are the log levels as strings: 'debug', 'info', 'warning', 'error' and 'critical'",
         metadata={"choices": log_levels.keys()},
     )
 
@@ -134,7 +157,7 @@ def set_logging(
 
     # set the log file
     model_name = model_args.model_name_or_path.strip("/").split("/")[-1]
-    dataset_name = dataset_args.dataset
+    dataset_name = dataset_args.dataset_name + ("_" + dataset_args.subset_name if dataset_args.subset_name else "")
     num_shots = str(dataset_args.num_shots)
     execution_time = datetime.datetime.now().strftime(DEFAULT_DATETIME_FORMAT)
     log_filename = f"{model_name}-{dataset_name}-{num_shots}-{execution_time}.log"
@@ -162,6 +185,7 @@ def check_args(model_args, dataset_args, evaluation_args):
     if model_args.model_name_or_path.lower() == 'gpt-3.5-turbo' and dataset_args.batch_size > 1:
         dataset_args.batch_size = 1
         warnings.warn("gpt-3.5-turbo doesn't support batch_size > 1, automatically set batch_size=1.")
+
 
 def parse_argument() -> Tuple[ModelArguments, DatasetArguments, EvaluationArguments]:
     r"""Parse arguments from command line. Using `argparse` for predefined ones, and an easy mannal parser for others (saved in `kwargs`).
