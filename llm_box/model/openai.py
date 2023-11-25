@@ -33,10 +33,11 @@ class Openai(Model):
         # TODO: compatible for gpt-3.5-turbo (enum_type?)
         self.max_tokens = 2048
         self.max_try_times = 5
+        self.temperature = args.temperature
         # TODO: gpt-3.5-turbo doesn't support echo and logprobs, and it doesn't support max_tokens=0
         self.ppl_kwargs = dict(echo=True, max_tokens=0, logprobs=0)
 
-        self.generation_kwargs = dict(max_tokens=self.max_tokens)
+        self.generation_kwargs = dict(max_tokens=self.max_tokens, temperature=self.temperature)
 
     def request(self, prompt, model_args):
         r"""Call the OpenAI API.

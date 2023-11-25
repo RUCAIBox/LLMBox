@@ -10,7 +10,7 @@ class MultipleChoiceDataset(Dataset):
     evaluation_type = "ranking"
     metric = "accuracy"
 
-    def calculate_metric(self, results):
+    def post_processing(self, results):
         labels = []
         st = 0
         results = np.array([result / length for result, length in results])
@@ -18,7 +18,10 @@ class MultipleChoiceDataset(Dataset):
             labels.append(results[st:st + num].argmin())
             st += num
         results = labels
-        assert len(results) == len(self.references)
 
+
+        return results
+
+    def calculate_metric(self, results):
         score_list = np.asarray(results) == np.asarray(self.references)
         return {'Accuracy': np.mean(score_list)}
