@@ -266,7 +266,7 @@ class Dataset(torch.utils.data.Dataset):
         Returns:
             Dict[str, float]: The metric results.
         """
-        raise NotImplementedError(f"{self.name} dataset must implement the `calcuate_metric` function.")
+        raise NotImplementedError(f"{self.name} dataset must implement the `calculate_metric` function.")
 
 
 class DatasetCollection(torch.utils.data.Dataset):

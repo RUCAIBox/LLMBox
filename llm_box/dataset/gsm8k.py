@@ -25,7 +25,7 @@ class Gsm8k(GenerationDataset):
     load_args = ("gsm8k", "main")
 
     @staticmethod
-    def answer_cleansing(preds):
+    def post_processing(preds):
         predictions = []
         for pred in preds:
             # replace numbers like `x,xxx` with `xxxx`

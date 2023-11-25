@@ -10,7 +10,7 @@ class MultipleChoiceDataset(Dataset):
     evaluation_type = "ranking"
     metric = "accuracy"
 
-    def answer_cleansing(self, results):
+    def post_processing(self, results):
         labels = []
         st = 0
         results = np.array([result / length for result, length in results])

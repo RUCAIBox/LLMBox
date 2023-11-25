@@ -62,7 +62,7 @@ class Race(MultipleChoiceDataset):
             self.evaluation_instances.extend(options)
         self.evaluation_instances = self.evaluation_instances * self.args.sample_num
 
-    def answer_cleansing(self, results):
+    def post_processing(self, results):
         labels = []
         st = 0
         results = list(map(lambda _r: _r[0], results))

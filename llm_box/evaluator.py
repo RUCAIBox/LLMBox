@@ -70,15 +70,10 @@ class Evaluator:
         if len(predictions) != len(dataloader):
             raise RuntimeError("The number of results should be equal to the number of samples in the dataset.")
 
-        # reshape
-        # reshaped_results = np.array(predictions, dtype=object).reshape(self.dataset_args.sample_num, -1)
-        cols = len(self.dataset.evaluation_instances) // self.dataset_args.sample_num
-        reshaped_results = [predictions[i:i + cols] for i in range(0, len(predictions), cols)]
-        for i in range(self.dataset_args.sample_num):
-            reshaped_results[i] = self.dataset.answer_cleansing(reshaped_results[i])
+        predictions = self.dataset.post_processing(predictions)
 
-        transposed_results = list(map(list, zip(*reshaped_results)))
-        mode_results = [mode(column) for column in transposed_results]
+        step = len(predictions) // self.dataset_args.sample_num
+        mode_results = [mode(predictions[i::step]) for i in range(step)]
 
         metric_results = self.dataset.calculate_metric(mode_results)
 
