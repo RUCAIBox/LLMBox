@@ -18,7 +18,7 @@ class HuggingFaceModel(Model):
         self.args = args
         self.model_name_or_path = model_name_or_path
 
-        model, tokenizer = load_llm_and_tokenizer(model_name_or_path)
+        model, tokenizer = load_llm_and_tokenizer(model_name_or_path, args=self.args)
         self.model = model
         self.tokenizer = tokenizer
         self.device = next(model.parameters()).device

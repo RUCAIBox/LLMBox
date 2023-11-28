@@ -1,7 +1,10 @@
 from logging import getLogger
 from typing import Optional, Union, Tuple
 
+import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer, PreTrainedModel, PreTrainedTokenizer, PreTrainedTokenizerFast
+
+from ..utils import ModelArguments
 
 logger = getLogger(__name__)
 
@@ -10,10 +13,16 @@ OPENAI_MODELS = ['ada', 'babbage', 'curie', 'davinci', 'babbage-002', 'davinci-0
 
 def load_llm_and_tokenizer(
     model_name_or_path: str,
+    args: ModelArguments,
     tokenizer_name_or_path: Optional[str] = None,
 ) -> Tuple[PreTrainedModel, Union[PreTrainedTokenizer, PreTrainedTokenizerFast]]:
 
-    model = AutoModelForCausalLM.from_pretrained(model_name_or_path).eval()
+    model_kwargs = dict(
+        torch_dtype=torch.float16 if args.load_in_half else torch.float32,
+        device_map=args.device_map,
+    )
+
+    model = AutoModelForCausalLM.from_pretrained(model_name_or_path, **model_kwargs).eval()
     tokenizer = AutoTokenizer.from_pretrained(tokenizer_name_or_path or model_name_or_path)
 
     # set `pad` token to `eos` token
