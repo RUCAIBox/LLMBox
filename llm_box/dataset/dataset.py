@@ -206,6 +206,8 @@ class Dataset(torch.utils.data.Dataset):
             source = self.examples + source
         elif self.model.type == 'instruction':
             source = self.instruction + "\n\n" + self.examples + source
+        else:
+            logger.warning(f"Unknown model type {self.model.type}")
 
         if target:
             return source, target
@@ -230,13 +232,13 @@ class Dataset(torch.utils.data.Dataset):
 
         # selection algorithm
         # TODO: ICL
-        indice = np.random.choice(len(self.example_data), self.args.num_shots)
+        indices = np.random.choice(len(self.example_data), self.args.num_shots)
 
         # TODO: tokenizer efficiency
         # construct few-shot examples
         example_text = ""
         example_token_nums = 0
-        for index in indice:
+        for index in indices:
             example = self.format_instance(self.example_data[index])
             cur_example_text = self.args.instance_format.format_map(example) + "\n\n"
             cur_token_num = len(self.tokenizer.encode(cur_example_text))
@@ -266,7 +268,9 @@ class Dataset(torch.utils.data.Dataset):
                 self.option_nums.append(len(options))
             elif self.evaluation_type == "generation":
                 self.evaluation_instances.append(self.format_instruction_and_examples(formatted_instance["source"]))
+
         self.evaluation_instances = self.evaluation_instances * self.args.sample_num
+        logger.info("Evaluation instances constructed:\n" + pformat(self.evaluation_instances[0]))
 
     def calculate_metric(self, predictions) -> Dict[str, float]:
         r"""Calculate the metric score between `predictions` and `references`.

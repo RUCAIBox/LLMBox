@@ -18,6 +18,7 @@ class Openai(Model):
 
     We now support base GPT-3 models (`ada`, `babbage`, `curie', `davinci`, `babbage-002`, and `davinci-002`).
     """
+    type = "base"
 
     def __init__(self, args: ModelArguments):
         super().__init__(args)
@@ -28,7 +29,6 @@ class Openai(Model):
         logger.info(f"OpenAI API key: {secret_key}, base: {openai.api_base}")
 
         self.name = args.model_name_or_path
-        self.type = "base"
         self.tokenizer = tiktoken.get_encoding(tiktoken.encoding_name_for_model(self.name))
         # TODO: compatible for gpt-3.5-turbo (enum_type?)
         self.max_tokens = 2048

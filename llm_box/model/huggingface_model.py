@@ -14,6 +14,8 @@ logger = getLogger(__name__)
 
 class HuggingFaceModel(Model):
 
+    type = "instruction"
+
     def __init__(self, model_name_or_path: str, args: ModelArguments):
         super().__init__(args)
         self.args = args
@@ -93,7 +95,7 @@ class HuggingFaceModel(Model):
 
         return ppls
 
-    def generation(self, batched_inputs, stopping_criteria=None):
+    def generation(self, batched_inputs):
         batched_encodings = self.tokenizer(
             batched_inputs,
             return_tensors="pt",
@@ -106,7 +108,6 @@ class HuggingFaceModel(Model):
         outputs = self.model.generate(
             **batched_encodings,
             generation_config=self.generation_config,
-            stopping_criteria=stopping_criteria,
         )
         answers = self.tokenizer.batch_decode(outputs, skip_special_tokens=True)
         return answers
