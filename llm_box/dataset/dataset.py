@@ -1,16 +1,17 @@
+import json
 import os
 from logging import getLogger
 from os.path import abspath
-from typing import Dict, List, Optional, Tuple, Union, Literal
 from pprint import pformat
+from typing import Dict, List, Literal, Optional, Tuple, Union
 
 import datasets as d
 import numpy as np
 import torch
 
-from .icl_strategies import ape, global_entropy_ordering_strategy, knn_construct_examples
-from ..utils import DatasetArguments, NotImplementedField
 from ..model.model import Model
+from ..utils import DatasetArguments, NotImplementedField
+from .icl_strategies import ape, global_entropy_ordering_strategy, knn_construct_examples
 
 logger = getLogger(__name__)
 
@@ -295,6 +296,50 @@ class Dataset(torch.utils.data.Dataset):
             Dict[str, float]: The metric results.
         """
         raise NotImplementedError(f"{self.name} dataset must implement the `calcuate_metric` function.")
+
+    def post_processing(self, predictions: List[Union[str, float]]):
+        r"""Post processing for the predictions.
+
+        Args:
+            predictions (List[Union[str, float]]): The predicted answers (generated texts or perplexity scores).
+
+        Returns:
+            List[Union[str, float]]: The post-processed predictions.
+        """
+        return predictions
+
+    def log_predictions(self, predictions: List[Union[str, float]], file: Optional[str] = None):
+        r"""Save the dataset inputs and corresponding model predictions to file.
+
+        Args:
+            predictions (List[Union[str, float]]): The predicted answers.
+            file (Optional[str]): The file path to save the predictions. If None, will use `args.evaluation_results_path`.
+        """
+        file = file or self.args.evaluation_results_path
+        if self.evaluation_type == "generation":
+            dataset_info = (self.evaluation_instances,)
+            keys = ["index", "input", "generation", "reference"]
+        else:
+            indices = [(i, j) for i in range(len(self.option_nums)) for j in range(self.option_nums[i])]
+            question_index, option_index = zip(*indices)
+            source_text, target_text = zip(*self.evaluation_instances)
+
+            dataset_info = [question_index, option_index, source_text, target_text]
+            keys = ["index", "question_index", "option_index", "source", "target", "perplexity", "reference"]
+
+        def repeat_iter(obj, n):
+            for _ in range(n):
+                yield from obj
+
+        lines = zip(
+            range(len(self)),
+            *dataset_info,
+            predictions,
+            repeat_iter(self.references, self.args.sample_num),
+        )
+
+        lines = [dict(zip(keys, line)) for line in lines]
+        json.dump(lines, open(file, "w", encoding="utf-8"), indent=2, ensure_ascii=False)
 
 
 class DatasetCollection(torch.utils.data.Dataset):
