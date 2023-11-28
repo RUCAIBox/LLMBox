@@ -1,7 +1,7 @@
 from logging import getLogger
-from typing import Optional
+from typing import Optional, Union, Tuple
 
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoModelForCausalLM, AutoTokenizer, PreTrainedModel, PreTrainedTokenizer, PreTrainedTokenizerFast
 
 logger = getLogger(__name__)
 
@@ -11,7 +11,7 @@ OPENAI_MODELS = ['ada', 'babbage', 'curie', 'davinci', 'babbage-002', 'davinci-0
 def load_llm_and_tokenizer(
     model_name_or_path: str,
     tokenizer_name_or_path: Optional[str] = None,
-):
+) -> Tuple[PreTrainedModel, Union[PreTrainedTokenizer, PreTrainedTokenizerFast]]:
 
     model = AutoModelForCausalLM.from_pretrained(model_name_or_path).eval()
     tokenizer = AutoTokenizer.from_pretrained(tokenizer_name_or_path or model_name_or_path)

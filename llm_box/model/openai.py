@@ -80,11 +80,11 @@ class Openai(Model):
             ppls.append((ppl, tgt_end - tgt_start))
         return ppls
 
-    def generation(self, batch):
-        prompt = [question for question in batch]
+    def generation(self, batched_inputs):
+        prompt = [question for question in batched_inputs]
         results = self.request(prompt, self.generation_kwargs)
         answers = []
-        for result, _ in zip(results, batch):
+        for result, _ in zip(results, batched_inputs):
             if self.name == 'gpt-3.5-turbo':
                 answer = result[0]['message']['content']
             else:

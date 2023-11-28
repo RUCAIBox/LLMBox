@@ -20,10 +20,10 @@ class Model:
         self.tokenizer = None
 
     def get_ppl(self, batched_inputs):
-        r"""Compute the PPL score of the option given the context for this batch.
+        r"""Compute the PPL score of the target text given the source text for this batch.
 
         Args:
-            batch (List[Tuple(str, str)]): The batch of context and option pairs.
+            batched_inputs (List[Tuple(str, str)]): A list of tuples of source and target texts.
 
         Returns:
             List(float): The list of PPL scores.

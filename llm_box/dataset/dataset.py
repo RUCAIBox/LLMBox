@@ -98,7 +98,17 @@ class Dataset(torch.utils.data.Dataset):
         evaluation_set: str,
         example_set: Optional[str],
     ):
-        r"""Load the raw dataset from huggingface or local path into `self.evaluation_data` and `self.example_data`. If `dataset_path` is not None, the dataset will be loaded from the given local path."""
+        r"""Load the raw dataset from huggingface or local path into `self.evaluation_data` and `self.example_data`. If `dataset_path` is not None, the dataset will be loaded from the given local path.
+
+        Feel free to override this function if you want to load the dataset in a different way:
+
+        ```
+        def _load_raw_dataset(self, dataset_path, subset_name, evaluation_set, example_set):
+            import json
+            self.evaluation_data = list(json.load(open(f"{dataset_path}/{evaluation_set}.json"))
+            self.example_data = list(json.load(open(f"{dataset_path}/{example_set}.json"))
+        ```
+        """
 
         msg = f"Loading raw dataset `{self.name}:{subset_name}`"
         if dataset_path is not None:
