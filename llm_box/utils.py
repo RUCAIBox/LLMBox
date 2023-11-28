@@ -55,6 +55,10 @@ class ModelArguments:
         default=256,
         help="The maximum length of input sequence",
     )
+    temperature: float = HfArg(
+        default=0,
+        help="The temperature for models",
+    )
 
     def __post_init__(self):
         if "OPENAI_API_KEY" in os.environ and self.openai_api_key is None:
@@ -115,6 +119,10 @@ class DatasetArguments:
     trust_remote_code: bool = HfArg(
         default=False,
         help="Whether to trust the remote code",
+    )
+    sample_num: int = HfArg(
+        default=1,
+        help="The path number for sampling for self-consistency",
     )
 
     def __post_init__(self):

@@ -1,6 +1,7 @@
 from logging import getLogger
 from typing import Dict, Tuple
 
+from statistics import mode
 from accelerate.utils import set_seed
 from torch.utils.data import DataLoader
 from tqdm import tqdm
@@ -69,7 +70,13 @@ class Evaluator:
         if len(predictions) != len(self.dataset):
             raise RuntimeError("The number of results should be equal to the number of samples in the dataset.")
 
-        metric_results = self.dataset.calculate_metric(predictions)
+        predictions = self.dataset.post_processing(predictions)
+        assert len(predictions) == len(self.dataset.references) * self.dataset_args.sample_num
+
+        step = len(predictions) // self.dataset_args.sample_num
+        mode_results = [mode(predictions[i::step]) for i in range(step)]
+
+        metric_results = self.dataset.calculate_metric(mode_results)
 
         msg = f'Evaluation finished successfully:'
         if not isinstance(next(iter(metric_results.values())), dict):

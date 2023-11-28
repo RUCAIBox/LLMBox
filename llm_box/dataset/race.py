@@ -60,8 +60,9 @@ class Race(MultipleChoiceDataset):
             answer_options = [("A:", option) for option in formatted_instance["options"]]
             options = [item for pair in zip(options, answer_options) for item in pair]
             self.evaluation_instances.extend(options)
+        self.evaluation_instances = self.evaluation_instances * self.args.sample_num
 
-    def calculate_metric(self, results):
+    def post_processing(self, results):
         labels = []
         st = 0
         results = list(map(lambda _r: _r[0], results))
@@ -70,6 +71,9 @@ class Race(MultipleChoiceDataset):
             labels.append(results[st:st + num].argmin())
             st += num
         results = labels
+        return results
+
+    def calculate_metric(self, results):
         score_list = np.asarray(results) == np.asarray(self.references)
         return {'Accuracy': np.mean(score_list)}
 

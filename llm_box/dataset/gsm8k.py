@@ -25,7 +25,7 @@ class Gsm8k(GenerationDataset):
     load_args = ("gsm8k", "main")
 
     @staticmethod
-    def answer_cleaning(preds):
+    def post_processing(preds):
         predictions = []
         for pred in preds:
             # replace numbers like `x,xxx` with `xxxx`
@@ -48,7 +48,6 @@ class Gsm8k(GenerationDataset):
         )
 
     def calculate_metric(self, predictions):
-        predictions = self.answer_cleaning(predictions)
         score_list = np.asarray(predictions) == np.asarray(self.references)
         return {'Accuracy': np.mean(score_list)}
 

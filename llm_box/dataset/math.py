@@ -88,7 +88,7 @@ class Math(GenerationDataset):
         return text[start:end - 1]
 
     @staticmethod
-    def answer_cleansing(preds):
+    def post_processing(preds):
         predictions = []
         pattern = r'\$(.*?)\$'
         for pred in preds:
@@ -114,7 +114,6 @@ class Math(GenerationDataset):
         )
 
     def calculate_metric(self, predictions):
-        predictions = self.answer_cleansing(predictions)
         score_list = np.asarray(predictions) == np.asarray(self.references)
         return {'Accuracy': np.mean(score_list)}
 
