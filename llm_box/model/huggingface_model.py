@@ -1,38 +1,92 @@
+from logging import getLogger
+from typing import Iterator
+
+import torch
+from torch.nn import CrossEntropyLoss
+
+from ..utils import ModelArguments
 from .model import Model
 from .utils import load_llm_and_tokenizer
-from ..utils import ModelArguments
+
+logger = getLogger(__name__)
 
 
 class HuggingFaceModel(Model):
 
     def __init__(self, model_name_or_path: str, args: ModelArguments):
         super().__init__(args)
+        self.args = args
         self.model_name_or_path = model_name_or_path
 
         model, tokenizer = load_llm_and_tokenizer(model_name_or_path)
         self.model = model
         self.tokenizer = tokenizer
+        self.device = next(model.parameters()).device
+
+        # generation arguments
+        self.generation_kwargs = {}
+
+        # perplexity arguments
+        self.add_start_token = True
+        self.model_max_tokens = self.model.config.max_length - int(self.add_start_token)
+        self.loss_fct = CrossEntropyLoss(reduction="none")
+
+    @staticmethod
+    def _subsentences_start_idx(offset_mapping: torch.Tensor) -> Iterator[int]:
+        r"""Given offset mapping, return the index of the first token in the encoded sentence of each subsentence. The length of the encoded sentence will be yielded at the end, to ensure that the end index of the last subsentence will be included."""
+        for token_idx, (char_st, char_ed) in enumerate(offset_mapping):
+            if char_st == 0:
+                yield token_idx
+        yield len(offset_mapping)
 
     def get_ppl(self, batched_inputs):
-        batched_prompts = [src + tgt for src, tgt in batched_inputs]
-        batched_results = self.model(batched_prompts)
-        print(batched_results)
+
+        if not all([tgt.startswith(" ") for _, tgt in batched_inputs]):
+            logger.warning(
+                f'Target text does not start with a whitespace: ...{batched_inputs[0][0][-10:]}{batched_inputs[0][1][:10]}..."'
+            )
+
+        # add_special_tokens=False will still pad the inputs
+        batched_encodings = self.tokenizer(
+            batched_inputs,
+            add_special_tokens=False,
+            padding=True,
+            truncation=True,
+            return_offsets_mapping=True,
+            return_attention_mask=True,
+            return_tensors="pt",
+            max_length=self.model_max_tokens,
+        ).to(self.device)
+
+        encoded_batch = batched_encodings.input_ids
+        attn_mask = batched_encodings.attention_mask
+
+        if self.add_start_token:
+            bos_tokens_tensor = torch.tensor([[self.tokenizer.bos_token_id]] * encoded_batch.size(dim=0)
+                                             ).to(self.device)
+            encoded_batch = torch.cat([bos_tokens_tensor, encoded_batch], dim=1)
+            attn_mask = torch.cat([torch.ones(bos_tokens_tensor.size(), dtype=torch.int64).to(self.device), attn_mask],
+                                  dim=1)
+
+        with torch.no_grad():
+            out_logits = self.model(encoded_batch, attention_mask=attn_mask).logits
+
         ppls = []
-        for result, (src, _) in zip(batched_results, batched_inputs):
-            tgt_start = result['logprobs']['text_offset'].index(len(src))
-            tgt_end = len(result['logprobs']['text_offset'])
-            ppl = -sum(result['logprobs']['token_logprobs'][tgt_start:])
-            ppls.append((ppl, tgt_end - tgt_start))
+        zipped = zip(out_logits, encoded_batch, attn_mask, batched_encodings.offset_mapping)
+
+        for logits, input_ids, attn_masks, offsets in zipped:
+            tgt_st, tgt_ed = list(self._subsentences_start_idx(offsets))[1:3]
+            # output logits are shifted by one position
+            shift_logits = logits[tgt_st - 1:tgt_ed - 1, :].contiguous()
+            shift_labels = input_ids[tgt_st:tgt_ed].contiguous()
+            shift_attn_masks = attn_masks[tgt_st:tgt_ed].contiguous()
+
+            perplexity = torch.exp(
+                (self.loss_fct(shift_logits, shift_labels) * shift_attn_masks).sum(0) / shift_attn_masks.sum(0)
+            )
+            ppls.append((perplexity.item(), tgt_ed - tgt_st))
+
         return ppls
 
-    def generation(self, batch):
-        prompt = [question for question in batch]
-        results = self.request(prompt, self.generation_kwargs)
-        answers = []
-        for result, _ in zip(results, batch):
-            if self.name == 'gpt-3.5-turbo':
-                answer = result[0]['message']['content']
-            else:
-                answer = result['text']
-            answers.append(answer)
-        return answers
+    def generation(self, batched_inputs):
+        pass
