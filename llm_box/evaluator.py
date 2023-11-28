@@ -70,12 +70,15 @@ class Evaluator:
         if len(predictions) != len(self.dataset):
             raise RuntimeError("The number of results should be equal to the number of samples in the dataset.")
 
+        # post processing and self-consistency
         predictions = self.dataset.post_processing(predictions)
         assert len(predictions) == len(self.dataset.references) * self.dataset_args.sample_num
+        self.dataset.log_predictions(predictions)
 
         step = len(predictions) // self.dataset_args.sample_num
         mode_results = [mode(predictions[i::step]) for i in range(step)]
 
+        # calculate metric
         metric_results = self.dataset.calculate_metric(mode_results)
 
         msg = f'Evaluation finished successfully:'
