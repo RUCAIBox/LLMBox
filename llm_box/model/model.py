@@ -1,3 +1,6 @@
+from ..utils import NotImplementedField
+
+
 class Model:
     r"""The base model object for all models.
 
@@ -13,7 +16,7 @@ class Model:
         ppl_kwargs (dict, *optional*): The configurations for computing PPL score.
     """
     name = ""
-    type = ""
+    type = NotImplementedField
 
     def __init__(self, args):
         self.args = args
