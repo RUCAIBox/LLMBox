@@ -3,6 +3,7 @@ from typing import Iterator
 
 import torch
 from torch.nn import CrossEntropyLoss
+from transformers import GenerationConfig
 
 from ..utils import ModelArguments
 from .model import Model
@@ -24,11 +25,15 @@ class HuggingFaceModel(Model):
         self.device = next(model.parameters()).device
 
         # generation arguments
-        self.generation_kwargs = {}
+        self.generation_config = GenerationConfig(
+            max_new_tokens=self.args.max_new_tokens,
+            pad_token_id=self.tokenizer.pad_token_id,
+            eos_token_id=self.tokenizer.eos_token_id,
+        )
 
         # perplexity arguments
         self.add_start_token = True
-        self.model_max_tokens = self.model.config.max_length - int(self.add_start_token)
+        self.model_max_tokens = self.args.max_new_tokens - int(self.add_start_token)
         self.loss_fct = CrossEntropyLoss(reduction="none")
 
     @staticmethod
@@ -88,5 +93,21 @@ class HuggingFaceModel(Model):
 
         return ppls
 
-    def generation(self, batched_inputs):
-        pass
+    def generation(self, batched_inputs, stopping_criteria=None):
+        batched_encodings = self.tokenizer(
+            batched_inputs,
+            return_tensors="pt",
+            padding=True,
+            truncation=True,
+            add_special_tokens=True,
+            max_length=self.model_max_tokens,
+        ).to(self.device)
+
+        outputs = self.model.generate(
+            **batched_encodings,
+            generation_config=self.generation_config,
+            stopping_criteria=stopping_criteria,
+        )
+        answers = self.tokenizer.batch_decode(outputs, skip_special_tokens=True)
+        logger.info(answers)
+        return answers

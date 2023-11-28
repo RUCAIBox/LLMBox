@@ -23,13 +23,14 @@ def load_llm_and_tokenizer(
     )
 
     model = AutoModelForCausalLM.from_pretrained(model_name_or_path, **model_kwargs).eval()
-    tokenizer = AutoTokenizer.from_pretrained(tokenizer_name_or_path or model_name_or_path)
+    tokenizer = AutoTokenizer.from_pretrained(
+        tokenizer_name_or_path or model_name_or_path,
+        padding_side='left',
+    )
 
     # set `pad` token to `eos` token
-    if hasattr(model.config, 'eos_token'):
-        model.config.pad_token = model.config.eos_token
-    if hasattr(model.config, 'eos_token_id'):
-        model.config.pad_token_id = model.config.eos_token_id
+    model.config.pad_token = tokenizer.eos_token
+    model.config.pad_token_id = tokenizer.eos_token_id
     tokenizer.pad_token = tokenizer.eos_token
     tokenizer.pad_token_id = tokenizer.eos_token_id
 

@@ -51,6 +51,10 @@ class ModelArguments:
         default="auto",
         help="The device map for model and data",
     )
+    max_new_tokens: int = HfArg(
+        default=256,
+        help="The maximum length of input sequence",
+    )
 
     def __post_init__(self):
         if "OPENAI_API_KEY" in os.environ and self.openai_api_key is None:
