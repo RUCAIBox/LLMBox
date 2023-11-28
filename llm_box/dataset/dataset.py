@@ -127,6 +127,7 @@ class Dataset(torch.utils.data.Dataset):
                 load_args = self.load_args
             msg += f" from huggingface ({', '.join(load_args)})"
             loadders = [lambda s: d.load_dataset(*load_args, split=s)]
+
         logger.debug(
             msg + f" with evaluation set `{evaluation_set}`" +
             (f" and example set `{example_set}`" if example_set else "")
@@ -279,7 +280,7 @@ class Dataset(torch.utils.data.Dataset):
 
         Args:
             predictions (List[Union[float, str]]): the calculated PPL scores or predicted answers.
-        
+
         Returns:
             List[Union[float, str]]: the processed results.
         """
@@ -293,10 +294,7 @@ class Dataset(torch.utils.data.Dataset):
         Returns:
             Dict[str, float]: The metric results.
         """
-        results = {}
-        for metric_func in self.metrics:
-            results.update(metric_func(predictions, self.references))
-        return results
+        raise NotImplementedError(f"{self.name} dataset must implement the `calcuate_metric` function.")
 
 
 class DatasetCollection(torch.utils.data.Dataset):
