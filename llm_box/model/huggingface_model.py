@@ -109,5 +109,4 @@ class HuggingFaceModel(Model):
             stopping_criteria=stopping_criteria,
         )
         answers = self.tokenizer.batch_decode(outputs, skip_special_tokens=True)
-        logger.info(answers)
         return answers

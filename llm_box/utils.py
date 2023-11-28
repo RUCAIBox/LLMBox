@@ -154,13 +154,15 @@ def set_logging(
 ) -> None:
     """Set the logging level for standard output and file."""
 
-    # use root logger to disable logging of other packages
-    root_logger = logging.getLogger(__package__)
+    # Use package logger to disable logging of other packages. Set the level to DEBUG first
+    # to allow all logs from our package, and then set the level to the desired one.
+    package_logger = logging.getLogger(__package__)
     coloredlogs.install(
-        level=log_levels[evaluation_args.log_level],
-        logger=root_logger,
+        level=logging.DEBUG,
+        logger=package_logger,
         fmt=DEFAULT_LOG_FORMAT,
     )
+    package_logger.handlers[0].setLevel(level=log_levels[evaluation_args.log_level])
 
     # set the log file
     model_name = model_args.model_name_or_path.strip("/").split("/")[-1]
@@ -175,12 +177,13 @@ def set_logging(
     # add file handler to root logger
     handler = logging.FileHandler(log_path)
     formatter = coloredlogs.BasicFormatter(fmt=DEFAULT_LOG_FORMAT)
+    coloredlogs.HostNameFilter.install(handler=handler)
     handler.setLevel(level=log_levels[file_log_level])
     handler.setFormatter(formatter)
-    root_logger.addHandler(handler)
+    package_logger.addHandler(handler)
 
     # finish logging initialization
-    logger.info(f"Saving logs to {log_path}")
+    logger.warning(f"Saving logs to {log_path}")
 
 
 def check_args(model_args, dataset_args, evaluation_args):

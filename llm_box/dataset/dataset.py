@@ -134,7 +134,7 @@ class Dataset(torch.utils.data.Dataset):
             msg += f" from huggingface ({', '.join(load_args)})"
             loadders = [lambda s: d.load_dataset(*load_args, split=s)]
 
-        logger.debug(
+        logger.info(
             msg + f" with evaluation set `{evaluation_set}`" +
             (f" and example set `{example_set}`" if example_set else "")
         )
@@ -267,7 +267,7 @@ class Dataset(torch.utils.data.Dataset):
                 self.evaluation_instances.append(self.format_instruction_and_examples(formatted_instance["source"]))
 
     def calculate_metric(self, predictions) -> Dict[str, float]:
-        r"""Calculate the metric score betwwen `predictions` and `references`.
+        r"""Calculate the metric score between `predictions` and `references`.
 
         Args:
             predictions (List[str]): The predicted answers.
@@ -275,7 +275,7 @@ class Dataset(torch.utils.data.Dataset):
         Returns:
             Dict[str, float]: The metric results.
         """
-        raise NotImplementedError(f"{self.name} dataset must implement the `calcuate_metric` function.")
+        raise NotImplementedError(f"{self.name} dataset must implement the `calculate_metric` function.")
 
 
 class DatasetCollection(torch.utils.data.Dataset):
