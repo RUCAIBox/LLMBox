@@ -67,7 +67,7 @@ class Evaluator:
         for batch in tqdm(dataloader, dynamic_ncols=True, desc="Evaluating"):
             predictions.extend(call_model(batch))
 
-        if len(predictions) != len(dataloader):
+        if len(predictions) != len(self.dataset):
             raise RuntimeError("The number of results should be equal to the number of samples in the dataset.")
 
         predictions = self.dataset.post_processing(predictions)
