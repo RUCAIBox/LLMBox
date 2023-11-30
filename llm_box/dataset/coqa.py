@@ -53,8 +53,8 @@ class Coqa(GenerationDataset):
     load_args = ("coqa",)
 
     def _load_raw_dataset(self, dataset_path, subset_name, evaluation_set, example_set):
-        evaluation_dataset = json.load(open("./coqa_data/dev.json"))["data"]
-        example_dataset = json.load(open("./coqa_data/train.json"))["data"]
+        evaluation_dataset = json.load(open("./llm_box/dataset/coqa_data/dev.json"))["data"]
+        example_dataset = json.load(open("./llm_box/dataset/coqa_data/train.json"))["data"]
         self.evaluation_data = self.convert(evaluation_dataset, "dev")
         self.example_data = self.convert(example_dataset, "train")
 
@@ -107,19 +107,9 @@ class Coqa(GenerationDataset):
         return word_tokenize(self.normalize_answer(s))
 
     def compute_exact(self, reference, predicted):
-        pattern = r'[.!(\n)]'
-        match = re.search(pattern, predicted) 
-        if match:
-            index = match.start()
-            predicted = predicted[:index]
         return int(self.normalize_answer(reference) == self.normalize_answer(predicted))
 
     def calculate_f1_score(self, reference, predicted):
-        pattern = r'[.!(\n)]'
-        match = re.search(pattern, predicted) 
-        if match:
-            index = match.start()
-            predicted = predicted[:index]
         gold_toks = self.get_tokens(reference)
         pred_toks = self.get_tokens(predicted)
         common = collections.Counter(gold_toks) & collections.Counter(pred_toks)
@@ -132,6 +122,18 @@ class Coqa(GenerationDataset):
         recall = 1.0 * num_same / len(gold_toks)
         f1 = (2 * precision * recall) / (precision + recall)
         return f1
+    
+    @staticmethod
+    def post_processing(preds):
+        predictions = []
+        pattern = r'[.!(\n)]'
+        for pred in preds:
+            match = re.search(pattern, pred) 
+            if match:
+                index = match.start()
+                pred = pred[:index]
+            predictions.append(pred)
+        return predictions
 
     def calculate_metric(self, predictions):
         f1_sum = 0

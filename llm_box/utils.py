@@ -53,6 +53,10 @@ class ModelArguments:
         default=0,
         help="The temperature for models",
     )
+    max_tokens: int = HfArg(
+        default=2048,
+        help="The max_tokens for openai response",
+    )
 
     def __post_init__(self):
         if "OPENAI_API_KEY" in os.environ and self.openai_api_key is None:
