@@ -1,11 +1,10 @@
 from .generation_dataset import GenerationDataset
-from datasets import load_dataset, load_from_disk
-from nltk.tokenize import word_tokenize
 import numpy as np
 import re
 import string
 import collections
 import json
+from nltk import word_tokenize
 
 
 class Coqa(GenerationDataset):
@@ -94,6 +93,18 @@ class Coqa(GenerationDataset):
         target_text = " " + answers[-1][0]
         return dict(source=source_text, target=target_text)
 
+    def calculate_metric(self, predictions):
+        f1_sum = 0
+        em_sum = 0
+        for prediction, references in zip(predictions, self.references):
+            f1_sum += self._metric_max_over_ground_truths(self.calculate_f1_score, prediction, references)
+            em_sum += self._metric_max_over_ground_truths(self.calculate_exact_match_score, prediction, references)
+        return {'F1': f1_sum / len(predictions) * 100, "EM": em_sum / len(predictions) * 100}
+
+    @property
+    def references(self):
+        return [instance["answers"][-1] for instance in self.evaluation_data]
+
     @staticmethod
     def normalize_answer(s):
         """Lower text and remove punctuation, stories and extra whitespace."""
@@ -114,16 +125,14 @@ class Coqa(GenerationDataset):
 
         return white_space_fix(remove_articles(remove_punc(lower(s))))
 
-    def get_tokens(self, s):
-        if not s: return []
-        return word_tokenize(self.normalize_answer(s))
+    @staticmethod
+    def calculate_exact_match_score(reference, predicted):
+        return int(Coqa.normalize_answer(reference) == Coqa.normalize_answer(predicted))
 
-    def compute_exact(self, reference, predicted):
-        return int(self.normalize_answer(reference) == self.normalize_answer(predicted))
-
-    def calculate_f1_score(self, reference, predicted):
-        gold_toks = self.get_tokens(reference)
-        pred_toks = self.get_tokens(predicted)
+    @staticmethod
+    def calculate_f1_score(reference, predicted):
+        gold_toks = word_tokenize(Coqa.normalize_answer(reference))
+        pred_toks = word_tokenize(Coqa.normalize_answer(predicted))
         common = collections.Counter(gold_toks) & collections.Counter(pred_toks)
         num_same = sum(common.values())
         if len(gold_toks) == 0 or len(pred_toks) == 0:
@@ -158,15 +167,3 @@ class Coqa(GenerationDataset):
         else:
             func = max
         return func(scores_for_ground_truths)
-
-    def calculate_metric(self, predictions):
-        f1_sum = 0
-        em_sum = 0
-        for prediction, references in zip(predictions, self.references):
-            f1_sum += self._metric_max_over_ground_truths(self.calculate_f1_score, prediction, references)
-            em_sum += self._metric_max_over_ground_truths(self.compute_exact, prediction, references)
-        return {'F1 score:': f1_sum / len(predictions), "em score": em_sum / len(predictions)}
-
-    @property
-    def references(self):
-        return [instance["answers"][-1] for instance in self.evaluation_data]
