@@ -55,7 +55,7 @@ class Coqa(GenerationDataset):
     def _load_raw_dataset(self, dataset_path, subset_name, evaluation_set, example_set):
         evaluation_dataset = json.load(open("./llm_box/dataset/coqa_data/dev.json"))["data"]
         example_dataset = json.load(open("./llm_box/dataset/coqa_data/train.json"))["data"]
-        self.evaluation_data = self.convert(evaluation_dataset, "dev")
+        self.evaluation_data = self.convert(evaluation_dataset, "dev")[:300]
         self.example_data = self.convert(example_dataset, "train")
 
     @staticmethod
@@ -76,6 +76,9 @@ class Coqa(GenerationDataset):
                     answer = answers[i]
                     answer_list.append(answer["input_text"])
                 converted_instance["answers"].append(answer_list)
+                if data_type == "dev":
+                    dataset.append(converted_instance)
+            if data_type == "train":
                 dataset.append(converted_instance)
         return dataset
 
