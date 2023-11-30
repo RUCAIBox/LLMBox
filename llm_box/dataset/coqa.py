@@ -55,10 +55,11 @@ class Coqa(GenerationDataset):
     def _load_raw_dataset(self, dataset_path, subset_name, evaluation_set, example_set):
         evaluation_dataset = json.load(open("./llm_box/dataset/coqa_data/dev.json"))["data"]
         example_dataset = json.load(open("./llm_box/dataset/coqa_data/train.json"))["data"]
-        self.evaluation_data = self.convert(evaluation_dataset, "dev")
-        self.example_data = self.convert(example_dataset, "train")
+        self.evaluation_data = Coqa.convert(evaluation_dataset, "dev")
+        self.example_data = Coqa.convert(example_dataset, "train")
 
-    def convert(self, raw_dataset, data_type):
+    @staticmethod
+    def convert(raw_dataset, data_type):
         dataset = []
         for instance in raw_dataset:
             converted_instance = {}
@@ -81,9 +82,38 @@ class Coqa(GenerationDataset):
 
     def format_instance(self, instance):
         num_questions = len(instance["questions"])
-        return self._format_instances(instance, num_questions - 1)
+        return Coqa._format_instances(instance, num_questions - 1)
 
-    def normalize_answer(self, s):
+    def construct_instances(self):
+        self.evaluation_instances = []
+        for instance in self.evaluation_data:
+            formatted_instances = self.format_mul_instances(instance)
+            self.evaluation_instances.extend(list(map(self.format_instruction_and_examples, formatted_instances)))
+
+    @staticmethod
+    def _format_instances(instance, qid):
+        source_text = instance["story"]
+        questions = [question + "?" if question[-1] != "?" else question for question in instance["questions"]]
+        answers = instance["answers"]
+        q_a_pair = "".join(
+            map(lambda _p: "\n\nQ: " + _p[0] + "\n\n" + "A: " + _p[1][0], zip(questions[:qid], answers[:qid]))
+        )
+        source_text += q_a_pair
+        source_text += "\n\nQ: " + questions[qid] + "\n\nA:"
+        target_text = " " + answers[qid][0]
+        return dict(source=source_text, target=target_text)
+
+    @staticmethod
+    def format_mul_instances(instance):
+        mul_instances = []
+        num_questions = len(instance["questions"])
+        for i in range(num_questions):
+            mul_instance = Coqa._format_instances(instance, i)
+            mul_instances.append(mul_instance["source"])
+        return mul_instances
+
+    @staticmethod
+    def normalize_answer(s):
         """Lower text and remove punctuation, stories and extra whitespace."""
 
         def remove_articles(text):
@@ -101,17 +131,20 @@ class Coqa(GenerationDataset):
             return text.lower()
 
         return white_space_fix(remove_articles(remove_punc(lower(s))))
-    
-    def get_tokens(self, s):
+
+    @staticmethod
+    def get_tokens(s):
         if not s: return []
-        return word_tokenize(self.normalize_answer(s))
+        return word_tokenize(Coqa.normalize_answer(s))
 
-    def compute_exact(self, reference, predicted):
-        return int(self.normalize_answer(reference) == self.normalize_answer(predicted))
+    @staticmethod
+    def compute_exact(reference, predicted):
+        return int(Coqa.normalize_answer(reference) == Coqa.normalize_answer(predicted))
 
-    def calculate_f1_score(self, reference, predicted):
-        gold_toks = self.get_tokens(reference)
-        pred_toks = self.get_tokens(predicted)
+    @staticmethod
+    def calculate_f1_score(reference, predicted):
+        gold_toks = Coqa.get_tokens(reference)
+        pred_toks = Coqa.get_tokens(predicted)
         common = collections.Counter(gold_toks) & collections.Counter(pred_toks)
         num_same = sum(common.values())
         if len(gold_toks) == 0 or len(pred_toks) == 0:
@@ -122,52 +155,38 @@ class Coqa(GenerationDataset):
         recall = 1.0 * num_same / len(gold_toks)
         f1 = (2 * precision * recall) / (precision + recall)
         return f1
-    
+
     @staticmethod
     def post_processing(preds):
         predictions = []
         pattern = r'[.!(\n)]'
         for pred in preds:
-            match = re.search(pattern, pred) 
+            match = re.search(pattern, pred)
             if match:
                 index = match.start()
                 pred = pred[:index]
             predictions.append(pred)
         return predictions
 
+    @staticmethod
+    def _metric_max_over_ground_truths(metric_fn, prediction, ground_truths):
+        scores_for_ground_truths = []
+        for ground_truth in ground_truths:
+            score = metric_fn(prediction, ground_truth)
+            scores_for_ground_truths.append(score)
+        if len(scores_for_ground_truths) > 1:
+            func = lambda x: (max(x) * (len(x) - 1) + np.partition(x, -2)[-2]) / len(x)
+        else:
+            func = max
+        return func(scores_for_ground_truths)
+
     def calculate_metric(self, predictions):
         f1_sum = 0
         em_sum = 0
-        for prediction, reference in zip(predictions, self.references):
-            f1_sum += max(self.calculate_f1_score(answer, prediction) for answer in reference)
-            em_sum += max(self.compute_exact(answer, prediction) for answer in reference)
-        return {'F1 score:': f1_sum / len(predictions),"em score": em_sum / len(predictions)}
-
-    def construct_instances(self):
-        self.evaluation_instances = []
-        for instance in self.evaluation_data:
-            formatted_instances = self.format_mul_instances(instance)
-            self.evaluation_instances.extend(list(map(self.format_instruction_and_examples, formatted_instances)))
-
-    def _format_instances(self, instance, qid):
-        source_text = instance["story"]
-        questions = [question + "?" if question[-1] != "?" else question for question in instance["questions"]]
-        answers = instance["answers"]
-        q_a_pair = "".join(
-            map(lambda _p: "\n\nQ: " + _p[0] + "\n\n" + "A: " + _p[1][0], zip(questions[:qid], answers[:qid]))
-        )
-        source_text += q_a_pair
-        source_text += "\n\nQ: " + questions[qid] + "\n\nA:"
-        target_text = " " + answers[qid][0]
-        return dict(source=source_text, target=target_text)
-
-    def format_mul_instances(self, instance):
-        mul_instances = []
-        num_questions = len(instance["questions"])
-        for i in range(num_questions):
-            mul_instance = self._format_instances(instance, i)
-            mul_instances.append(mul_instance["source"])
-        return mul_instances
+        for prediction, references in zip(predictions, self.references):
+            f1_sum += Coqa._metric_max_over_ground_truths(Coqa.calculate_f1_score, prediction, references)
+            em_sum += Coqa._metric_max_over_ground_truths(Coqa.compute_exact, prediction, references)
+        return {'F1 score:': f1_sum / len(predictions), "em score": em_sum / len(predictions)}
 
     @property
     def references(self):
