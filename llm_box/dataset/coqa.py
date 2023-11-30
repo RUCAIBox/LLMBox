@@ -55,8 +55,8 @@ class Coqa(GenerationDataset):
     def _load_raw_dataset(self, dataset_path, subset_name, evaluation_set, example_set):
         evaluation_dataset = json.load(open("./llm_box/dataset/coqa_data/dev.json"))["data"]
         example_dataset = json.load(open("./llm_box/dataset/coqa_data/train.json"))["data"]
-        self.evaluation_data = Coqa.convert(evaluation_dataset, "dev")
-        self.example_data = Coqa.convert(example_dataset, "train")
+        self.evaluation_data = self.convert(evaluation_dataset, "dev")
+        self.example_data = self.convert(example_dataset, "train")
 
     @staticmethod
     def convert(raw_dataset, data_type):
@@ -64,7 +64,6 @@ class Coqa(GenerationDataset):
         for instance in raw_dataset:
             converted_instance = {}
             converted_instance["story"] = instance["story"]
-            converted_instance["id"] = instance["id"]
             multiple_answers = [instance["answers"]]
             if data_type == "dev":
                 multiple_answers += instance["additional_answers"].values()
@@ -77,40 +76,20 @@ class Coqa(GenerationDataset):
                     answer = answers[i]
                     answer_list.append(answer["input_text"])
                 converted_instance["answers"].append(answer_list)
-            dataset.append(converted_instance)
+                dataset.append(converted_instance)
         return dataset
 
     def format_instance(self, instance):
-        num_questions = len(instance["questions"])
-        return Coqa._format_instances(instance, num_questions - 1)
-
-    def construct_instances(self):
-        self.evaluation_instances = []
-        for instance in self.evaluation_data:
-            formatted_instances = self.format_mul_instances(instance)
-            self.evaluation_instances.extend(list(map(self.format_instruction_and_examples, formatted_instances)))
-
-    @staticmethod
-    def _format_instances(instance, qid):
         source_text = instance["story"]
         questions = [question + "?" if question[-1] != "?" else question for question in instance["questions"]]
         answers = instance["answers"]
         q_a_pair = "".join(
-            map(lambda _p: "\n\nQ: " + _p[0] + "\n\n" + "A: " + _p[1][0], zip(questions[:qid], answers[:qid]))
+            map(lambda _p: "\n\nQ: " + _p[0] + "\n\n" + "A: " + _p[1][0], zip(questions[:-1], answers[:-1]))
         )
         source_text += q_a_pair
-        source_text += "\n\nQ: " + questions[qid] + "\n\nA:"
-        target_text = " " + answers[qid][0]
+        source_text += "\n\nQ: " + questions[-1] + "\n\nA:"
+        target_text = " " + answers[-1][0]
         return dict(source=source_text, target=target_text)
-
-    @staticmethod
-    def format_mul_instances(instance):
-        mul_instances = []
-        num_questions = len(instance["questions"])
-        for i in range(num_questions):
-            mul_instance = Coqa._format_instances(instance, i)
-            mul_instances.append(mul_instance["source"])
-        return mul_instances
 
     @staticmethod
     def normalize_answer(s):
@@ -132,19 +111,16 @@ class Coqa(GenerationDataset):
 
         return white_space_fix(remove_articles(remove_punc(lower(s))))
 
-    @staticmethod
-    def get_tokens(s):
+    def get_tokens(self, s):
         if not s: return []
-        return word_tokenize(Coqa.normalize_answer(s))
+        return word_tokenize(self.normalize_answer(s))
 
-    @staticmethod
-    def compute_exact(reference, predicted):
-        return int(Coqa.normalize_answer(reference) == Coqa.normalize_answer(predicted))
+    def compute_exact(self, reference, predicted):
+        return int(self.normalize_answer(reference) == self.normalize_answer(predicted))
 
-    @staticmethod
-    def calculate_f1_score(reference, predicted):
-        gold_toks = Coqa.get_tokens(reference)
-        pred_toks = Coqa.get_tokens(predicted)
+    def calculate_f1_score(self, reference, predicted):
+        gold_toks = self.get_tokens(reference)
+        pred_toks = self.get_tokens(predicted)
         common = collections.Counter(gold_toks) & collections.Counter(pred_toks)
         num_same = sum(common.values())
         if len(gold_toks) == 0 or len(pred_toks) == 0:
@@ -184,10 +160,10 @@ class Coqa(GenerationDataset):
         f1_sum = 0
         em_sum = 0
         for prediction, references in zip(predictions, self.references):
-            f1_sum += Coqa._metric_max_over_ground_truths(Coqa.calculate_f1_score, prediction, references)
-            em_sum += Coqa._metric_max_over_ground_truths(Coqa.compute_exact, prediction, references)
+            f1_sum += self._metric_max_over_ground_truths(self.calculate_f1_score, prediction, references)
+            em_sum += self._metric_max_over_ground_truths(self.compute_exact, prediction, references)
         return {'F1 score:': f1_sum / len(predictions), "em score": em_sum / len(predictions)}
 
     @property
     def references(self):
-        return [answer for instance in self.evaluation_data for answer in instance["answers"]]
+        return [instance["answers"][-1] for instance in self.evaluation_data]
