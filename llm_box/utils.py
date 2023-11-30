@@ -55,7 +55,7 @@ class ModelArguments:
     )
     max_tokens: int = HfArg(
         default=2048,
-        help="The max_tokens for openai response",
+        help="The maximum number of tokens for output generation",
     )
 
     def __post_init__(self):
