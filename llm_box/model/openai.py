@@ -31,7 +31,7 @@ class Openai(Model):
         self.type = "base"
         self.tokenizer = tiktoken.get_encoding(tiktoken.encoding_name_for_model(self.name))
         # TODO: compatible for gpt-3.5-turbo (enum_type?)
-        self.max_tokens = 2048
+        self.max_tokens = args.max_tokens
         self.max_try_times = 5
         self.temperature = args.temperature
         # TODO: gpt-3.5-turbo doesn't support echo and logprobs, and it doesn't support max_tokens=0
