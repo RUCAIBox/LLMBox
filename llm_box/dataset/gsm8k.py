@@ -25,18 +25,18 @@ class Gsm8k(GenerationDataset):
     load_args = ("gsm8k", "main")
 
     @staticmethod
-    def post_processing(preds):
-        predictions = []
-        for pred in preds:
+    def post_processing(predictions):
+        new_predictions = []
+        for pred in predictions:
             # replace numbers like `x,xxx` with `xxxx`
             pred = re.sub(r"(\d),(\d)", r"\1\2", pred)
             numbers = re.findall(r"[-+]?\d*\.\d+|\d+", pred)
             if numbers:
-                predictions.append(numbers[-1])
+                new_predictions.append(numbers[-1])
             else:
-                predictions.append(pred)
+                new_predictions.append(pred)
 
-        return predictions
+        return new_predictions
 
     def format_instance(self, instance):
         instance["answer"] = re.sub(r"(\d),(\d)", r"\1\2", instance["answer"])

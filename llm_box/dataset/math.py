@@ -88,20 +88,20 @@ class Math(GenerationDataset):
         return text[start:end - 1]
 
     @staticmethod
-    def post_processing(preds):
-        predictions = []
+    def post_processing(predictions):
+        new_predictions = []
         pattern = r'\$(.*?)\$'
-        for pred in preds:
+        for pred in predictions:
             if ('The answer is ' in pred):
                 pred = pred.split('The answer is ')[-1].strip()
             final_answer = re.findall(pattern, pred)
             if final_answer:
-                predictions.append(Math.normalize_final_answer(final_answer[-1]))
+                new_predictions.append(Math.normalize_final_answer(final_answer[-1]))
             else:
                 numbers = re.findall(r"[-+]?\d*\.\d+|\d+", pred)
-                predictions.append(numbers[-1] if numbers else pred)
+                new_predictions.append(numbers[-1] if numbers else pred)
 
-        return predictions
+        return new_predictions
 
     def format_instance(self, instance):
         instance["short_answer"] = self.extract_inner_content(instance["solution"])

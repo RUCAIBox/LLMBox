@@ -111,16 +111,16 @@ class Drop(GenerationDataset):
             return False
 
     @staticmethod
-    def post_processing(preds):
-        predictions = []
+    def post_processing(predictions):
+        new_predictions = []
         pattern = r'[.!(\n)]'
-        for pred in preds:
+        for pred in predictions:
             match = re.search(pattern, pred)
             if match:
                 index = match.start()
                 pred = pred[:index]
-            predictions.append(pred)
-        return predictions
+            new_predictions.append(pred)
+        return new_predictions
 
     @staticmethod
     def _metric_max_over_ground_truths(metric_fn, prediction, ground_truths):
