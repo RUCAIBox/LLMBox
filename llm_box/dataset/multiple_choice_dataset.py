@@ -10,18 +10,17 @@ class MultipleChoiceDataset(Dataset):
     evaluation_type = "ranking"
     metric = "accuracy"
 
-    def post_processing(self, results):
+    def post_processing(self, predictions):
         labels = []
         st = 0
-        results = np.array([result / length for result, length in results])
+        predictions = np.array([result / length for result, length in predictions])
         for num in self.option_nums:
-            labels.append(results[st:st + num].argmin())
+            labels.append(predictions[st:st + num].argmin())
             st += num
-        results = labels
+        predictions = labels
 
+        return predictions
 
-        return results
-
-    def calculate_metric(self, results):
-        score_list = np.asarray(results) == np.asarray(self.references)
+    def calculate_metric(self, predictions):
+        score_list = np.asarray(predictions) == np.asarray(self.references)
         return {'Accuracy': np.mean(score_list)}

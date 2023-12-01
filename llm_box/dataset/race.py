@@ -62,19 +62,19 @@ class Race(MultipleChoiceDataset):
             self.evaluation_instances.extend(options)
         self.evaluation_instances = self.evaluation_instances * self.args.sample_num
 
-    def post_processing(self, results):
+    def post_processing(self, predictions):
         labels = []
         st = 0
-        results = list(map(lambda _r: _r[0], results))
-        results = np.array([rc - ra for rc, ra in zip(results[::2], results[1::2])])
+        predictions = list(map(lambda _r: _r[0], predictions))
+        predictions = np.array([rc - ra for rc, ra in zip(predictions[::2], predictions[1::2])])
         for num in self.option_nums:
-            labels.append(results[st:st + num].argmin())
+            labels.append(predictions[st:st + num].argmin())
             st += num
-        results = labels
-        return results
+        predictions = labels
+        return predictions
 
-    def calculate_metric(self, results):
-        score_list = np.asarray(results) == np.asarray(self.references)
+    def calculate_metric(self, predictions):
+        score_list = np.asarray(predictions) == np.asarray(self.references)
         return {'Accuracy': np.mean(score_list)}
 
     @property
