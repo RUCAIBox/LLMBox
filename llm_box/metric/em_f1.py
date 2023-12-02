@@ -25,12 +25,14 @@ def normalize_answer(s):
 
     return white_space_fix(remove_articles(remove_punc(lower(s))))
 
+
 def multi_ref_aggregation(scores, multiref_strategy):
     if len(scores) > 1 and multiref_strategy == 'leave_one_out':
         func = lambda x: (max(x) * (len(x) - 1) + np.partition(x, -2)[-2]) / len(x)
     else:
         func = max
     return func(scores)
+
 
 def is_number(s):
     try:
@@ -39,13 +41,14 @@ def is_number(s):
     except ValueError:
         return False
 
+
 class Em(Metric):
     r""" Calculate the Exact Match score.
     """
 
     def __init__(self, multiref_strategy='none'):
         self.multiref_strategy = multiref_strategy
-    
+
     @staticmethod
     def _calculate_em_score(reference, prediction):
         return int(normalize_answer(reference) == normalize_answer(prediction))
@@ -57,6 +60,7 @@ class Em(Metric):
             score_list.append(multi_ref_aggregation(scores, self.multiref_strategy))
         return {'EM': np.mean(score_list) * 100}
 
+
 class F1(Metric):
     r""" Calculate the F1 score.
     """
@@ -64,7 +68,7 @@ class F1(Metric):
     def __init__(self, multiref_strategy='none', force_number_match=False):
         self.multiref_strategy = multiref_strategy
         self.force_number_match = force_number_match
-    
+
     @staticmethod
     def _calculate_f1_score(reference, prediction):
         ref_toks = word_tokenize(normalize_answer(reference))
