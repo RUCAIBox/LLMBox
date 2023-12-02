@@ -7,7 +7,7 @@ class TranslationDataset(Dataset):
     r"""The dataset for translation tasks. It ranks given options and is evaluated using `sacrebleu.sentence_bleu` score.
     """
 
-    evaluation_type = "ranking"
+    evaluation_type = "generation"
     metric = "sacrebleu.sentence_bleu"
 
     def __init__(self, args):
