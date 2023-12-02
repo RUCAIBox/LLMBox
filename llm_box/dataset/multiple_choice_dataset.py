@@ -1,6 +1,7 @@
 import numpy as np
 
 from .dataset import Dataset
+from ..metric import Accuracy
 
 
 class MultipleChoiceDataset(Dataset):
@@ -8,7 +9,7 @@ class MultipleChoiceDataset(Dataset):
     """
 
     evaluation_type = "ranking"
-    metric = "accuracy"
+    metrics = [Accuracy()]
 
     def post_processing(self, predictions):
         labels = []
@@ -20,7 +21,3 @@ class MultipleChoiceDataset(Dataset):
         predictions = labels
 
         return predictions
-
-    def calculate_metric(self, predictions):
-        score_list = np.asarray(predictions) == np.asarray(self.references)
-        return {'Accuracy': np.mean(score_list)}

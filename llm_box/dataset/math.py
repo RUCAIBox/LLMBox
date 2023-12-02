@@ -3,6 +3,7 @@ import re
 import numpy as np
 
 from .generation_dataset import GenerationDataset
+from ..metric import Accuracy
 
 SUBSTITUTIONS = [('an ', ''), ('a ', ''), ('.$', '$'), ('\\$', ''), (r'\ ', ''), (' ', ''), ('mbox', 'text'),
                  (',\\text{and}', ','), ('\\text{and}', ','), ('\\text{m}', '\\text{}')]
@@ -35,6 +36,7 @@ class Math(GenerationDataset):
     evaluation_set = "test"
 
     load_args = ("hendrycks/competition_math",)
+    metrics = [Accuracy()]
 
     @staticmethod
     def normalize_final_answer(final_answer: str) -> str:
@@ -100,7 +102,6 @@ class Math(GenerationDataset):
             else:
                 numbers = re.findall(r"[-+]?\d*\.\d+|\d+", pred)
                 new_predictions.append(numbers[-1] if numbers else pred)
-
         return new_predictions
 
     def format_instance(self, instance):
@@ -112,10 +113,6 @@ class Math(GenerationDataset):
             source=instance["problem"],
             target=instance["solution"],
         )
-
-    def calculate_metric(self, predictions):
-        score_list = np.asarray(predictions) == np.asarray(self.references)
-        return {'Accuracy': np.mean(score_list)}
 
     @property
     def references(self):
