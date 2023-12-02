@@ -1,9 +1,7 @@
 from .generation_dataset import GenerationDataset
-import numpy as np
 import re
-import string
-import collections
-from nltk import word_tokenize
+
+from ..metric import F1, Em
 
 
 class Drop(GenerationDataset):
@@ -29,86 +27,12 @@ class Drop(GenerationDataset):
     evaluation_set = "validation"
 
     load_args = ("drop",)
+    metrics = [F1(force_number_match=True), Em()]
 
     def format_instance(self, instance):
         source_text = "Passage: " + instance["passage"] + "\nQuestion: " + instance["question"] + "\nAnswer:"
         target_text = " " + instance["answers_spans"]["spans"][0]
         return dict(source=source_text, target=target_text)
-
-    def calculate_metric(self, predictions):
-        f1_sum = 0
-        em_sum = 0
-        for prediction, references in zip(predictions, self.references):
-            f1_sum += self._metric_max_over_ground_truths(self.calculate_f1_score, prediction, references)
-            em_sum += self._metric_max_over_ground_truths(self.calculate_exact_match_score, prediction, references)
-        return {'F1': f1_sum / len(predictions) * 100, "EM": em_sum / len(predictions) * 100}
-
-    @property
-    def references(self):
-        return [instance["answers_spans"]["spans"] for instance in self.evaluation_data]
-
-    @staticmethod
-    def normalize_answer(s):
-        """Lower text and remove punctuation, stories and extra whitespace."""
-
-        def remove_articles(text):
-            regex = re.compile(r'\b(a|an|the)\b', re.UNICODE)
-            return re.sub(regex, ' ', text)
-
-        def white_space_fix(text):
-            return ' '.join(text.split())
-
-        def remove_punc(text):
-            exclude = set(string.punctuation)
-            return ''.join(ch for ch in text if ch not in exclude)
-
-        def lower(text):
-            return text.lower()
-
-        return white_space_fix(remove_articles(remove_punc(lower(s))))
-
-    @staticmethod
-    def calculate_exact_match_score(reference, predicted):
-        return int(Drop.normalize_answer(reference) == Drop.normalize_answer(predicted))
-
-    @staticmethod
-    def calculate_f1_score(reference, predicted):
-        gold_toks = word_tokenize(Drop.normalize_answer(reference))
-        pred_toks = word_tokenize(Drop.normalize_answer(predicted))
-        if Drop._match_numbers_if_present(gold_toks, pred_toks):
-            return 1
-        common = collections.Counter(gold_toks) & collections.Counter(pred_toks)
-        num_same = sum(common.values())
-        if len(gold_toks) == 0 or len(pred_toks) == 0:
-            return int(gold_toks == pred_toks)
-        if num_same == 0:
-            return 0
-        precision = 1.0 * num_same / len(pred_toks)
-        recall = 1.0 * num_same / len(gold_toks)
-        f1 = (2 * precision * recall) / (precision + recall)
-        return f1
-
-    @staticmethod
-    def _match_numbers_if_present(gold_bag, predicted_bag):
-        gold_numbers = set()
-        predicted_numbers = set()
-        for word in gold_bag:
-            if Drop._is_number(word):
-                gold_numbers.add(word)
-        for word in predicted_bag:
-            if Drop._is_number(word):
-                predicted_numbers.add(word)
-        if (not gold_numbers) and gold_numbers.intersection(predicted_numbers):
-            return True
-        return False
-
-    @staticmethod
-    def _is_number(text):
-        try:
-            float(text)
-            return True
-        except ValueError:
-            return False
 
     @staticmethod
     def post_processing(predictions):
@@ -122,10 +46,6 @@ class Drop(GenerationDataset):
             new_predictions.append(pred)
         return new_predictions
 
-    @staticmethod
-    def _metric_max_over_ground_truths(metric_fn, prediction, ground_truths):
-        scores_for_ground_truths = []
-        for ground_truth in ground_truths:
-            score = metric_fn(prediction, ground_truth)
-            scores_for_ground_truths.append(score)
-        return max(scores_for_ground_truths)
+    @property
+    def references(self):
+        return [instance["answers_spans"]["spans"] for instance in self.evaluation_data]
