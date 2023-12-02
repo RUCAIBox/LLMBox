@@ -65,6 +65,8 @@ class Openai(Model):
                 time.sleep(10)
             except openai.error.AuthenticationError as e:
                 raise e
+            except openai.error.InvalidRequestError as e:
+                raise e
             except (Exception, KeyboardInterrupt) as e:
                 logger.warning(f'Receive {e.__class__.__name__}, retrying...')
                 time.sleep(1)

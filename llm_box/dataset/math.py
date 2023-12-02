@@ -3,6 +3,7 @@ import re
 import numpy as np
 
 from .generation_dataset import GenerationDataset
+from ..metric import Accuracy
 
 SUBSTITUTIONS = [('an ', ''), ('a ', ''), ('.$', '$'), ('\\$', ''), (r'\ ', ''), (' ', ''), ('mbox', 'text'),
                  (',\\text{and}', ','), ('\\text{and}', ','), ('\\text{m}', '\\text{}')]
@@ -35,6 +36,7 @@ class Math(GenerationDataset):
     evaluation_set = "test"
 
     load_args = ("hendrycks/competition_math",)
+    metrics = [Accuracy()]
 
     @staticmethod
     def normalize_final_answer(final_answer: str) -> str:
@@ -88,20 +90,19 @@ class Math(GenerationDataset):
         return text[start:end - 1]
 
     @staticmethod
-    def post_processing(preds):
-        predictions = []
+    def post_processing(predictions):
+        new_predictions = []
         pattern = r'\$(.*?)\$'
-        for pred in preds:
+        for pred in predictions:
             if ('The answer is ' in pred):
                 pred = pred.split('The answer is ')[-1].strip()
             final_answer = re.findall(pattern, pred)
             if final_answer:
-                predictions.append(Math.normalize_final_answer(final_answer[-1]))
+                new_predictions.append(Math.normalize_final_answer(final_answer[-1]))
             else:
                 numbers = re.findall(r"[-+]?\d*\.\d+|\d+", pred)
-                predictions.append(numbers[-1] if numbers else pred)
-
-        return predictions
+                new_predictions.append(numbers[-1] if numbers else pred)
+        return new_predictions
 
     def format_instance(self, instance):
         instance["short_answer"] = self.extract_inner_content(instance["solution"])
@@ -112,10 +113,6 @@ class Math(GenerationDataset):
             source=instance["problem"],
             target=instance["solution"],
         )
-
-    def calculate_metric(self, predictions):
-        score_list = np.asarray(predictions) == np.asarray(self.references)
-        return {'Accuracy': np.mean(score_list)}
 
     @property
     def references(self):
