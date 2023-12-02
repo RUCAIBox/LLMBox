@@ -12,4 +12,6 @@ class Metric:
         Returns:
             Dict[str, float]: The metric score.
         """
-        raise NotImplementedError(f"{self.__class__.__name__} metric must implement the `__call__` function for score calculation.")
+        raise NotImplementedError(
+            f"{self.__class__.__name__} metric must implement the `__call__` function for score calculation."
+        )
