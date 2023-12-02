@@ -3,6 +3,7 @@ import re
 import numpy as np
 
 from .generation_dataset import GenerationDataset
+from ..metric import Accuracy
 
 
 class Gsm8k(GenerationDataset):
@@ -23,6 +24,7 @@ class Gsm8k(GenerationDataset):
     example_set = "train"
 
     load_args = ("gsm8k", "main")
+    metrics = [Accuracy()]
 
     @staticmethod
     def post_processing(predictions):
@@ -35,7 +37,6 @@ class Gsm8k(GenerationDataset):
                 new_predictions.append(numbers[-1])
             else:
                 new_predictions.append(pred)
-
         return new_predictions
 
     def format_instance(self, instance):
@@ -46,10 +47,6 @@ class Gsm8k(GenerationDataset):
             source=instance["question"],
             target=instance["answer"],
         )
-
-    def calculate_metric(self, predictions):
-        score_list = np.asarray(predictions) == np.asarray(self.references)
-        return {'Accuracy': np.mean(score_list)}
 
     @property
     def references(self):

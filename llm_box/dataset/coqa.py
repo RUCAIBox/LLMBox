@@ -1,10 +1,8 @@
 from .generation_dataset import GenerationDataset
-import numpy as np
 import re
-import string
-import collections
 import json
-from nltk import word_tokenize
+
+from ..metric import F1, Em
 
 
 class Coqa(GenerationDataset):
@@ -50,10 +48,11 @@ class Coqa(GenerationDataset):
     evaluation_set = "validation"
 
     load_args = ("coqa",)
+    metrics = [F1(multiref_strategy='leave_one_out'), Em(multiref_strategy='leave_one_out')]
 
     def _load_raw_dataset(self, dataset_path, subset_name, evaluation_set, example_set):
-        evaluation_dataset = json.load(open("./llm_box/dataset/coqa_data/dev.json"))["data"]
-        example_dataset = json.load(open("./llm_box/dataset/coqa_data/train.json"))["data"]
+        evaluation_dataset = json.load(open("coqa-dev-v1.0.json"))["data"]
+        example_dataset = json.load(open("coqa-train-v1.0.json"))["data"]
         self.evaluation_data = self.convert(evaluation_dataset, "dev")
         self.example_data = self.convert(example_dataset, "train")
 
@@ -93,57 +92,6 @@ class Coqa(GenerationDataset):
         target_text = " " + answers[-1][0]
         return dict(source=source_text, target=target_text)
 
-    def calculate_metric(self, predictions):
-        f1_sum = 0
-        em_sum = 0
-        for prediction, references in zip(predictions, self.references):
-            f1_sum += self._metric_max_over_ground_truths(self.calculate_f1_score, prediction, references)
-            em_sum += self._metric_max_over_ground_truths(self.calculate_exact_match_score, prediction, references)
-        return {'F1': f1_sum / len(predictions) * 100, "EM": em_sum / len(predictions) * 100}
-
-    @property
-    def references(self):
-        return [instance["answers"][-1] for instance in self.evaluation_data]
-
-    @staticmethod
-    def normalize_answer(s):
-        """Lower text and remove punctuation, stories and extra whitespace."""
-
-        def remove_articles(text):
-            regex = re.compile(r'\b(a|an|the)\b', re.UNICODE)
-            return re.sub(regex, ' ', text)
-
-        def white_space_fix(text):
-            return ' '.join(text.split())
-
-        def remove_punc(text):
-            exclude = set(string.punctuation)
-            return ''.join(ch for ch in text if ch not in exclude)
-
-        def lower(text):
-            return text.lower()
-
-        return white_space_fix(remove_articles(remove_punc(lower(s))))
-
-    @staticmethod
-    def calculate_exact_match_score(reference, predicted):
-        return int(Coqa.normalize_answer(reference) == Coqa.normalize_answer(predicted))
-
-    @staticmethod
-    def calculate_f1_score(reference, predicted):
-        gold_toks = word_tokenize(Coqa.normalize_answer(reference))
-        pred_toks = word_tokenize(Coqa.normalize_answer(predicted))
-        common = collections.Counter(gold_toks) & collections.Counter(pred_toks)
-        num_same = sum(common.values())
-        if len(gold_toks) == 0 or len(pred_toks) == 0:
-            return int(gold_toks == pred_toks)
-        if num_same == 0:
-            return 0
-        precision = 1.0 * num_same / len(pred_toks)
-        recall = 1.0 * num_same / len(gold_toks)
-        f1 = (2 * precision * recall) / (precision + recall)
-        return f1
-
     @staticmethod
     def post_processing(predictions):
         new_predictions = []
@@ -156,14 +104,6 @@ class Coqa(GenerationDataset):
             new_predictions.append(pred)
         return new_predictions
 
-    @staticmethod
-    def _metric_max_over_ground_truths(metric_fn, prediction, ground_truths):
-        scores_for_ground_truths = []
-        for ground_truth in ground_truths:
-            score = metric_fn(prediction, ground_truth)
-            scores_for_ground_truths.append(score)
-        if len(scores_for_ground_truths) > 1:
-            func = lambda x: (max(x) * (len(x) - 1) + np.partition(x, -2)[-2]) / len(x)
-        else:
-            func = max
-        return func(scores_for_ground_truths)
+    @property
+    def references(self):
+        return [instance["answers"][-1] for instance in self.evaluation_data]
