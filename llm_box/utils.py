@@ -1,10 +1,10 @@
-import importlib
-import inspect
+import os
 import logging
 from dataclasses import MISSING, dataclass
 from logging import getLogger
-from typing import Optional, Tuple, Type, TypeVar
+from typing import Optional, Tuple, TypeVar, ClassVar, Set
 import datetime
+import warnings
 
 import coloredlogs
 from transformers.hf_argparser import HfArg, HfArgumentParser
@@ -23,7 +23,12 @@ log_levels = {
 
 DEFAULT_LOG_FORMAT = '%(asctime)s %(hostname)s %(name)s[%(process)d] %(levelname)s %(message)s'
 
-DEFAULT_DATETIME_FORMAT = '%Y_%m_%d-%H:%M:%S'
+DEFAULT_DATETIME_FORMAT = '%Y_%m_%d-%H_%M_%S'  # Compatible with windows, which does not support ':' in filename
+
+
+@property
+def NotImplementedField(self):
+    raise NotImplementedError(f"{self.__class__.__name__} has not implemented field.")
 
 
 @dataclass
@@ -33,7 +38,7 @@ class ModelArguments:
         default=MISSING, aliases=["--model", "-m"], help="The model name or path, e.g., cuire, llama"
     )
     openai_api_key: str = HfArg(
-        default="",
+        default=None,
         help="The OpenAI API key",
     )
     load_in_half: bool = HfArg(
@@ -44,19 +49,46 @@ class ModelArguments:
         default="auto",
         help="The device map for model and data",
     )
+    temperature: float = HfArg(
+        default=0,
+        help="The temperature for models",
+    )
+    max_tokens: int = HfArg(
+        default=2048,
+        help="The maximum number of tokens for output generation",
+    )
+
+    def __post_init__(self):
+        if "OPENAI_API_KEY" in os.environ and self.openai_api_key is None:
+            self.openai_api_key = os.environ["OPENAI_API_KEY"]
 
 
 @dataclass
 class DatasetArguments:
 
-    dataset: str = HfArg(default=MISSING, aliases=["-d"], help="The dataset name, e.g., copa, gsm")
-    evaluation_set: str = HfArg(
-        default="validation",
-        help="The set name for evaluation, e.g., validation, test",
+    dataset_name: str = HfArg(
+        default=MISSING,
+        aliases=["-d", "--dataset"],
+        help=
+        "The name of a dataset or the name of a subset in a dataset. Format: 'dataset' or 'dataset:subset'. E.g., copa, gsm, race, or race:high"
     )
-    example_set: str = HfArg(
-        default="train",
-        help="The set name for demonstration, e.g., train, dev",
+    """The name of a dataset without subset name. Refer to `subset_names` for the subset name."""
+
+    subset_names: ClassVar[Set[str]] = set()
+    """The name of a subset in a dataset, derived from `dataset_name` argument on initalization"""
+
+    dataset_path: Optional[str] = HfArg(
+        default=None,
+        help=
+        "The path of dataset if loading from local. Supports repository cloned from huggingface or dataset saved by `save_to_disk`."
+    )
+    evaluation_set: Optional[str] = HfArg(
+        default=None,
+        help="The set name for evaluation, supporting slice, e.g., validation, test, validation[:10]",
+    )
+    example_set: Optional[str] = HfArg(
+        default=None,
+        help="The set name for demonstration, supporting slice, e.g., train, dev, train[:10]",
     )
     system_prompt: str = HfArg(
         aliases=["-sys"],
@@ -86,6 +118,15 @@ class DatasetArguments:
         default=False,
         help="Whether to trust the remote code",
     )
+    sample_num: int = HfArg(
+        default=1,
+        help="The path number for sampling for self-consistency",
+    )
+
+    def __post_init__(self):
+        if ":" in self.dataset_name:
+            self.dataset_name, subset_names = self.dataset_name.split(":")
+            self.subset_names = set(subset_names.split(","))
 
 
 @dataclass
@@ -102,9 +143,13 @@ class EvaluationArguments:
     log_level: Optional[str] = HfArg(
         default="warning",
         help=
-        "Logger level to use on the main node.ossible choices are the log levels as strings: 'debug', 'info', 'warning', 'error' and 'critical'",
+        "Logger level to use on the main node. Possible choices are the log levels as strings: 'debug', 'info', 'warning', 'error' and 'critical'",
         metadata={"choices": log_levels.keys()},
     )
+
+    def __post_init__(self):
+        if not os.path.exists(self.logging_dir):
+            os.makedirs(self.logging_dir)
 
 
 def set_logging(
@@ -125,7 +170,9 @@ def set_logging(
 
     # set the log file
     model_name = model_args.model_name_or_path.strip("/").split("/")[-1]
-    dataset_name = dataset_args.dataset
+    dataset_name = dataset_args.dataset_name + (
+        "_" + ",".join(dataset_args.subset_names) if dataset_args.subset_names else ""
+    )
     num_shots = str(dataset_args.num_shots)
     execution_time = datetime.datetime.now().strftime(DEFAULT_DATETIME_FORMAT)
     log_filename = f"{model_name}-{dataset_name}-{num_shots}-{execution_time}.log"
@@ -142,15 +189,28 @@ def set_logging(
     logger.info(f"Saving logs to {log_path}")
 
 
-def parse_argument() -> Tuple[ModelArguments, DatasetArguments, EvaluationArguments]:
+def check_args(model_args, dataset_args, evaluation_args):
+    r"""Check the validity of arguments.
+
+    Args:
+        model_args (ModelArguments): The global configurations.
+        dataset_args (DatasetArguments): The dataset configurations.
+        evaluation_args (EvaluationArguments): The evaluation configurations.
+    """
+    if model_args.model_name_or_path.lower() == 'gpt-3.5-turbo' and dataset_args.batch_size > 1:
+        dataset_args.batch_size = 1
+        warnings.warn("gpt-3.5-turbo doesn't support batch_size > 1, automatically set batch_size=1.")
+
+
+def parse_argument(args=None) -> Tuple[ModelArguments, DatasetArguments, EvaluationArguments]:
     r"""Parse arguments from command line. Using `argparse` for predefined ones, and an easy mannal parser for others (saved in `kwargs`).
 
     Returns:
         Namespace: the parsed arguments
     """
     parser = HfArgumentParser((ModelArguments, DatasetArguments, EvaluationArguments), description="LLMBox description")
-    model_args, dataset_args, evaluation_args = parser.parse_args_into_dataclasses()
-
+    model_args, dataset_args, evaluation_args = parser.parse_args_into_dataclasses(args)
+    check_args(model_args, dataset_args, evaluation_args)
     set_logging(model_args, dataset_args, evaluation_args)
 
     return model_args, dataset_args, evaluation_args
