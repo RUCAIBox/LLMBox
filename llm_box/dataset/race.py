@@ -73,10 +73,6 @@ class Race(MultipleChoiceDataset):
         predictions = labels
         return predictions
 
-    def calculate_metric(self, predictions):
-        score_list = np.asarray(predictions) == np.asarray(self.references)
-        return {'Accuracy': np.mean(score_list)}
-
     @property
     def references(self):
         return [ord(instance["answer"]) - 65 for instance in self.evaluation_data]
