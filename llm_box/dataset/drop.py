@@ -75,8 +75,9 @@ class Drop(GenerationDataset):
     def calculate_f1_score(reference, predicted):
         gold_toks = word_tokenize(Drop.normalize_answer(reference))
         pred_toks = word_tokenize(Drop.normalize_answer(predicted))
-        if Drop._match_numbers_if_present(gold_toks, pred_toks):
-            return 1
+        contain_num, gold_numbers, predicted_numbers  = Drop._match_numbers_if_present(gold_toks, pred_toks)
+        if contain_num:
+            return 1 if gold_numbers.intersection(predicted_numbers) else 0
         common = collections.Counter(gold_toks) & collections.Counter(pred_toks)
         num_same = sum(common.values())
         if len(gold_toks) == 0 or len(pred_toks) == 0:
@@ -92,15 +93,16 @@ class Drop(GenerationDataset):
     def _match_numbers_if_present(gold_bag, predicted_bag):
         gold_numbers = set()
         predicted_numbers = set()
+        contain_num = False
         for word in gold_bag:
             if Drop._is_number(word):
                 gold_numbers.add(word)
         for word in predicted_bag:
             if Drop._is_number(word):
                 predicted_numbers.add(word)
-        if (not gold_numbers) and gold_numbers.intersection(predicted_numbers):
-            return True
-        return False
+        if gold_numbers:
+            contain_num = True
+        return (contain_num, gold_numbers, predicted_numbers)
 
     @staticmethod
     def _is_number(text):
