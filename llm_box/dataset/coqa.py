@@ -1,7 +1,7 @@
 from .generation_dataset import GenerationDataset
 import re
 import json
-
+import copy
 from ..metric import F1, Em
 
 
@@ -53,7 +53,7 @@ class Coqa(GenerationDataset):
     def _load_raw_dataset(self, dataset_path, subset_name, evaluation_set, example_set):
         evaluation_dataset = json.load(open("coqa-dev-v1.0.json"))["data"]
         example_dataset = json.load(open("coqa-train-v1.0.json"))["data"]
-        self.evaluation_data = self.convert(evaluation_dataset, "dev")
+        self.evaluation_data = self.convert(evaluation_dataset, "dev")[:300]
         self.example_data = self.convert(example_dataset, "train")
 
     @staticmethod
@@ -75,9 +75,9 @@ class Coqa(GenerationDataset):
                     answer_list.append(answer["input_text"])
                 converted_instance["answers"].append(answer_list)
                 if data_type == "dev":
-                    dataset.append(converted_instance)
+                    dataset.append(copy.deepcopy(converted_instance))
             if data_type == "train":
-                dataset.append(converted_instance)
+                dataset.append((copy.deepcopy(converted_instance)))
         return dataset
 
     def format_instance(self, instance):
