@@ -33,8 +33,7 @@ class Evaluator:
 
         set_seed(self.evaluation_args.seed)
 
-        self.model = load_model(self.model_args)
-        self.dataset = load_dataset(self.dataset_args, self.model)
+        self.dataset = load_dataset(self.dataset_args, load_model(self.model_args))
 
     def evaluate(self) -> Dict[str, float]:
         r"""It conducts the evaluation on the dataset with corresponding models.
@@ -54,9 +53,9 @@ class Evaluator:
         )
 
         if self.dataset.evaluation_type == 'ranking':
-            call_model = self.model.get_ppl
+            call_model = self.dataset.model.get_ppl
         elif self.dataset.evaluation_type == 'generation':
-            call_model = self.model.generation
+            call_model = self.dataset.model.generation
         else:
             raise ValueError(
                 f"We only support two evaluation types: `ranking` and `generation`, but got `{self.dataset.evaluation_type}`."
