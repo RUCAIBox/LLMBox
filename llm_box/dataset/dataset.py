@@ -1,16 +1,16 @@
 import json
 import os
 from logging import getLogger
-from os.path import abspath
 from pprint import pformat
-from typing import Dict, List, Literal, Optional, Tuple, Union
+from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 
-import datasets as d
+import datasets as ds
 import numpy as np
 import torch
 
 from ..model.model import Model
 from ..utils import DatasetArguments, NotImplementedField
+from .utils import _get_raw_dataset_loader
 
 logger = getLogger(__name__)
 
@@ -66,6 +66,9 @@ class Dataset(torch.utils.data.Dataset):
         - `(dataset_name, subset_name)`: If the dataset itself is a subset of a dataset collection. E.g., `('super_glue', 'copa')`.
     """
 
+    model_args: Dict[str, Any] = NotImplementedField
+    """Arguments for the model generation or get_ppl. See `set_generation_args` or `set_ppl_args` for details."""
+
     def __init__(self, args: DatasetArguments, model: Model, subset_name: Optional[str] = None):
         r"""This should be called by the subclass.
 
@@ -99,66 +102,76 @@ class Dataset(torch.utils.data.Dataset):
         evaluation_set: str,
         example_set: Optional[str],
     ):
-        r"""Load the raw dataset from huggingface or local path into `self.evaluation_data` and `self.example_data`. If `dataset_path` is not None, the dataset will be loaded from the given local path.
+        r"""Load the raw dataset from huggingface or local path into `self.evaluation_data` and `self.example_data`.
 
-        Feel free to override this function if you want to load the dataset in a different way:
-
+        Load from huggingface server:
+        ```bash
+        python inference.py --dataset copa
+        python inference.py --dataset race:middle,high
+        python inference.py --dataset race:middle,high --evaluation_set test --example_set train
         ```
-        def _load_raw_dataset(self, dataset_path, subset_name, evaluation_set, example_set):
-            import json
-            self.evaluation_data = list(json.load(open(f"{dataset_path}/{evaluation_set}.json"))
-            self.example_data = list(json.load(open(f"{dataset_path}/{example_set}.json"))
+
+        ---
+
+        If `dataset_path` is not None, the dataset will be loaded from the given local path:
+
+        ```bash
+        # from a cloned directory of the huggingface dataset repository:
+        python inference.py --dataset copa --dataset_path /path/to/copa
+
+        # from a local (nested) directory saved by `dataset.save_to_disk`:
+        python inference.py --dataset race --dataset_path /path/to/race/middle
+        python inference.py --dataset race:middle --dataset_path /path/to/race
+        python inference.py --dataset race:middle --dataset_path /path/to/race/middle
+        python inference.py --dataset race:middle,high --dataset_paht /path/to/race
+        ```
+
+        `dataset_path` can also accept a dataset file or a directory containing these files (supports json, jsonl, csv, and txt):
+        ```bash
+        # load one split from one subset only
+        python inference.py --dataset gsm8k --dataset_path /path/to/gsm.jsonl
+        python inference.py --dataset race --dataset_path /path/to/race/middle/train.json
+
+        # load test and train splits from middle subset (a directory contains `/path/to/race/middle/train.json` and `/path/to/race/middle/test.json`)
+        python inference.py --dataset race --dataset_path /path/to/race/middle --evaluation_set test --example_set train
+
+        # load test and train splits from middle and high subsets (a nested directory)
+        python inference.py --dataset race:middle,high --dataset_path /path/to/race --evaluation_set test --example_set train
+
+        # load test and train splits from middle and high subsets with a filename pattern
+        python inference.py --dataset race:middle,high --evaluation_set test --example_set train --dataset_path "/pattern/of/race_{subset}_{split}.json"
+        python inference.py --dataset mmlu --evaluation_set val --example_set dev --dataset_path "/pattern/of/mmlu/{split}/{subset}_{split}.csv"
+        ```
+
+        ---
+
+        Also feel free to override this function if you want to load the dataset in a different way:
+
+        ```python
+        from .utils import load_raw_dataset_from_file
+
+        class MyDataset(Dataset):
+            def _load_raw_dataset(self, dataset_path, subset_name, evaluation_set, example_set):
+                self.evaluation_data = load_raw_dataset_from_file("nq_test.json")
+                self.example_data = []
         ```
         """
 
-        msg = f"Loading raw dataset `{self.name}:{subset_name}`"
-        if dataset_path is not None:
-            loadders = []
-            dataset_path = abspath(dataset_path)
-            msg += f" from local path `{dataset_path}`"
-            if os.path.exists(dataset_path + "/dataset_infos.json"):
-                loadders.append(lambda s: d.load_dataset(dataset_path, self.name, split=s))
-                loadders.append(lambda s: d.load_dataset(dataset_path, subset_name, split=s))
-            elif os.path.exists(dataset_path + "/dataset_dict.json"):
-                loadders.append(lambda s: d.load_from_disk(dataset_path)[s])
-            elif isinstance(subset_name, str) and os.path.exists(f"{dataset_path}/{subset_name}/dataset_dict.json"):
-                loadders.append(lambda s: d.load_from_disk(dataset_path + "/" + subset_name)[s])
-        else:
-            if len(self.load_args) == 1 and isinstance(subset_name, str):
-                load_args = self.load_args + (subset_name,)
-            elif isinstance(subset_name, str):
-                raise ValueError(
-                    f"Failed to specify {subset_name} subset since dataset `{self.name}` already has defined one to load ({', '.join(self.load_args)}). Please use `{self.name}`."
-                )
-            else:
-                load_args = self.load_args
-            msg += f" from huggingface ({', '.join(load_args)})"
-            loadders = [lambda s: d.load_dataset(*load_args, split=s)]
-
+        load_fn, msg = _get_raw_dataset_loader(
+            dataset_name=self.name,
+            dataset_path=dataset_path,
+            subset_name=subset_name,
+            load_args=self.load_args,
+        )
         logger.info(
             msg + f" with evaluation set `{evaluation_set}`" +
             (f" and example set `{example_set}`" if example_set else "")
         )
 
-        for fn in loadders:
-            try:
-                self.evaluation_data = list(fn(evaluation_set))
-                self.example_data = list(fn(example_set)) if example_set else []
-                logger.info(
-                    f"Evaluation data with {len(self.evaluation_data)} instances:\n{pformat(self.evaluation_data[0])}"
-                )
-                return
-            except KeyError as e:
-                raise ValueError(f'Unknown split "{e}" of dataset "{self.name}"')
-            except ValueError as e:
-                # catch unknown split error raise from load_dataset
-                if "Unknown split" in str(e):
-                    raise e
-            except Exception as e:
-                # continue to try other loaders
-                logger.info(f"{e.__class__.__name__} when loading dataset: {e}")
+        self.evaluation_data = list(load_fn(evaluation_set))
+        self.example_data = list(load_fn(example_set)) if example_set else []
 
-        raise ValueError("Failed to load" + msg[7:])
+        logger.info(f"Evaluation data with {len(self.evaluation_data)} instances:\n{pformat(self.evaluation_data[0])}")
 
     def __len__(self):
         return len(self.evaluation_instances)
@@ -294,15 +307,26 @@ class Dataset(torch.utils.data.Dataset):
         """
         return predictions
 
-    def log_predictions(self, predictions: List[Union[str, float]], file: Optional[str] = None):
+    def log_predictions(
+        self,
+        raw_predictions: List[str],
+        processed_predictions: Optional[List[Union[str, float]]] = None,
+        file: Optional[str] = None,
+    ):
         r"""Save the dataset inputs and corresponding model predictions to file.
 
         Args:
-            predictions (List[Union[str, float]]): The predicted answers.
+            raw_predictions (List[str]): The raw predictions of model.
+            processed_predictions (Optional[List[Union[str, float]]]): The processed answers.
             file (Optional[str]): The file path to save the predictions. If None, will use `args.evaluation_results_path`.
         """
         file = file or self.args.evaluation_results_path
-        if self.evaluation_type == "generation":
+        if self.evaluation_type == "generation" and processed_predictions is not None:
+            # log intermediate and post-processed results
+            dataset_info = (self.evaluation_instances, processed_predictions)
+            keys = ["index", "input", "answer", "generation", "reference"]
+        elif self.evaluation_type == "generation" and processed_predictions is None:
+            # log intermediate results only
             dataset_info = (self.evaluation_instances,)
             keys = ["index", "input", "generation", "reference"]
         else:
@@ -320,7 +344,7 @@ class Dataset(torch.utils.data.Dataset):
         lines = zip(
             range(len(self)),
             *dataset_info,
-            predictions,
+            raw_predictions,
             repeat_iter(self.references, self.args.sample_num),
         )
 
