@@ -18,13 +18,19 @@ class Gsm8k(GenerationDataset):
 
     name = "gsm8k"
     instruction = "Answer the following question."
-    answer_trigger = "\nTherefore, the answer (arabic numerals) is "
 
     evaluation_set = "test"
     example_set = "train"
 
     load_args = ("gsm8k", "main")
     metrics = [Accuracy()]
+
+    model_args = dict(stop_sequences=["\n"], do_sample=False)
+    # GSM8K extracts the last number in the predictions as the answer, so it's important to set a stop sequence for non-chat format
+
+    answer_trigger = "Therefore, the answer (arabic numerals) is"
+    question_pattern = "Question: {question}\nAnswer:"
+    one_line_answer = True
 
     def _load_raw_dataset(self, dataset_path, subset_name, evaluation_set, example_set):
         super()._load_raw_dataset(dataset_path, subset_name, evaluation_set, example_set)
@@ -48,8 +54,17 @@ class Gsm8k(GenerationDataset):
 
     def format_instance(self, instance):
         instance["answer"] = re.sub(r"(\d),(\d)", r"\1\2", instance["answer"])
-        instance["answer"] = " " + instance["answer"].replace("\n#### ", self.answer_trigger)
-        instance["question"] = "Q: " + instance["question"] + "\n" + "A:"
+        # instance["answer"] = re.sub(r"<<[\d\+\(\)-=\*\/]+>>", "", instance["answer"])
+        # instance["question"] = re.sub(r"<<[\d\+\(\)-=\*\/]+>>", "", instance["question"])
+
+        if self.one_line_answer:
+            instance["answer"] = " " + instance["answer"].replace("\n#### ", " " + self.answer_trigger.strip() + " ")
+            instance["answer"] = instance["answer"].replace("\n", " ")
+            instance["question"] = instance["question"].replace("\n", " ")
+        else:
+            instance["answer"] = " " + instance["answer"].replace("\n#### ", "\n" + self.answer_trigger.strip() + " ")
+
+        instance["question"] = self.question_pattern.format(question=instance["question"])
         return dict(
             source=instance["question"],
             target=instance["answer"],
@@ -57,4 +72,8 @@ class Gsm8k(GenerationDataset):
 
     @property
     def references(self):
-        return [instance["answer"].split(self.answer_trigger)[-1] for instance in self.evaluation_data]
+        if not hasattr(self, "_references"):
+            self._references = [
+                instance["answer"].split(self.answer_trigger)[-1].strip() for instance in self.evaluation_data
+            ]
+        return self._references

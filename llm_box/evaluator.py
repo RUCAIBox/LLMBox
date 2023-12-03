@@ -54,8 +54,10 @@ class Evaluator:
         )
 
         if self.dataset.evaluation_type == 'ranking':
+            self.model.set_ppl_args(**self.dataset.model_args)
             call_model = self.model.get_ppl
         elif self.dataset.evaluation_type == 'generation':
+            self.model.set_generation_args(**self.dataset.model_args)
             call_model = self.model.generation
         elif self.dataset.evaluation_type == 'user_defined':
             call_model = self.dataset.evaluation
