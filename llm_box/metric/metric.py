@@ -7,7 +7,7 @@ class Metric:
 
         Args:
             predictions (List[Union[str, int, float]]): The predicted answers.
-            references (List[Union[str, int, float, List[str]]]): The predicted answers.
+            references (List[Union[str, int, float, List[str]]]): The real answers.
 
         Returns:
             Dict[str, float]: The metric score.
