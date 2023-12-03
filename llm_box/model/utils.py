@@ -20,6 +20,7 @@ def load_llm_and_tokenizer(
     model_kwargs = dict(
         torch_dtype=torch.float16 if args.load_in_half else torch.float32,
         device_map=args.device_map,
+        load_in_8bit=args.load_in_8bit,
     )
 
     model = AutoModelForCausalLM.from_pretrained(model_name_or_path, **model_kwargs).eval()

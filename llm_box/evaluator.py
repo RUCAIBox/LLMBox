@@ -1,15 +1,14 @@
 from logging import getLogger
+from statistics import mode
 from typing import Dict, Tuple
 
-from statistics import mode
 from accelerate.utils import set_seed
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-from functools import partial
 
 from .dataset import load_dataset
-from .model import load_model
 from .dataset.generation_dataset import GenerationDataset
+from .model import load_model
 from .utils import DatasetArguments, EvaluationArguments, ModelArguments
 
 logger = getLogger(__name__)
@@ -58,6 +57,7 @@ class Evaluator:
         if self.dataset.evaluation_type == 'ranking':
             call_model = self.model.get_ppl
         elif self.dataset.evaluation_type == 'generation':
+            self.model.set_generation_args(**self.dataset.model_args)
             call_model = self.model.generation
         else:
             raise ValueError(

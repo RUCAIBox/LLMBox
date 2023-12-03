@@ -1,12 +1,11 @@
-import os
 import time
+from logging import getLogger
 
 import openai
 import tiktoken
-from logging import getLogger
 
-from .model import Model
 from ..utils import ModelArguments
+from .model import Model
 
 logger = getLogger(__name__)
 

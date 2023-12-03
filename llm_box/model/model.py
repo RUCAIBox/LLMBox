@@ -1,3 +1,7 @@
+from typing import Optional, Union
+
+from transformers import PreTrainedTokenizer, PreTrainedTokenizerFast
+
 from ..utils import NotImplementedField
 
 
@@ -20,7 +24,12 @@ class Model:
 
     def __init__(self, args):
         self.args = args
-        self.tokenizer = None
+        self.tokenizer: Union[PreTrainedTokenizer, PreTrainedTokenizerFast] = None
+
+    def set_ppl_args(self, **kwargs):
+        r"""Set the configurations for PPL score calculation."""
+
+        raise NotImplementedError(f"{self.name} model must implement the `set_ppl_args` function.")
 
     def get_ppl(self, batched_inputs):
         r"""Compute the PPL score of the target text given the source text for this batch.
@@ -33,11 +42,17 @@ class Model:
         """
         raise NotImplementedError(f"{self.name} model must implement the `get_ppl` function.")
 
-    def generation(self, batched_inputs):
+    def set_generation_args(self, **kwargs):
+        r"""Set the configurations for open-ended generation."""
+
+        raise NotImplementedError(f"{self.name} model must implement the `set_generation_args` function.")
+
+    def generation(self, batched_inputs, generation_args: Optional[dict] = None):
         r"""Generate the response of given question for this batch.
 
         Args:
             batch (List[str]): The batch of questions.
+            generation_args (dict, optional): The configurations for generation. It will first be merged with a `GenerationConfig`, and then all unused kwargs are passed as model kwargs. See `HuggingfaceModel.generation` for more huggingface-model-specific kwargs.
 
         Returns:
             List(str): The list of generation results.
