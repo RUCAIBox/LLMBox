@@ -46,8 +46,9 @@ class Em(Metric):
     r""" Calculate the Exact Match score.
     """
 
-    def __init__(self, multiref_strategy='none'):
+    def __init__(self, multiref_strategy='none', symbol_for_not_answer='none'):
         self.multiref_strategy = multiref_strategy
+        self.symbol_for_not_answer = symbol_for_not_answer
 
     @staticmethod
     def _calculate_em_score(reference, prediction):
@@ -56,8 +57,19 @@ class Em(Metric):
     def __call__(self, predictions, references):
         score_list = []
         for prediction, reference in zip(predictions, references):
-            scores = [self._calculate_em_score(ref, prediction) for ref in reference]
-            score_list.append(multi_ref_aggregation(scores, self.multiref_strategy))
+            if self.symbol_for_not_answer == 'none': 
+                scores = [self._calculate_em_score(ref, prediction) for ref in reference]
+                score_list.append(multi_ref_aggregation(scores, self.multiref_strategy))
+            else:
+                if prediction[1] == 0: 
+                    score_list.append(float(reference == self.symbol_for_not_answer))
+                else:
+                    if reference == self.symbol_for_not_answer:
+                        score_list.append(0)
+                        continue
+                    prediction = prediction[0]
+                    scores = [self._calculate_em_score(ref, prediction) for ref in reference]
+                    score_list.append(multi_ref_aggregation(scores, self.multiref_strategy))
         return {'EM': np.mean(score_list) * 100}
 
 
@@ -65,19 +77,20 @@ class F1(Metric):
     r""" Calculate the F1 score.
     """
 
-    def __init__(self, multiref_strategy='none', force_number_match=False):
+    def __init__(self, multiref_strategy='none', force_number_match=False, symbol_for_not_answer='none'):
         self.multiref_strategy = multiref_strategy
         self.force_number_match = force_number_match
+        self.symbol_for_not_answer = symbol_for_not_answer
 
-    @staticmethod
-    def _calculate_f1_score(reference, prediction):
+    def _calculate_f1_score(self, reference, prediction):
         ref_toks = word_tokenize(normalize_answer(reference))
         pred_toks = word_tokenize(normalize_answer(prediction))
 
-        ref_num_toks = set([tok for tok in ref_toks if is_number(tok)])
-        pred_num_toks = set([tok for tok in pred_toks if is_number(tok)])
-        if ref_num_toks and not ref_num_toks.intersection(pred_num_toks):
-            return 0
+        if self.force_number_match:
+            ref_num_toks = set([tok for tok in ref_toks if is_number(tok)])
+            pred_num_toks = set([tok for tok in pred_toks if is_number(tok)])
+            if ref_num_toks and not ref_num_toks.intersection(pred_num_toks):
+                return 0
 
         common = Counter(ref_toks) & Counter(pred_toks)
         num_same = sum(common.values())
@@ -93,6 +106,17 @@ class F1(Metric):
     def __call__(self, predictions, references):
         score_list = []
         for prediction, reference in zip(predictions, references):
-            scores = [self._calculate_f1_score(ref, prediction) for ref in reference]
-            score_list.append(multi_ref_aggregation(scores, self.multiref_strategy))
+            if self.symbol_for_not_answer == 'none': 
+                scores = [self._calculate_f1_score(ref, prediction) for ref in reference]
+                score_list.append(multi_ref_aggregation(scores, self.multiref_strategy))
+            else:
+                if prediction[1] == 0: 
+                    score_list.append(float(reference == self.symbol_for_not_answer))
+                else:
+                    if reference == self.symbol_for_not_answer:
+                        score_list.append(0)
+                        continue
+                    prediction = prediction[0]
+                    scores = [self._calculate_f1_score(ref, prediction) for ref in reference]
+                    score_list.append(multi_ref_aggregation(scores, self.multiref_strategy))
         return {'F1': np.mean(score_list) * 100}
