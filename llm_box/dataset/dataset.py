@@ -65,7 +65,7 @@ class Dataset(torch.utils.data.Dataset):
         - `(dataset_name, subset_name)`: If the dataset itself is a subset of a dataset collection. E.g., `('super_glue', 'copa')`.
     """
 
-    model_args: Dict[str, Any] = NotImplementedField
+    model_args: Dict[str, Any] = dict()
     """Arguments for the model generation or get_ppl. See `set_generation_args` or `set_ppl_args` for details."""
 
     def __init__(self, args: DatasetArguments, model: Model, subset_name: Optional[str] = None):
