@@ -1,14 +1,16 @@
+from functools import partial
 from logging import getLogger
-from typing import Tuple, Dict
-
 from statistics import mode
+from typing import Dict, Tuple
+
 from accelerate.utils import set_seed
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from .dataset import load_dataset
+from .dataset.generation_dataset import GenerationDataset
 from .model import load_model
-from .utils import ModelArguments, DatasetArguments, EvaluationArguments
+from .utils import DatasetArguments, EvaluationArguments, ModelArguments
 
 logger = getLogger(__name__)
 
@@ -63,17 +65,18 @@ class Evaluator:
             )
 
         # call model
-        predictions = []
+        raw_predictions = []
         for batch in tqdm(dataloader, dynamic_ncols=True, desc="Evaluating"):
-            predictions.extend(call_model(batch))
+            raw_predictions.extend(call_model(batch))
+            self.dataset.log_predictions(raw_predictions)
 
-        if len(predictions) != len(self.dataset):
+        if len(raw_predictions) != len(self.dataset):
             raise RuntimeError("The number of results should be equal to the number of samples in the dataset.")
 
         # post processing and self-consistency
-        predictions = self.dataset.post_processing(predictions)
+        predictions = self.dataset.post_processing(raw_predictions)
         assert len(predictions) == len(self.dataset.references) * self.dataset_args.sample_num
-        self.dataset.log_predictions(predictions)
+        self.dataset.log_predictions(raw_predictions, predictions)
 
         step = len(predictions) // self.dataset_args.sample_num
         mode_results = [mode(predictions[i::step]) for i in range(step)]
