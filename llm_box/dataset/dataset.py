@@ -152,21 +152,22 @@ class Dataset(torch.utils.data.Dataset):
         Also feel free to override this function if you want to load the dataset in a different way:
 
         ```python
-        from .utils import load_raw_dataset_from_file
+        from .utils import load_raw_dataset_from_file, get_raw_dataset_loader()
 
         class MyDataset(Dataset):
             def _load_raw_dataset(self, dataset_path, subset_name, evaluation_set, example_set):
-                self.evaluation_data = load_raw_dataset_from_file("nq_test.json")
-                self.example_data = []
+                self.evaluation_data = get_raw_dataset_loader(...)("test")
+                self.example_data = load_raw_dataset_from_file("examples.json")
         ```
         """
 
-        load_fn, msg = _get_raw_dataset_loader(
+        load_fn, msg = get_raw_dataset_loader(
             dataset_name=self.name,
             dataset_path=dataset_path,
             subset_name=subset_name,
             load_args=self.load_args,
-        )
+            return_msg=True
+        )  # type: ignore
         logger.info(
             msg + f" with evaluation set `{evaluation_set}`" +
             (f" and example set `{example_set}`" if example_set else "")
