@@ -30,7 +30,7 @@ class Openai(Model):
         self.name = args.model_name_or_path
         self.tokenizer = tiktoken.get_encoding(tiktoken.encoding_name_for_model(self.name))
         # TODO: compatible for gpt-3.5-turbo (enum_type?)
-        self.max_tokens = 2048
+        self.max_tokens = args.max_tokens
         self.max_try_times = 5
         self.temperature = args.temperature
         # TODO: gpt-3.5-turbo doesn't support echo and logprobs, and it doesn't support max_tokens=0
@@ -63,6 +63,8 @@ class Openai(Model):
                 logger.warning('Receive openai.error.RateLimitError, retrying...')
                 time.sleep(10)
             except openai.error.AuthenticationError as e:
+                raise e
+            except openai.error.InvalidRequestError as e:
                 raise e
             except (Exception, KeyboardInterrupt) as e:
                 logger.warning(f'Receive {e.__class__.__name__}, retrying...')

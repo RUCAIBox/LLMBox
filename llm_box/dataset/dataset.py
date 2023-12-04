@@ -44,8 +44,8 @@ class Dataset(torch.utils.data.Dataset):
     instruction: str = NotImplementedField
     r"""Dataset-specific instruction for the task."""
 
-    metric: str = NotImplementedField
-    r"""The metric used for evaluation."""
+    metrics: List = NotImplementedField
+    r"""The metric functions used for evaluation."""
 
     evaluation_type: Literal['ranking', 'generation'] = NotImplementedField
     r"""The type of evaluation for the dataset."""
@@ -281,21 +281,25 @@ class Dataset(torch.utils.data.Dataset):
                 self.evaluation_instances.append(self.format_instruction_and_examples(formatted_instance["source"]))
 
         self.evaluation_instances = self.evaluation_instances * self.args.sample_num
+        self.option_nums = self.option_nums * self.args.sample_num
         logger.info("Evaluation instances constructed:\n" + pformat(self.evaluation_instances[0]))
 
     def calculate_metric(self, predictions) -> Dict[str, float]:
         r"""Calculate the metric score between `predictions` and `references`.
 
         Args:
-            predictions (List[str]): The predicted answers.
+            predictions (List[Union[int, str]]): The predicted answers.
 
         Returns:
             Dict[str, float]: The metric results.
         """
-        raise NotImplementedError(f"{self.name} dataset must implement the `calculate_metric` function.")
+        results = {}
+        for metric_func in self.metrics:
+            results.update(metric_func(predictions, self.references))
+        return results
 
     def post_processing(self, predictions: List[Union[str, float]]):
-        r"""Post processing for the predictions.
+        r"""Process the generated predictions. For ranking-based datasets, it chooses the option with lowest PPL. For generation-based datasets, it may remove blank characters.
 
         Args:
             predictions (List[Union[str, float]]): The predicted answers (generated texts or perplexity scores).

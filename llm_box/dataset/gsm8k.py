@@ -3,6 +3,7 @@ import re
 import numpy as np
 
 from .generation_dataset import GenerationDataset
+from ..metric import Accuracy
 
 
 class Gsm8k(GenerationDataset):
@@ -22,6 +23,7 @@ class Gsm8k(GenerationDataset):
     example_set = "train"
 
     load_args = ("gsm8k", "main")
+    metrics = [Accuracy()]
 
     model_args = dict(stop_sequences=["\n"], do_sample=False)
     # GSM8K extracts the last number in the predictions as the answer, so it's important to set a stop sequence for non-chat format
@@ -31,18 +33,17 @@ class Gsm8k(GenerationDataset):
     one_line_answer = True
 
     @staticmethod
-    def post_processing(preds):
-        predictions = []
-        for pred in preds:
+    def post_processing(predictions):
+        new_predictions = []
+        for pred in predictions:
             # replace numbers like `x,xxx` with `xxxx`
             pred = re.sub(r"(\d),(\d)", r"\1\2", pred)
             numbers = re.findall(r"[-+]?\d*\.\d+|\d+", pred)
             if numbers:
-                predictions.append(numbers[-1])
+                new_predictions.append(numbers[-1])
             else:
-                predictions.append(pred)
-
-        return predictions
+                new_predictions.append(pred)
+        return new_predictions
 
     def format_instance(self, instance):
         instance["answer"] = re.sub(r"(\d),(\d)", r"\1\2", instance["answer"])
@@ -61,10 +62,6 @@ class Gsm8k(GenerationDataset):
             source=instance["question"],
             target=instance["answer"],
         )
-
-    def calculate_metric(self, predictions):
-        score_list = np.asarray(predictions) == np.asarray(self.references)
-        return {'Accuracy': np.mean(score_list)}
 
     @property
     def references(self):
