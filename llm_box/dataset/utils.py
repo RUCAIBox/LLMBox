@@ -88,7 +88,10 @@ def get_raw_dataset_loader(
 
                     logger.debug(f"Searching dataset file: {dataset_file_path}")
                     if os.path.exists(dataset_file_path):
-                        return load_raw_dataset_from_file(dataset_file_path)
+                        data = load_raw_dataset_from_file(dataset_file_path)
+                        if not split:
+                            return data
+                        return data[split]
 
                 raise ValueError(f"Cannot find raw dataset `{dataset_name}:{subset_name}` in `{dataset_path}`.")
 
