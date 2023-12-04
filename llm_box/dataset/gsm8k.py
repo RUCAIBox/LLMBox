@@ -25,7 +25,7 @@ class Gsm8k(GenerationDataset):
     load_args = ("gsm8k", "main")
     metrics = [Accuracy()]
 
-    model_args = dict(stop_sequences=["\n"], do_sample=False)
+    model_args = dict(stop_sequences=["\n"], do_sample=False, max_new_tokens=512)
     # GSM8K extracts the last number in the predictions as the answer, so it's important to set a stop sequence for non-chat format
 
     answer_trigger = "Therefore, the answer (arabic numerals) is"

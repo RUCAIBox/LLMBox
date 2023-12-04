@@ -56,9 +56,14 @@ class ModelArguments:
         default=0,
         help="The temperature for models",
     )
-    max_tokens: int = HfArg(
-        default=2048,
+    max_new_tokens: Optional[int] = HfArg(
+        default=None,
+        aliases=["--max_tokens"],
         help="The maximum number of tokens for output generation",
+    )
+    max_sequence_length: Optional[int] = HfArg(
+        default=None,
+        help="The maximum number of tokens of model input sequence",
     )
 
     def __post_init__(self):
@@ -134,6 +139,7 @@ class DatasetArguments:
     prompt_method: str = HfArg(
         default='baseline',
         help="The method to prompt, eg. 'baseline', 'least_to_most', 'pal'. Only available for some specific datasets.",
+        metadata={"choices": ['baseline', 'least_to_most', 'pal']},
     )
 
     def __post_init__(self):

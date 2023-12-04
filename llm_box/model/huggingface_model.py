@@ -10,7 +10,7 @@ from transformers import GenerationConfig, StoppingCriteria
 
 from ..utils import ModelArguments
 from .model import Model
-from .utils import load_llm_and_tokenizer
+from .utils import load_llm_and_tokenizer, LoggedDict
 
 logger = getLogger(__name__)
 
@@ -46,6 +46,16 @@ class HuggingFaceModel(Model):
         self.tokenizer = tokenizer
         self.device = next(model.parameters()).device
 
+        # get the correct max length of the model, which is agnostic to tasks
+        max_sequence_length = getattr(self.model.config, "max_sequence_length", None) or 0
+        max_position_embeddings = getattr(self.model.config, "max_position_embeddings", None) or 0
+        self.model_max_length = self.args.max_sequence_length or max(max_position_embeddings, max_sequence_length)
+        if self.model_max_length <= 0:
+            raise ValueError(
+                f"max_sequence_length is not specified in the model config, and no value is provided in the arguments."
+            )
+        logger.info(f"model_max_length: {self.model_max_length}")
+
     @staticmethod
     def _subsentences_start_idx(offset_mapping: torch.Tensor) -> Iterator[int]:
         r"""Given offset mapping, return the index of the first token in the encoded sentence of each subsentence. The length of the encoded sentence will be yielded at the end, to ensure that the end index of the last subsentence will be included."""
@@ -55,9 +65,11 @@ class HuggingFaceModel(Model):
         yield len(offset_mapping)
 
     def set_ppl_args(self, **kwargs):
+        r"""Set the configurations for PPL score calculation. This is useful because different datasets may have different requirements for ppl calculation."""
         self.add_start_token = True
-        self.model_max_length = self.args.max_new_tokens - int(self.add_start_token)
+        self.task_max_length = self.model_max_length - int(self.add_start_token)
         self.loss_fct = CrossEntropyLoss(reduction="none")
+        logger.info(f"task_max_length: {self.task_max_length}")
 
     def get_ppl(self, batched_inputs):
 
@@ -75,7 +87,7 @@ class HuggingFaceModel(Model):
             return_offsets_mapping=True,
             return_attention_mask=True,
             return_tensors="pt",
-            max_length=self.model_max_length,
+            max_length=self.task_max_length,
         ).to(self.device)
 
         encoded_batch = batched_encodings.input_ids
@@ -109,7 +121,7 @@ class HuggingFaceModel(Model):
         return ppls
 
     def set_generation_args(self, **kwargs):
-        """Set generation arguments.
+        r"""Set the configurations for open-ended generation. This is useful because different datasets may have different requirements for generation.
 
         Args:
             **kwargs: The generation arguments. It will first be merged with a `GenerationConfig`, and then all unused kwargs are passed as model kwargs. Huggingface-model-specific kwargs are also accepted:
@@ -117,13 +129,20 @@ class HuggingFaceModel(Model):
                 - `stop_id_sequences` (List[List[int]]): A list of list of token ids. If a list of token ids is found at the end of the generated sequence, the generation will be stopped.
                 - `stopping_criteria` (List[StoppingCriteria]): A list of stopping criteria. If any of the stopping criteria is met, the generation will be stopped.
         """
+        kwargs = LoggedDict.from_dict(kwargs, logger, "generation_args")
         self.processors = []
 
         echo = kwargs.pop("echo", False)
         stop_sequences = kwargs.pop("stop_sequences", [])
         stopping_criteria = kwargs.pop("stopping_criteria", [])
+        max_new_tokens = kwargs.pop("max_new_tokens", self.args.max_new_tokens) or 512
 
-        self.model_max_length = self.model.config.max_position_embeddings - self.args.max_new_tokens - 1
+        self.task_max_length = self.model_max_length - max_new_tokens - 1
+        if self.task_max_length <= 0:
+            raise ValueError(
+                f"`max_new_tokens` is too large ({max_new_tokens}) to fit the capacity of model. Please decrease it to at least {self.model_max_length - 2}."
+            )
+        logger.info(f"task_max_length: {self.task_max_length}")
 
         if len(stop_sequences) > 0:
             stop_id_sequences = []
@@ -144,8 +163,9 @@ class HuggingFaceModel(Model):
         if not echo:
             self.processors.append(partial(self.remove_echo_processor, pad_token_id=self.tokenizer.pad_token_id))
 
+        logger.debug(f"extra generation_config: {kwargs}")
         self.generation_config = GenerationConfig(
-            max_new_tokens=self.args.max_new_tokens,
+            max_new_tokens=max_new_tokens,
             pad_token_id=self.tokenizer.pad_token_id,
             eos_token_id=self.tokenizer.eos_token_id,
             stopping_criteria=stopping_criteria,
@@ -158,6 +178,7 @@ class HuggingFaceModel(Model):
         Returns:
             List(str): The list of generation results.
         """
+        # print(batched_inputs)
         batched_encodings = self.tokenizer(
             batched_inputs,
             return_tensors="pt",
@@ -165,8 +186,9 @@ class HuggingFaceModel(Model):
             truncation=True,
             add_special_tokens=True,
             return_offsets_mapping=True,
-            max_length=self.model_max_length,
+            max_length=self.task_max_length,
         ).to(self.device)
+        # TODO Python tokenizers doesn't support return_offsets_mapping
 
         for idx, (lo, li) in enumerate(
             zip(batched_encodings.offset_mapping[:, -1, -1].tolist(), [len(s) for s in batched_inputs])

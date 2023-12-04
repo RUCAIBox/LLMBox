@@ -14,6 +14,21 @@ OPENAI_MODELS = [
 ]
 
 
+class LoggedDict(dict):
+
+    @classmethod
+    def from_dict(cls, d, logger, msg):
+        cls.logger = logger
+        cls.msg = msg
+        return cls(**d)
+
+    def pop(self, key, default=None):
+        default_tag = " (default)" if key not in super().keys() else ""
+        value = super().pop(key, default)
+        self.logger.info(f'{self.msg}: {key} = {value}{default_tag}')
+        return value
+
+
 def load_llm_and_tokenizer(
     model_name_or_path: str,
     args: ModelArguments,
@@ -30,7 +45,6 @@ def load_llm_and_tokenizer(
         tokenizer_name_or_path or model_name_or_path,
         padding_side='left',
     )
-
     # set `pad` token to `eos` token
     model.config.pad_token = tokenizer.eos_token
     model.config.pad_token_id = tokenizer.eos_token_id
