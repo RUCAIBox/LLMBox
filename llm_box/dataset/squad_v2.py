@@ -15,26 +15,24 @@ class Squad_v2(GenerationDataset):
         answer: ['France', 'France', 'France', 'France']
     """
 
-
     name = "squad_v2"
     instruction = "Answer the question based on the given passage."
-    evaluation_type = "user_defined"    
+    evaluation_type = "user_defined"
     example_set = "train"
     evaluation_set = "validation"
-    
+
     load_args = ("squad_v2",)
-    metrics = [F1(),Em()]
+    metrics = [F1(), Em()]
 
     def evaluation(self, batch):
         self.get_ppl = self.model.get_ppl
         self.generation = self.model.generation
-        ppl_prompt = [option for _ ,ppl_batch in batch for option in ppl_batch]
+        ppl_prompt = [option for _, ppl_batch in batch for option in ppl_batch]
         generation_prompt = [generation_batch for generation_batch, _ in batch]
         ppls = self.get_ppl(ppl_prompt)
-        answers =  self.generation(generation_prompt)
-        ppls = [(ppls[i],ppls[i+1]) for i in range(0,len(ppls),2)]
-        return list(zip(answers,ppls))
-    
+        answers = self.generation(generation_prompt)
+        ppls = [(ppls[i], ppls[i + 1]) for i in range(0, len(ppls), 2)]
+        return list(zip(answers, ppls))
 
     def format_instance(self, instance):
         source_text = "Title: " + instance["title"]  + "\n\nBackground: " \
@@ -45,11 +43,8 @@ class Squad_v2(GenerationDataset):
         else:
             text = text[0]
         target_text = " " + text
-        return dict(
-        source = source_text,
-        target = target_text
-        )
-    
+        return dict(source=source_text, target=target_text)
+
     def construct_instances(self):
         r"""Construct and format all the instances of `evaluation_data`.
 
@@ -61,7 +56,11 @@ class Squad_v2(GenerationDataset):
         for instance in self.evaluation_data:
             formatted_instance = self.format_instance(instance)
             generation_formatted_instance = self.format_instruction_and_examples(formatted_instance['source'])
-            ppl_formatted_instance = [self.format_instruction_and_examples(formatted_instance["source"][:-2] +"Can this question be answered? Yes or no?", option) for option in [" No."," Yes."]]
+            ppl_formatted_instance = [
+                self.format_instruction_and_examples(
+                    formatted_instance["source"][:-2] + "Can this question be answered? Yes or no?", option
+                ) for option in [" No.", " Yes."]
+            ]
             self.evaluation_instances.append((generation_formatted_instance, ppl_formatted_instance))
         self.evaluation_instances = self.evaluation_instances * self.args.sample_num
         self.option_nums = self.option_nums * self.args.sample_num
@@ -106,8 +105,8 @@ class Squad_v2(GenerationDataset):
             if cur_token_num + ppl_example_token_nums <= self.max_example_tokens:
                 ppl_example_text += cur_example_text
                 ppl_example_token_nums += cur_token_num
-            
-        return generation_example_text,ppl_example_text
+
+        return generation_example_text, ppl_example_text
 
     def format_instruction_and_examples(self, source, target=""):
         r"""Format one instance with the instruction and demonstration.
@@ -121,10 +120,10 @@ class Squad_v2(GenerationDataset):
         """
         # TODO: instruction template
         # TODO: ICL
-        examples =self.examples
+        examples = self.examples
         if self.num_shots != 0:
             examples = examples[1] if target else examples[0]
-        
+
         if self.model.type == 'base':
             source = examples + source
         elif self.model.type == 'instruction':
@@ -134,11 +133,13 @@ class Squad_v2(GenerationDataset):
             return source, target
         else:
             return source
-        
 
     @property
     def references(self):
-        return [instance["answers"]["text"] if instance["answers"]["text"] else ['unanswerable'] for instance in self.evaluation_data]
+        return [
+            instance["answers"]["text"] if instance["answers"]["text"] else ['unanswerable']
+            for instance in self.evaluation_data
+        ]
 
     @staticmethod
     def post_processing(preds):
