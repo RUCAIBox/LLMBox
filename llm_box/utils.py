@@ -1,5 +1,6 @@
 import os
 import logging
+from builtins import bool
 from dataclasses import MISSING, dataclass
 from logging import getLogger
 from typing import Optional, Tuple, TypeVar, ClassVar, Set
@@ -38,7 +39,7 @@ class ModelArguments:
         default=MISSING, aliases=["--model", "-m"], help="The model name or path, e.g., cuire, llama"
     )
     openai_api_key: str = HfArg(
-        default=None,
+        default=MISSING,
         help="The OpenAI API key",
     )
     load_in_half: bool = HfArg(
@@ -121,6 +122,21 @@ class DatasetArguments:
     sample_num: int = HfArg(
         default=1,
         help="The path number for sampling for self-consistency",
+    )
+    ICL_strategy_KATE: bool = HfArg(
+        default=False,
+        aliases=["-icl_kate"],
+        help="Whether to use KATE"
+    )
+    ICL_strategy_GlobalE: bool = HfArg(
+        default=False,
+        aliases=["-icl_globalE"],
+        help="Whether to use KATE"
+    )
+    ICL_strategy_APE: bool = HfArg(
+        default=False,
+        aliases=["-icl_ape"],
+        help="Whether to use KATE"
     )
 
     def __post_init__(self):

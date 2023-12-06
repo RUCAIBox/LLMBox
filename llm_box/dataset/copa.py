@@ -33,7 +33,7 @@ class Copa(MultipleChoiceDataset):
             0: " " + instance["choice1"][0].lower() + instance["choice1"][1:],
             1: " " + instance["choice2"][0].lower() + instance["choice2"][1:],
         }
-
+        
         options = [label2text[option] for option in [0, 1]]
         return dict(
             source=source,

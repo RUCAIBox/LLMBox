@@ -3,7 +3,7 @@ generation:
   demos_nums: 5 # the number of demonstrations sent to the LLM for each unique query
   num_prompts_per_query: 5 # the number of prompts generated for each unique query
   gpt_config:
-    model: text-davinci-002
+    model: gpt-3.5-turbo-instruct
     temperature: 0.9
     max_tokens: 50
     top_p: 0.9
@@ -13,10 +13,3 @@ evaluation:
   batch_size: 10
   eval_num: 50 # the number of unique queries sent to the LLM with different demonstrations for prompt evaluation
   demos_nums: 5 # the number of demonstrations sent to the LLM for each unique query
-  gpt_config:
-    model: text-davinci-002
-    temperature: 0.7
-    max_tokens: 200
-    top_p: 1.0
-    frequency_penalty: 0.0
-    presence_penalty: 0.0
