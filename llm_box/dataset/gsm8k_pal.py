@@ -15,17 +15,10 @@ class Gsm8k_pal(Gsm8k):
     name = "gsm8k_pal"
     instruction = "Let's use python to solve math problems. Here are some examples how to do it,"
     answer_expr: Optional[str] = "solution()"
-    metrics = [Accuracy(answer_type='float')]
+    metrics = [Accuracy()]
 
-    def _load_raw_dataset(
-            self,
-            dataset_path: Optional[str],
-            subset_name: Optional[str],
-            evaluation_set: str,
-            example_set: Optional[str],
-    ):
+    def _load_raw_dataset(self, dataset_path, subset_name, evaluation_set, example_set):
         super()._load_raw_dataset(dataset_path, subset_name, evaluation_set, example_set)
-        global PAL_MATH_CHAT_PROMPT
         self.example_data = PAL_MATH_CHAT_PROMPT
 
     def execute(self, code: Optional[List[str]] = None):
@@ -47,12 +40,12 @@ class Gsm8k_pal(Gsm8k):
                     new_predictions.append(exec_result)
                 except Exception as e:
                     new_predictions.append('')
-        new_predictions = [str(x) for x in new_predictions]
+        new_predictions = [str(x)[:-2] if str(x).endswith(".0") else str(x) for x in new_predictions]
         return new_predictions
 
 
 class Timeout:
-    def __init__(self, seconds=100, error_message='Timeout'):
+    def __init__(self, seconds=10, error_message='Timeout'):
         self.seconds = seconds
         self.error_message = error_message
         self.timer = threading.Timer(self.seconds, self.timeout_handler)

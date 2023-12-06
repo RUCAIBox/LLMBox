@@ -151,6 +151,7 @@ class EvaluationArguments:
         "Logger level to use on the main node. Possible choices are the log levels as strings: 'debug', 'info', 'warning', 'error' and 'critical'",
         metadata={"choices": log_levels.keys()},
     )
+
     def __post_init__(self):
         if not os.path.exists(self.logging_dir):
             os.makedirs(self.logging_dir)
