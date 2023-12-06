@@ -1,5 +1,6 @@
+prob_num: 10
 gpt_config:
-  model: text-davinci-002
+  model: gpt-3.5-turbo-instruct
   temperature: 0.9
   max_tokens: 50
   top_p: 0.9
