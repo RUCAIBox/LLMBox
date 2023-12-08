@@ -10,6 +10,7 @@ import torch
 
 from ..utils import DatasetArguments, NotImplementedField
 from ..model.model import Model
+from ..prompt import PEMethod
 
 logger = getLogger(__name__)
 
@@ -65,7 +66,7 @@ class Dataset(torch.utils.data.Dataset):
         - `(dataset_name, subset_name)`: If the dataset itself is a subset of a dataset collection. E.g., `('super_glue', 'copa')`.
     """
 
-    def __init__(self, args: DatasetArguments, model: Model, subset_name: Optional[str] = None):
+    def __init__(self, args: DatasetArguments, model: Model, method: PEMethod, subset_name: Optional[str] = None):
         r"""This should be called by the subclass.
 
         Args:
@@ -88,7 +89,7 @@ class Dataset(torch.utils.data.Dataset):
 
         self.num_shots = args.num_shots
         self.max_example_tokens = args.max_example_tokens
-        self.examples = self.construct_examples()
+        self.examples = self.construct_examples() if method.method == 'baseline' else method.infer_method.examples
         self.construct_instances()
 
     def _load_raw_dataset(

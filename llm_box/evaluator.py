@@ -6,6 +6,7 @@ from accelerate.utils import set_seed
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
+from .prompt import PEMethod
 from .dataset import load_dataset
 from .model import load_model
 from .utils import ModelArguments, DatasetArguments, EvaluationArguments
@@ -34,7 +35,8 @@ class Evaluator:
         set_seed(self.evaluation_args.seed)
 
         self.model = load_model(self.model_args)
-        self.dataset = load_dataset(self.dataset_args, self.model)
+        self.method = PEMethod(method=self.dataset_args.prompt_method, dataset=self.dataset_args.dataset_name)
+        self.dataset = load_dataset(self.dataset_args, self.model, self.method)
 
     def evaluate(self) -> Dict[str, float]:
         r"""It conducts the evaluation on the dataset with corresponding models.
@@ -70,7 +72,10 @@ class Evaluator:
         if len(predictions) != len(self.dataset):
             raise RuntimeError("The number of results should be equal to the number of samples in the dataset.")
 
-        predictions = self.dataset.post_processing(predictions)
+        if hasattr(self.method.infer_method, 'post_processing'):
+            predictions = self.method.infer_method.post_processing(predictions)
+        else:
+            predictions = self.dataset.post_processing(predictions)
         assert len(predictions) == len(self.dataset.references) * self.dataset_args.sample_num
 
         step = len(predictions) // self.dataset_args.sample_num

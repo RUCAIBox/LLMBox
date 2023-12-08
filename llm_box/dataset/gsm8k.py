@@ -1,6 +1,5 @@
 import re
 
-import numpy as np
 
 from .generation_dataset import GenerationDataset
 from ..metric import Accuracy

@@ -122,9 +122,9 @@ class DatasetArguments:
         default=1,
         help="The path number for sampling for self-consistency",
     )
-    use_pal: bool = HfArg(
-        default=False,
-        help="Whether to use PaL(Program-aided Language Models) to solve problems. Only available for some specific datasets.",
+    prompt_method: str = HfArg(
+        default="baseline",
+        help="The method for prompt engineering, e.g., baseline, chain of thought, least_to_most, etc.",
     )
 
 
@@ -179,8 +179,9 @@ def set_logging(
         "_" + ",".join(dataset_args.subset_names) if dataset_args.subset_names else ""
     )
     num_shots = str(dataset_args.num_shots)
+    prompt_method = dataset_args.prompt_method
     execution_time = datetime.datetime.now().strftime(DEFAULT_DATETIME_FORMAT)
-    log_filename = f"{model_name}-{dataset_name}-{num_shots}-{execution_time}.log"
+    log_filename = f"{model_name}-{dataset_name}-{prompt_method}-{num_shots}-{execution_time}.log"
     log_path = f"{evaluation_args.logging_dir}/{log_filename}"
 
     # add file handler to root logger

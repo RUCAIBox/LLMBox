@@ -1,25 +1,23 @@
-from .gsm8k import Gsm8k
+from .method_oriented import get_prompt
+from .base import Base
 import threading
 from typing import List, Optional
-from llm_box.prompt.examplars import PAL_MATH_CHAT_PROMPT
-from ..metric import Accuracy
 
 
-class Gsm8k_pal(Gsm8k):
-    """In PaL(Gao et al. 2022),
-    Large Language Model solves reasoning problems that involve complex arithmetic and procedural tasks by generating
-    reasoning chains of text and code. This offloads the execution of the code to a program runtime, in our case,
-    a Python interpreter.
+class PAL(Base):
+    """
+    A class designed to implement the 'PAL' prompting strategy in AI models.
+
+    Large Language Model solves reasoning problems that involve complex arithmetic and procedural tasks by generating reasoning chains of text and code. This offloads the execution of the code to a program runtime, in our case, a Python interpreter.
+
+    Paper Link: https://arxiv.org/pdf/2211.10435.pdf
     """
 
-    name = "gsm8k_pal"
-    instruction = "Let's use python to solve math problems. Here are some examples how to do it,"
-    answer_expr: Optional[str] = "solution()"
-    metrics = [Accuracy()]
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
-    def _load_raw_dataset(self, dataset_path, subset_name, evaluation_set, example_set):
-        super()._load_raw_dataset(dataset_path, subset_name, evaluation_set, example_set)
-        self.example_data = PAL_MATH_CHAT_PROMPT
+        self.answer_expr = "solution()"
+        self.examples = get_prompt(['pal', self.dataset_name]) + '\n'
 
     def execute(self, code: Optional[List[str]] = None):
         exec('\n'.join(code))
