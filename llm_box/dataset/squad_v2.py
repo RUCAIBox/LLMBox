@@ -58,8 +58,8 @@ class Squad_v2(GenerationDataset):
             generation_formatted_instance = self.format_instruction_and_examples(formatted_instance['source'])
             ppl_formatted_instance = [
                 self.format_instruction_and_examples(
-                    formatted_instance["source"][:-2] + "Can this question be answered? Yes or no?", option
-                ) for option in [" No.", " Yes."]
+                    formatted_instance["source"][:-4] + " Can this question be answered? Yes or no?\n\n", option
+                ) for option in ["No.", "Yes."]
             ]
             self.evaluation_instances.append((generation_formatted_instance, ppl_formatted_instance))
         self.evaluation_instances = self.evaluation_instances * self.args.sample_num
@@ -81,68 +81,65 @@ class Squad_v2(GenerationDataset):
                 f"Receive num_shots={self.num_shots}, but cannot construct examples for dataset {self.name} without example data."
             )
 
-        # selection algorithm
-        # TODO: ICL
-        indice = np.random.choice(len(self.example_data), self.args.num_shots)
+        if self.num_shots != 1:
+            generation_example_text = ""
+            generation_example_token_nums = 0
+            classified_title = {}
+            for item in self.example_data:
+                title = item["title"]
+                if title in classified_title:
+                    classified_title[title].append(item)
+                else:
+                    classified_title[title] = [item]
+            keys = list(classified_title.keys())
+            randoms_keys = np.random.choice(keys, self.num_shots)
+            for data in [classified_title[key] for key in randoms_keys]:
+                indice = np.random.choice(len(data), 4)
+                instance = data[indice[0]]
+                source_text = "Title: " + instance["title"]  + "\n\nBackground: " \
+                + instance["context"] 
+                for index in indice:
+                    instance = data[index]
+                    source_text += "\n\nQ: " + instance["question"] + "\n\nA:"
+                    text = instance["answers"]["text"]
+                    if not text:
+                        text = "The question is not answerable."
+                    else:
+                        text = text[0]
+                    target_text = " " + text
+                    source_text += target_text
+                cur_example_text = source_text + "\n\n"
+                cur_token_num = len(self.tokenizer.encode(cur_example_text))
+                if cur_token_num + generation_example_token_nums <= self.max_example_tokens:
+                    generation_example_text += cur_example_text
+                    generation_example_token_nums += cur_token_num
+            return generation_example_text          
+        else:    
+            # selection algorithm
+            # TODO: ICL
+            indice = np.random.choice(len(self.example_data), self.num_shots)
 
-        # TODO: tokenizer efficiency
-        # construct few-shot examples
-        generation_example_text = ""
-        generation_example_token_nums = 0
-        ppl_example_text = ""
-        ppl_example_token_nums = 0
-        for index in indice:
-            example = self.format_instance(self.example_data[index])
-            cur_example_text = self.args.instance_format.format_map(example) + "\n\n"
-            cur_token_num = len(self.tokenizer.encode(cur_example_text))
-            if cur_token_num + generation_example_token_nums <= self.max_example_tokens:
-                generation_example_text += cur_example_text
-                generation_example_token_nums += cur_token_num
-            example["source"] = example["source"][:-2] + "Can this question be answered? Yes or no?"
-            example["target"] = " No." if example["target"] == ' The question is not answerable.' else ' Yes.'
-            cur_example_text = self.args.instance_format.format_map(example) + "\n\n"
-            cur_token_num = len(self.tokenizer.encode(cur_example_text))
-            if cur_token_num + ppl_example_token_nums <= self.max_example_tokens:
-                ppl_example_text += cur_example_text
-                ppl_example_token_nums += cur_token_num
-
-        return generation_example_text, ppl_example_text
-
-    def format_instruction_and_examples(self, source, target=""):
-        r"""Format one instance with the instruction and demonstration.
-
-        Args:
-            source (str): the pre-formatted source text.
-            target (str, optional): the pre-formatted target text (default to "").
-
-        Returns:
-            Union[str, Tuple(str, str)]: The final formatted instance.
-        """
-        # TODO: instruction template
-        # TODO: ICL
-        examples = self.examples
-        if self.num_shots != 0:
-            examples = examples[1] if target else examples[0]
-
-        if self.model.type == 'base':
-            source = examples + source
-        elif self.model.type == 'instruction':
-            source = self.instruction + "\n\n" + examples + source
-
-        if target:
-            return source, target
-        else:
-            return source
+            # TODO: tokenizer efficiency
+            # construct few-shot examples
+            generation_example_text = ""
+            generation_example_token_nums = 0
+            for index in indice:
+                example = self.format_instance(self.example_data[index])
+                cur_example_text = self.args.instance_format.format_map(example) + "\n\n"
+                cur_token_num = len(self.tokenizer.encode(cur_example_text))
+                if cur_token_num + generation_example_token_nums <= self.max_example_tokens:
+                    generation_example_text += cur_example_text
+                    generation_example_token_nums += cur_token_num
+            return generation_example_text 
 
     @property
     def references(self):
         return [
-            instance["answers"]["text"] if instance["answers"]["text"] else ['unanswerable']
+            instance["answers"]["text"] if instance["answers"]["text"] else ['The question is not answerable.']
             for instance in self.evaluation_data
         ]
 
-    @staticmethod
-    def post_processing(preds):
+    def post_processing(self, preds):
         predictions = []
         pattern = r'[.!(\n)]'
         for pred in preds:
@@ -151,7 +148,9 @@ class Squad_v2(GenerationDataset):
             if match:
                 index = match.start()
                 generation_pred = generation_pred[:index]
-            ppl_pred = np.array([result / length for result, length in ppl_pred]).argmin()
-            predictions.append(generation_pred if ppl_pred == 1 else "unanswerable")
-        print(predictions)
+            if self.num_shots == 0 or self.num_shots == 1:
+                ppl_pred = np.array([result / length for result, length in ppl_pred]).argmin()
+                predictions.append(generation_pred  if ppl_pred == 1 else 'The question is not answerable.')
+            else:
+                predictions.append(generation_pred)
         return predictions
