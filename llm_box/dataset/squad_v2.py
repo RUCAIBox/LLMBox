@@ -97,7 +97,7 @@ class Squad_v2(GenerationDataset):
                 indice = np.random.choice(len(data), 4)
                 instance = data[indice[0]]
                 source_text = "Title: " + instance["title"]  + "\n\nBackground: " \
-                + instance["context"] 
+                + instance["context"]
                 for index in indice:
                     instance = data[index]
                     source_text += "\n\nQ: " + instance["question"] + "\n\nA:"
@@ -113,8 +113,8 @@ class Squad_v2(GenerationDataset):
                 if cur_token_num + generation_example_token_nums <= self.max_example_tokens:
                     generation_example_text += cur_example_text
                     generation_example_token_nums += cur_token_num
-            return generation_example_text          
-        else:    
+            return generation_example_text
+        else:
             # selection algorithm
             # TODO: ICL
             indice = np.random.choice(len(self.example_data), self.num_shots)
@@ -130,7 +130,7 @@ class Squad_v2(GenerationDataset):
                 if cur_token_num + generation_example_token_nums <= self.max_example_tokens:
                     generation_example_text += cur_example_text
                     generation_example_token_nums += cur_token_num
-            return generation_example_text 
+            return generation_example_text
 
     @property
     def references(self):
@@ -150,7 +150,7 @@ class Squad_v2(GenerationDataset):
                 generation_pred = generation_pred[:index]
             if self.num_shots == 0 or self.num_shots == 1:
                 ppl_pred = np.array([result / length for result, length in ppl_pred]).argmin()
-                predictions.append(generation_pred  if ppl_pred == 1 else 'The question is not answerable.')
+                predictions.append(generation_pred if ppl_pred == 1 else 'The question is not answerable.')
             else:
                 predictions.append(generation_pred)
         return predictions
