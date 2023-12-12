@@ -16,6 +16,7 @@ def import_dataset_class(dataset_name: str) -> Dataset:
     module_path = __package__ + "." + dataset_name
     module = importlib.import_module(module_path)
     clsmembers = inspect.getmembers(module, inspect.isclass)
+
     for name, obj in clsmembers:
         if issubclass(obj, Dataset) and getattr(obj, "name", None) == dataset_name:
             logger.debug(f"Dataset class `{name}` imported from `{module_path}`.")
@@ -52,6 +53,7 @@ def load_dataset(args: DatasetArguments, model: Model) -> Union[Dataset, Dataset
         )
 
     subset_names = args.subset_names or available_subsets or set()
+
     # load dataset
     dataset_cls = import_dataset_class(args.dataset_name)
     if len(subset_names) > 1 and len(dataset_cls.load_args) == 1:
