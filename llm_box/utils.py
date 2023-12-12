@@ -39,7 +39,7 @@ class ModelArguments:
         default=MISSING, aliases=["--model", "-m"], help="The model name or path, e.g., cuire, llama"
     )
     openai_api_key: str = HfArg(
-        default=MISSING,
+        default=None,
         help="The OpenAI API key",
     )
     load_in_half: bool = HfArg(
@@ -123,21 +123,9 @@ class DatasetArguments:
         default=1,
         help="The path number for sampling for self-consistency",
     )
-    ICL_strategy_KATE: bool = HfArg(
-        default=False,
-        aliases=["-icl_kate"],
-        help="Whether to use KATE"
-    )
-    ICL_strategy_GlobalE: bool = HfArg(
-        default=False,
-        aliases=["-icl_globalE"],
-        help="Whether to use KATE"
-    )
-    ICL_strategy_APE: bool = HfArg(
-        default=False,
-        aliases=["-icl_ape"],
-        help="Whether to use KATE"
-    )
+    kate: bool = HfArg(default=False, aliases=["-kate"], help="Whether to use KATE")
+    globale: bool = HfArg(default=False, aliases=["-globale"], help="Whether to use KATE")
+    ape: bool = HfArg(default=False, aliases=["-ape"], help="Whether to use KATE")
 
     def __post_init__(self):
         if ":" in self.dataset_name:

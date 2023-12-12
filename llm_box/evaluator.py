@@ -32,6 +32,7 @@ class Evaluator:
         self.evaluation_args = evaluation_args
 
         set_seed(self.evaluation_args.seed)
+
         self.model = load_model(self.model_args)
         self.dataset = load_dataset(self.dataset_args, self.model)
 
@@ -51,6 +52,7 @@ class Evaluator:
             shuffle=False,
             pin_memory=True
         )
+
         if self.dataset.evaluation_type == 'ranking':
             call_model = self.model.get_ppl
         elif self.dataset.evaluation_type == 'generation':
@@ -64,6 +66,7 @@ class Evaluator:
         predictions = []
         for batch in tqdm(dataloader, dynamic_ncols=True, desc="Evaluating"):
             predictions.extend(call_model(batch))
+
         if len(predictions) != len(self.dataset):
             raise RuntimeError("The number of results should be equal to the number of samples in the dataset.")
 
@@ -72,7 +75,9 @@ class Evaluator:
 
         step = len(predictions) // self.dataset_args.sample_num
         mode_results = [mode(predictions[i::step]) for i in range(step)]
+
         metric_results = self.dataset.calculate_metric(mode_results)
+
         msg = f'Evaluation finished successfully:'
         if not isinstance(next(iter(metric_results.values())), dict):
             metric_results = {self.dataset.name: metric_results}
