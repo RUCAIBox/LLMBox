@@ -124,9 +124,9 @@ class DatasetArguments:
     )
     use_pal: bool = HfArg(
         default=False,
-        help="Whether to use PaL(Program-aided Language Models) to solve problems. Only available for some specific datasets.",
+        help=
+        "Whether to use PaL(Program-aided Language Models) to solve problems. Only available for some specific datasets.",
     )
-
 
     def __post_init__(self):
         if ":" in self.dataset_name:

@@ -1,19 +1,4 @@
-from datasets import load_dataset
-from collections import OrderedDict
-from sftdatasets import *
-
-# You can add your own dataset name and corresponding class here
-DATASETNAMEMAP = OrderedDict({
-    "alpaca": AlpacaDataset,
-    "belle": BelleDataset,
-    "selfinstruct": SelfInstructDataset,
-    "evolinstruct": EvolInstructDataset,
-    "dolly": DollyDataset,
-    "lima": LimaDataset,
-    "sharegpt": ShareGPTDataset,
-    "openassistant": OpenAssistantDataset,
-})
-DATASETNAMEMAPLIST = list(DATASETNAMEMAP.keys())
+from sftdatasets import DATASETNAMEMAP
 
 
 class AutoDataset():
@@ -28,5 +13,5 @@ class AutoDataset():
 
         # failed to find the dataset
         raise ValueError(
-            f"Your {datapath} should contain names like these: {DATASETNAMEMAP.keys()}, so that it can find our sftdataset class. Or you can add your own dataset class to {__file__}."
+            f"Your {datapath} should contain names like these: {DATASETNAMEMAP.keys()}, so that it can find our sftdataset class. Or you can add your own dataset class in sftdatasets package."
         )

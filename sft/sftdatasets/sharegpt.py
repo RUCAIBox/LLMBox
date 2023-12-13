@@ -1,5 +1,4 @@
-from datasets import load_dataset
-from .sftdataset import SFTDataset
+from .sft_dataset import SFTDataset
 
 
 class ShareGPTDataset(SFTDataset):
@@ -7,7 +6,7 @@ class ShareGPTDataset(SFTDataset):
     ShareGPT is an open-source Chrome Extension for you to share your ChatGPT conversations.
     And the dataset is scraped from that extension.
     """
-    
+
     instruction_template = "\n\n### Human:\n"
     response_template = "\n\n### Assistant:\n"
 

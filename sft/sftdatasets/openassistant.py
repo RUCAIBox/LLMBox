@@ -1,5 +1,4 @@
-from datasets import load_dataset
-from .sftdataset import SFTDataset
+from .sft_dataset import SFTDataset
 
 
 class OpenAssistantDataset(SFTDataset):
@@ -12,7 +11,7 @@ class OpenAssistantDataset(SFTDataset):
     
     When executing sft, we turn the CT into some multi-turn conversations from root to every leaf node.
     """
-    
+
     instruction_template = "\n\n<|prompter|>\n"
     response_template = "\n\n<|assistant|>\n"
 

@@ -1,7 +1,8 @@
-PAL_MATH_CHAT_PROMPT = [
-    {
-        "question": "Olivia has $23. She bought five bagels for $3 each. How much money does she have left?",
-        "answer": '''```
+PAL_MATH_CHAT_PROMPT = [{
+    "question":
+    "Olivia has $23. She bought five bagels for $3 each. How much money does she have left?",
+    "answer":
+    '''```
 def solution():
     """Olivia has $23. She bought five bagels for $3 each. How much money does she have left?"""
     money_initial = 23
@@ -14,10 +15,11 @@ def solution():
 ```
 
 '''
-    },
-    {
-        "question": "Michael had 58 golf balls. On tuesday, he lost 23 golf balls. On wednesday, he lost 2 more. How many golf balls did he have at the end of wednesday?",
-        "answer": '''```
+}, {
+    "question":
+    "Michael had 58 golf balls. On tuesday, he lost 23 golf balls. On wednesday, he lost 2 more. How many golf balls did he have at the end of wednesday?",
+    "answer":
+    '''```
 def solution():
     """Michael had 58 golf balls. On tuesday, he lost 23 golf balls. On wednesday, he lost 2 more. How many golf balls did he have at the end of wednesday?"""
     golf_balls_initial = 58
@@ -29,10 +31,11 @@ def solution():
 ```
 
 '''
-    },
-    {
-        "question": "There were nine computers in the server room. Five more computers were installed each day, from monday to thursday. How many computers are now in the server room?",
-        "answer": '''```
+}, {
+    "question":
+    "There were nine computers in the server room. Five more computers were installed each day, from monday to thursday. How many computers are now in the server room?",
+    "answer":
+    '''```
 def solution():
     """There were nine computers in the server room. Five more computers were installed each day, from monday to thursday. How many computers are now in the server room?"""
     computers_initial = 9
@@ -45,5 +48,4 @@ def solution():
 ```
 
 '''
-    }
-]
+}]
