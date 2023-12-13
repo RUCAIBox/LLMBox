@@ -1,5 +1,4 @@
-from datasets import load_dataset
-from .sftdataset import SFTDataset
+from .sft_dataset import SFTDataset
 
 
 class LimaDataset(SFTDataset):
@@ -12,7 +11,7 @@ class LimaDataset(SFTDataset):
     
     5% are sampled from the Super-Natural Instructions dataset.
     """
-    
+
     instruction_template = "\n\n### Human:\n"
     response_template = "\n\n### Assistant:\n"
 

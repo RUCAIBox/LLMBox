@@ -1,5 +1,4 @@
-from datasets import load_dataset
-from .sftdataset import SFTDataset
+from .sft_dataset import SFTDataset
 
 
 class BelleDataset(SFTDataset):

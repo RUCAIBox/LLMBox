@@ -5,11 +5,10 @@ from typing import List, Optional
 from dataclasses import dataclass
 from transformers import AutoModelForCausalLM, AutoTokenizer, TrainingArguments, HfArgumentParser
 from transformers.hf_argparser import HfArg
-from datasets import load_dataset
 from accelerate.utils import set_seed
 from trl import SFTTrainer, DataCollatorForCompletionOnlyLM
 from utils import _save_checkpoint
-from autodataset import *
+from autodataset import AutoDataset
 
 
 @dataclass
