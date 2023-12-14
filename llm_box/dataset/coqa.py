@@ -1,7 +1,7 @@
 from .generation_dataset import GenerationDataset
 import re
 import json
-
+import copy
 from ..metric import F1, Em
 
 
@@ -75,9 +75,9 @@ class Coqa(GenerationDataset):
                     answer_list.append(answer["input_text"])
                 converted_instance["answers"].append(answer_list)
                 if data_type == "dev":
-                    dataset.append(converted_instance)
+                    dataset.append(copy.deepcopy(converted_instance))
             if data_type == "train":
-                dataset.append(converted_instance)
+                dataset.append((copy.deepcopy(converted_instance)))
         return dataset
 
     def format_instance(self, instance):
