@@ -1,4 +1,0 @@
-datasets
-numpy
-pandas
-pyarrow

@@ -1,4 +1,4 @@
-from process_oasst import from_tree_to_conversation
+# from process_oasst import from_tree_to_conversation
 from process_sg import truncate_filter
 from process_belle import remove_unusual_line_terminators
 import os
@@ -15,7 +15,7 @@ for subdir in data_dir:
         for file in files:
             if file.endswith('.jsonl'):
                 file_path = os.path.join(subdir_path, file)
-                from_tree_to_conversation(file_path, os.path.join(data_path, 'openassistant.jsonl'))
+                # from_tree_to_conversation(file_path, os.path.join(data_path, 'openassistant.jsonl')) TODO: Not supported yet
 
     elif subdir == 'sharegpt':
         content1 = json.load(open(os.path.join(subdir_path, files[0]), 'r'))

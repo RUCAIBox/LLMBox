@@ -1,9 +1,7 @@
 import sys
 import json
 
-sys.path.append('./script/OpenAssistant/model/')
-sys.path.append('./script/OpenAssistant/oasst-data/')
-from OpenAssistant.model.model_training.custom_datasets.oasst_dataset import load_oasst_export
+from model_training.custom_datasets.oasst_dataset import load_oasst_export
 
 
 def from_tree_to_conversation(input_file_path, save_path):

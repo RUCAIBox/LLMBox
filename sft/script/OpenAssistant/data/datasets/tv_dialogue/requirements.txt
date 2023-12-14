@@ -1,7 +1,0 @@
-beautifulsoup4
-kaggle
-numpy
-pandas
-pyarrow
-requests
-tqdm
