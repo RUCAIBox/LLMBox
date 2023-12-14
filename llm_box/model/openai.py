@@ -29,7 +29,7 @@ class Openai(Model):
 
         self.api_key = openai.api_key
         self.name = args.model_name_or_path
-        self.type = "base"
+        self.type = "instruction" if self.name in ["gpt-3.5-turbo"] else "base"
         self.tokenizer = tiktoken.get_encoding(tiktoken.encoding_name_for_model(self.name))
         # TODO: compatible for gpt-3.5-turbo (enum_type?)
         self.max_tokens = args.max_tokens
