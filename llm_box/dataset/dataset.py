@@ -8,8 +8,7 @@ import datasets as d
 import numpy as np
 import torch
 
-from .utils import *
-from .instance_utils import ape, global_entropy_ordering_strategy, knn_construct_examples
+from .icl_strategies import ape, global_entropy_ordering_strategy, knn_construct_examples
 from ..utils import DatasetArguments, NotImplementedField
 from ..model.model import Model
 
@@ -260,7 +259,7 @@ class Dataset(torch.utils.data.Dataset):
             formatted_evaluation_dataset = [self.format_instance(data) for data in self.evaluation_data]
             call_model = self.model.get_ppl
             # construct instructions using ape
-            instrction = ape(formatted_example_dataset, formatted_evaluation_dataset, call_model)
+            instrction = ape(formatted_example_dataset, formatted_evaluation_dataset, call_model, self.model.api_key)
             self.instruction = instrction
         for instance in self.evaluation_data:
             formatted_instance = self.format_instance(instance)
