@@ -1,4 +1,0 @@
-pandas
-sentence-transformers
-bertopic
-scipy

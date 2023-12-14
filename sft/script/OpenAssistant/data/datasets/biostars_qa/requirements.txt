@@ -1,4 +1,0 @@
-pandas
-pyarrow
-requests
-tdqm
