@@ -27,6 +27,7 @@ class Openai(Model):
         secret_key = openai.api_key[:8] + "*" * 39 + openai.api_key[-4:]
         logger.info(f"OpenAI API key: {secret_key}, base: {openai.api_base}")
 
+        self.api_key = openai.api_key
         self.name = args.model_name_or_path
         self.type = "instruction" if self.name in ["gpt-3.5-turbo"] else "base"
         self.tokenizer = tiktoken.get_encoding(tiktoken.encoding_name_for_model(self.name))
