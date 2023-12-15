@@ -1,5 +1,6 @@
 import os
 import logging
+from builtins import bool
 from dataclasses import MISSING, dataclass
 from logging import getLogger
 from typing import Optional, Tuple, TypeVar, ClassVar, Set
@@ -122,6 +123,11 @@ class DatasetArguments:
         default=1,
         help="The path number for sampling for self-consistency",
     )
+
+    kate: bool = HfArg(default=False, aliases=["-kate"], help="Whether to use KATE")
+    globale: bool = HfArg(default=False, aliases=["-globale"], help="Whether to use KATE")
+    ape: bool = HfArg(default=False, aliases=["-ape"], help="Whether to use KATE")
+
     prompt_method: str = HfArg(
         default='baseline',
         help="The method to prompt, eg. 'baseline', 'least_to_most', 'pal'. Only available for some specific datasets.",

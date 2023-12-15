@@ -8,6 +8,7 @@ import datasets as d
 import numpy as np
 import torch
 
+from .icl_strategies import ape, global_entropy_ordering_strategy, knn_construct_examples
 from ..utils import DatasetArguments, NotImplementedField
 from ..model.model import Model
 
@@ -82,13 +83,16 @@ class Dataset(torch.utils.data.Dataset):
             evaluation_set=args.evaluation_set or self.evaluation_set,
             example_set=args.example_set or self.example_set,
         )
-
         self.model = model
         self.tokenizer = model.tokenizer
+        self.examples = ""
+        self.kate = args.kate
+        self.globale = args.globale
+        self.ape = args.ape
 
         self.num_shots = args.num_shots
         self.max_example_tokens = args.max_example_tokens
-        self.examples = self.construct_examples()
+        self.random_indice = np.random.choice(len(self.example_data), self.args.num_shots)
         self.construct_instances()
 
     def _load_raw_dataset(
@@ -123,7 +127,6 @@ class Dataset(torch.utils.data.Dataset):
                 load_args = self.load_args
             msg += f" from huggingface ({', '.join(load_args)})"
             loadders = [lambda s: d.load_dataset(*load_args, split=s)]
-
         logger.debug(
             msg + f" with evaluation set `{evaluation_set}`" +
             (f" and example set `{example_set}`" if example_set else "")
@@ -178,28 +181,26 @@ class Dataset(torch.utils.data.Dataset):
         """
         raise NotImplementedError(f"{self.name} dataset must implement the `format_instance` function.")
 
-    def format_instruction_and_examples(self, source, target=""):
+    def format_instruction_and_examples(self, instance):
         r"""Format one instance with the instruction and demonstration.
 
         Args:
-            source (str): the pre-formatted source text.
+            instance (dict): the pre-formatted source.
             target (str, optional): the pre-formatted target text (default to "".
 
         Returns:
             Union[str, Tuple(str, str)]: The final formatted instance.
         """
         # TODO: instruction template
+
         # TODO: ICL
-
+        self.examples = self.construct_examples(instance)
         if self.model.type == 'base':
-            source = self.examples + source
+            source = self.examples + instance["source"]
         elif self.model.type == 'instruction':
-            source = self.instruction + "\n\n" + self.examples + source
+            source = self.instruction + "\n\n" + self.examples + instance["source"]
 
-        if target:
-            return source, target
-        else:
-            return source
+        return source
 
     def construct_examples(self, instance=None) -> str:
         r"""Format one instance with the instruction and demonstration.
@@ -219,8 +220,17 @@ class Dataset(torch.utils.data.Dataset):
 
         # selection algorithm
         # TODO: ICL
-        indice = np.random.choice(len(self.example_data), self.args.num_shots)
-
+        formatted_example_data = [self.format_instance(data) for data in self.example_data]
+        if self.kate is True:
+            # select demonstrations based on knn algorithm
+            indice = knn_construct_examples(instance["source"], formatted_example_data, self.num_shots)
+        else:
+            indice = self.random_indice
+        if self.globale is True:
+            # rank demonstrations based on global entropy
+            labels = list(range(len(formatted_example_data[0]["options"])))
+            call_model = self.model.get_ppl
+            indice = global_entropy_ordering_strategy(indice, labels, formatted_example_data, call_model)
         # TODO: tokenizer efficiency
         # construct few-shot examples
         example_text = ""
@@ -244,17 +254,22 @@ class Dataset(torch.utils.data.Dataset):
         """
         self.evaluation_instances = []
         self.option_nums = []
+        if self.ape is True:
+            formatted_example_dataset = [self.format_instance(data) for data in self.example_data]
+            formatted_evaluation_dataset = [self.format_instance(data) for data in self.evaluation_data]
+            call_model = self.model.get_ppl
+            # construct instructions using ape
+            instrction = ape(formatted_example_dataset, formatted_evaluation_dataset, call_model, self.model.api_key)
+            self.instruction = instrction
         for instance in self.evaluation_data:
             formatted_instance = self.format_instance(instance)
             if self.evaluation_type == "ranking":
-                options = [
-                    self.format_instruction_and_examples(formatted_instance["source"], option)
-                    for option in formatted_instance['options']
-                ]
+                instance_with_examples = self.format_instruction_and_examples(formatted_instance)
+                options = [(instance_with_examples, option) for option in formatted_instance['options']]
                 self.evaluation_instances.extend(options)
                 self.option_nums.append(len(options))
             elif self.evaluation_type == "generation":
-                self.evaluation_instances.append(self.format_instruction_and_examples(formatted_instance["source"]))
+                self.evaluation_instances.append(self.format_instruction_and_examples(formatted_instance))
         self.evaluation_instances = self.evaluation_instances * self.args.sample_num
         self.option_nums = self.option_nums * self.args.sample_num
 
