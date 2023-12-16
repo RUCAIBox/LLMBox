@@ -52,10 +52,12 @@ class Race(MultipleChoiceDataset):
         self.option_nums = []
         for instance in self.evaluation_data:
             formatted_instance = self.format_instance(instance)
-            options = [
-                self.format_instruction_and_examples(formatted_instance["source"], option)
-                for option in formatted_instance["options"]
-            ]
+            instance_with_examples = self.format_instruction_and_examples(formatted_instance)
+            options = [(instance_with_examples, option) for option in formatted_instance['options']]
+            # options = [
+            #     self.format_instruction_and_examples(formatted_instance["source"], option)
+            #     for option in formatted_instance["options"]
+            # ]
             self.option_nums.append(len(options))
             answer_options = [("A:", option) for option in formatted_instance["options"]]
             options = [item for pair in zip(options, answer_options) for item in pair]
