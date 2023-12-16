@@ -11,7 +11,7 @@ import torch
 from ..model.model import Model
 from ..utils import DatasetArguments, NotImplementedField
 from .icl_strategies import ape, global_entropy_ordering_strategy, knn_construct_examples
-from .utils import _get_raw_dataset_loader
+from .utils import get_raw_dataset_loader
 
 logger = getLogger(__name__)
 
@@ -207,15 +207,14 @@ class Dataset(torch.utils.data.Dataset):
         """
         raise NotImplementedError(f"{self.name} dataset must implement the `format_instance` function.")
 
-    def format_instruction_and_examples(self, instance):
+    def format_instruction_and_examples(self, instance) -> str:
         r"""Format one instance with the instruction and demonstration.
 
         Args:
             instance (dict): the pre-formatted source.
-            target (str, optional): the pre-formatted target text (default to "".
 
         Returns:
-            Union[str, Tuple(str, str)]: The final formatted instance.
+            str: The final formatted instance.
         """
         # TODO: instruction template
 
@@ -225,6 +224,8 @@ class Dataset(torch.utils.data.Dataset):
             source = self.examples + instance["source"]
         elif self.model.type == 'instruction':
             source = self.instruction + "\n\n" + self.examples + instance["source"]
+        else:
+            raise ValueError(f"Model type {self.model.type} not supported.")
 
         return source
 
