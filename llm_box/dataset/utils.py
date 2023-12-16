@@ -4,6 +4,7 @@ from logging import getLogger
 from os.path import abspath
 from typing import Callable, Union, Optional, Tuple
 import re
+from importlib.machinery import SourceFileLoader
 
 import datasets as ds
 
@@ -23,7 +24,7 @@ def get_raw_dataset_loader(
     subset_name: Optional[str],
     load_args: Optional[Union[Tuple[str], Tuple[str, str]]],
     return_msg: bool = False,
-) -> Union[Callable[[str], ds.Dataset], Tuple[Callable[[str], ds.Dataset], str]]:
+) -> Union[Callable[[Optional[str]], ds.Dataset], Tuple[Callable[[str], ds.Dataset], str]]:
     """Get the function to load the raw dataset from huggingface (if `load_args` is not None) or local path (if `dataset_path` is not None).
 
     ```python
@@ -87,10 +88,7 @@ def get_raw_dataset_loader(
 
                     logger.debug(f"Searching dataset file: {dataset_file_path}")
                     if os.path.exists(dataset_file_path):
-                        data = load_raw_dataset_from_file(dataset_file_path)
-                        if not split:
-                            return data
-                        return data[split]
+                        return load_raw_dataset_from_file(dataset_file_path)
 
                 raise ValueError(f"Cannot find raw dataset `{dataset_name}:{subset_name}` in `{dataset_path}`.")
 
@@ -111,7 +109,7 @@ def get_raw_dataset_loader(
             f"Failed to load dataset `{dataset_name}:{subset_name}`. Please check if the dataset exists in huggingface or local path."
         )
 
-    def informative_load_fn(split) -> ds.Dataset:
+    def informative_load_fn(split=None) -> ds.Dataset:
         try:
             return load_fn(split=split)
         except KeyError as e:
@@ -131,7 +129,16 @@ def load_raw_dataset_from_file(dataset_file_path: str) -> ds.Dataset:
         return ds.Dataset.from_csv(dataset_file_path)  # type: ignore
     elif dataset_file_path.endswith(".txt"):
         return ds.Dataset.from_text(dataset_file_path)  # type: ignore
-    else:
-        raise ValueError(
-            f"Cannot find raw dataset from file {dataset_file_path}. Supported formats: .jsonl, .json, .csv, .txt"
-        )
+    elif dataset_file_path.endswith('.py'):
+        module = SourceFileLoader("source_dataset", dataset_file_path).load_module()
+        objects = [getattr(module, obj) for obj in dir(module) if not obj.startswith("_")]
+        if len(objects) == 1:
+
+            def generator():
+                yield from objects[0]
+
+            return ds.Dataset.from_generator(generator)
+
+    raise ValueError(
+        f"Cannot find raw dataset from file {dataset_file_path}. Supported formats: .jsonl, .json, .csv, .txt, .py"
+    )
