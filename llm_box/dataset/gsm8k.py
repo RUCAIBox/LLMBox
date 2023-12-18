@@ -1,7 +1,7 @@
 import re
 
 import numpy as np
-
+from llm_box.prompt.examplars import COT_EXAMPLARS, LEAST_TO_MOST_EXAMPLARS
 from .generation_dataset import GenerationDataset
 from ..metric import Accuracy
 
@@ -25,6 +25,13 @@ class Gsm8k(GenerationDataset):
 
     load_args = ("gsm8k", "main")
     metrics = [Accuracy()]
+
+    def _load_raw_dataset(self, dataset_path, subset_name, evaluation_set, example_set):
+        super()._load_raw_dataset(dataset_path, subset_name, evaluation_set, example_set)
+        if self.args.prompt_method == 'baseline':
+            self.example_data = COT_EXAMPLARS
+        elif self.args.prompt_method == 'least_to_most':
+            self.example_data = LEAST_TO_MOST_EXAMPLARS
 
     @staticmethod
     def post_processing(predictions):
