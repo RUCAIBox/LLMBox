@@ -128,17 +128,17 @@ class DatasetArguments:
     globale: bool = HfArg(default=False, aliases=["-globale"], help="Whether to use KATE")
     ape: bool = HfArg(default=False, aliases=["-ape"], help="Whether to use KATE")
 
-    use_pal: bool = HfArg(
-        default=False,
-        help="Whether to use PaL(Program-aided Language Models) to solve problems. Only available for some specific datasets.",
+    prompt_method: str = HfArg(
+        default='baseline',
+        help="The method to prompt, eg. 'baseline', 'least_to_most', 'pal'. Only available for some specific datasets.",
     )
-
 
 
     def __post_init__(self):
         if ":" in self.dataset_name:
             self.dataset_name, subset_names = self.dataset_name.split(":")
             self.subset_names = set(subset_names.split(","))
+        assert self.prompt_method in ['baseline', 'least_to_most', 'pal'], f"Unsupported prompt method: {self.prompt_method}"
 
 
 @dataclass
