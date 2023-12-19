@@ -57,6 +57,8 @@ class Evaluator:
             call_model = self.model.get_ppl
         elif self.dataset.evaluation_type == 'generation':
             call_model = self.model.generation
+        elif self.dataset.evaluation_type == 'user_defined':
+            call_model = self.dataset.evaluation
         else:
             raise ValueError(
                 f"We only support two evaluation types: `ranking` and `generation`, but got `{self.dataset.evaluation_type}`."
