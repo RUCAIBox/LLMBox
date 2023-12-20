@@ -123,6 +123,7 @@ class DatasetArguments:
         default=1,
         help="The path number for sampling for self-consistency",
     )
+    evaluation_results_path: ClassVar[str] = "/dev/null"
 
     kate: bool = HfArg(default=False, aliases=["-kate"], help="Whether to use KATE")
     globale: bool = HfArg(default=False, aliases=["-globale"], help="Whether to use KATE")
@@ -152,16 +153,23 @@ class EvaluationArguments:
         default="logs",
         help="The logging directory",
     )
-    log_level: Optional[str] = HfArg(
+    log_level: str = HfArg(
         default="warning",
         help=
         "Logger level to use on the main node. Possible choices are the log levels as strings: 'debug', 'info', 'warning', 'error' and 'critical'",
         metadata={"choices": log_levels.keys()},
     )
+    evaluation_results_dir: str = HfArg(
+        default="evaluation_results",
+        help="The directory to save evaluation results, which includes source"
+        " and target texts, generated texts, and the references.",
+    )
 
     def __post_init__(self):
         if not os.path.exists(self.logging_dir):
             os.makedirs(self.logging_dir)
+        if not os.path.exists(self.evaluation_results_dir):
+            os.makedirs(self.evaluation_results_dir)
 
 
 def set_logging(
@@ -172,13 +180,15 @@ def set_logging(
 ) -> None:
     """Set the logging level for standard output and file."""
 
-    # use root logger to disable logging of other packages
-    root_logger = logging.getLogger(__package__)
+    # Use package logger to disable logging of other packages. Set the level to DEBUG first
+    # to allow all logs from our package, and then set the level to the desired one.
+    package_logger = logging.getLogger(__package__)
     coloredlogs.install(
-        level=log_levels[evaluation_args.log_level],
-        logger=root_logger,
+        level=logging.DEBUG,
+        logger=package_logger,
         fmt=DEFAULT_LOG_FORMAT,
     )
+    package_logger.handlers[0].setLevel(level=log_levels[evaluation_args.log_level])
 
     # set the log file
     model_name = model_args.model_name_or_path.strip("/").split("/")[-1]
@@ -187,18 +197,21 @@ def set_logging(
     )
     num_shots = str(dataset_args.num_shots)
     execution_time = datetime.datetime.now().strftime(DEFAULT_DATETIME_FORMAT)
-    log_filename = f"{model_name}-{dataset_name}-{num_shots}-{execution_time}.log"
-    log_path = f"{evaluation_args.logging_dir}/{log_filename}"
+    log_filename = f"{model_name}-{dataset_name}-{num_shots}-{execution_time}"
+    log_path = f"{evaluation_args.logging_dir}/{log_filename}.log"
+    evaluation_results_path = f"{evaluation_args.evaluation_results_dir}/{log_filename}.json"
+    dataset_args.evaluation_results_path = evaluation_results_path  # type: ignore
 
     # add file handler to root logger
     handler = logging.FileHandler(log_path)
     formatter = coloredlogs.BasicFormatter(fmt=DEFAULT_LOG_FORMAT)
+    coloredlogs.HostNameFilter.install(handler=handler)
     handler.setLevel(level=log_levels[file_log_level])
     handler.setFormatter(formatter)
-    root_logger.addHandler(handler)
+    package_logger.addHandler(handler)
 
     # finish logging initialization
-    logger.info(f"Saving logs to {log_path}")
+    logger.warning(f"Saving logs to {log_path}")
 
 
 def check_args(model_args, dataset_args, evaluation_args):
