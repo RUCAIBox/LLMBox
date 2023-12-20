@@ -3,7 +3,10 @@ from logging import getLogger
 
 logger = getLogger(__name__)
 
-OPENAI_MODELS = ['ada', 'babbage', 'curie', 'davinci', 'babbage-002', 'davinci-002', 'gpt-3.5-turbo', "gpt-3.5-turbo-instruct", "text-davinci-003"]
+OPENAI_MODELS = [
+    'ada', 'babbage', 'curie', 'davinci', 'babbage-002', 'davinci-002', 'gpt-3.5-turbo', "gpt-3.5-turbo-instruct",
+    "text-davinci-003"
+]
 
 
 def load_model(args):
