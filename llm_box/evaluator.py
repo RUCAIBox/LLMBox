@@ -1,4 +1,3 @@
-from functools import partial
 from logging import getLogger
 from statistics import mode
 from typing import Dict, Tuple
@@ -8,7 +7,6 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from .dataset import load_dataset
-from .dataset.generation_dataset import GenerationDataset
 from .model import load_model
 from .utils import DatasetArguments, EvaluationArguments, ModelArguments
 
@@ -63,7 +61,7 @@ class Evaluator:
             call_model = self.dataset.evaluation
         else:
             raise ValueError(
-                f"We only support two evaluation types: `ranking` and `generation`, but got `{self.dataset.evaluation_type}`."
+                f"We only support three evaluation types: `ranking`, `generation`, and `user_defined`, but got `{self.dataset.evaluation_type}`."
             )
 
         # call model

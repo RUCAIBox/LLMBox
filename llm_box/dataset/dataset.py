@@ -320,7 +320,10 @@ class Dataset(torch.utils.data.Dataset):
         Returns:
             Dict[str, float]: The metric results.
         """
-        raise NotImplementedError(f"{self.name} dataset must implement the `calcuate_metric` function.")
+        results = {}
+        for metric_func in self.metrics:
+            results.update(metric_func(predictions, self.references))
+        return results
 
     def post_processing(self, predictions: List[Union[str, float]]):
         r"""Post processing for the predictions.
