@@ -4,8 +4,6 @@ import re
 from ..metric import F1, Em
 import numpy as np
 
-import random
-
 
 class Quac(GenerationDataset):
     """The dataset of quac.
