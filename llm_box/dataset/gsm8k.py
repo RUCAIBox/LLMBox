@@ -32,6 +32,10 @@ class Gsm8k(GenerationDataset):
     question_pattern = "Question: {question}\nAnswer:"
     one_line_answer = True
 
+    _default_answer_trigger = "\n#### "
+    _decimal_separator = re.compile(r"(\d),(\d)")
+    _extract_numbers = re.compile(r"[-+]?\d*\.\d+|\d+")
+
     def _load_raw_dataset(self, dataset_path, subset_name, evaluation_set, example_set):
         super()._load_raw_dataset(dataset_path, subset_name, evaluation_set, example_set)
         if self.args.prompt_method == 'baseline':
@@ -44,8 +48,8 @@ class Gsm8k(GenerationDataset):
         new_predictions = []
         for pred in predictions:
             # replace numbers like `x,xxx` with `xxxx`
-            pred = re.sub(r"(\d),(\d)", r"\1\2", pred)
-            numbers = re.findall(r"[-+]?\d*\.\d+|\d+", pred)
+            pred = Gsm8k._decimal_separator.sub(r"\1\2", pred)
+            numbers = Gsm8k._extract_numbers.findall(pred)
             if numbers:
                 new_predictions.append(numbers[-1])
             else:
@@ -53,27 +57,30 @@ class Gsm8k(GenerationDataset):
         return new_predictions
 
     def format_instance(self, instance):
-        instance["answer"] = re.sub(r"(\d),(\d)", r"\1\2", instance["answer"])
+        answer = self._decimal_separator.sub(r"\1\2", instance["answer"])
         # instance["answer"] = re.sub(r"<<[\d\+\(\)-=\*\/]+>>", "", instance["answer"])
         # instance["question"] = re.sub(r"<<[\d\+\(\)-=\*\/]+>>", "", instance["question"])
 
         if self.one_line_answer:
-            instance["answer"] = " " + instance["answer"].replace("\n#### ", " " + self.answer_trigger.strip() + " ")
-            instance["answer"] = instance["answer"].replace("\n", " ")
-            instance["question"] = instance["question"].replace("\n", " ")
+            answer = " " + answer.replace(self._default_answer_trigger, " " + self.answer_trigger.strip() + " ")
+            answer = answer.replace("\n", " ")
+            question = instance["question"].replace("\n", " ")
         else:
-            instance["answer"] = " " + instance["answer"].replace("\n#### ", "\n" + self.answer_trigger.strip() + " ")
+            answer = " " + instance["answer"].replace(
+                self._default_answer_trigger, "\n" + self.answer_trigger.strip() + " "
+            )
+            question = instance["question"]
 
-        instance["question"] = self.question_pattern.format(question=instance["question"])
+        question = self.question_pattern.format(question=question)
         return dict(
-            source=instance["question"],
-            target=instance["answer"],
+            source=question,
+            target=answer,
         )
 
     @property
     def references(self):
         if not hasattr(self, "_references"):
             self._references = [
-                instance["answer"].split(self.answer_trigger)[-1].strip() for instance in self.evaluation_data
+                instance["answer"].split(self._default_answer_trigger)[-1].strip() for instance in self.evaluation_data
             ]
         return self._references

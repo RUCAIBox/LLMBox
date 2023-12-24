@@ -194,6 +194,9 @@ class Dataset(torch.utils.data.Dataset):
     def format_instance(self, instance):
         r"""Format the dataset instance into task source text, target text, and options (for ranking).
 
+        Notes:
+            The instance should not be mutated since the function might be called for multiple times when formatting examples.
+
         Args:
             instance (Dict): an instance dict of multiple key-value pairs.
 
