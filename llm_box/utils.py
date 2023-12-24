@@ -48,6 +48,10 @@ class ModelArguments:
         default=True,
         help="Whether to load the model in half precision",
     )
+    load_in_8bit: bool = HfArg(
+        default=False,
+        help="Whether to load the model in 8-bit precision",
+    )
     device_map: str = HfArg(
         default="auto",
         help="The device map for model and data",
@@ -69,6 +73,8 @@ class ModelArguments:
     def __post_init__(self):
         if "OPENAI_API_KEY" in os.environ and self.openai_api_key is None:
             self.openai_api_key = os.environ["OPENAI_API_KEY"]
+        if self.load_in_8bit:
+            self.load_in_half = False
 
 
 @dataclass
