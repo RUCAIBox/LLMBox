@@ -1,10 +1,8 @@
 import json
-import os
 from logging import getLogger
 from pprint import pformat
 from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 
-import datasets as ds
 import numpy as np
 import torch
 
@@ -299,17 +297,6 @@ class Dataset(torch.utils.data.Dataset):
                 self.evaluation_instances.append(self.format_instruction_and_examples(formatted_instance))
         self.evaluation_instances = self.evaluation_instances * self.args.sample_num
         self.option_nums = self.option_nums * self.args.sample_num
-
-    def post_processing(self, predictions):
-        r"""Process the generated predictions. For ranking-based datasets, it chooses the option with lowest PPL.
-        For generation-based datasets, it may remove blank characters.
-
-        Args:
-            predictions (List[Union[float, str]]): the calculated PPL scores or predicted answers.
-
-        Returns:
-            List[Union[float, str]]: the processed results.
-        """
 
     def calculate_metric(self, predictions) -> Dict[str, float]:
         r"""Calculate the metric score between `predictions` and `references`.

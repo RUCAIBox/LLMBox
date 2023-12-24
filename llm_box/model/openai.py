@@ -1,12 +1,11 @@
-import os
 import time
+from logging import getLogger
 
 import openai
 import tiktoken
-from logging import getLogger
 
-from .model import Model
 from ..utils import ModelArguments
+from .model import Model
 
 logger = getLogger(__name__)
 
@@ -22,7 +21,9 @@ class Openai(Model):
     def __init__(self, args: ModelArguments):
         super().__init__(args)
         if not args.openai_api_key:
-            raise ValueError("OpenAI API key is required")
+            raise ValueError(
+                "OpenAI API key is required. Please set it by passing a `--openai_api_key` or through environment variable `OPENAI_API_KEY`."
+            )
         openai.api_key = args.openai_api_key
         secret_key = openai.api_key[:8] + "*" * 39 + openai.api_key[-4:]
         logger.info(f"OpenAI API key: {secret_key}, base: {openai.api_base}")
