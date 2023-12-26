@@ -105,13 +105,15 @@ class Math(GenerationDataset):
         return new_predictions
 
     def format_instance(self, instance):
-        instance["short_answer"] = self.extract_inner_content(instance["solution"])
-        instance["problem"] = "Q: " + instance["problem"] + "\n" + "A:"
-        instance["solution"] = " " + instance[
-            "solution"] + f"\nFinal Answer: The final answer is ${instance['short_answer']}$. I hope it is correct."
+        solution_pattern = " {solution}\nFinal Answer: The final answer is ${short_answer}$. I hope it is correct."
+
+        if "short_answer" not in instance:
+            instance["short_answer"] = self.extract_inner_content(instance["solution"])
+        problem = "Q: " + instance["problem"] + "\n" + "A:"
+        solution = solution_pattern.format(solution=instance["solution"], short_answer=instance["short_answer"])
         return dict(
-            source=instance["problem"],
-            target=instance["solution"],
+            source=problem,
+            target=solution,
         )
 
     @property

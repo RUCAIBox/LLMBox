@@ -10,6 +10,8 @@ import warnings
 import coloredlogs
 from transformers.hf_argparser import HfArg, HfArgumentParser
 
+__all__ = ['NotImplementedField', 'ModelArguments', 'DatasetArguments', 'EvaluationArguments', 'parse_argument']
+
 T = TypeVar('T')
 
 logger = getLogger(__name__)
@@ -46,6 +48,10 @@ class ModelArguments:
         default=True,
         help="Whether to load the model in half precision",
     )
+    load_in_8bit: bool = HfArg(
+        default=False,
+        help="Whether to load the model in 8-bit precision",
+    )
     device_map: str = HfArg(
         default="auto",
         help="The device map for model and data",
@@ -54,14 +60,21 @@ class ModelArguments:
         default=0,
         help="The temperature for models",
     )
-    max_tokens: int = HfArg(
-        default=2048,
+    max_new_tokens: Optional[int] = HfArg(
+        default=None,
+        aliases=["--max_tokens"],
         help="The maximum number of tokens for output generation",
+    )
+    max_sequence_length: Optional[int] = HfArg(
+        default=None,
+        help="The maximum number of tokens of model input sequence",
     )
 
     def __post_init__(self):
         if "OPENAI_API_KEY" in os.environ and self.openai_api_key is None:
             self.openai_api_key = os.environ["OPENAI_API_KEY"]
+        if self.load_in_8bit:
+            self.load_in_half = False
 
 
 @dataclass
@@ -132,6 +145,7 @@ class DatasetArguments:
     prompt_method: str = HfArg(
         default='baseline',
         help="The method to prompt, eg. 'baseline', 'least_to_most', 'pal'. Only available for some specific datasets.",
+        metadata={"choices": ['baseline', 'least_to_most', 'pal']},
     )
 
     def __post_init__(self):

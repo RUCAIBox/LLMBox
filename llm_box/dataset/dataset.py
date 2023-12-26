@@ -1,10 +1,8 @@
 import json
-import os
 from logging import getLogger
 from pprint import pformat
 from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 
-import datasets as ds
 import numpy as np
 import torch
 
@@ -67,7 +65,7 @@ class Dataset(torch.utils.data.Dataset):
         - `(dataset_name, subset_name)`: If the dataset itself is a subset of a dataset collection. E.g., `('super_glue', 'copa')`.
     """
 
-    model_args: Dict[str, Any] = NotImplementedField
+    model_args: Dict[str, Any] = dict()
     """Arguments for the model generation or get_ppl. See `set_generation_args` or `set_ppl_args` for details."""
 
     def __init__(self, args: DatasetArguments, model: Model, subset_name: Optional[str] = None):
@@ -196,6 +194,9 @@ class Dataset(torch.utils.data.Dataset):
     def format_instance(self, instance):
         r"""Format the dataset instance into task source text, target text, and options (for ranking).
 
+        Notes:
+            The instance should not be mutated since the function might be called for multiple times when formatting examples.
+
         Args:
             instance (Dict): an instance dict of multiple key-value pairs.
 
@@ -299,17 +300,6 @@ class Dataset(torch.utils.data.Dataset):
                 self.evaluation_instances.append(self.format_instruction_and_examples(formatted_instance))
         self.evaluation_instances = self.evaluation_instances * self.args.sample_num
         self.option_nums = self.option_nums * self.args.sample_num
-
-    def post_processing(self, predictions):
-        r"""Process the generated predictions. For ranking-based datasets, it chooses the option with lowest PPL.
-        For generation-based datasets, it may remove blank characters.
-
-        Args:
-            predictions (List[Union[float, str]]): the calculated PPL scores or predicted answers.
-
-        Returns:
-            List[Union[float, str]]: the processed results.
-        """
 
     def calculate_metric(self, predictions) -> Dict[str, float]:
         r"""Calculate the metric score between `predictions` and `references`.
