@@ -1,3 +1,10 @@
+from typing import Optional, Union
+
+from transformers import PreTrainedTokenizer, PreTrainedTokenizerFast
+
+from ..utils import NotImplementedField
+
+
 class Model:
     r"""The base model object for all models.
 
@@ -13,28 +20,38 @@ class Model:
         ppl_kwargs (dict, *optional*): The configurations for computing PPL score.
     """
     name = ""
-    type = ""
+    type = NotImplementedField
 
     def __init__(self, args):
         self.args = args
-        self.tokenizer = None
+        self.tokenizer: Union[PreTrainedTokenizer, PreTrainedTokenizerFast] = None
 
-    def get_ppl(self, batch):
+    def set_ppl_args(self, **kwargs):
+        r"""Set the configurations for PPL score calculation. This is useful because different datasets may have different requirements for ppl calculation."""
+
+        raise NotImplementedError(f"{self.name} model must implement the `set_ppl_args` function.")
+
+    def get_ppl(self, batched_inputs):
         r"""Compute the PPL score of the option given the context for this batch.
 
         Args:
-            batch (List[Tuple(str, str)]): The batch of context and option pairs.
+            batched_inputs (List[Tuple(str, str)]): The batch of context and option pairs.
 
         Returns:
             List(float): The list of PPL scores.
         """
         raise NotImplementedError(f"{self.name} model must implement the `get_ppl` function.")
 
-    def generation(self, batch):
+    def set_generation_args(self, **kwargs):
+        r"""Set the configurations for open-ended generation. This is useful because different datasets may have different requirements for generation."""
+
+        raise NotImplementedError(f"{self.name} model must implement the `set_generation_args` function.")
+
+    def generation(self, batched_inputs):
         r"""Generate the response of given question for this batch.
 
         Args:
-            batch (List[str]): The batch of questions.
+            batched_inputs (List[str]): The batch of questions.
 
         Returns:
             List(str): The list of generation results.
