@@ -5,9 +5,7 @@ class SFTDataset():
     """
     This is the base class for all SFT datasets.
     
-    Please inherit this class and implement your own `instruction_template, response_template, format_template.` and `formatting_func()`.
-    
-    The `context_token` is set for some special tokenizer like llama, which changes depending on the context. https://huggingface.co/docs/trl/sft_trainer#using-tokenids-directly-for-responsetemplate
+    Please inherit this class and implement your own `instruction_template, response_template, format_template` and `formatting_func()`.
     
     Please refer to https://huggingface.co/docs/trl/sft_trainer for detailed instructions.
     """
