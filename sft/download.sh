@@ -40,3 +40,6 @@ wget -P data/raw_train/evol_instruct/ https://huggingface.co/datasets/WizardLM/W
 
 echo "Downloading the Belle dataset..."
 wget -P data/raw_train/belle https://huggingface.co/datasets/BelleGroup/train_0.5M_CN/resolve/main/Belle_open_source_0.5M.json $wget_args
+
+echo "Downloading the Flanv2 dataset..."
+python scripts/download_flanv2.py

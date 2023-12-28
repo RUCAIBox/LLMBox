@@ -7,6 +7,7 @@ from .lima import LimaDataset
 from .sharegpt import ShareGPTDataset
 from .belle import BelleDataset
 from .openassistant import OpenAssistantDataset
+from .flan import FlanDataset
 
 # You can add your own dataset name and corresponding class here
 DATASETNAMEMAP = OrderedDict({
@@ -18,5 +19,6 @@ DATASETNAMEMAP = OrderedDict({
     "lima": LimaDataset,
     "sharegpt": ShareGPTDataset,
     "openassistant": OpenAssistantDataset,
+    "flan": FlanDataset,
 })
 DATASETNAMEMAPLIST = list(DATASETNAMEMAP.keys())

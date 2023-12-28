@@ -29,6 +29,17 @@ for subdir in data_dir:
         file_path = os.path.join(subdir_path, files[0])
         save_path = os.path.join(data_path, 'belle.json')
         remove_unusual_line_terminators(file_path, save_path)
+        
+    elif subdir == 'flanv2':
+        # merge all json files into one
+        content = []
+        for file in files:
+            if file.endswith('.json'):
+                content += json.load(open(os.path.join(subdir_path, file), 'r'))
+                
+        # save the merged json file
+        save_path = os.path.join(data_path, 'flanv2.json')
+        json.dump(content, open(save_path, 'w',encoding='utf-8'))
 
     else:
         file_path = os.path.join(subdir_path, files[0])
