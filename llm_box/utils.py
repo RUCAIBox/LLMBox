@@ -136,11 +136,6 @@ class DatasetArguments:
         default=1,
         help="The path number for sampling for self-consistency",
     )
-    use_pal: bool = HfArg(
-        default=False,
-        help=
-        "Whether to use PaL(Program-aided Language Models) to solve problems. Only available for some specific datasets.",
-    )
 
     evaluation_results_path: ClassVar[str] = "/dev/null"
 
