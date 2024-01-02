@@ -1,5 +1,6 @@
 import os
 import logging
+from builtins import bool
 from dataclasses import MISSING, dataclass
 from logging import getLogger
 from typing import Optional, Tuple, TypeVar, ClassVar, Set
@@ -8,6 +9,8 @@ import warnings
 
 import coloredlogs
 from transformers.hf_argparser import HfArg, HfArgumentParser
+
+__all__ = ['NotImplementedField', 'ModelArguments', 'DatasetArguments', 'EvaluationArguments', 'parse_argument']
 
 T = TypeVar('T')
 
@@ -45,6 +48,10 @@ class ModelArguments:
         default=True,
         help="Whether to load the model in half precision",
     )
+    load_in_8bit: bool = HfArg(
+        default=False,
+        help="Whether to load the model in 8-bit precision",
+    )
     device_map: str = HfArg(
         default="auto",
         help="The device map for model and data",
@@ -53,14 +60,21 @@ class ModelArguments:
         default=0,
         help="The temperature for models",
     )
-    max_tokens: int = HfArg(
-        default=2048,
+    max_new_tokens: Optional[int] = HfArg(
+        default=None,
+        aliases=["--max_tokens"],
         help="The maximum number of tokens for output generation",
+    )
+    max_sequence_length: Optional[int] = HfArg(
+        default=None,
+        help="The maximum number of tokens of model input sequence",
     )
 
     def __post_init__(self):
         if "OPENAI_API_KEY" in os.environ and self.openai_api_key is None:
             self.openai_api_key = os.environ["OPENAI_API_KEY"]
+        if self.load_in_8bit:
+            self.load_in_half = False
 
 
 @dataclass
@@ -128,10 +142,25 @@ class DatasetArguments:
         "Whether to use PaL(Program-aided Language Models) to solve problems. Only available for some specific datasets.",
     )
 
+    evaluation_results_path: ClassVar[str] = "/dev/null"
+
+    kate: bool = HfArg(default=False, aliases=["-kate"], help="Whether to use KATE")
+    globale: bool = HfArg(default=False, aliases=["-globale"], help="Whether to use KATE")
+    ape: bool = HfArg(default=False, aliases=["-ape"], help="Whether to use KATE")
+
+    prompt_method: str = HfArg(
+        default='baseline',
+        help="The method to prompt, eg. 'baseline', 'least_to_most', 'pal'. Only available for some specific datasets.",
+        metadata={"choices": ['baseline', 'least_to_most', 'pal']},
+    )
+
     def __post_init__(self):
         if ":" in self.dataset_name:
             self.dataset_name, subset_names = self.dataset_name.split(":")
             self.subset_names = set(subset_names.split(","))
+        assert self.prompt_method in [
+            'baseline', 'least_to_most', 'pal'
+        ], f"Unsupported prompt method: {self.prompt_method}"
 
 
 @dataclass
@@ -145,16 +174,23 @@ class EvaluationArguments:
         default="logs",
         help="The logging directory",
     )
-    log_level: Optional[str] = HfArg(
+    log_level: str = HfArg(
         default="warning",
         help=
         "Logger level to use on the main node. Possible choices are the log levels as strings: 'debug', 'info', 'warning', 'error' and 'critical'",
         metadata={"choices": log_levels.keys()},
     )
+    evaluation_results_dir: str = HfArg(
+        default="evaluation_results",
+        help="The directory to save evaluation results, which includes source"
+        " and target texts, generated texts, and the references.",
+    )
 
     def __post_init__(self):
         if not os.path.exists(self.logging_dir):
             os.makedirs(self.logging_dir)
+        if not os.path.exists(self.evaluation_results_dir):
+            os.makedirs(self.evaluation_results_dir)
 
 
 def set_logging(
@@ -165,13 +201,15 @@ def set_logging(
 ) -> None:
     """Set the logging level for standard output and file."""
 
-    # use root logger to disable logging of other packages
-    root_logger = logging.getLogger(__package__)
+    # Use package logger to disable logging of other packages. Set the level to DEBUG first
+    # to allow all logs from our package, and then set the level to the desired one.
+    package_logger = logging.getLogger(__package__)
     coloredlogs.install(
-        level=log_levels[evaluation_args.log_level],
-        logger=root_logger,
+        level=logging.DEBUG,
+        logger=package_logger,
         fmt=DEFAULT_LOG_FORMAT,
     )
+    package_logger.handlers[0].setLevel(level=log_levels[evaluation_args.log_level])
 
     # set the log file
     model_name = model_args.model_name_or_path.strip("/").split("/")[-1]
@@ -180,18 +218,21 @@ def set_logging(
     )
     num_shots = str(dataset_args.num_shots)
     execution_time = datetime.datetime.now().strftime(DEFAULT_DATETIME_FORMAT)
-    log_filename = f"{model_name}-{dataset_name}-{num_shots}-{execution_time}.log"
-    log_path = f"{evaluation_args.logging_dir}/{log_filename}"
+    log_filename = f"{model_name}-{dataset_name}-{num_shots}-{execution_time}"
+    log_path = f"{evaluation_args.logging_dir}/{log_filename}.log"
+    evaluation_results_path = f"{evaluation_args.evaluation_results_dir}/{log_filename}.json"
+    dataset_args.evaluation_results_path = evaluation_results_path  # type: ignore
 
     # add file handler to root logger
     handler = logging.FileHandler(log_path)
     formatter = coloredlogs.BasicFormatter(fmt=DEFAULT_LOG_FORMAT)
+    coloredlogs.HostNameFilter.install(handler=handler)
     handler.setLevel(level=log_levels[file_log_level])
     handler.setFormatter(formatter)
-    root_logger.addHandler(handler)
+    package_logger.addHandler(handler)
 
     # finish logging initialization
-    logger.info(f"Saving logs to {log_path}")
+    logger.warning(f"Saving logs to {log_path}")
 
 
 def check_args(model_args, dataset_args, evaluation_args):
