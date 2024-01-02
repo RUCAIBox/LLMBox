@@ -136,7 +136,6 @@ class DatasetArguments:
         default=1,
         help="The path number for sampling for self-consistency",
     )
-
     evaluation_results_path: ClassVar[str] = "/dev/null"
 
     kate: bool = HfArg(default=False, aliases=["-kate"], help="Whether to use KATE")
