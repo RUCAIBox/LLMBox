@@ -2,6 +2,7 @@ import numpy as np
 from .metric import Metric
 from rouge_score import rouge_scorer
 
+
 class Rouge(Metric):
     r"""Calculate the ROUGE score, including ROUGE_1, ROUGE_2, ROUGE_L
     """

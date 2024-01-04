@@ -33,4 +33,3 @@ class CNN_DailyMail(GenerationDataset):
     @property
     def references(self):
         return [instance["highlights"][:] for instance in self.evaluation_data]
-
