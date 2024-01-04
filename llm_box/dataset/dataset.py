@@ -6,6 +6,8 @@ from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 import numpy as np
 import torch
 
+import random
+
 from ..model.model import Model
 from ..utils import DatasetArguments, NotImplementedField
 from .icl_strategies import ape, global_entropy_ordering_strategy, knn_construct_examples
@@ -172,6 +174,18 @@ class Dataset(torch.utils.data.Dataset):
         )
 
         self.evaluation_data = list(load_fn(evaluation_set))
+        # temporary fix
+        # select 500 ramdomly
+        # random.shuffle(self.evaluation_data)
+        list_of_index = [_ for _ in range(len(self.evaluation_data))]
+        random.shuffle(list_of_index)
+        list_of_index = list_of_index[:500]
+        self.evaluation_data = [self.evaluation_data[_] for _ in list_of_index]
+        tmp_dataset = []
+        for _ in self.evaluation_data:
+            if len(_["article"]) <= 7000: # max length = 7000
+                tmp_dataset.append(_)
+        self.evaluation_data = tmp_dataset
         self.example_data = list(load_fn(example_set)) if example_set else []
 
         logger.info(f"Evaluation data with {len(self.evaluation_data)} instances:\n{pformat(self.evaluation_data[0])}")

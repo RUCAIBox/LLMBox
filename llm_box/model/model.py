@@ -20,7 +20,7 @@ class Model:
         ppl_kwargs (dict, *optional*): The configurations for computing PPL score.
     """
     name = ""
-    type = NotImplementedField
+    type = ""
 
     def __init__(self, args):
         self.args = args
