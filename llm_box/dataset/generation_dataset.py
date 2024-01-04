@@ -7,4 +7,3 @@ class GenerationDataset(Dataset):
 
     evaluation_type = "generation"
     metric = "accuracy"
-
