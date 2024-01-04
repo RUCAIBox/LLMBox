@@ -12,8 +12,8 @@ class DollyDataset(SFTDataset):
     format_template = {
         "prompt_input": (
             "Below is an instruction that describes a task, paired with an input that provides further context. " +
-            "Write a response that appropriately completes the request." + instruction_template + "{instruction}" + "{input}" +
-            response_template + "{response}"
+            "Write a response that appropriately completes the request." + instruction_template + "{instruction}" +
+            "{input}" + response_template + "{response}"
         ),
         "prompt_no_input": (
             "Below is an instruction that describes a task. " +

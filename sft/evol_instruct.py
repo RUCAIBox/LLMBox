@@ -38,13 +38,16 @@ common_stopwords = set(["the", "and", "is", "of", "in", "it", "you", "that", "fo
 
 
 def createConstraintsPrompt(instruction):
-    prompt = base_instruction_depth.format("Please add one more constraints/requirements into #The Given Prompt#'", instruction)
+    prompt = base_instruction_depth.format(
+        "Please add one more constraints/requirements into #The Given Prompt#'", instruction
+    )
     return prompt
 
 
 def createDeepenPrompt(instruction):
     prompt = base_instruction_depth.format(
-        "If #The Given Prompt# contains inquiries about certain issues, the depth and breadth of the inquiry can be increased.", instruction
+        "If #The Given Prompt# contains inquiries about certain issues, the depth and breadth of the inquiry can be increased.",
+        instruction
     )
     return prompt
 
@@ -56,7 +59,8 @@ def createConcretizingPrompt(instruction):
 
 def createReasoningPrompt(instruction):
     prompt = base_instruction_depth.format(
-        "If #The Given Prompt# can be solved with just a few simple thinking processes, you can rewrite it to explicitly request multiple-step reasoning.", instruction
+        "If #The Given Prompt# can be solved with just a few simple thinking processes, you can rewrite it to explicitly request multiple-step reasoning.",
+        instruction
     )
     return prompt
 
@@ -152,7 +156,10 @@ def main():
             instruction = cur_obj['instruction'].strip() + '\r\n' + cur_obj['input'].strip()
 
             # randomly choose one evol function generate the result
-            evol_functions = [createConstraintsPrompt, createDeepenPrompt, createConcretizingPrompt, createReasoningPrompt, createBreadthPrompt]
+            evol_functions = [
+                createConstraintsPrompt, createDeepenPrompt, createConcretizingPrompt, createReasoningPrompt,
+                createBreadthPrompt
+            ]
             selected_function = random.choice(evol_functions)
             selected_evol_prompt = selected_function(instruction)
 

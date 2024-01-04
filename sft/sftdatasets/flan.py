@@ -12,14 +12,16 @@ class FlanDataset(SFTDataset):
     format_template = {
         "prompt_input": (
             "Below is an instruction that describes a task, paired with an input that provides further context. " +
-            "Write a response that appropriately completes the request." + instruction_template + "{instruction}" + "{input}" +
-            response_template + "{response}"
+            "Write a response that appropriately completes the request." + instruction_template + "{instruction}" +
+            "{input}" + response_template + "{response}"
         ),
     }
 
     def formatting_func(self, examples):
         output_texts = []
-        for input_text, response in zip(examples["inputs"], examples["targets"]): # there is no fixed instruction in this dataset
-            text = self.format_template["prompt_input"].format(instruction='',input=input_text, response=response)
+        for input_text, response in zip(
+            examples["inputs"], examples["targets"]
+        ):  # there is no fixed instruction in this dataset
+            text = self.format_template["prompt_input"].format(instruction='', input=input_text, response=response)
             output_texts.append(text)
         return output_texts
