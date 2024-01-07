@@ -1,4 +1,4 @@
-from .sft_dataset import SFTDataset
+from .sftdataset import SFTDataset
 
 
 class SelfInstructDataset(SFTDataset):
