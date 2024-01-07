@@ -3,7 +3,7 @@ import logging
 import torch
 
 from typing import Optional
-from dataclasses import dataclass
+from dataclasses import dataclass, MISSING
 from transformers import AutoModelForCausalLM, AutoTokenizer, TrainingArguments, HfArgumentParser
 from transformers.hf_argparser import HfArg
 from datasets import load_dataset
@@ -16,7 +16,7 @@ from dataset import Dataset
 class Arguments(TrainingArguments):
 
     model_name_or_path: str = HfArg(
-        default=None, help="The model name or path, e.g., `meta-llama/Llama-2-7b-hf` or `./output/saved_model`"
+        default=MISSING, help="The model name or path, e.g., `meta-llama/Llama-2-7b-hf` or `./output/saved_model`"
     )
 
     tokenizer_name_or_path: Optional[str] = HfArg(
@@ -25,7 +25,7 @@ class Arguments(TrainingArguments):
     )
 
     data_path: str = HfArg(
-        default=None, help="The path of dataset, e.g., `data/alpaca_data.json.` or `data/chinese.txt`"
+        default=MISSING, help="The path of dataset, e.g., `data/alpaca_data.json.` or `data/chinese.txt`"
     )
 
     model_max_length: int = HfArg(
