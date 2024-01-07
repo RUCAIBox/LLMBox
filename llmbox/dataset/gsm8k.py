@@ -1,7 +1,7 @@
 import re
 
 import numpy as np
-from llm_box.prompt.examplars import COT_EXAMPLARS, LEAST_TO_MOST_EXAMPLARS
+from ..prompt.examplars import COT_EXAMPLARS, LEAST_TO_MOST_EXAMPLARS
 from .generation_dataset import GenerationDataset
 from ..metric import Accuracy
 
