@@ -18,4 +18,4 @@ class Rouge(Metric):
             score_rouge1.append(scores["rouge1"].fmeasure)
             score_rouge2.append(scores["rouge2"].fmeasure)
             score_rougeL.append(scores["rougeL"].fmeasure)
-        return {"ROUGE_1": np.mean(score_rouge1), "ROUGE_2": np.mean(score_rouge2), "ROUGE_L": np.mean(score_rougeL)}
+        return {"ROUGE-1": np.mean(score_rouge1) * 100, "ROUGE-2": np.mean(score_rouge2) * 100, "ROUGE_L": np.mean(score_rougeL) * 100}
