@@ -1,42 +1,52 @@
 import warnings
 import logging
-from typing import List, Optional
+import torch
+
+from typing import Optional
 from dataclasses import dataclass
 from transformers import AutoModelForCausalLM, AutoTokenizer, TrainingArguments, HfArgumentParser
 from transformers.hf_argparser import HfArg
 from datasets import load_dataset
 from accelerate.utils import set_seed
 from trl import SFTTrainer, DataCollatorForCompletionOnlyLM
-from utils import _save_checkpoint
-from autodataset import AutoDataset
+from dataset import Dataset
 
 
 @dataclass
 class Arguments(TrainingArguments):
+
     model_name_or_path: str = HfArg(
-        default="", help="The model name or path, e.g., `meta-llama/Llama-2-7b-hf` and `./output/saved_model`"
-    )
-
-    data_path: str = HfArg(default="", help="The path of SFT dataset, e.g., `data/alpaca_data.json.`")
-
-    model_max_length: int = HfArg(
-        default=1024,
-        help="The maximum sequence length",
-    )
-
-    mode: Optional[str] = HfArg(
-        default='sft',
-        help="The mode of running the training programs, e.g., `sft` and `pt`.",
+        default=None, help="The model name or path, e.g., `meta-llama/Llama-2-7b-hf` or `./output/saved_model`"
     )
 
     tokenizer_name_or_path: Optional[str] = HfArg(
         default=None,
-        help="The tokenizer for weights initialization.Don't set if you want to train a model from scratch.",
+        help="The tokenizer name or path. Default to `model_name_or_path`.",
     )
 
-    packing: bool = HfArg(
-        default=False,
-        help="Whether to pack sequences into chunks."
+    data_path: str = HfArg(
+        default=None, help="The path of dataset, e.g., `data/alpaca_data.json.` or `data/chinese.txt`"
+    )
+
+    model_max_length: int = HfArg(
+        default=2048,
+        help="The maximum sequence length",
+    )
+
+    mode: str = HfArg(
+        default='sft',
+        help="The mode of the training programs, which must be chosen from either `sft` or `pt`.",
+    )
+
+    use_flash_attention: bool = HfArg(
+        default=True,
+        help="When checkpointing, whether to only save the model, or also the optimizer, scheduler & rng state."
+    )
+
+    save_only_model: bool = HfArg(
+        default=True,
+        help=
+        "Whether to use flash attention for a faster and more efficient implementation of the standard attention mechanism."
     )
 
     bf16: bool = HfArg(
@@ -46,10 +56,11 @@ class Arguments(TrainingArguments):
     )
 
     tf32: Optional[bool] = HfArg(
-        default=None,
+        default=True,
         help="Whether to enable tf32 mode, available in Ampere and newer GPU architectures. This is an experimental"
         " API and it may change."
     )
+
 
 def train():
     parser = HfArgumentParser(Arguments)
@@ -67,20 +78,21 @@ def train():
         legacy=False,  # refer to the issue:https://github.com/huggingface/transformers/pull/24565
         use_cache=False,
     )
-    tokenizer.pad_token_id = 0  # for llama-1
+    tokenizer.pad_token = tokenizer.unk_token  # for llama-1
 
     model = AutoModelForCausalLM.from_pretrained(
         args.model_name_or_path,
         use_cache=False,  # When gradient checkpointing used, set this to False
+        attn_implementation="flash_attention_2" if args.use_flash_attention else None
     )
 
     if args.mode == 'sft':
-        dataset = AutoDataset(args)
+        dataset = Dataset(args)
 
         # set the template for the instruction and response
         instruction_template_ids = tokenizer.encode(dataset.instruction_template, add_special_tokens=False)[1:]
         response_template_ids = tokenizer.encode(dataset.response_template, add_special_tokens=False)[1:]
-       
+
         collator = DataCollatorForCompletionOnlyLM(
             instruction_template=instruction_template_ids,
             response_template=response_template_ids,
@@ -90,12 +102,12 @@ def train():
         trainer = SFTTrainer(
             model=model,
             args=args,
-            data_collator=collator,
             train_dataset=dataset.load_data(),
             tokenizer=tokenizer,
-            formatting_func=dataset.formatting_func,
             max_seq_length=args.model_max_length,
             packing=False,
+            data_collator=collator,
+            formatting_func=dataset.formatting_func,
         )
     elif args.mode == 'pt':
         dataset = load_dataset('text', data_files=args.data_path)['train']
@@ -106,8 +118,8 @@ def train():
             args=args,
             train_dataset=dataset,
             tokenizer=tokenizer,
-            packing=args.packing,
             max_seq_length=args.model_max_length,
+            packing=True,
             dataset_text_field="text"
         )
 
@@ -119,7 +131,6 @@ def init():
     set_seed(42)
     warnings.filterwarnings("ignore")
     logging.getLogger("DeepSpeed").setLevel(logging.ERROR)
-    SFTTrainer._save_checkpoint = _save_checkpoint
 
 
 if __name__ == "__main__":
