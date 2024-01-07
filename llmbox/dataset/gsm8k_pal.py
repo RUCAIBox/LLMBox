@@ -1,7 +1,7 @@
 from .gsm8k import Gsm8k
 import threading
 from typing import List, Optional
-from llm_box.prompt.examplars import PAL_MATH_CHAT_PROMPT
+from ..prompt.examplars import PAL_MATH_CHAT_PROMPT
 from ..metric import Accuracy
 
 
@@ -45,6 +45,7 @@ class Gsm8k_pal(Gsm8k):
 
 
 class Timeout:
+
     def __init__(self, seconds=10, error_message='Timeout'):
         self.seconds = seconds
         self.error_message = error_message

@@ -1,4 +1,4 @@
-from llm_box.utils import parse_argument
+from llmbox import Evaluator, parse_argument
 
 
 def main():
@@ -6,7 +6,6 @@ def main():
     """
     args = parse_argument()
 
-    from llm_box.evaluator import Evaluator
     evaluator = Evaluator(args)
     evaluator.evaluate()
 
