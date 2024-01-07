@@ -55,7 +55,7 @@ def load_dataset(args: DatasetArguments, model: Model) -> Union[Dataset, Dataset
     subset_names = args.subset_names or available_subsets or set()
 
     # load dataset
-    if args.prompt_method == "pal":
+    if args.cot == "pal":
         try:
             dataset_cls = import_dataset_class(args.dataset_name + "_pal")
         except ImportError:

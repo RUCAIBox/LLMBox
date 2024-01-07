@@ -4,7 +4,7 @@ from ..utils import ModelArguments
 from .huggingface_model import HuggingFaceModel
 from .model import Model
 from .openai import Openai
-from .utils import OPENAI_MODELS
+from .enum import OPENAI_MODELS
 
 logger = getLogger(__name__)
 

@@ -7,7 +7,7 @@ import numpy as np
 import torch
 
 from ..model.model import Model
-from ..utils import DatasetArguments, NotImplementedField
+from ..utils import DatasetArguments
 from .icl_strategies import ape, global_entropy_ordering_strategy, knn_construct_examples
 from .utils import get_raw_dataset_loader
 
@@ -39,25 +39,25 @@ class Dataset(torch.utils.data.Dataset):
         - `option_nums (List[int])`: The number of options for each evaluation instance.
     """
 
-    name: str = NotImplementedField
+    name: str
     r"""The name of this dataset. Should be identical to the file name."""
 
-    instruction: str = NotImplementedField
+    instruction: str
     r"""Dataset-specific instruction for the task."""
 
-    metrics: List = NotImplementedField
+    metrics: List
     r"""The metric functions used for evaluation."""
 
-    evaluation_type: Literal['ranking', 'generation'] = NotImplementedField
+    evaluation_type: Literal['ranking', 'generation']
     r"""The type of evaluation for the dataset."""
 
-    evaluation_set: str = NotImplementedField
+    evaluation_set: str
     r"""The evaluation split of dataset. Evaluation data will be automatically loaded."""
 
-    example_set: Optional[str] = NotImplementedField
+    example_set: Optional[str]
     r"""The example split of dataset. Example data will be automatically loaded if this is not None."""
 
-    load_args: Union[Tuple[str], Tuple[str, str]] = NotImplementedField
+    load_args: Union[Tuple[str], Tuple[str, str]]
     r"""Arguments for loading the dataset with huggingface `load_dataset`.
 
     Supported formats:
