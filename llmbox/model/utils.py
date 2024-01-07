@@ -8,11 +8,6 @@ from ..utils import ModelArguments
 
 logger = getLogger(__name__)
 
-OPENAI_MODELS = [
-    'ada', 'babbage', 'curie', 'davinci', 'babbage-002', 'davinci-002', 'gpt-3.5-turbo', "gpt-3.5-turbo-instruct",
-    "text-davinci-003"
-]
-
 
 class LoggedDict(dict):
 

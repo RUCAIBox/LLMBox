@@ -38,9 +38,9 @@ class Gsm8k(GenerationDataset):
 
     def _load_raw_dataset(self, dataset_path, subset_name, evaluation_set, example_set):
         super()._load_raw_dataset(dataset_path, subset_name, evaluation_set, example_set)
-        if self.args.prompt_method == 'baseline':
+        if self.args.cot == 'base':
             self.example_data = COT_EXAMPLARS
-        elif self.args.prompt_method == 'least_to_most':
+        elif self.args.cot == 'least_to_most':
             self.example_data = LEAST_TO_MOST_EXAMPLARS
 
     @staticmethod
