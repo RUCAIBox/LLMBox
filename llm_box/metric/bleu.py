@@ -2,10 +2,11 @@ import sacrebleu
 import numpy as np
 from .metric import Metric
 
+
 class Bleu(Metric):
     r"""Calculate the BLEU score.
     """
-    
+
     @staticmethod
     def __call__(predictions, references):
         scores = []

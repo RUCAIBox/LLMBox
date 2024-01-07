@@ -1,6 +1,10 @@
+# MacOS
+.DS_Store
+
 # LLMBox
 logs/
 tests/
+evaluation_results/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

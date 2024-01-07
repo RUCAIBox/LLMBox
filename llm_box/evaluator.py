@@ -1,14 +1,14 @@
 from logging import getLogger
-from typing import Tuple, Dict
-
 from statistics import mode
+from typing import Dict, Tuple
+
 from accelerate.utils import set_seed
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from .dataset import load_dataset
 from .model import load_model
-from .utils import ModelArguments, DatasetArguments, EvaluationArguments
+from .utils import DatasetArguments, EvaluationArguments, ModelArguments
 
 logger = getLogger(__name__)
 
@@ -54,28 +54,36 @@ class Evaluator:
         )
 
         if self.dataset.evaluation_type == 'ranking':
+            self.model.set_ppl_args(**self.dataset.model_args)
             call_model = self.model.get_ppl
         elif self.dataset.evaluation_type == 'generation':
+            self.model.set_generation_args(**self.dataset.model_args)
             call_model = self.model.generation
+        elif self.dataset.evaluation_type == 'user_defined':
+            call_model = self.dataset.evaluation
         else:
             raise ValueError(
-                f"We only support two evaluation types: `ranking` and `generation`, but got `{self.dataset.evaluation_type}`."
+                f"We only support three evaluation types: `ranking`, `generation`, and `user_defined`, but got `{self.dataset.evaluation_type}`."
             )
 
         # call model
-        predictions = []
+        raw_predictions = []
         for batch in tqdm(dataloader, dynamic_ncols=True, desc="Evaluating"):
-            predictions.extend(call_model(batch))
+            raw_predictions.extend(call_model(batch))
+            self.dataset.log_predictions(raw_predictions)
 
-        if len(predictions) != len(self.dataset):
+        if len(raw_predictions) != len(self.dataset):
             raise RuntimeError("The number of results should be equal to the number of samples in the dataset.")
 
-        predictions = self.dataset.post_processing(predictions)
+        # post processing and self-consistency
+        predictions = self.dataset.post_processing(raw_predictions)
         assert len(predictions) == len(self.dataset.references) * self.dataset_args.sample_num
+        self.dataset.log_predictions(raw_predictions, predictions)
 
         step = len(predictions) // self.dataset_args.sample_num
         mode_results = [mode(predictions[i::step]) for i in range(step)]
 
+        # calculate metric
         metric_results = self.dataset.calculate_metric(mode_results)
 
         msg = f'Evaluation finished successfully:'

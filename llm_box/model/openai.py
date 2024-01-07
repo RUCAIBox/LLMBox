@@ -1,12 +1,11 @@
-import os
 import time
+from logging import getLogger
 
 import openai
 import tiktoken
-from logging import getLogger
 
-from .model import Model
 from ..utils import ModelArguments
+from .model import Model
 
 logger = getLogger(__name__)
 
@@ -22,22 +21,31 @@ class Openai(Model):
     def __init__(self, args: ModelArguments):
         super().__init__(args)
         if not args.openai_api_key:
-            raise ValueError("OpenAI API key is required")
+            raise ValueError(
+                "OpenAI API key is required. Please set it by passing a `--openai_api_key` or through environment variable `OPENAI_API_KEY`."
+            )
         openai.api_key = args.openai_api_key
         secret_key = openai.api_key[:8] + "*" * 39 + openai.api_key[-4:]
         logger.info(f"OpenAI API key: {secret_key}, base: {openai.api_base}")
 
         self.api_key = openai.api_key
         self.name = args.model_name_or_path
-        self.type = "instruction" if self.name in ["gpt-3.5-turbo"] else "base"
+        self.type = "instruction" if self.name in [
+            "gpt-3.5-turbo", "gpt-3.5-turbo-instruct", "text-davinci-003"
+        ] else "base"
         self.tokenizer = tiktoken.get_encoding(tiktoken.encoding_name_for_model(self.name))
         # TODO: compatible for gpt-3.5-turbo (enum_type?)
-        self.max_tokens = args.max_tokens
+        self.max_tokens = args.max_new_tokens or 2048
         self.max_try_times = 5
         self.temperature = args.temperature
+
+    def set_ppl_args(self, **kwargs):
+        r"""Set the configurations for PPL score calculation. This is useful because different datasets may have different requirements for ppl calculation."""
         # TODO: gpt-3.5-turbo doesn't support echo and logprobs, and it doesn't support max_tokens=0
         self.ppl_kwargs = dict(echo=True, max_tokens=0, logprobs=0)
 
+    def set_generation_args(self, **kwargs):
+        r"""Set the configurations for open-ended generation. This is useful because different datasets may have different requirements for generation."""
         self.generation_kwargs = dict(max_tokens=self.max_tokens, temperature=self.temperature)
 
     def request(self, prompt, model_args):
