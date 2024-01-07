@@ -23,7 +23,7 @@ log_levels = {
     "critical": logging.CRITICAL,
 }
 
-DEFAULT_LOG_FORMAT = '%(asctime)s %(hostname)s %(name)s[%(process)d] %(levelname)s %(message)s'
+DEFAULT_LOG_FORMAT = '%(asctime)s %(levelname)s %(message)s'
 
 DEFAULT_DATETIME_FORMAT = '%Y_%m_%d-%H_%M_%S'  # Compatible with windows, which does not support ':' in filename
 
@@ -42,18 +42,36 @@ class ModelArguments:
         default="auto",
         help="The device map for model and data",
     )
-    temperature: float = HfArg(
-        default=0,
-        help="The temperature for models",
-    )
     max_new_tokens: Optional[int] = HfArg(
-        default=None,
+        default=1024,
         aliases=["--max_tokens"],
         help="The maximum number of tokens for output generation",
     )
     max_sequence_length: Optional[int] = HfArg(
         default=None,
         help="The maximum number of tokens of model input sequence",
+    )
+
+    # Open AI generation kwargs
+    temperature: float = HfArg(
+        default=None,
+        help="The temperature for models",
+    )
+    best_of: int = HfArg(
+        default=None,
+        help="The beam size of OpenAI generation",
+    )
+    frequency_penalty: float = HfArg(
+        default=None,
+        help="The penalty coefficient of OpenAI generation. Positive values penalize new tokens based on their existing frequency, vice versa.",
+    )
+    presence_penalty: float = HfArg(
+        default=None,
+        help="The penalty coefficient of OpenAI generation. Positive values penalize new tokens based on whether they appear, vice versa.",
+    )
+    top_p: float = HfArg(
+        default=None,
+        help="The model considers the results of the tokens with top_p probability mass.",
     )
 
     def __post_init__(self):
@@ -144,7 +162,7 @@ class EvaluationArguments:
         help="The logging directory",
     )
     log_level: str = HfArg(
-        default="warning",
+        default="info",
         help=
         "Logger level to use on the main node. Possible choices are the log levels as strings: 'debug', 'info', 'warning', 'error' and 'critical'",
         metadata={"choices": log_levels.keys()},
@@ -199,7 +217,7 @@ def set_logging(
     package_logger.addHandler(handler)
 
     # finish logging initialization
-    logger.warning(f"Saving logs to {log_path}")
+    logger.info(f"Saving logs to {log_path}")
 
 
 def check_args(model_args, dataset_args, evaluation_args):
@@ -210,6 +228,7 @@ def check_args(model_args, dataset_args, evaluation_args):
         dataset_args (DatasetArguments): The dataset configurations.
         evaluation_args (EvaluationArguments): The evaluation configurations.
     """
+    model_args.seed = evaluation_args.seed
     if model_args.model_name_or_path.lower() in OPENAI_CHAT_MODELS and dataset_args.batch_size > 1:
         dataset_args.batch_size = 1
         warnings.warn(
