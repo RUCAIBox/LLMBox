@@ -1,7 +1,7 @@
 from .gsm8k import Gsm8k
 import threading
 from typing import List, Optional
-from llm_box.prompt.examplars import PAL_MATH_CHAT_PROMPT
+from ..prompt.examplars import PAL_MATH_CHAT_PROMPT
 from ..metric import Accuracy
 
 
