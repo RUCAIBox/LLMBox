@@ -36,6 +36,7 @@ class Arguments(TrainingArguments):
     mode: str = HfArg(
         default='sft',
         help="The mode of the training programs, which must be chosen from either `sft` or `pt`.",
+        metadata={"choices": ['sft', 'pt']},
     )
 
     use_flash_attention: bool = HfArg(
