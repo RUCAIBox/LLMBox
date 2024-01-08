@@ -74,10 +74,11 @@ class F1(Metric):
         ref_toks = word_tokenize(normalize_answer(reference))
         pred_toks = word_tokenize(normalize_answer(prediction))
 
-        ref_num_toks = set([tok for tok in ref_toks if is_number(tok)])
-        pred_num_toks = set([tok for tok in pred_toks if is_number(tok)])
-        if ref_num_toks and not ref_num_toks.intersection(pred_num_toks):
-            return 0
+        if self.force_number_match:
+            ref_num_toks = set([tok for tok in ref_toks if is_number(tok)])
+            pred_num_toks = set([tok for tok in pred_toks if is_number(tok)])
+            if ref_num_toks and not ref_num_toks.intersection(pred_num_toks):
+                return 0
 
         common = Counter(ref_toks) & Counter(pred_toks)
         num_same = sum(common.values())
