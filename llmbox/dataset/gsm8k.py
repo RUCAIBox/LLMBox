@@ -18,10 +18,8 @@ class Gsm8k(GenerationDataset):
 
     name = "gsm8k"
     instruction = "Answer the following question."
-
     evaluation_set = "test"
     example_set = "train"
-
     load_args = ("gsm8k", "main")
     metrics = [Accuracy()]
 

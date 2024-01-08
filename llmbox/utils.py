@@ -127,7 +127,7 @@ class DatasetArguments:
     )
     batch_size: int = HfArg(
         default=1,
-        aliases=["-bsz"],
+        aliases=["-bsz", "-b"],
         help="The evaluation batch size",
     )
     sample_num: int = HfArg(

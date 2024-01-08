@@ -16,13 +16,9 @@ class CNN_DailyMail(GenerationDataset):
 
     name = "cnn_dailymail"
     instruction = ""
-
     evaluation_set = "train"
     example_set = "test"
-
-    metric = "rouge"
     metrics = [Rouge()]
-
     load_args = ("cnn_dailymail", "3.0.0")
 
     def format_instance(self, instance):

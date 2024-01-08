@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 
 import numpy as np
 import torch
+import coloredlogs
 
 from ..model.model import Model
 from ..utils import DatasetArguments
@@ -19,9 +20,9 @@ class Dataset(torch.utils.data.Dataset):
 
     Class Attributes:
         - `name (str)`: The name of this dataset.
-        instruction (str): Dataset-specific instruction for this task.
-        - `metric (str)`: The metric used for evaluation.
-        - `evaluation_type (Literal['ranking', 'generation'])`: The type of evaluation for the dataset.
+        - `instruction (str)`: Dataset-specific instruction for this task.
+        - `metrics (List)`: The metric functions used for evaluation.
+        - `evaluation_type (Literal['ranking', 'generation', 'user-defined'])`: The type of evaluation for the dataset.
         - `evaluation_set (str)`: The evaluation split of the dataset. Evaluation data will be automatically loaded.
         - `example_set (Optional[str])`: The example split of the dataset. Example data will be automatically loaded if this is not None.
         - `load_args (Union[Tuple[str], Tuple[str, str]])`: Arguments for loading the dataset with huggingface `load_dataset`.
@@ -48,7 +49,7 @@ class Dataset(torch.utils.data.Dataset):
     metrics: List
     r"""The metric functions used for evaluation."""
 
-    evaluation_type: Literal['ranking', 'generation']
+    evaluation_type: Literal['ranking', 'generation', 'user-defined']
     r"""The type of evaluation for the dataset."""
 
     evaluation_set: str
@@ -79,27 +80,28 @@ class Dataset(torch.utils.data.Dataset):
         super().__init__()
         self.args = args
 
-        self._load_raw_dataset(
+        self.load_raw_dataset(
             dataset_path=args.dataset_path,
             subset_name=subset_name,
             evaluation_set=args.evaluation_set or self.evaluation_set,
             example_set=args.example_set or self.example_set,
         )
+        
         self.model = model
         self.tokenizer = model.tokenizer
+        
+        self.num_shots = args.num_shots
+        self.max_example_tokens = args.max_example_tokens
+        self.random_indice = np.random.choice(len(self.example_data), self.args.num_shots)
         self.examples = ""
         self.kate = args.kate
         self.globale = args.globale
         self.ape = args.ape
-
-        self.num_shots = args.num_shots
-        self.max_example_tokens = args.max_example_tokens
-        self.random_indice = np.random.choice(len(self.example_data), self.args.num_shots)
         self.construct_instances()
 
-    def _load_raw_dataset(
+    def load_raw_dataset(
         self,
-        dataset_path: Optional[str],
+        dataset_path: str,
         subset_name: Optional[str],
         evaluation_set: str,
         example_set: Optional[str],
@@ -125,7 +127,7 @@ class Dataset(torch.utils.data.Dataset):
         python inference.py --dataset race --dataset_path /path/to/race/middle
         python inference.py --dataset race:middle --dataset_path /path/to/race
         python inference.py --dataset race:middle --dataset_path /path/to/race/middle
-        python inference.py --dataset race:middle,high --dataset_paht /path/to/race
+        python inference.py --dataset race:middle,high --dataset_path /path/to/race
         ```
 
         `dataset_path` can also accept a dataset file or a directory containing these files (supports json, jsonl, csv, and txt):
@@ -150,10 +152,10 @@ class Dataset(torch.utils.data.Dataset):
         Also feel free to override this function if you want to load the dataset in a different way:
 
         ```python
-        from .utils import load_raw_dataset_from_file, get_raw_dataset_loader()
+        from .utils import load_raw_dataset_from_file, get_raw_dataset_loader
 
         class MyDataset(Dataset):
-            def _load_raw_dataset(self, dataset_path, subset_name, evaluation_set, example_set):
+            def load_raw_dataset(self, dataset_path, subset_name, evaluation_set, example_set):
                 self.evaluation_data = get_raw_dataset_loader(...)("test")
                 self.example_data = load_raw_dataset_from_file("examples.json")
         ```
@@ -174,7 +176,8 @@ class Dataset(torch.utils.data.Dataset):
         self.evaluation_data = list(load_fn(evaluation_set))
         self.example_data = list(load_fn(example_set)) if example_set else []
 
-        logger.info(f"Evaluation data with {len(self.evaluation_data)} instances:\n{pformat(self.evaluation_data[0])}")
+        logger.info(f"Evaluation data with {len(self.evaluation_data)} instances")
+        logger.info(f"The example instance:\n{pformat(self.evaluation_data[0])}")
 
     def __len__(self):
         return len(self.evaluation_instances)
@@ -190,6 +193,42 @@ class Dataset(torch.utils.data.Dataset):
             List[str]: The list of ground-truth answers.
         """
         raise NotImplementedError(f"{self.name} dataset must implement the `references` property.")
+
+    def construct_instances(self):
+        r"""Construct and format all the instances of `evaluation_data`.
+
+        Returns:
+            List[str]: The list of final formatted instances.
+        """
+        # automatic instruction
+        if self.ape is True:
+            formatted_example_dataset = [self.format_instance(data) for data in self.example_data]
+            formatted_evaluation_dataset = [self.format_instance(data) for data in self.evaluation_data]
+            instrction = ape(formatted_example_dataset, formatted_evaluation_dataset, self.model.get_ppl, self.model.api_key)
+            self.instruction = instrction
+        
+        self.evaluation_instances = []
+        self.option_nums = []
+        for instance in self.evaluation_data:
+            formatted_instance = self.format_instance(instance)
+            if self.evaluation_type == "ranking":
+                instance_with_examples = self.format_instruction_and_examples(formatted_instance)
+                options = [(instance_with_examples, option) for option in formatted_instance['options']]
+                self.evaluation_instances.extend(options)
+                self.option_nums.append(len(options))
+            elif self.evaluation_type == "generation":
+                self.evaluation_instances.append(self.format_instruction_and_examples(formatted_instance))
+        if self.evaluation_type == "ranking":
+            logger.info("Evaluation mode: calculate PPL of the optional text based on the source text")
+            logger.info("Formatted example (source)\n" + self.evaluation_instances[0][0])
+            logger.info("Formatted example (option)\n" + self.evaluation_instances[0][1])
+        else:
+            logger.info("Evaluation mode: generation based on the source text")
+            logger.info("Formatted example (source)\n" + self.evaluation_instances[0])
+
+        # for self-consistency
+        self.evaluation_instances = self.evaluation_instances * self.args.sample_num
+        self.option_nums = self.option_nums * self.args.sample_num
 
     def format_instance(self, instance):
         r"""Format the dataset instance into task source text, target text, and options (for ranking).
@@ -207,7 +246,7 @@ class Dataset(torch.utils.data.Dataset):
                 options (List[str], optional): The options for ranking.
         """
         raise NotImplementedError(f"{self.name} dataset must implement the `format_instance` function.")
-
+    
     def format_instruction_and_examples(self, instance) -> str:
         r"""Format one instance with the instruction and demonstration.
 
@@ -217,16 +256,11 @@ class Dataset(torch.utils.data.Dataset):
         Returns:
             str: The final formatted instance.
         """
-        # TODO: instruction template
-
-        # TODO: ICL
         self.examples = self.construct_examples(instance)
         if self.model.type == 'base':
-            source = self.examples + instance["source"]
+            source = self.examples + self.args.instance_format.format(source=instance["source"], target="")
         elif self.model.type == 'instruction':
-            source = self.instruction + "\n\n" + self.examples + instance["source"]
-        else:
-            raise ValueError(f"Model type {self.model.type} not supported.")
+            source = self.instruction + "\n\n" + self.examples + self.args.instance_format.format(source=instance["source"], target="")
 
         return source
 
@@ -246,20 +280,19 @@ class Dataset(torch.utils.data.Dataset):
                 f"Receive num_shots={self.num_shots}, but cannot construct examples for dataset {self.name} without example data."
             )
 
-        # selection algorithm
-        # TODO: ICL
         formatted_example_data = [self.format_instance(data) for data in self.example_data]
         if self.kate is True:
             # select demonstrations based on knn algorithm
+            # TODO: Bugs in kate, order, filter
             indice = knn_construct_examples(instance["source"], formatted_example_data, self.num_shots)
         else:
             indice = self.random_indice
+        
         if self.globale is True:
             # rank demonstrations based on global entropy
             labels = list(range(len(formatted_example_data[0]["options"])))
-            call_model = self.model.get_ppl
-            indice = global_entropy_ordering_strategy(indice, labels, formatted_example_data, call_model)
-        # TODO: tokenizer efficiency
+            indice = global_entropy_ordering_strategy(indice, labels, formatted_example_data, self.model.get_ppl)
+        
         # construct few-shot examples
         example_text = ""
         example_token_nums = 0
@@ -271,35 +304,7 @@ class Dataset(torch.utils.data.Dataset):
                 example_text += cur_example_text
                 example_token_nums += cur_token_num
 
-        logger.info("Few-shot examples:\n" + pformat(example_text))
         return example_text
-
-    def construct_instances(self):
-        r"""Construct and format all the instances of `evaluation_data`.
-
-        Returns:
-            List[str]: The list of final formatted instances.
-        """
-        self.evaluation_instances = []
-        self.option_nums = []
-        if self.ape is True:
-            formatted_example_dataset = [self.format_instance(data) for data in self.example_data]
-            formatted_evaluation_dataset = [self.format_instance(data) for data in self.evaluation_data]
-            call_model = self.model.get_ppl
-            # construct instructions using ape
-            instrction = ape(formatted_example_dataset, formatted_evaluation_dataset, call_model, self.model.api_key)
-            self.instruction = instrction
-        for instance in self.evaluation_data:
-            formatted_instance = self.format_instance(instance)
-            if self.evaluation_type == "ranking":
-                instance_with_examples = self.format_instruction_and_examples(formatted_instance)
-                options = [(instance_with_examples, option) for option in formatted_instance['options']]
-                self.evaluation_instances.extend(options)
-                self.option_nums.append(len(options))
-            elif self.evaluation_type == "generation":
-                self.evaluation_instances.append(self.format_instruction_and_examples(formatted_instance))
-        self.evaluation_instances = self.evaluation_instances * self.args.sample_num
-        self.option_nums = self.option_nums * self.args.sample_num
 
     def calculate_metric(self, predictions) -> Dict[str, float]:
         r"""Calculate the metric score between `predictions` and `references`.

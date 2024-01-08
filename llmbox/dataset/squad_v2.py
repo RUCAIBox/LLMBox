@@ -19,7 +19,6 @@ class Squad_v2(GenerationDataset):
     instruction = 'Answer each question using information in the preceding background paragraph.\nIf there is not enough information provided, answer with "Not in background."'
     example_set = "train"
     evaluation_set = "validation"
-
     load_args = ("squad_v2",)
     metrics = [F1(), Em()]
 

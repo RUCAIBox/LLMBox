@@ -31,10 +31,8 @@ class Math(GenerationDataset):
 
     name = "math"
     instruction = "Answer the following question."
-
     example_set = "train"
     evaluation_set = "test"
-
     load_args = ("hendrycks/competition_math",)
     metrics = [Accuracy()]
 
