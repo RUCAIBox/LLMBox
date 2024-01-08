@@ -22,10 +22,8 @@ class Drop(GenerationDataset):
 
     name = "drop"
     instruction = "Answer the question based on the given passage."
-
     example_set = "train"
     evaluation_set = "validation"
-
     load_args = ("drop",)
     metrics = [F1(force_number_match=True), Em()]
 

@@ -29,6 +29,7 @@ class Openai(Model):
         logger.info(f"OpenAI API key: {secret_key}, base: {openai.api_base}")
         self.api_key = openai.api_key
 
+        self.args = args
         self.name = args.model_name_or_path
         self.type = "instruction" if self.name in OPENAI_INSTRUCTION_MODELS else "base"
         self.tokenizer = tiktoken.get_encoding(tiktoken.encoding_name_for_model(self.name))
@@ -42,6 +43,7 @@ class Openai(Model):
 
     def set_generation_args(self, **kwargs):
         r"""Set the configurations for open-ended generation. This is useful because different datasets may have different requirements for generation."""
+        kwargs = kwargs.update(self.args)
         generation_kwargs = {
             key: kwargs.get(key)
             for key in ['temperature', 'best_of', 'frequency_penalty', 'presence_penalty', 'top_p', 'seed']

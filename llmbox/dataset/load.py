@@ -39,36 +39,31 @@ def load_dataset(args: DatasetArguments, model: Model) -> Union[Dataset, Dataset
         Dataset: Our class for dataset.
     """
 
-    # get available subset names and specified subset names
+    # whether dataset_name is the main dataset in hugging face
     try:
-        assert args.dataset_path is None, "Load dataset from local path."
         available_subsets = set(get_dataset_config_names(args.dataset_name))
-    except Exception as e:
-        available_subsets = None
-        logger.info(f"Receive {e.__class__.__name__}: {e}. Use `subset_names` instead.")
+    except:
+        available_subsets = set()
 
-    if available_subsets is not None and not available_subsets.issuperset(args.subset_names):
+    if not available_subsets.issuperset(args.subset_names):
         raise ValueError(
-            f"Specified subset names {args.subset_names} are not available. Available ones are: {available_subsets}"
+            f"Specified subset names {args.subset_names} are not available. Available ones of {args.dataset_name} are: {available_subsets}"
         )
 
-    subset_names = args.subset_names or available_subsets or set()
+    subset_names = args.subset_names or available_subsets
 
     # load dataset
-    if args.cot == "pal":
-        try:
-            dataset_cls = import_dataset_class(args.dataset_name + "_pal")
-        except ImportError:
-            raise ValueError(f"Dataset {args.dataset_name} doesn't support PaL. ")
-    else:
-        dataset_cls = import_dataset_class(args.dataset_name)
+    dataset_cls = import_dataset_class(args.dataset_name)
     if len(subset_names) > 1 and len(dataset_cls.load_args) == 1:
+        # race:middle,high (several subsets) , super_glue (all the subsets)
         logger.info(f"Loading subsets of dataset `{args.dataset_name}`: " + ", ".join(subset_names))
         datasets = {s: dataset_cls(args, model, s) for s in subset_names}
         return DatasetCollection(datasets)
     elif len(subset_names) == 1 and len(dataset_cls.load_args) == 1:
+        # race:middle (one of the subsets), coqa (default)
         logger.info(f"Loading subset of dataset `{args.dataset_name}`: {next(iter(subset_names))}")
         return dataset_cls(args, model, next(iter(subset_names)))
     else:
+        # copa (super_glue:copa) or mmlu
         logger.info(f"Loading dataset `{args.dataset_name}`")
         return dataset_cls(args, model)
