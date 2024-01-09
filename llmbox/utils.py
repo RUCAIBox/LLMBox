@@ -1,18 +1,17 @@
 import os
 import logging
+import coloredlogs
+import warnings
+import datetime
 from builtins import bool
 from dataclasses import MISSING, dataclass
 from logging import getLogger
-from typing import Optional, Tuple, TypeVar, ClassVar, Set
-import datetime
-import warnings
-
-import coloredlogs
+from typing import Optional, Tuple, ClassVar, Set
 from transformers.hf_argparser import HfArg, HfArgumentParser
 
-__all__ = ['NotImplementedField', 'ModelArguments', 'DatasetArguments', 'EvaluationArguments', 'parse_argument']
+from .model.enum import OPENAI_CHAT_MODELS
 
-T = TypeVar('T')
+__all__ = ['ModelArguments', 'DatasetArguments', 'EvaluationArguments', 'parse_argument']
 
 logger = getLogger(__name__)
 
@@ -24,14 +23,9 @@ log_levels = {
     "critical": logging.CRITICAL,
 }
 
-DEFAULT_LOG_FORMAT = '%(asctime)s %(hostname)s %(name)s[%(process)d] %(levelname)s %(message)s'
+DEFAULT_LOG_FORMAT = '%(asctime)s %(levelname)s %(message)s'
 
 DEFAULT_DATETIME_FORMAT = '%Y_%m_%d-%H_%M_%S'  # Compatible with windows, which does not support ':' in filename
-
-
-@property
-def NotImplementedField(self):
-    raise NotImplementedError(f"{self.__class__.__name__} has not implemented field.")
 
 
 @dataclass
@@ -44,24 +38,12 @@ class ModelArguments:
         default=None,
         help="The OpenAI API key",
     )
-    load_in_half: bool = HfArg(
-        default=True,
-        help="Whether to load the model in half precision",
-    )
-    load_in_8bit: bool = HfArg(
-        default=False,
-        help="Whether to load the model in 8-bit precision",
-    )
     device_map: str = HfArg(
         default="auto",
         help="The device map for model and data",
     )
-    temperature: float = HfArg(
-        default=0,
-        help="The temperature for models",
-    )
     max_new_tokens: Optional[int] = HfArg(
-        default=None,
+        default=1024,
         aliases=["--max_tokens"],
         help="The maximum number of tokens for output generation",
     )
@@ -70,11 +52,31 @@ class ModelArguments:
         help="The maximum number of tokens of model input sequence",
     )
 
+    # Open AI generation kwargs
+    temperature: float = HfArg(
+        default=None,
+        help="The temperature for models",
+    )
+    best_of: int = HfArg(
+        default=None,
+        help="The beam size of OpenAI generation",
+    )
+    frequency_penalty: float = HfArg(
+        default=None,
+        help="The penalty coefficient of OpenAI generation. Positive values penalize new tokens based on their existing frequency, vice versa.",
+    )
+    presence_penalty: float = HfArg(
+        default=None,
+        help="The penalty coefficient of OpenAI generation. Positive values penalize new tokens based on whether they appear, vice versa.",
+    )
+    top_p: float = HfArg(
+        default=None,
+        help="The model considers the results of the tokens with top_p probability mass.",
+    )
+
     def __post_init__(self):
         if "OPENAI_API_KEY" in os.environ and self.openai_api_key is None:
             self.openai_api_key = os.environ["OPENAI_API_KEY"]
-        if self.load_in_8bit:
-            self.load_in_half = False
 
 
 @dataclass
@@ -84,18 +86,16 @@ class DatasetArguments:
         default=MISSING,
         aliases=["-d", "--dataset"],
         help=
-        "The name of a dataset or the name of a subset in a dataset. Format: 'dataset' or 'dataset:subset'. E.g., copa, gsm, race, or race:high"
+        "The name of a dataset or the name(s) of a/several subset(s) in a dataset. Format: 'dataset' or 'dataset:subset(s)', e.g., copa, race, race:high, or wmt16:en-ro,en-fr"
     )
-    """The name of a dataset without subset name. Refer to `subset_names` for the subset name."""
-
     subset_names: ClassVar[Set[str]] = set()
-    """The name of a subset in a dataset, derived from `dataset_name` argument on initalization"""
-
+    """The name(s) of a/several subset(s) in a dataset, derived from `dataset_name` argument on initalization"""
     dataset_path: Optional[str] = HfArg(
         default=None,
         help=
         "The path of dataset if loading from local. Supports repository cloned from huggingface or dataset saved by `save_to_disk`."
     )
+
     evaluation_set: Optional[str] = HfArg(
         default=None,
         help="The set name for evaluation, supporting slice, e.g., validation, test, validation[:10]",
@@ -104,6 +104,7 @@ class DatasetArguments:
         default=None,
         help="The set name for demonstration, supporting slice, e.g., train, dev, train[:10]",
     )
+
     system_prompt: str = HfArg(
         aliases=["-sys"],
         default="",
@@ -114,6 +115,7 @@ class DatasetArguments:
         default="{source}{target}",
         help="The format to format the `source` and `target` for each instance",
     )
+
     num_shots: int = HfArg(
         aliases=['-shots'],
         default=0,
@@ -125,36 +127,27 @@ class DatasetArguments:
     )
     batch_size: int = HfArg(
         default=1,
-        aliases=["-bsz"],
+        aliases=["-bsz", "-b"],
         help="The evaluation batch size",
-    )
-    trust_remote_code: bool = HfArg(
-        default=False,
-        help="Whether to trust the remote code",
     )
     sample_num: int = HfArg(
         default=1,
-        help="The path number for sampling for self-consistency",
+        help="The sampling number for self-consistency",
     )
-    evaluation_results_path: ClassVar[str] = "/dev/null"
 
-    kate: bool = HfArg(default=False, aliases=["-kate"], help="Whether to use KATE")
-    globale: bool = HfArg(default=False, aliases=["-globale"], help="Whether to use KATE")
-    ape: bool = HfArg(default=False, aliases=["-ape"], help="Whether to use KATE")
-
-    prompt_method: str = HfArg(
-        default='baseline',
-        help="The method to prompt, eg. 'baseline', 'least_to_most', 'pal'. Only available for some specific datasets.",
-        metadata={"choices": ['baseline', 'least_to_most', 'pal']},
+    kate: bool = HfArg(default=False, aliases=["-kate"], help="Whether to use KATE as an ICL strategy")
+    globale: bool = HfArg(default=False, aliases=["-globale"], help="Whether to use GlobalE as an ICL strategy")
+    ape: bool = HfArg(default=False, aliases=["-ape"], help="Whether to use APE as an ICL strategy")
+    cot: str = HfArg(
+        default='base',
+        help="The method to prompt, eg. 'base', 'least_to_most', 'pal'. Only available for some specific datasets.",
+        metadata={"choices": ['base', 'least_to_most', 'pal']},
     )
 
     def __post_init__(self):
         if ":" in self.dataset_name:
             self.dataset_name, subset_names = self.dataset_name.split(":")
             self.subset_names = set(subset_names.split(","))
-        assert self.prompt_method in [
-            'baseline', 'least_to_most', 'pal'
-        ], f"Unsupported prompt method: {self.prompt_method}"
 
 
 @dataclass
@@ -169,7 +162,7 @@ class EvaluationArguments:
         help="The logging directory",
     )
     log_level: str = HfArg(
-        default="warning",
+        default="info",
         help=
         "Logger level to use on the main node. Possible choices are the log levels as strings: 'debug', 'info', 'warning', 'error' and 'critical'",
         metadata={"choices": log_levels.keys()},
@@ -181,10 +174,8 @@ class EvaluationArguments:
     )
 
     def __post_init__(self):
-        if not os.path.exists(self.logging_dir):
-            os.makedirs(self.logging_dir)
-        if not os.path.exists(self.evaluation_results_dir):
-            os.makedirs(self.evaluation_results_dir)
+        os.makedirs(self.logging_dir, exist_ok=True)
+        os.makedirs(self.evaluation_results_dir, exist_ok=True)
 
 
 def set_logging(
@@ -212,7 +203,7 @@ def set_logging(
     )
     num_shots = str(dataset_args.num_shots)
     execution_time = datetime.datetime.now().strftime(DEFAULT_DATETIME_FORMAT)
-    log_filename = f"{model_name}-{dataset_name}-{num_shots}-{execution_time}"
+    log_filename = f"{model_name}-{dataset_name}-{num_shots}shot-{execution_time}"
     log_path = f"{evaluation_args.logging_dir}/{log_filename}.log"
     evaluation_results_path = f"{evaluation_args.evaluation_results_dir}/{log_filename}.json"
     dataset_args.evaluation_results_path = evaluation_results_path  # type: ignore
@@ -226,7 +217,7 @@ def set_logging(
     package_logger.addHandler(handler)
 
     # finish logging initialization
-    logger.warning(f"Saving logs to {log_path}")
+    logger.info(f"Saving logs to {log_path}")
 
 
 def check_args(model_args, dataset_args, evaluation_args):
@@ -237,9 +228,12 @@ def check_args(model_args, dataset_args, evaluation_args):
         dataset_args (DatasetArguments): The dataset configurations.
         evaluation_args (EvaluationArguments): The evaluation configurations.
     """
-    if model_args.model_name_or_path.lower() == 'gpt-3.5-turbo' and dataset_args.batch_size > 1:
+    model_args.seed = evaluation_args.seed
+    if model_args.model_name_or_path.lower() in OPENAI_CHAT_MODELS and dataset_args.batch_size > 1:
         dataset_args.batch_size = 1
-        warnings.warn("gpt-3.5-turbo doesn't support batch_size > 1, automatically set batch_size=1.")
+        warnings.warn(
+            f"OpenAI chat-based model {model_args.model_name_or_path} doesn't support batch_size > 1, automatically set batch_size=1."
+        )
 
 
 def parse_argument(args=None) -> Tuple[ModelArguments, DatasetArguments, EvaluationArguments]:

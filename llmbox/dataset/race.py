@@ -31,10 +31,8 @@ class Race(MultipleChoiceDataset):
 
     name = "race"
     instruction = ""
-
     evaluation_set = "validation"
     example_set = "train"
-
     load_args = ("race",)  # specify subset from command line
 
     def format_instance(self, instance):

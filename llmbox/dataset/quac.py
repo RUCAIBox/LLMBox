@@ -37,7 +37,6 @@ class Quac(GenerationDataset):
     instruction = """Answer each question using information in the preceding background paragraph. If there is not enough information provided, answer with "I don't know." """
     example_set = "train"
     evaluation_set = "validation"
-
     load_args = ("quac",)
     metrics = [F1(), Em()]
 

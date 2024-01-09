@@ -4,7 +4,7 @@ from ..utils import ModelArguments
 from .huggingface_model import HuggingFaceModel
 from .model import Model
 from .openai import Openai
-from .utils import OPENAI_MODELS
+from .enum import OPENAI_MODELS
 
 logger = getLogger(__name__)
 
@@ -22,5 +22,5 @@ def load_model(args: ModelArguments) -> Model:
         logger.info(f"Loading OpenAI API model `{args.model_name_or_path.lower()}`.")
         return Openai(args)
     else:
-        logger.info(f"Loading HuggingFace pretrained model `{args.model_name_or_path}`.")
+        logger.info(f"Loading HuggingFace Transformers model `{args.model_name_or_path}`.")
         return HuggingFaceModel(args.model_name_or_path, args)

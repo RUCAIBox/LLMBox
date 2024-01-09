@@ -43,10 +43,8 @@ class Coqa(GenerationDataset):
 
     name = "coqa"
     instruction = "Answer the last question based on the given passage."
-
     example_set = "train"
     evaluation_set = "validation"
-
     load_args = ("coqa",)
     metrics = [F1(multiref_strategy='leave_one_out'), Em(multiref_strategy='leave_one_out')]
 

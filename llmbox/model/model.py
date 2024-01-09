@@ -1,8 +1,7 @@
-from typing import Optional, Union
+from typing import Union
 
-from transformers import PreTrainedTokenizer, PreTrainedTokenizerFast
-
-from ..utils import NotImplementedField
+from transformers import PreTrainedTokenizer
+from tiktoken import Encoding
 
 
 class Model:
@@ -24,11 +23,10 @@ class Model:
 
     def __init__(self, args):
         self.args = args
-        self.tokenizer: Union[PreTrainedTokenizer, PreTrainedTokenizerFast] = None
+        self.tokenizer: Union[PreTrainedTokenizer, Encoding] = None
 
     def set_ppl_args(self, **kwargs):
         r"""Set the configurations for PPL score calculation. This is useful because different datasets may have different requirements for ppl calculation."""
-
         raise NotImplementedError(f"{self.name} model must implement the `set_ppl_args` function.")
 
     def get_ppl(self, batched_inputs):

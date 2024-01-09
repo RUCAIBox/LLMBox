@@ -16,10 +16,8 @@ class Copa(MultipleChoiceDataset):
 
     name = "copa"
     instruction = "Complete the following the sentence."
-
     evaluation_set = "validation"
     example_set = "train"
-
     load_args = ("super_glue", "copa")
 
     def format_instance(self, instance):

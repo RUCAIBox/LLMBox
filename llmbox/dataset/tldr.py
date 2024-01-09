@@ -15,13 +15,9 @@ class TLDR(GenerationDataset):
 
     name = "tldr"
     instruction = ""
-
     evaluation_set = "train"
     example_set = "test"
-
-    metric = "rouge"
     metrics = [Rouge()]
-
     load_args = ("CarperAI/openai_summarize_tldr",)
 
     def format_instance(self, instance):
