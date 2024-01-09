@@ -30,7 +30,7 @@ class Wmt16(GenerationDataset):
         self.config = ' '
         self.config = subset_name
         raw_config = self.config if self.config[3:] == "en" else self.config[3:5] + "-" + self.config[:2]
-        Wmt16.instruction = f"Translate from {self.config[:2]} to {self.config[3:5]}"
+        # Wmt16.instruction = f"Translate from {self.config[:2]} to {self.config[3:5]}"
         # Wmt16.load_args = ("wmt16", raw_config)
         print(f"Init wmt16, config = {self.config}, raw_config = {raw_config}")
         
@@ -39,8 +39,18 @@ class Wmt16(GenerationDataset):
     def format_instance(self, instance):
         # print(f'instance is {instance}')
         # print(f"in instance, config = {self.config}")
+        language = {
+            "en": "English",
+            "de": "German",
+            "fr": "French",
+            "cs": "Czech",
+            "fi": "Finnish",
+            "ru": "Russian",
+            "tr": "Turkish",
+            "ro": "Romanian"
+        }
         instance = instance['translation']
-        source_text = instance[self.config[:2]]
+        source_text = f"Q: What is the {language[self.config[3:5]]} translation of {instance[self.config[:2]]} A:"
         target_text = instance[self.config[3:5]]
         return dict(source=source_text, target=target_text)
 
@@ -50,4 +60,4 @@ class Wmt16(GenerationDataset):
     
     @property
     def references(self):
-        return [instance['translation'] for instance in self.evaluation_data]
+        return [instance['translation'][self.config[3:]] for instance in self.evaluation_data]
