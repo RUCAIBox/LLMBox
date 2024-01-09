@@ -53,7 +53,13 @@ def load_dataset(args: DatasetArguments, model: Model) -> Union[Dataset, Dataset
     subset_names = args.subset_names or available_subsets
 
     # load dataset
-    dataset_cls = import_dataset_class(args.dataset_name)
+    if args.prompt_method == "pal":
+        try:
+            dataset_cls = import_dataset_class(args.dataset_name + "_pal")
+        except ImportError:
+            raise ValueError(f"Dataset {args.dataset_name} doesn't support PaL. ")
+    else:
+        dataset_cls = import_dataset_class(args.dataset_name)
     if len(subset_names) > 1 and len(dataset_cls.load_args) == 1:
         # race:middle,high (several subsets) , super_glue (all the subsets)
         logger.info(f"Loading subsets of dataset `{args.dataset_name}`: " + ", ".join(subset_names))
