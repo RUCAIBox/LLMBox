@@ -14,7 +14,6 @@ class Copa(MultipleChoiceDataset):
         label: 1
     """
 
-    name = "copa"
     instruction = "Complete the following the sentence."
     evaluation_set = "validation"
     example_set = "train"

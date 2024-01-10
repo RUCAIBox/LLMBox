@@ -33,7 +33,6 @@ class Quac(GenerationDataset):
                 'Jackson would "rent" Paige out to other ball clubs for a game or two to draw a decent crowd, with both Jackson and Paige taking a cut.']
     """
 
-    name = "quac"
     instruction = """Answer each question using information in the preceding background paragraph. If there is not enough information provided, answer with "I don't know." """
     example_set = "train"
     evaluation_set = "validation"

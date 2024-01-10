@@ -29,7 +29,6 @@ class Race(MultipleChoiceDataset):
         ]
     """
 
-    name = "race"
     instruction = ""
     evaluation_set = "validation"
     example_set = "train"

@@ -15,7 +15,6 @@ class Squad_v2(GenerationDataset):
         answer: ['France', 'France', 'France', 'France']
     """
 
-    name = "squad_v2"
     instruction = 'Answer each question using information in the preceding background paragraph.\nIf there is not enough information provided, answer with "Not in background."'
     example_set = "train"
     evaluation_set = "validation"
