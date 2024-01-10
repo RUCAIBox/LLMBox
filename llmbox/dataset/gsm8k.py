@@ -16,7 +16,6 @@ class Gsm8k(GenerationDataset):
         answer: Natalia sold 48/2 = <<48/2=24>>24 clips in May. Natalia sold 48+24 = <<48+24=72>>72 clips altogether in April and May. #### 72
     """
 
-    name = "gsm8k"
     instruction = "Answer the following question."
     evaluation_set = "test"
     example_set = "train"
