@@ -100,6 +100,9 @@ def get_raw_dataset_loader(
 
     # load from Hugging Face Hub
     elif load_args is not None:
+        # specify the dataset name if if its not specified in `dataset.load_args` (e.g. translation)
+        if len(load_args) == 0:
+            load_args = (dataset_name, )
         # trying to load a subset if its not specified in `dataset.load_args` (e.g. `load_args=("mmlu",)`
         if len(load_args) == 1 and subset_name is not None:
             load_args = load_args + (subset_name,)
@@ -107,8 +110,13 @@ def get_raw_dataset_loader(
             raise ValueError(
                 f"Failed to specify `{subset_name}` subset since dataset `{dataset_name}` already has defined one to load ({', '.join(load_args)}). Please use `{dataset_name}`."
             )
+
+        # for wmt, en-xx and xx-en refer to the same subset, xx-en
+        if 'wmt' in dataset_name and subset_name.startswith('en'):
+            load_args = (dataset_name, subset_name.split('-')[1] + '-en')
+        
         msg += f" from huggingface ({', '.join(load_args)})"
-        load_fn = lambda split: datasets.load_dataset(*load_args, split=split, trust_remote_code=True)
+        load_fn = lambda split: datasets.load_dataset(*load_args, split=split)
 
     if load_fn is None:
         raise ValueError(
