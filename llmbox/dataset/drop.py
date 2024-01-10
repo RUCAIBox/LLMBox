@@ -20,7 +20,6 @@ class Drop(GenerationDataset):
             'the Raiders'],
     """
 
-    name = "drop"
     instruction = "Answer the question based on the given passage."
     example_set = "train"
     evaluation_set = "validation"

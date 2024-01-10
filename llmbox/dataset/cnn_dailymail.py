@@ -14,7 +14,6 @@ class CNN_DailyMail(GenerationDataset):
         highlights: The elderly woman suffered from diabetes and hypertension, ship's doctors say .\nPreviously, 86 passengers had fallen ill on the ship, Agencia Brasil says .
     """
 
-    name = "cnn_dailymail"
     instruction = ""
     evaluation_set = "train"
     example_set = "test"

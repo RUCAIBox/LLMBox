@@ -33,7 +33,6 @@ class Openai(Model):
         self.name = args.model_name_or_path
         self.type = "instruction" if self.name in OPENAI_INSTRUCTION_MODELS else "base"
         self.tokenizer = tiktoken.get_encoding(tiktoken.encoding_name_for_model(self.name))
-        self.max_tokens = args.max_new_tokens
         self.max_try_times = 5
 
     def set_ppl_args(self, **kwargs):
@@ -43,13 +42,11 @@ class Openai(Model):
 
     def set_generation_args(self, **kwargs):
         r"""Set the configurations for open-ended generation. This is useful because different datasets may have different requirements for generation."""
-        # kwargs = kwargs.update(self.args)
-        generation_kwargs = {
-            key: kwargs.get(key)
-            for key in ['temperature', 'best_of', 'frequency_penalty', 'presence_penalty', 'top_p', 'seed']
-            if kwargs.get(key, None) is not None
-        }
-        generation_kwargs['max_tokens'] = self.max_tokens
+        generation_kwargs = {}
+        for key in ['temperature', 'top_p', 'max_tokens', 'best_of', 'frequency_penalty', 'presence_penalty', 'seed']:
+            value = getattr(self.args, key, None) or kwargs.get(key, None)
+            if value:
+                generation_kwargs[key] = value
         self.generation_kwargs = generation_kwargs
 
     def get_ppl(self, batch):

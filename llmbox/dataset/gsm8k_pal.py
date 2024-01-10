@@ -12,7 +12,6 @@ class Gsm8k_pal(Gsm8k):
     a Python interpreter.
     """
 
-    name = "gsm8k_pal"
     instruction = "Let's use python to solve math problems. Here are some examples how to do it,"
     answer_expr: Optional[str] = "solution()"
     metrics = [Accuracy()]

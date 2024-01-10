@@ -40,9 +40,6 @@ class Dataset(torch.utils.data.Dataset):
         - `option_nums (List[int])`: The number of options for each evaluation instance.
     """
 
-    name: str
-    r"""The name of this dataset. Should be identical to the file name."""
-
     instruction: str
     r"""Dataset-specific instruction for the task."""
 
@@ -79,6 +76,10 @@ class Dataset(torch.utils.data.Dataset):
         """
         super().__init__()
         self.args = args
+        self.name = args.dataset_name
+        self.subset_name = subset_name
+        self.model = model
+        self.tokenizer = model.tokenizer
 
         self.load_raw_dataset(
             dataset_path=args.dataset_path,
@@ -86,9 +87,6 @@ class Dataset(torch.utils.data.Dataset):
             evaluation_set=args.evaluation_set or self.evaluation_set,
             example_set=args.example_set or self.example_set,
         )
-        
-        self.model = model
-        self.tokenizer = model.tokenizer
         
         self.num_shots = args.num_shots
         self.max_example_tokens = args.max_example_tokens
