@@ -43,7 +43,7 @@ class Openai(Model):
 
     def set_generation_args(self, **kwargs):
         r"""Set the configurations for open-ended generation. This is useful because different datasets may have different requirements for generation."""
-        kwargs = kwargs.update(self.args)
+        # kwargs = kwargs.update(self.args)
         generation_kwargs = {
             key: kwargs.get(key)
             for key in ['temperature', 'best_of', 'frequency_penalty', 'presence_penalty', 'top_p', 'seed']

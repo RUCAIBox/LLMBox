@@ -108,7 +108,7 @@ def get_raw_dataset_loader(
                 f"Failed to specify `{subset_name}` subset since dataset `{dataset_name}` already has defined one to load ({', '.join(load_args)}). Please use `{dataset_name}`."
             )
         msg += f" from huggingface ({', '.join(load_args)})"
-        load_fn = lambda split: datasets.load_dataset(*load_args, split=split, trust_remote_code=True)
+        load_fn = lambda split: datasets.load_dataset(*load_args, split=split)
 
     if load_fn is None:
         raise ValueError(
