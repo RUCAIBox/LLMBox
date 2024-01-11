@@ -11,6 +11,7 @@ class Bleu(Metric):
     def __call__(predictions, references):
         scores = []
         for prediction, reference in zip(predictions, references):
-            bleu = sacrebleu.sentence_bleu(prediction, [reference])
-            scores.append(bleu.score)
-        return {'BLEU': np.mean(scores)}
+            sentence_bleu = sacrebleu.sentence_bleu(prediction, [reference], tokenize='intl')
+            scores.append(sentence_bleu.score)
+        corpus_bleu = sacrebleu.corpus_bleu(predictions, [references], tokenize='intl')
+        return {'Sentence_BLEU': np.mean(scores), 'Corpus_BLEU': corpus_bleu.score}
