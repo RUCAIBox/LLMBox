@@ -42,9 +42,8 @@ class ModelArguments:
         default="auto",
         help="The device map for model and data",
     )
-    max_new_tokens: Optional[int] = HfArg(
-        default=1024,
-        aliases=["--max_tokens"],
+    max_tokens: Optional[int] = HfArg(
+        default=None,
         help="The maximum number of tokens for output generation",
     )
     max_sequence_length: Optional[int] = HfArg(
@@ -63,11 +62,13 @@ class ModelArguments:
     )
     frequency_penalty: float = HfArg(
         default=None,
-        help="The penalty coefficient of OpenAI generation. Positive values penalize new tokens based on their existing frequency, vice versa.",
+        help=
+        "The penalty coefficient of OpenAI generation. Positive values penalize new tokens based on their existing frequency, vice versa.",
     )
     presence_penalty: float = HfArg(
         default=None,
-        help="The penalty coefficient of OpenAI generation. Positive values penalize new tokens based on whether they appear, vice versa.",
+        help=
+        "The penalty coefficient of OpenAI generation. Positive values penalize new tokens based on whether they appear, vice versa.",
     )
     top_p: float = HfArg(
         default=None,
@@ -132,6 +133,7 @@ class DatasetArguments:
     )
     sample_num: int = HfArg(
         default=1,
+        aliases=["--majority", "--consistency"],
         help="The sampling number for self-consistency",
     )
 

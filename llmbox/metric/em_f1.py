@@ -70,11 +70,11 @@ class F1(Metric):
         self.force_number_match = force_number_match
 
     @staticmethod
-    def _calculate_f1_score(reference, prediction):
+    def _calculate_f1_score(reference, prediction, force_number_match=False):
         ref_toks = word_tokenize(normalize_answer(reference))
         pred_toks = word_tokenize(normalize_answer(prediction))
 
-        if self.force_number_match:
+        if force_number_match:
             ref_num_toks = set([tok for tok in ref_toks if is_number(tok)])
             pred_num_toks = set([tok for tok in pred_toks if is_number(tok)])
             if ref_num_toks and not ref_num_toks.intersection(pred_num_toks):
@@ -94,6 +94,6 @@ class F1(Metric):
     def __call__(self, predictions, references):
         score_list = []
         for prediction, reference in zip(predictions, references):
-            scores = [self._calculate_f1_score(ref, prediction) for ref in reference]
+            scores = [self._calculate_f1_score(ref, prediction, self.force_number_match) for ref in reference]
             score_list.append(multi_ref_aggregation(scores, self.multiref_strategy))
         return {'F1': np.mean(score_list) * 100}

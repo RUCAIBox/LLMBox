@@ -1,8 +1,5 @@
-import time
-
 import openai
 import torch
-from sentence_transformers import SentenceTransformer
 from itertools import permutations
 import numpy as np
 from tqdm import tqdm
@@ -20,6 +17,8 @@ def knn_construct_examples(instance_query, example_dataset, k):
     Returns:
         List[int]: k nearest examples to the instance_query
     """
+    from sentence_transformers import SentenceTransformer
+
     embeddings = []
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = SentenceTransformer("paraphrase-MiniLM-L6-v2")

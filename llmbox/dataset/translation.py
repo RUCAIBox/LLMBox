@@ -4,9 +4,9 @@ from langcodes import Language
 from llmbox.model.model import Model
 from llmbox.utils import DatasetArguments
 
-
 from .generation_dataset import GenerationDataset
 from ..metric import Bleu
+
 
 class Translation(GenerationDataset):
     """ The dataset of Wmt dataset.
@@ -17,7 +17,7 @@ class Translation(GenerationDataset):
         prediction: Obama receives Netanyahu 
         reference: Obama welcomes Netanyahu
     """
-    
+
     evaluation_set = "test"
     example_set = "train"
     metrics = [Bleu()]
@@ -48,7 +48,7 @@ class Translation(GenerationDataset):
     @staticmethod
     def post_processing(preds):
         return [pred.strip().split('\n')[0] for pred in preds]
-    
+
     @property
     def references(self):
         return [instance['translation'][self.subset_name[3:]] for instance in self.evaluation_data]

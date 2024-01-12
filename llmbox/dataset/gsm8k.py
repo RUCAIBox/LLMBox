@@ -1,7 +1,6 @@
 import re
+import threading
 
-import numpy as np
-from ..prompt.examplars import COT_EXAMPLARS, LEAST_TO_MOST_EXAMPLARS
 from .generation_dataset import GenerationDataset
 from ..metric import Accuracy
 
@@ -16,68 +15,290 @@ class Gsm8k(GenerationDataset):
         answer: Natalia sold 48/2 = <<48/2=24>>24 clips in May. Natalia sold 48+24 = <<48+24=72>>72 clips altogether in April and May. #### 72
     """
 
-    instruction = "Answer the following question."
+    instruction = "Solve the following math problem."
     evaluation_set = "test"
-    example_set = "train"
+    example_set = ""
     load_args = ("gsm8k", "main")
     metrics = [Accuracy()]
+    model_args = dict(temperature=0)
 
-    model_args = dict(stop_sequences=["\n"], do_sample=False, max_new_tokens=512)
-    # GSM8K extracts the last number in the predictions as the answer, so it's important to set a stop sequence for non-chat format
-
-    answer_trigger = "Therefore, the answer (arabic numerals) is"
-    question_pattern = "Question: {question}\nAnswer:"
-    one_line_answer = True
-
-    _default_answer_trigger = "\n#### "
     _decimal_separator = re.compile(r"(\d),(\d)")
     _extract_numbers = re.compile(r"[-+]?\d*\.\d+|\d+")
 
-    def _load_raw_dataset(self, dataset_path, subset_name, evaluation_set, example_set):
-        super()._load_raw_dataset(dataset_path, subset_name, evaluation_set, example_set)
+    def load_raw_dataset(self, dataset_path, subset_name, evaluation_set, example_set):
+        super().load_raw_dataset(dataset_path, subset_name, evaluation_set, example_set)
         if self.args.cot == 'base':
-            self.example_data = COT_EXAMPLARS
+            self.example_data = BASE_EXAMPLARS
         elif self.args.cot == 'least_to_most':
             self.example_data = LEAST_TO_MOST_EXAMPLARS
+        elif self.args.cot == 'pal':
+            self.example_data = PAL_EXAMPLARS
+            self.instruction = "Let's use python to solve math problems. Here are some examples how to do it."
 
-    @staticmethod
-    def post_processing(predictions):
+    def post_processing(self, predictions):
         new_predictions = []
         for pred in predictions:
-            # replace numbers like `x,xxx` with `xxxx`
-            pred = Gsm8k._decimal_separator.sub(r"\1\2", pred)
-            numbers = Gsm8k._extract_numbers.findall(pred)
-            if numbers:
-                new_predictions.append(numbers[-1])
+            if self.args.cot == 'pal':
+                if '```python' in pred:
+                    pred = pred.split('```python')[1].split('```')[0]
+                elif '```' in pred:
+                    pred = pred.split('```')[1].split('```')[0]
+                code = pred.split('\n')
+
+                with Timeout():
+                    try:
+                        exec('\n'.join(code))
+                        ans = eval("solution()")
+                        ans = str(ans)[:-2] if str(ans).endswith(".0") else str(ans)
+                        new_predictions.append(ans)
+                    except:
+                        new_predictions.append('')
             else:
-                new_predictions.append(pred)
+                # replace numbers like `x,xxx` with `xxxx`
+                pred = self._decimal_separator.sub(r"\1\2", pred)
+                numbers = self._extract_numbers.findall(pred)
+                if numbers:
+                    new_predictions.append(numbers[-1])
+                else:
+                    new_predictions.append(pred)
         return new_predictions
 
     def format_instance(self, instance):
-        answer = self._decimal_separator.sub(r"\1\2", instance["answer"])
-        # instance["answer"] = re.sub(r"<<[\d\+\(\)-=\*\/]+>>", "", instance["answer"])
-        # instance["question"] = re.sub(r"<<[\d\+\(\)-=\*\/]+>>", "", instance["question"])
+        instance["question"] = instance["question"].replace("\n", " ")
+        question = f'Question: {instance["question"]}\nAnswer:'
 
-        if self.one_line_answer:
-            answer = " " + answer.replace(self._default_answer_trigger, " " + self.answer_trigger.strip() + " ")
-            answer = answer.replace("\n", " ")
-            question = instance["question"].replace("\n", " ")
-        else:
-            answer = " " + instance["answer"].replace(
-                self._default_answer_trigger, "\n" + self.answer_trigger.strip() + " "
-            )
-            question = instance["question"]
+        instance["answer"] = ' ' + self._decimal_separator.sub(r"\1\2", instance["answer"])  # for example
+        if "####" in instance["answer"]:
+            instance['short_answer'] = instance["answer"].split("####")[1].strip()  # for reference
 
-        question = self.question_pattern.format(question=question)
         return dict(
             source=question,
-            target=answer,
+            target=instance["answer"],
         )
 
     @property
     def references(self):
-        if not hasattr(self, "_references"):
-            self._references = [
-                instance["answer"].split(self._default_answer_trigger)[-1].strip() for instance in self.evaluation_data
-            ]
-        return self._references
+        return [instance["short_answer"] for instance in self.evaluation_data]
+
+
+class Timeout:
+
+    def __init__(self, seconds=10, error_message='Timeout'):
+        self.seconds = seconds
+        self.error_message = error_message
+        self.timer = threading.Timer(self.seconds, self.timeout_handler)
+
+    def timeout_handler(self):
+        raise TimeoutError(self.error_message)
+
+    def __enter__(self):
+        self.timer.start()
+
+    def __exit__(self, type, value, traceback):
+        self.timer.cancel()
+
+
+BASE_EXAMPLARS = [{
+    "question":
+    "There are 15 trees in the grove. Grove workers will plant trees in the grove today. After they are done, there will be 21 trees. How many trees did the grove workers plant today?",
+    "answer":
+    "There are 15 trees originally. Then there were 21 trees after some more were planted. So there must have been 21 - 15 = 6. So the answer is 6."
+}, {
+    "question": "If there are 3 cars in the parking lot and 2 more cars arrive, how many cars are in the parking lot?",
+    "answer": "There are originally 3 cars. 2 more cars arrive. 3 + 2 = 5. So the answer is 5."
+}, {
+    "question":
+    "Leah had 32 chocolates and her sister had 42. If they ate 35, how many pieces do they have left in total?",
+    "answer":
+    "Originally, Leah had 32 chocolates. Her sister had 42. So in total they had 32 + 42 = 74. After eating 35, they had 74 - 35 = 39. So the answer is 39."
+}, {
+    "question":
+    "Jason had 20 lollipops. He gave Denny some lollipops. Now Jason has 12 lollipops. How many lollipops did Jason give to Denny?",
+    "answer":
+    "Jason started with 20 lollipops. Then he had 12 after giving some to Denny. So he gave Denny 20 - 12 = 8. So the answer is 8."
+}, {
+    "question":
+    "Shawn has five toys. For Christmas, he got two toys each from his mom and dad. How many toys does he have now?",
+    "answer":
+    "Shawn started with 5 toys. If he got 2 toys each from his mom and dad, then that is 4 more toys. 5 + 4 = 9. So the answer is 9."
+}, {
+    "question":
+    "There were nine computers in the server room. Five more computers were installed each day, from monday to thursday. How many computers are now in the server room?",
+    "answer":
+    "There were originally 9 computers. For each of 4 days, 5 more computers were added. So 5 * 4 = 20 computers were added. 9 + 20 is 29. So the answer is 29."
+}, {
+    "question":
+    "Michael had 58 golf balls. On tuesday, he lost 23 golf balls. On wednesday, he lost 2 more. How many golf balls did he have at the end of wednesday?",
+    "answer":
+    "Michael started with 58 golf balls. After losing 23 on tuesday, he had 58 - 23 = 35. After losing 2 more, he had 35 - 2 = 33 golf balls. So the answer is 33."
+}, {
+    "question":
+    "Olivia has $23. She bought five bagels for $3 each. How much money does she have left?",
+    "answer":
+    "Olivia had 23 dollars. 5 bagels for 3 dollars each will be 5 x 3 = 15 dollars. So she has 23 - 15 dollars left. 23 - 15 is 8. So the answer is 8."
+}]
+
+LEAST_TO_MOST_EXAMPLARS = [{
+    "question":
+    "Tom has 18 marbles. He gave 5 marbles to his friend Jerry. How many marbles does Tom have now?",
+    "answer":
+    """Let's analyze the situation: 1. How many marbles did Tom start with? 2. How many marbles does Tom have after giving 5 to Jerry?
+1.Tom started with 18 marbles. 
+2.After giving 5 marbles to Jerry, Tom has 18 - 5 = 13 marbles.
+Final Answer: Tom has 13 marbles now."""
+}, {
+    "question":
+    "Sarah had $50. She spent $20 on a book. How much money does Sarah have left?",
+    "answer":
+    """Breaking it down: 1. How much money did Sarah start with? 2. How much money does Sarah have after spending $20 on a book?
+1.Sarah started with $50. 
+2.After spending $20, Sarah has $50 - $20 = $30 left.
+Final Answer: Sarah has $30 left."""
+}, {
+    "question":
+    "Jason has a collection of 25 stamps. He bought 12 more stamps online. How many stamps does Jason have now?",
+    "answer":
+    """Let's break it into parts: 1. How many stamps did Jason start with? 2. How many stamps does Jason have after buying 12 more?
+1.Jason started with 25 stamps. 
+2.After buying 12 more, Jason has 25 + 12 = 37 stamps.
+Final Answer: Jason has 37 stamps now."""
+}, {
+    "question":
+    "Emily baked 40 cookies. She gave 15 cookies to her neighbor. How many cookies does Emily have left?",
+    "answer":
+    """Breaking it down: 1. How many cookies did Emily start with? 2. How many cookies does Emily have after giving 15 to her neighbor?
+1.Emily started with 40 cookies. 
+2.After giving 15 cookies away, Emily has 40 - 15 = 25 cookies left.
+Final Answer: Emily has 25 cookies left."""
+}, {
+    "question":
+    "Alex has 8 colorful balloons. He bought 3 more balloons at the store. How many balloons does Alex have in total?",
+    "answer":
+    """Let's analyze: 1. How many balloons did Alex start with? 2. How many balloons does Alex have after buying 3 more?
+1.Alex started with 8 balloons. 
+2.After buying 3 more, Alex has 8 + 3 = 11 balloons.
+Final Answer: Alex has 11 balloons in total."""
+}]
+
+PAL_EXAMPLARS = [{
+    "question":
+    "Olivia has $23. She bought five bagels for $3 each. How much money does she have left?",
+    "answer":
+    '''
+```
+def solution():
+    """Olivia has $23. She bought five bagels for $3 each. How much money does she have left?"""
+    money_initial = 23
+    bagels = 5
+    bagel_cost = 3
+    money_spent = bagels * bagel_cost
+    money_left = money_initial - money_spent
+    result = money_left
+    return result
+```'''
+}, {
+    "question":
+    "Michael had 58 golf balls. On tuesday, he lost 23 golf balls. On wednesday, he lost 2 more. How many golf balls did he have at the end of wednesday?",
+    "answer":
+    '''
+```
+def solution():
+    """Michael had 58 golf balls. On tuesday, he lost 23 golf balls. On wednesday, he lost 2 more. How many golf balls did he have at the end of wednesday?"""
+    golf_balls_initial = 58
+    golf_balls_lost_tuesday = 23
+    golf_balls_lost_wednesday = 2
+    golf_balls_left = golf_balls_initial - golf_balls_lost_tuesday - golf_balls_lost_wednesday
+    result = golf_balls_left
+    return result
+```'''
+}, {
+    "question":
+    "There were nine computers in the server room. Five more computers were installed each day, from monday to thursday. How many computers are now in the server room?",
+    "answer":
+    '''
+```
+def solution():
+    """There were nine computers in the server room. Five more computers were installed each day, from monday to thursday. How many computers are now in the server room?"""
+    computers_initial = 9
+    computers_per_day = 5
+    num_days = 4  # 4 days between monday and thursday
+    computers_added = computers_per_day * num_days
+    computers_total = computers_initial + computers_added
+    result = computers_total
+    return result
+```'''
+}, {
+    "question":
+    "Shawn has five toys. For Christmas, he got two toys each from his mom and dad. How many toys does he have now?",
+    "answer":
+    '''
+```
+def solution():
+    """Shawn has five toys. For Christmas, he got two toys each from his mom and dad. How many toys does he have now?"""
+    toys_initial = 5
+    mom_toys = 2
+    dad_toys = 2
+    total_received = mom_toys + dad_toys
+    total_toys = toys_initial + total_received
+    result = total_toys
+    return result
+```'''
+}, {
+    "question":
+    "Jason had 20 lollipops. He gave Denny some lollipops. Now Jason has 12 lollipops. How many lollipops did Jason give to Denny?",
+    "answer":
+    '''
+```
+def solution():
+    """Jason had 20 lollipops. He gave Denny some lollipops. Now Jason has 12 lollipops. How many lollipops did Jason give to Denny?"""
+    jason_lollipops_initial = 20
+    jason_lollipops_after = 12
+    denny_lollipops = jason_lollipops_initial - jason_lollipops_after
+    result = denny_lollipops
+    return result
+```'''
+}, {
+    "question":
+    "Leah had 32 chocolates and her sister had 42. If they ate 35, how many pieces do they have left in total?",
+    "answer":
+    '''
+```
+def solution():
+    """Leah had 32 chocolates and her sister had 42. If they ate 35, how many pieces do they have left in total?"""
+    leah_chocolates = 32
+    sister_chocolates = 42
+    total_chocolates = leah_chocolates + sister_chocolates
+    chocolates_eaten = 35
+    chocolates_left = total_chocolates - chocolates_eaten
+    result = chocolates_left
+    return result
+```'''
+}, {
+    "question":
+    "If there are 3 cars in the parking lot and 2 more cars arrive, how many cars are in the parking lot?",
+    "answer":
+    '''
+```
+def solution():
+    """If there are 3 cars in the parking lot and 2 more cars arrive, how many cars are in the parking lot?"""
+    cars_initial = 3
+    cars_arrived = 2
+    total_cars = cars_initial + cars_arrived
+    result = total_cars
+    return result
+```'''
+}, {
+    "question":
+    "There are 15 trees in the grove. Grove workers will plant trees in the grove today. After they are done, there will be 21 trees. How many trees did the grove workers plant today?",
+    "answer":
+    '''
+```
+def solution():
+    """There are 15 trees in the grove. Grove workers will plant trees in the grove today. After they are done, there will be 21 trees. How many trees did the grove workers plant today?"""
+    trees_initial = 15
+    trees_after = 21
+    trees_added = trees_after - trees_initial
+    result = trees_added
+    return result
+```'''
+}]

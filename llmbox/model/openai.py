@@ -44,7 +44,9 @@ class Openai(Model):
         r"""Set the configurations for open-ended generation. This is useful because different datasets may have different requirements for generation."""
         generation_kwargs = {}
         for key in ['temperature', 'top_p', 'max_tokens', 'best_of', 'frequency_penalty', 'presence_penalty', 'seed']:
-            value = getattr(self.args, key, None) or kwargs.get(key, None)
+            value = getattr(self.args, key) if getattr(self.args, key, None) is not None else kwargs.get(key, None)
+            if key == 'max_tokens' and value is None:
+                value = 1024
             if value:
                 generation_kwargs[key] = value
         self.generation_kwargs = generation_kwargs
@@ -98,6 +100,7 @@ class Openai(Model):
             except openai.error.InvalidRequestError as e:
                 raise e
             except Exception as e:
-                logger.warning(f'Receive {e.__class__.__name__}, retrying...')
+                logger.warning(f'Receive {e.__class__.__name__}: {str(e)}')
+                logger.warning('retrying...')
                 time.sleep(1)
         raise ConnectionError("OpenAI API error")

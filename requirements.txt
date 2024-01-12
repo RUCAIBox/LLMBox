@@ -1,0 +1,12 @@
+torch
+transformers
+safetensors
+tokenizers
+openai==0.28.1
+tiktoken
+datasets
+accelerate
+coloredlogs
+nltk
+sacrebleu
+rouge_score
