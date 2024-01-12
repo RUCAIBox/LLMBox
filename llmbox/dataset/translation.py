@@ -1,4 +1,8 @@
+from typing import Optional
 from langcodes import Language
+
+from llmbox.model.model import Model
+from llmbox.utils import DatasetArguments
 
 
 from .generation_dataset import GenerationDataset
@@ -20,13 +24,27 @@ class Translation(GenerationDataset):
     instruction = ''
     load_args = ()
     
+    def __init__(self, args: DatasetArguments, model: Model, subset_name: str | None = None):
+        self.language = Language(subset_name[3:5]).language_name('en')
+        super().__init__(args, model, subset_name)
+        
+    # def format_instance(self, instance):
+    #     instance = instance['translation']
+    #     if self.num_shots == 0:
+    #         language = Language(self.subset_name[3:5]).language_name('en')
+    #         source_text = f"Q: What is the {language} translation of {instance[self.subset_name[:2]]}\n\nA:"
+    #     else:
+    #         source_text = instance[self.subset_name[:2]] + ' = '
+    #     target_text = instance[self.subset_name[3:5]]
+    #     return dict(source=source_text, target=target_text)
+
     def format_instance(self, instance):
         instance = instance['translation']
-        language = Language(self.subset_name[3:5]).language_name('en')
-        source_text = f"Q: What is the {language} translation of {instance[self.subset_name[:2]]}\n\nA:"
-        target_text = instance[self.subset_name[3:5]]
+        # language = Language(self.subset_name[3:5]).language_name('en')
+        source_text = f'Q: What is the {self.language} translation of {instance[self.subset_name[:2]]}. A:'
+        target_text = ' ' + instance[self.subset_name[3:5]]
         return dict(source=source_text, target=target_text)
-
+    
     @staticmethod
     def post_processing(preds):
         return [pred.strip().split('\n')[0] for pred in preds]
