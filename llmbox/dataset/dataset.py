@@ -365,12 +365,12 @@ class Dataset(torch.utils.data.Dataset):
         if self.evaluation_type == "generation" and processed_predictions is not None:
             # log intermediate and post-processed results
             dataset_info = (self.evaluation_instances, processed_predictions)
-            keys = ["index", "input", "answer", "generation", "reference"]
+            keys = ["index", "input", "processed_prediction", "raw_prediction", "reference"]
         elif self.evaluation_type == "generation" and processed_predictions is None:
             # log intermediate results only
             dataset_info = (self.evaluation_instances,)
-            keys = ["index", "input", "generation", "reference"]
-        else:
+            keys = ["index", "input", "raw_prediction", "reference"]
+        else: # ranking
             indices = [(i, j) for i in range(len(self.option_nums)) for j in range(self.option_nums[i])]
             question_index, option_index = zip(*indices)
             source_text, target_text = zip(*self.evaluation_instances)
@@ -390,7 +390,8 @@ class Dataset(torch.utils.data.Dataset):
         )
 
         lines = [dict(zip(keys, line)) for line in lines]
-        json.dump(lines, open(file, "w", encoding="utf-8"), indent=2, ensure_ascii=False)
+        with open(file, "w", encoding="utf-8") as f:
+            json.dump(lines, f, indent=2, ensure_ascii=False)
 
 
 class DatasetCollection(torch.utils.data.Dataset):
