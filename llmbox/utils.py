@@ -42,9 +42,8 @@ class ModelArguments:
         default="auto",
         help="The device map for model and data",
     )
-    max_new_tokens: Optional[int] = HfArg(
-        default=1024,
-        aliases=["--max_tokens"],
+    max_tokens: Optional[int] = HfArg(
+        default=None,
         help="The maximum number of tokens for output generation",
     )
     max_sequence_length: Optional[int] = HfArg(
@@ -132,6 +131,7 @@ class DatasetArguments:
     )
     sample_num: int = HfArg(
         default=1,
+        aliases=["--majority", "--consistency"],
         help="The sampling number for self-consistency",
     )
 
