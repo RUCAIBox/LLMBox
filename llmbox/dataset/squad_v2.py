@@ -2,6 +2,7 @@ from .generation_dataset import GenerationDataset
 import re
 from ..metric import F1, Em
 import numpy as np
+import random
 
 
 class Squad_v2(GenerationDataset):
@@ -20,6 +21,7 @@ class Squad_v2(GenerationDataset):
     evaluation_set = "validation"
     load_args = ("squad_v2",)
     metrics = [F1(), Em()]
+    model_args = dict(max_tokens=64, temperature=0)
 
     def format_instance(self, instance):
         source_text = "Title: " + instance["title"]  + "\n\nBackground: " \
@@ -52,17 +54,18 @@ class Squad_v2(GenerationDataset):
         generation_example_token_nums = 0
         classified_title = {}
         for item in self.example_data:
-            title = item["title"]
-            if title in classified_title:
-                classified_title[title].append(item)
+            key = (item["title"], item["context"])
+            if key in classified_title:
+                classified_title[key].append(item)
             else:
-                classified_title[title] = [item]
+                classified_title[key] = [item]
+
         keys = list(classified_title.keys())
-        randoms_keys = np.random.choice(keys, self.num_shots)
+        randoms_keys = [keys[i] for i in np.random.choice(range(len(keys)), self.num_shots)]
         for data in [classified_title[key] for key in randoms_keys]:
             instance = data[0]
-            source_text = "Title: " + instance["title"]  + "\n\nBackground: " \
-            + instance["context"]
+            source_text = "Title: " + instance["title"] + "\n\nBackground: " + instance["context"]
+            random.shuffle(data)
             for instance in data:
                 source_text += "\n\nQ: " + instance["question"] + "\n\nA:"
                 text = instance["answers"]["text"]

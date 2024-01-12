@@ -22,7 +22,7 @@ def import_dataset_class(dataset_name: str) -> Dataset:
     clsmembers = inspect.getmembers(module, inspect.isclass)
 
     for name, obj in clsmembers:
-        if issubclass(obj, Dataset) and getattr(obj, "name", None) == dataset_name:
+        if issubclass(obj, Dataset) and name.lower() == dataset_name.lower():
             logger.debug(f"Dataset class `{name}` imported from `{module_path}`.")
             return obj
 
@@ -48,14 +48,14 @@ def load_dataset(args: DatasetArguments, model: Model) -> Union[Dataset, Dataset
         available_subsets = set(get_dataset_config_names(args.dataset_name))
     except:
         available_subsets = set()
-    
+
     # for wmt, en-xx and xx-en are both supported
     if 'wmt' in args.dataset_name:
         new_available_subsets = available_subsets.copy()
         for subset in available_subsets:
             new_available_subsets.add('en-' + subset.split('-')[0])
         available_subsets = new_available_subsets
-    
+
     if not available_subsets.issuperset(args.subset_names):
         raise ValueError(
             f"Specified subset names {args.subset_names} are not available. Available ones of {args.dataset_name} are: {available_subsets}"
@@ -70,9 +70,9 @@ def load_dataset(args: DatasetArguments, model: Model) -> Union[Dataset, Dataset
         logger.info(f"Loading subsets of dataset `{args.dataset_name}`: " + ", ".join(subset_names))
         datasets = {s: dataset_cls(args, model, s) for s in subset_names}
         return DatasetCollection(datasets)
-    elif len(subset_names) == 1 and len(dataset_cls.load_args) <= 1:
+    elif len(subset_names) == 1 and len(dataset_cls.load_args) <= 1 and len(available_subsets) > 1:
         # race:middle (one of the subsets), coqa (default)
-        logger.info(f"Loading subset of dataset `{args.dataset_name}`: {next(iter(subset_names))}")
+        logger.info(f"Loading subset of dataset `{args.dataset_name}:{next(iter(subset_names))}`")
         return dataset_cls(args, model, next(iter(subset_names)))
     else:
         # copa (super_glue:copa) or mmlu

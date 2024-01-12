@@ -25,6 +25,7 @@ class Drop(GenerationDataset):
     evaluation_set = "validation"
     load_args = ("drop",)
     metrics = [F1(force_number_match=True), Em()]
+    model_args = dict(max_tokens=64, temperature=0)
 
     def format_instance(self, instance):
         source_text = "Passage: " + instance["passage"] + "\nQuestion: " + instance["question"] + "\nAnswer:"

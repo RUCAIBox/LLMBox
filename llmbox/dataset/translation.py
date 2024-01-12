@@ -1,8 +1,8 @@
 from langcodes import Language
 
-
 from .generation_dataset import GenerationDataset
 from ..metric import Bleu
+
 
 class Translation(GenerationDataset):
     """ The dataset of Wmt dataset.
@@ -13,13 +13,13 @@ class Translation(GenerationDataset):
         prediction: Obama receives Netanyahu 
         reference: Obama welcomes Netanyahu
     """
-    
+
     evaluation_set = "test"
     example_set = "train"
     metrics = [Bleu()]
     instruction = ''
     load_args = ()
-    
+
     def format_instance(self, instance):
         instance = instance['translation']
         language = Language(self.subset_name[3:5]).language_name('en')
@@ -30,7 +30,7 @@ class Translation(GenerationDataset):
     @staticmethod
     def post_processing(preds):
         return [pred.strip().split('\n')[0] for pred in preds]
-    
+
     @property
     def references(self):
         return [instance['translation'][self.subset_name[3:]] for instance in self.evaluation_data]

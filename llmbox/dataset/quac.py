@@ -38,11 +38,12 @@ class Quac(GenerationDataset):
     evaluation_set = "validation"
     load_args = ("quac",)
     metrics = [F1(), Em()]
+    model_args = dict(max_tokens=64, temperature=0)
 
-    def _load_raw_dataset(
+    def load_raw_dataset(
         self, dataset_path: str | None, subset_name: str | None, evaluation_set: str, example_set: str | None
     ):
-        super()._load_raw_dataset(dataset_path, subset_name, evaluation_set, example_set)
+        super().load_raw_dataset(dataset_path, subset_name, evaluation_set, example_set)
         _evaluation_data = []
         for data in self.evaluation_data:
             questions = data["questions"]
