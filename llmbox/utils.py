@@ -62,11 +62,13 @@ class ModelArguments:
     )
     frequency_penalty: float = HfArg(
         default=None,
-        help="The penalty coefficient of OpenAI generation. Positive values penalize new tokens based on their existing frequency, vice versa.",
+        help=
+        "The penalty coefficient of OpenAI generation. Positive values penalize new tokens based on their existing frequency, vice versa.",
     )
     presence_penalty: float = HfArg(
         default=None,
-        help="The penalty coefficient of OpenAI generation. Positive values penalize new tokens based on whether they appear, vice versa.",
+        help=
+        "The penalty coefficient of OpenAI generation. Positive values penalize new tokens based on whether they appear, vice versa.",
     )
     top_p: float = HfArg(
         default=None,
