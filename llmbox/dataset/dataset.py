@@ -86,7 +86,10 @@ class Dataset(torch.utils.data.Dataset):
                 f"Self-consistency only supports evaluation using the generation mode, automatically set sample_num=1."
             )
 
-        if self.args.sample_num > 1 and self.evaluation_type == 'generation' and (getattr(self.model.args, 'temperature') == 0 or (getattr(self.model.args, 'temperature') == None and self.model_args.get('temperature', 1) == 0)):
+        if self.args.sample_num > 1 and self.evaluation_type == 'generation' and (
+            getattr(self.model.args, 'temperature') == 0 or
+            (getattr(self.model.args, 'temperature') == None and self.model_args.get('temperature', 1) == 0)
+        ):
             self.model.args['temperature'] = 1
             logger.warning(
                 f"Self-consistency only supports generation with temperature>0, automatically set temperature=1."
@@ -108,7 +111,9 @@ class Dataset(torch.utils.data.Dataset):
         if self.args.num_shots:
             self.formatted_example_data = [self.format_instance(data) for data in self.example_data]
             if len(self.example_data) < self.args.num_shots:
-                logger.warning(f"The example data only has {len(self.example_data)} instances, but the few-shot number is set to {self.args.num_shots}. Setting the few-shot number to {len(self.example_data)}.")
+                logger.warning(
+                    f"The example data only has {len(self.example_data)} instances, but the few-shot number is set to {self.args.num_shots}. Setting the few-shot number to {len(self.example_data)}."
+                )
                 self.args.num_shots = len(self.example_data)
             if len(self.example_data) == self.args.num_shots:
                 self.random_indice = list(range(len(self.example_data)))
@@ -222,7 +227,8 @@ class Dataset(torch.utils.data.Dataset):
         # automatic instruction
         if self.ape is True:
             instrction = ape(
-                self.formatted_example_dataset, self.formatted_evaluation_dataset, self.model.get_ppl, self.model.api_key
+                self.formatted_example_dataset, self.formatted_evaluation_dataset, self.model.get_ppl,
+                self.model.api_key
             )
             self.instruction = instrction
 
@@ -372,7 +378,7 @@ class Dataset(torch.utils.data.Dataset):
             # log intermediate results only
             dataset_info = (self.evaluation_instances,)
             keys = ["index", "input", "raw_prediction", "reference"]
-        else: # ranking
+        else:  # ranking
             indices = [(i, j) for i in range(len(self.option_nums)) for j in range(self.option_nums[i])]
             question_index, option_index = zip(*indices)
             source_text, target_text = zip(*self.evaluation_instances)

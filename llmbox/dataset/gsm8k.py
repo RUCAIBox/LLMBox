@@ -34,7 +34,7 @@ class Gsm8k(GenerationDataset):
         elif self.args.cot == 'pal':
             self.example_data = PAL_EXAMPLARS
             self.instruction = "Let's use python to solve math problems. Here are some examples how to do it."
-        
+
         if self.model.type == 'base':
             self.model_args['stop'] = ['\n']
 
