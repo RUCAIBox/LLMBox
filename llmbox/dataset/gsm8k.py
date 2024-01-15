@@ -15,7 +15,7 @@ class Gsm8k(GenerationDataset):
         answer: Natalia sold 48/2 = <<48/2=24>>24 clips in May. Natalia sold 48+24 = <<48+24=72>>72 clips altogether in April and May. #### 72
     """
 
-    instruction = "Solve the following math problem."
+    instruction = "Answer the following question."
     evaluation_set = "test"
     example_set = ""
     load_args = ("gsm8k", "main")
@@ -34,6 +34,9 @@ class Gsm8k(GenerationDataset):
         elif self.args.cot == 'pal':
             self.example_data = PAL_EXAMPLARS
             self.instruction = "Let's use python to solve math problems. Here are some examples how to do it."
+        
+        if self.model.type == 'base':
+            self.model_args['stop'] = ['\n']
 
     def post_processing(self, predictions):
         new_predictions = []
@@ -140,44 +143,18 @@ BASE_EXAMPLARS = [{
 
 LEAST_TO_MOST_EXAMPLARS = [{
     "question":
-    "Tom has 18 marbles. He gave 5 marbles to his friend Jerry. How many marbles does Tom have now?",
+    "Elsa has 5 apples. Anna has 2 more apples than Elsa. How many apples do they have together?",
     "answer":
-    """Let's analyze the situation: 1. How many marbles did Tom start with? 2. How many marbles does Tom have after giving 5 to Jerry?
-1.Tom started with 18 marbles. 
-2.After giving 5 marbles to Jerry, Tom has 18 - 5 = 13 marbles.
-Final Answer: Tom has 13 marbles now."""
+    """To answer the question "How many apples do they have together?", we need to know: "How many apples does Anna have?".
+1. Anna has 2 more apples than Elsa. So Anna has 2 + 5 = 7 apples.
+2. Elsa and Anna have 5 + 7 = 12 apples together. So the answer is 12."""
 }, {
     "question":
-    "Sarah had $50. She spent $20 on a book. How much money does Sarah have left?",
+    "If Pam is currently twice as young as Rena is, and in 10 years Rena will be 5 years older than her, how old is Pam now?",
     "answer":
-    """Breaking it down: 1. How much money did Sarah start with? 2. How much money does Sarah have after spending $20 on a book?
-1.Sarah started with $50. 
-2.After spending $20, Sarah has $50 - $20 = $30 left.
-Final Answer: Sarah has $30 left."""
-}, {
-    "question":
-    "Jason has a collection of 25 stamps. He bought 12 more stamps online. How many stamps does Jason have now?",
-    "answer":
-    """Let's break it into parts: 1. How many stamps did Jason start with? 2. How many stamps does Jason have after buying 12 more?
-1.Jason started with 25 stamps. 
-2.After buying 12 more, Jason has 25 + 12 = 37 stamps.
-Final Answer: Jason has 37 stamps now."""
-}, {
-    "question":
-    "Emily baked 40 cookies. She gave 15 cookies to her neighbor. How many cookies does Emily have left?",
-    "answer":
-    """Breaking it down: 1. How many cookies did Emily start with? 2. How many cookies does Emily have after giving 15 to her neighbor?
-1.Emily started with 40 cookies. 
-2.After giving 15 cookies away, Emily has 40 - 15 = 25 cookies left.
-Final Answer: Emily has 25 cookies left."""
-}, {
-    "question":
-    "Alex has 8 colorful balloons. He bought 3 more balloons at the store. How many balloons does Alex have in total?",
-    "answer":
-    """Let's analyze: 1. How many balloons did Alex start with? 2. How many balloons does Alex have after buying 3 more?
-1.Alex started with 8 balloons. 
-2.After buying 3 more, Alex has 8 + 3 = 11 balloons.
-Final Answer: Alex has 11 balloons in total."""
+    """To answer the question "How old is Pam now?", we need to know: "How much older is Rena than Pam currently?".
+1. Since Rena will be 5 years older than Pam in 10 years, she must be 5 years older than Pam now as well.
+2. If Pam is currently twice as young as Rena, that means that Rena is currently twice as old as Pam is. So if P stands for Pam's age now and R stands for Rena's age now, then we know that R = 2 * P And since Rena is 5 years older than Pam now, we know that R = P + 5. By substitution, we have P + 5 = 2 * P, which means that P = 5. So the answer is 5."""
 }]
 
 PAL_EXAMPLARS = [{
