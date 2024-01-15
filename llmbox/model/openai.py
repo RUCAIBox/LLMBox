@@ -43,27 +43,29 @@ class Openai(Model):
     def set_generation_args(self, **kwargs):
         r"""Set the configurations for open-ended generation. This is useful because different datasets may have different requirements for generation."""
         generation_kwargs = {}
-        for key in ['temperature', 'top_p', 'max_tokens', 'best_of', 'frequency_penalty', 'presence_penalty', 'seed']:
+        for key in ['temperature', 'top_p', 'max_tokens', 'best_of', 'frequency_penalty', 'presence_penalty', 'stop']:
             value = getattr(self.args, key) if getattr(self.args, key, None) is not None else kwargs.get(key, None)
             if key == 'max_tokens' and value is None:
                 value = 1024
-            if value:
+            if value is not None:
                 generation_kwargs[key] = value
+        if generation_kwargs.get('temperature', 1) == 0:
+            generation_kwargs['seed'] = self.args.seed
         self.generation_kwargs = generation_kwargs
 
-    def get_ppl(self, batch):
-        prompt = [src + tgt for src, tgt in batch]
+    def get_ppl(self, batched_inputs):
+        prompt = [src + tgt for src, tgt in batched_inputs]
         results = self.request(prompt, self.ppl_kwargs)
         ppls = []
-        for result, (src, _) in zip(results, batch):
-            tgt_start = result['logprobs']['text_offset'].index(len(src))
+        for result, (src, _) in zip(results, batched_inputs):
+            tgt_start = max(1, result['logprobs']['text_offset'].index(len(src))) # designed for src=''
             tgt_end = len(result['logprobs']['text_offset'])
             ppl = -sum(result['logprobs']['token_logprobs'][tgt_start:])
             ppls.append((ppl, tgt_end - tgt_start))
         return ppls
 
-    def generation(self, batch):
-        results = self.request(batch, self.generation_kwargs)
+    def generation(self, batched_inputs):
+        results = self.request(batched_inputs, self.generation_kwargs)
         answers = []
         for result in results:
             if self.name in OPENAI_CHAT_MODELS:
