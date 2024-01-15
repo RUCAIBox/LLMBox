@@ -34,6 +34,13 @@ class Evaluator:
         set_seed(self.evaluation_args.seed)
 
         self.model = load_model(self.model_args)
+        if self.model_args.vllm:
+            from vllm import LLM
+            if isinstance(self.model.model, LLM):
+                self.dataset_args.batch_size = -1
+                logger.info(
+                    "Setting batch_size to -1, since vllm can automatically planning the optimal batch and order."
+                )
         self.dataset = load_dataset(self.dataset_args, self.model)
 
     def evaluate(self) -> Dict[str, float]:
@@ -47,7 +54,7 @@ class Evaluator:
         """
         dataloader = DataLoader(
             self.dataset,
-            batch_size=self.dataset_args.batch_size,
+            batch_size=self.dataset_args.batch_size if self.dataset_args.batch_size != -1 else len(self.dataset),
             collate_fn=lambda x: x,
             shuffle=False,
             pin_memory=True
@@ -68,7 +75,9 @@ class Evaluator:
 
         # call model
         raw_predictions = []
-        for batch in tqdm(dataloader, dynamic_ncols=True, desc="Evaluating"):
+        if self.dataset_args.batch_size != -1:
+            dataloader = tqdm(dataloader, dynamic_ncols=True, desc="Evaluating")
+        for batch in dataloader:
             raw_predictions.extend(call_model(batch))
             self.dataset.log_predictions(raw_predictions)
 
@@ -95,5 +104,5 @@ class Evaluator:
             for key, value in result.items():
                 msg += "\n{}: {:.2f}".format(key, value)
 
-        logger.warning(msg)
+        logger.info(msg)
         return metric_results

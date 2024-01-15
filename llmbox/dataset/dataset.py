@@ -86,10 +86,11 @@ class Dataset(torch.utils.data.Dataset):
                 f"Self-consistency only supports evaluation using the generation mode, automatically set sample_num=1."
             )
 
-        if self.args.sample_num > 1 and self.evaluation_type == 'generation' and self.model_args.get(
-            'temperature', 1
-        ) == 0:
-            self.model_args['temperature'] = 1
+        if self.args.sample_num > 1 and self.evaluation_type == 'generation' and (
+            getattr(self.model.args, 'temperature') == 0 or
+            (getattr(self.model.args, 'temperature') == None and self.model_args.get('temperature', 1) == 0)
+        ):
+            self.model.args['temperature'] = 1
             logger.warning(
                 f"Self-consistency only supports generation with temperature>0, automatically set temperature=1."
             )
@@ -103,11 +104,22 @@ class Dataset(torch.utils.data.Dataset):
 
         self.num_shots = args.num_shots
         self.max_example_tokens = args.max_example_tokens
-        self.random_indice = np.random.choice(len(self.example_data), self.args.num_shots)
         self.examples = ""
         self.kate = args.kate
         self.globale = args.globale
         self.ape = args.ape
+        if self.args.num_shots:
+            self.formatted_example_data = [self.format_instance(data) for data in self.example_data]
+            if len(self.example_data) < self.args.num_shots:
+                logger.warning(
+                    f"The example data only has {len(self.example_data)} instances, but the few-shot number is set to {self.args.num_shots}. Setting the few-shot number to {len(self.example_data)}."
+                )
+                self.args.num_shots = len(self.example_data)
+            if len(self.example_data) == self.args.num_shots:
+                self.random_indice = list(range(len(self.example_data)))
+            else:
+                self.random_indice = np.random.choice(len(self.example_data), self.args.num_shots, replace=False)
+        self.formatted_evaluation_data = [self.format_instance(data) for data in self.evaluation_data]
         self.construct_instances()
 
     def load_raw_dataset(
@@ -185,7 +197,8 @@ class Dataset(torch.utils.data.Dataset):
         )
 
         self.evaluation_data = list(load_fn(evaluation_set))
-        self.example_data = list(load_fn(example_set)) if example_set else []
+        if self.args.num_shots:
+            self.example_data = list(load_fn(example_set)) if example_set else []
 
         logger.info(f"Evaluation data with {len(self.evaluation_data)} instances")
         logger.info(f"The example instance:\n{pformat(self.evaluation_data[0])}")
@@ -213,17 +226,15 @@ class Dataset(torch.utils.data.Dataset):
         """
         # automatic instruction
         if self.ape is True:
-            formatted_example_dataset = [self.format_instance(data) for data in self.example_data]
-            formatted_evaluation_dataset = [self.format_instance(data) for data in self.evaluation_data]
             instrction = ape(
-                formatted_example_dataset, formatted_evaluation_dataset, self.model.get_ppl, self.model.api_key
+                self.formatted_example_dataset, self.formatted_evaluation_dataset, self.model.get_ppl,
+                self.model.api_key
             )
             self.instruction = instrction
 
         self.evaluation_instances = []
         self.option_nums = []
-        for instance in self.evaluation_data:
-            formatted_instance = self.format_instance(instance)
+        for formatted_instance in self.formatted_evaluation_data:
             if self.evaluation_type == "ranking":
                 instance_with_examples = self.format_instruction_and_examples(formatted_instance)
                 options = [(instance_with_examples, option) for option in formatted_instance['options']]
@@ -298,23 +309,20 @@ class Dataset(torch.utils.data.Dataset):
         if self.kate is True:
             # select demonstrations based on knn algorithm
             # TODO: Bugs in kate, order, filter
-            formatted_example_data = [self.format_instance(data) for data in self.example_data]
-            indice = knn_construct_examples(instance["source"], formatted_example_data, self.num_shots)
+            indice = knn_construct_examples(instance["source"], self.formatted_example_data, self.num_shots)
         else:
             indice = self.random_indice
 
         if self.globale is True:
             # rank demonstrations based on global entropy
-            if not self.kate:
-                formatted_example_data = [self.format_instance(data) for data in self.example_data]
-            labels = list(range(len(formatted_example_data[0]["options"])))
-            indice = global_entropy_ordering_strategy(indice, labels, formatted_example_data, self.model.get_ppl)
+            labels = list(range(len(self.formatted_example_data[0]["options"])))
+            indice = global_entropy_ordering_strategy(indice, labels, self.formatted_example_data, self.model.get_ppl)
 
         # construct few-shot examples
         example_text = ""
         example_token_nums = 0
         for index in indice:
-            example = self.format_instance(self.example_data[index])
+            example = self.formatted_example_data[index]
             cur_example_text = self.args.instance_format.format_map(example) + "\n\n"
             cur_token_num = len(self.tokenizer.encode(cur_example_text))
             if cur_token_num + example_token_nums <= self.max_example_tokens:
@@ -370,7 +378,7 @@ class Dataset(torch.utils.data.Dataset):
             # log intermediate results only
             dataset_info = (self.evaluation_instances,)
             keys = ["index", "input", "raw_prediction", "reference"]
-        else: # ranking
+        else:  # ranking
             indices = [(i, j) for i in range(len(self.option_nums)) for j in range(self.option_nums[i])]
             question_index, option_index = zip(*indices)
             source_text, target_text = zip(*self.evaluation_instances)

@@ -21,7 +21,7 @@ class Squad_v2(GenerationDataset):
     evaluation_set = "validation"
     load_args = ("squad_v2",)
     metrics = [F1(), Em()]
-    model_args = dict(max_tokens=64, temperature=0)
+    model_args = dict(max_tokens=64, temperature=0, stop=['\n'])
 
     def format_instance(self, instance):
         source_text = "Title: " + instance["title"]  + "\n\nBackground: " \

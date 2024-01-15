@@ -19,6 +19,7 @@ class Translation(GenerationDataset):
     metrics = [Bleu()]
     instruction = ''
     load_args = ()
+    model_args = dict(temperature=0, stop=['\n'])
 
     def format_instance(self, instance):
         instance = instance['translation']
