@@ -46,7 +46,7 @@ class Coqa(GenerationDataset):
     evaluation_set = "validation"
     load_args = ("coqa",)
     metrics = [F1(multiref_strategy='leave_one_out'), Em(multiref_strategy='leave_one_out')]
-    model_args = dict(max_tokens=64, temperature=0)
+    model_args = dict(max_tokens=64, temperature=0, stop=['\n'])
 
     def load_raw_dataset(self, dataset_path, subset_name, evaluation_set, example_set):
         # https://nlp.stanford.edu/data/coqa/coqa-dev-v1.0.json
