@@ -1,7 +1,10 @@
 from typing import Union
+from logging import getLogger
 
-from transformers import PreTrainedTokenizer
+from transformers import PreTrainedTokenizer, PreTrainedTokenizerFast
 from tiktoken import Encoding
+
+logger = getLogger(__name__)
 
 
 class Model:
@@ -13,7 +16,7 @@ class Model:
     Attributes:
         name (str): The name of this model.
         type (str): The type of this model, which can be chosen from `base` and `instruction`.
-        tokenizer (Union[transformers.PreTrainedTokenizer, tiktoken.Encoding]): The tokenizer of this model.
+        tokenizer (Union[transformers.PreTrainedTokenizer, PreTrainedTokenizerFast, tiktoken.Encoding]): The tokenizer of this model.
         max_tokens (int): The maximum token length of this model.
         generation_kwargs (dict): The configurations for open-ended generation.
         ppl_kwargs (dict, *optional*): The configurations for computing PPL score.
@@ -23,7 +26,7 @@ class Model:
 
     def __init__(self, args):
         self.args = args
-        self.tokenizer: Union[PreTrainedTokenizer, Encoding] = None
+        self.tokenizer: Union[PreTrainedTokenizer, PreTrainedTokenizerFast, Encoding] = None
 
     def set_ppl_args(self, **kwargs):
         r"""Set the configurations for PPL score calculation. This is useful because different datasets may have different requirements for ppl calculation."""
