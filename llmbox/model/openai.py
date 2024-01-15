@@ -58,7 +58,7 @@ class Openai(Model):
         results = self.request(prompt, self.ppl_kwargs)
         ppls = []
         for result, (src, _) in zip(results, batched_inputs):
-            tgt_start = max(1, result['logprobs']['text_offset'].index(len(src))) # designed for src=''
+            tgt_start = max(1, result['logprobs']['text_offset'].index(len(src)))  # designed for src=''
             tgt_end = len(result['logprobs']['text_offset'])
             ppl = -sum(result['logprobs']['token_logprobs'][tgt_start:])
             ppls.append((ppl, tgt_end - tgt_start))
