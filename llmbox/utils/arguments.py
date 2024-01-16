@@ -21,7 +21,7 @@ class ModelArguments:
     model_type: str = HfArg(
         default=None,
         help="The type of the model, which can be chosen from `base` or `instruction`.",
-        metadata={"choices": ['base', 'instruction', None]}
+        metadata={"choices": ['base', 'instruction']}
     )
     device_map: str = HfArg(
         default="auto",
