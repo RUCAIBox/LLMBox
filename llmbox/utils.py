@@ -1,17 +1,19 @@
-import os
-import logging
-import coloredlogs
-import warnings
 import datetime
+import logging
+import os
+import warnings
 from builtins import bool
 from dataclasses import MISSING, dataclass
 from logging import getLogger
-from typing import Optional, Tuple, ClassVar, Set, Union, List
+from typing import ClassVar, List, Optional, Set, Tuple, Union
+
+import coloredlogs
+import tqdm
 from transformers.hf_argparser import HfArg, HfArgumentParser
 
 from .model.enum import OPENAI_CHAT_MODELS
 
-__all__ = ['ModelArguments', 'DatasetArguments', 'EvaluationArguments', 'parse_argument']
+__all__ = ['ModelArguments', 'DatasetArguments', 'EvaluationArguments', 'parse_argument', 'dynamic_interval_tqdm']
 
 logger = getLogger(__name__)
 
@@ -26,6 +28,51 @@ log_levels = {
 DEFAULT_LOG_FORMAT = '%(asctime)s %(levelname)s %(message)s'
 
 DEFAULT_DATETIME_FORMAT = '%Y_%m_%d-%H_%M_%S'  # Compatible with windows, which does not support ':' in filename
+
+
+class dynamic_interval_tqdm(tqdm.tqdm):
+
+    def __init__(self, iterable=None, intervals=None, desc=None, disable=False, unit='it',
+                 dynamic_ncols=False, total=None, **kwargs):
+        super().__init__(iterable=iterable, desc=desc, disable=disable, unit=unit, unit_scale=False,
+                         dynamic_ncols=dynamic_ncols, total=total, **kwargs)
+        self.intervals = intervals
+        if len(intervals) != total:
+            raise ValueError(f"Length of intervals {len(intervals)} does not match total {total}.")
+
+    def __iter__(self):
+        """Overwrite the original tqdm iterator to support dynamic intervals."""
+
+        iterable = self.iterable
+
+        if self.disable:
+            for obj in iterable:
+                yield obj
+            return
+
+        mininterval = self.mininterval
+        last_print_t = self.last_print_t
+        last_print_n = self.last_print_n
+        min_start_t = self.start_t + self.delay
+        n = self.n
+        time = self._time
+
+        try:
+            for obj in iterable:
+                yield obj
+                # Update the progress bar with dynamic intervals
+                n += 1 / self.intervals[int(n)]
+
+                if n - last_print_n >= self.miniters:
+                    cur_t = time()
+                    dt = cur_t - last_print_t
+                    if dt >= mininterval and cur_t >= min_start_t:
+                        self.update(n - last_print_n)
+                        last_print_n = self.last_print_n
+                        last_print_t = self.last_print_t
+        finally:
+            self.n = n
+            self.close()
 
 
 @dataclass
@@ -88,8 +135,7 @@ class ModelArguments:
     )
     repetition_penalty: float = HfArg(
         default=None,
-        help=
-        "Values>1 penalize new tokens based on their existing frequency in the prompt and generated text, vice versa.",
+        help="Values>1 penalize new tokens based on their existing frequency in the prompt and generated text, vice versa.",
     )
     presence_penalty: float = HfArg(
         default=None,
@@ -132,15 +178,13 @@ class DatasetArguments:
     dataset_name: str = HfArg(
         default=MISSING,
         aliases=["-d", "--dataset"],
-        help=
-        "The name of a dataset or the name(s) of a/several subset(s) in a dataset. Format: 'dataset' or 'dataset:subset(s)', e.g., copa, race, race:high, or wmt16:en-ro,en-fr"
+        help="The name of a dataset or the name(s) of a/several subset(s) in a dataset. Format: 'dataset' or 'dataset:subset(s)', e.g., copa, race, race:high, or wmt16:en-ro,en-fr"
     )
     subset_names: ClassVar[Set[str]] = set()
     """The name(s) of a/several subset(s) in a dataset, derived from `dataset_name` argument on initalization"""
     dataset_path: Optional[str] = HfArg(
         default=None,
-        help=
-        "The path of dataset if loading from local. Supports repository cloned from huggingface or dataset saved by `save_to_disk`."
+        help="The path of dataset if loading from local. Supports repository cloned from huggingface or dataset saved by `save_to_disk`."
     )
 
     evaluation_set: Optional[str] = HfArg(
@@ -211,8 +255,7 @@ class EvaluationArguments:
     )
     log_level: str = HfArg(
         default="info",
-        help=
-        "Logger level to use on the main node. Possible choices are the log levels as strings: 'debug', 'info', 'warning', 'error' and 'critical'",
+        help="Logger level to use on the main node. Possible choices are the log levels as strings: 'debug', 'info', 'warning', 'error' and 'critical'",
         metadata={"choices": log_levels.keys()},
     )
     evaluation_results_dir: str = HfArg(
