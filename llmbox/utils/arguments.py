@@ -1,78 +1,13 @@
-import datetime
-import logging
 import os
 import warnings
 from builtins import bool
 from dataclasses import MISSING, dataclass
-from logging import getLogger
 from typing import ClassVar, List, Optional, Set, Tuple, Union
 
-import coloredlogs
-import tqdm
 from transformers.hf_argparser import HfArg, HfArgumentParser
 
-from .model.enum import OPENAI_CHAT_MODELS
-
-__all__ = ['ModelArguments', 'DatasetArguments', 'EvaluationArguments', 'parse_argument', 'dynamic_interval_tqdm']
-
-logger = getLogger(__name__)
-
-log_levels = {
-    "debug": logging.DEBUG,
-    "info": logging.INFO,
-    "warning": logging.WARNING,
-    "error": logging.ERROR,
-    "critical": logging.CRITICAL,
-}
-
-DEFAULT_LOG_FORMAT = '%(asctime)s %(levelname)s %(message)s'
-
-DEFAULT_DATETIME_FORMAT = '%Y_%m_%d-%H_%M_%S'  # Compatible with windows, which does not support ':' in filename
-
-
-class dynamic_interval_tqdm(tqdm.tqdm):
-
-    def __init__(self, iterable=None, intervals=None, desc=None, disable=False, unit='it',
-                 dynamic_ncols=False, total=None, **kwargs):
-        super().__init__(iterable=iterable, desc=desc, disable=disable, unit=unit, unit_scale=False,
-                         dynamic_ncols=dynamic_ncols, total=total, **kwargs)
-        self.intervals = intervals
-        if len(intervals) != total:
-            raise ValueError(f"Length of intervals {len(intervals)} does not match total {total}.")
-
-    def __iter__(self):
-        """Overwrite the original tqdm iterator to support dynamic intervals."""
-
-        iterable = self.iterable
-
-        if self.disable:
-            for obj in iterable:
-                yield obj
-            return
-
-        mininterval = self.mininterval
-        last_print_t = self.last_print_t
-        last_print_n = self.last_print_n
-        min_start_t = self.start_t + self.delay
-        n = self.n
-        time = self._time
-
-        try:
-            for obj in iterable:
-                yield obj
-                # Update the progress bar with dynamic intervals
-                n += 1 / self.intervals[int(n)]
-
-                if n - last_print_n >= self.miniters:
-                    cur_t = time()
-                    dt = cur_t - last_print_t
-                    if dt >= mininterval and cur_t >= min_start_t:
-                        self.update(n - last_print_n)
-                        last_print_n = self.last_print_n
-                        last_print_t = self.last_print_t
-        finally:
-            self.n = n
-            self.close()
+from ..model.enum import OPENAI_CHAT_MODELS
+from .logging import log_levels, set_logging
 
 
 @dataclass
@@ -267,48 +202,6 @@ class EvaluationArguments:
     def __post_init__(self):
         os.makedirs(self.logging_dir, exist_ok=True)
         os.makedirs(self.evaluation_results_dir, exist_ok=True)
-
-
-def set_logging(
-    model_args: ModelArguments,
-    dataset_args: DatasetArguments,
-    evaluation_args: EvaluationArguments,
-    file_log_level: str = 'info',
-) -> None:
-    """Set the logging level for standard output and file."""
-
-    # Use package logger to disable logging of other packages. Set the level to DEBUG first
-    # to allow all logs from our package, and then set the level to the desired one.
-    package_logger = logging.getLogger(__package__)
-    coloredlogs.install(
-        level=logging.DEBUG,
-        logger=package_logger,
-        fmt=DEFAULT_LOG_FORMAT,
-    )
-    package_logger.handlers[0].setLevel(level=log_levels[evaluation_args.log_level])
-
-    # set the log file
-    model_name = model_args.model_name_or_path.strip("/").split("/")[-1]
-    dataset_name = dataset_args.dataset_name + (
-        "_" + ",".join(dataset_args.subset_names) if dataset_args.subset_names else ""
-    )
-    num_shots = str(dataset_args.num_shots)
-    execution_time = datetime.datetime.now().strftime(DEFAULT_DATETIME_FORMAT)
-    log_filename = f"{model_name}-{dataset_name}-{num_shots}shot-{execution_time}"
-    log_path = f"{evaluation_args.logging_dir}/{log_filename}.log"
-    evaluation_results_path = f"{evaluation_args.evaluation_results_dir}/{log_filename}.json"
-    dataset_args.evaluation_results_path = evaluation_results_path  # type: ignore
-
-    # add file handler to root logger
-    handler = logging.FileHandler(log_path)
-    formatter = coloredlogs.BasicFormatter(fmt=DEFAULT_LOG_FORMAT)
-    coloredlogs.HostNameFilter.install(handler=handler)
-    handler.setLevel(level=log_levels[file_log_level])
-    handler.setFormatter(formatter)
-    package_logger.addHandler(handler)
-
-    # finish logging initialization
-    logger.info(f"Saving logs to {log_path}")
 
 
 def check_args(model_args, dataset_args, evaluation_args):
