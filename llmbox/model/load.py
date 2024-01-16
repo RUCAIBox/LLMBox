@@ -2,9 +2,6 @@ from logging import getLogger
 
 from ..utils import ModelArguments
 from .model import Model
-from .openai import Openai
-from .huggingface_model import HuggingFaceModel
-from .vllm_model import vllmModel
 from .enum import OPENAI_MODELS
 
 logger = getLogger(__name__)
@@ -22,10 +19,12 @@ def load_model(args: ModelArguments) -> Model:
     if args.model_name_or_path.lower() in OPENAI_MODELS:
         logger.info(f"Loading OpenAI API model `{args.model_name_or_path.lower()}`.")
         args.vllm = False
+        from .openai import Openai
         return Openai(args)
     else:
         if args.vllm:
             try:
+                from .vllm_model import vllmModel
                 return vllmModel(args)
             except ValueError as e:
                 if 'are not supported for now' in str(e):
@@ -35,4 +34,5 @@ def load_model(args: ModelArguments) -> Model:
                     raise e
             except Exception as e:
                 raise e
+        from .huggingface_model import HuggingFaceModel
         return HuggingFaceModel(args)
