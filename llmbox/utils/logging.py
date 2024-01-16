@@ -1,6 +1,7 @@
 import datetime
 import logging
 from logging import getLogger
+from typing import Optional
 
 import coloredlogs
 
@@ -24,7 +25,7 @@ def set_logging(
     model_args,
     dataset_args,
     evaluation_args,
-    file_log_level: str = 'info',
+    file_log_level: Optional[str] = None,
 ) -> None:
     """Set the logging level for standard output and file."""
 
@@ -37,6 +38,10 @@ def set_logging(
         fmt=DEFAULT_LOG_FORMAT,
     )
     package_logger.handlers[0].setLevel(level=log_levels[evaluation_args.log_level])
+    if file_log_level is None:
+        int_file_log_level = min(log_levels[evaluation_args.log_level], log_levels["info"])
+    else:
+        int_file_log_level = log_levels[file_log_level]
 
     # set the log file
     model_name = model_args.model_name_or_path.strip("/").split("/")[-1]
@@ -54,7 +59,7 @@ def set_logging(
     handler = logging.FileHandler(log_path)
     formatter = coloredlogs.BasicFormatter(fmt=DEFAULT_LOG_FORMAT)
     coloredlogs.HostNameFilter.install(handler=handler)
-    handler.setLevel(level=log_levels[file_log_level])
+    handler.setLevel(level=int_file_log_level)
     handler.setFormatter(formatter)
     package_logger.addHandler(handler)
 

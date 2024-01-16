@@ -1,13 +1,18 @@
+import sys
 import os
 import warnings
 from builtins import bool
 from dataclasses import MISSING, dataclass
+from logging import getLogger
 from typing import ClassVar, List, Optional, Set, Tuple, Union
 
 from transformers.hf_argparser import HfArg, HfArgumentParser
+import openai
 
 from ..model.enum import OPENAI_CHAT_MODELS
 from .logging import log_levels, set_logging
+
+logger = getLogger(__name__)
 
 
 @dataclass
@@ -39,6 +44,7 @@ class ModelArguments:
         default=None,
         help="The OpenAI API key",
     )
+    """The redacted API key for logging."""
 
     tokenizer_name_or_path: str = HfArg(
         default=None, aliases=["--tokenizer"], help="The tokenizer name or path, e.g., meta-llama/Llama-2-7b-hf"
@@ -99,9 +105,15 @@ class ModelArguments:
         help="Positive values encourage longer sequences, vice versa. Used in beam search.",
     )
 
+    seed: ClassVar[int] = None  # use class variable to facilitate type hint inference
+
     def __post_init__(self):
         if "OPENAI_API_KEY" in os.environ and self.openai_api_key is None:
             self.openai_api_key = os.environ["OPENAI_API_KEY"]
+        if self.openai_api_key is not None:
+            # set openai api key at here and redact the argument
+            openai.api_key = self.openai_api_key
+            self.openai_api_key = self.openai_api_key[:8] + "*" * 39 + self.openai_api_key[-4:]
 
         if self.tokenizer_name_or_path is None:
             self.tokenizer_name_or_path = self.model_name_or_path
@@ -171,6 +183,9 @@ class DatasetArguments:
         metadata={"choices": ['base', 'least_to_most', 'pal']},
     )
 
+    # set in `set_logging` with format "{evaluation_results_dir}/{log_filename}.json"
+    evaluation_results_path: ClassVar[str] = None
+
     def __post_init__(self):
         if ":" in self.dataset_name:
             self.dataset_name, subset_names = self.dataset_name.split(":")
@@ -204,7 +219,7 @@ class EvaluationArguments:
         os.makedirs(self.evaluation_results_dir, exist_ok=True)
 
 
-def check_args(model_args, dataset_args, evaluation_args):
+def check_args(model_args: ModelArguments, dataset_args: DatasetArguments, evaluation_args: EvaluationArguments):
     r"""Check the validity of arguments.
 
     Args:
@@ -226,9 +241,17 @@ def parse_argument(args=None) -> Tuple[ModelArguments, DatasetArguments, Evaluat
     Returns:
         Namespace: the parsed arguments
     """
+    if args is None:
+        args = sys.argv[1:]
     parser = HfArgumentParser((ModelArguments, DatasetArguments, EvaluationArguments), description="LLMBox description")
     model_args, dataset_args, evaluation_args = parser.parse_args_into_dataclasses(args)
     check_args(model_args, dataset_args, evaluation_args)
     set_logging(model_args, dataset_args, evaluation_args)
+
+    # log arguments and environment variables
+    logger.info("Passed arguments: {}".format(" ".join(args)))
+    logger.info(f"Full arguments:\n{model_args}\n{dataset_args}\n{evaluation_args}")
+    if "CUDA_VISIBLE_DEVICES" in os.environ:
+        logger.info(f"CUDA_VISIBLE_DEVICES={os.environ['CUDA_VISIBLE_DEVICES']}")
 
     return model_args, dataset_args, evaluation_args
