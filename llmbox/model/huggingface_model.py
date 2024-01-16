@@ -1,13 +1,10 @@
-from functools import partial
 from logging import getLogger
-from pprint import pformat
-from typing import Iterator, List, Union, Tuple
+from typing import Iterator, List, Tuple, Union
 
 import torch
-from torch import Tensor
 from torch.nn import CrossEntropyLoss
-from transformers import GenerationConfig
-from transformers import AutoModelForCausalLM, AutoTokenizer, PreTrainedModel, PreTrainedTokenizer, PreTrainedTokenizerFast
+from transformers import AutoModelForCausalLM, AutoTokenizer, PreTrainedModel, PreTrainedTokenizer, \
+    PreTrainedTokenizerFast
 
 from ..utils import ModelArguments
 from .model import Model

@@ -1,8 +1,8 @@
 from logging import getLogger
 
 from ..utils import ModelArguments
-from .model import Model
 from .enum import OPENAI_MODELS
+from .model import Model
 
 logger = getLogger(__name__)
 

@@ -1,8 +1,10 @@
+from itertools import permutations
+
+import numpy as np
 import openai
 import torch
-from itertools import permutations
-import numpy as np
 from tqdm import tqdm
+
 from ..model import openai
 
 
