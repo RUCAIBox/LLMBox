@@ -23,6 +23,7 @@ class Translation(GenerationDataset):
     metrics = [Bleu()]
     instruction = ''
     load_args = ()
+    model_args = dict(temperature=0, stop=['\n'])
     
     def __init__(self, args: DatasetArguments, model: Model, subset_name: str | None = None):
         self.language = Language(subset_name[3:5]).language_name('en')

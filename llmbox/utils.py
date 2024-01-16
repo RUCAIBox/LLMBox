@@ -6,7 +6,7 @@ import datetime
 from builtins import bool
 from dataclasses import MISSING, dataclass
 from logging import getLogger
-from typing import Optional, Tuple, ClassVar, Set
+from typing import Optional, Tuple, ClassVar, Set, Union, List
 from transformers.hf_argparser import HfArg, HfArgumentParser
 
 from .model.enum import OPENAI_CHAT_MODELS
@@ -32,52 +32,98 @@ DEFAULT_DATETIME_FORMAT = '%Y_%m_%d-%H_%M_%S'  # Compatible with windows, which 
 class ModelArguments:
 
     model_name_or_path: str = HfArg(
-        default=MISSING, aliases=["--model", "-m"], help="The model name or path, e.g., cuire, llama"
+        default=MISSING,
+        aliases=["--model", "-m"],
+        help="The model name or path, e.g., davinci-002, meta-llama/Llama-2-7b-hf, ./mymodel"
     )
-    openai_api_key: str = HfArg(
+    model_type: str = HfArg(
         default=None,
-        help="The OpenAI API key",
+        help="The type of the model, which can be chosen from `base` or `instruction`.",
+        metadata={"choices": ['base', 'instruction', None]}
     )
     device_map: str = HfArg(
         default="auto",
         help="The device map for model and data",
     )
+    vllm: bool = HfArg(
+        default=True,
+        help="Whether to use vllm",
+    )
+    flash_attention: bool = HfArg(
+        default=True,
+        help="Whether to use flash attention",
+    )
+    openai_api_key: str = HfArg(
+        default=None,
+        help="The OpenAI API key",
+    )
+
+    tokenizer_name_or_path: str = HfArg(
+        default=None, aliases=["--tokenizer"], help="The tokenizer name or path, e.g., meta-llama/Llama-2-7b-hf"
+    )
+
     max_tokens: Optional[int] = HfArg(
         default=None,
         help="The maximum number of tokens for output generation",
     )
-    max_sequence_length: Optional[int] = HfArg(
+    max_length: Optional[int] = HfArg(
         default=None,
         help="The maximum number of tokens of model input sequence",
     )
-
-    # Open AI generation kwargs
     temperature: float = HfArg(
         default=None,
         help="The temperature for models",
-    )
-    best_of: int = HfArg(
-        default=None,
-        help="The beam size of OpenAI generation",
-    )
-    frequency_penalty: float = HfArg(
-        default=None,
-        help=
-        "The penalty coefficient of OpenAI generation. Positive values penalize new tokens based on their existing frequency, vice versa.",
-    )
-    presence_penalty: float = HfArg(
-        default=None,
-        help=
-        "The penalty coefficient of OpenAI generation. Positive values penalize new tokens based on whether they appear, vice versa.",
     )
     top_p: float = HfArg(
         default=None,
         help="The model considers the results of the tokens with top_p probability mass.",
     )
+    top_k: float = HfArg(
+        default=None,
+        help="The model considers the token with top_k probability.",
+    )
+    frequency_penalty: float = HfArg(
+        default=None,
+        help="Positive values penalize new tokens based on their existing frequency in the generated text, vice versa.",
+    )
+    repetition_penalty: float = HfArg(
+        default=None,
+        help=
+        "Values>1 penalize new tokens based on their existing frequency in the prompt and generated text, vice versa.",
+    )
+    presence_penalty: float = HfArg(
+        default=None,
+        help="Positive values penalize new tokens based on whether they appear in the generated text, vice versa.",
+    )
+    stop: Union[str, List[str]] = HfArg(
+        default=None,
+        help="List of strings that stop the generation when they are generated.",
+    )
+    no_repeat_ngram_size: int = HfArg(
+        default=None,
+        help="All ngrams of that size can only occur once.",
+    )
+
+    best_of: int = HfArg(
+        default=None,
+        aliases=["--num_beams"],
+        help="The beam size for beam search",
+    )
+    length_penalty: float = HfArg(
+        default=None,
+        help="Positive values encourage longer sequences, vice versa. Used in beam search.",
+    )
+    early_stopping: Union[bool, str] = HfArg(
+        default=None,
+        help="Positive values encourage longer sequences, vice versa. Used in beam search.",
+    )
 
     def __post_init__(self):
         if "OPENAI_API_KEY" in os.environ and self.openai_api_key is None:
             self.openai_api_key = os.environ["OPENAI_API_KEY"]
+
+        if self.tokenizer_name_or_path is None:
+            self.tokenizer_name_or_path = self.model_name_or_path
 
 
 @dataclass

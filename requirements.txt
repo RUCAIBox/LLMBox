@@ -10,3 +10,5 @@ coloredlogs
 nltk
 sacrebleu
 rouge_score
+vllm
+flash-attn
