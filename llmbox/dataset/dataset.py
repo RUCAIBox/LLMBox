@@ -280,7 +280,8 @@ class Dataset(torch.utils.data.Dataset):
         Returns:
             str: The final formatted instance.
         """
-        self.examples = self.construct_examples(instance)
+        if self.examples == '' or self.kate or self.globale:
+            self.examples = self.construct_examples(instance)
         if self.model.type == 'base':
             source = self.examples + self.args.instance_format.format(source=instance["source"], target="")
         elif self.model.type == 'instruction':

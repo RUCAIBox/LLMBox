@@ -61,7 +61,7 @@ class Squad_v2(GenerationDataset):
                 classified_title[key] = [item]
 
         keys = list(classified_title.keys())
-        randoms_keys = [keys[i] for i in np.random.choice(range(len(keys)), self.num_shots)]
+        randoms_keys = [keys[i] for i in np.random.choice(range(len(keys)), self.num_shots, replace=False)]
         for data in [classified_title[key] for key in randoms_keys]:
             instance = data[0]
             source_text = "Title: " + instance["title"] + "\n\nBackground: " + instance["context"]
