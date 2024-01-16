@@ -1,13 +1,13 @@
-import sys
 import os
+import sys
 import warnings
 from builtins import bool
 from dataclasses import MISSING, dataclass
 from logging import getLogger
 from typing import ClassVar, List, Optional, Set, Tuple, Union
 
-from transformers.hf_argparser import HfArg, HfArgumentParser
 import openai
+from transformers.hf_argparser import HfArg, HfArgumentParser
 
 from ..model.enum import OPENAI_CHAT_MODELS
 from .logging import log_levels, set_logging

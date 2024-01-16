@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 
 from .dataset import load_dataset
 from .model import load_model
-from .utils import DatasetArguments, EvaluationArguments, ModelArguments, dynamic_interval_tqdm
+from .utils import DatasetArguments, EvaluationArguments, ModelArguments, catch_error, dynamic_interval_tqdm
 
 logger = getLogger(__name__)
 
@@ -42,6 +42,7 @@ class Evaluator:
                 )
         self.dataset = load_dataset(self.dataset_args, self.model)
 
+    @catch_error
     def evaluate(self) -> Dict[str, float]:
         r"""It conducts the evaluation on the dataset with corresponding models.
         We support two evaluation types:
