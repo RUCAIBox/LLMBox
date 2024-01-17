@@ -27,8 +27,8 @@ class Wic(MultipleChoiceDataset):
         ] + '\n' + f"question: Is the word '{instance['word']}' used in the same way in the two sentences above?\nanswer:"
 
         label2text = {
-            0: ' False',
-            1: ' True',
+            0: ' no',
+            1: ' yes',
         }
 
         options = [label2text[option] for option in [0, 1]]

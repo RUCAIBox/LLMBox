@@ -14,32 +14,24 @@ class Wsc(MultipleChoiceDataset):
         span2_text: He
         label: 0
     """
-    instruction = "Final Exam with Answer Key"
+    instruction = ""
     evaluation_set = "validation"
     example_set = "train"
     load_args = ("super_glue", "wsc")
 
     def format_instance(self, instance):
 
-        def mark_word(sentence, index):
+        def mark_word(sentence, index, word):
             words = sentence.split()
-            if index < 0 or index >= len(words):
-                return "OverIndex"
-            front = 0
-            rear = len(words[index])
-            while str.isalpha(words[index][front]) == False and front < rear:
-                front += 1
-            while str.isalpha(words[index][rear - 1]) == False and front < rear:
-                rear -= 1
-            if front == rear:
-                print("Not word")
-                return sentence
-            words[index] = (words[index][:front] + "*" + words[index][front:rear] + "*" + words[index][rear:])
+            words[index] = ("*" + words[index][:len(word)] + "*" + words[index][len(word):])
             return " ".join(words)
 
-        source = "Instructions: Please carefully read the following passages. For each passage, you must identify which noun the pronoun marked in *bold* refers to.\n"
+        source = "Final Exam with Answer Key\nInstructions: Please carefully read the following passages. For each passage, you must identify which noun the pronoun marked in *bold* refers to.\n"
         source += '=====\n'
-        modified_text = mark_word(instance['text'], instance['span2_index'])
+        if (instance['idx'] != 42):
+            modified_text = mark_word(instance['text'], instance['span2_index'], instance['span2_text'])
+        else:
+            modified_text = 'When they had eventually calmed down a bit , and had gotten home, Mr. Farley put the magic pebble in an iron safe . Some day they might want to use *it* , but really for now, what more could they wish for'
         source += f'Passage: {modified_text}\n'
         source += f'Question: In the passage above, does the pronoun "*{instance["span2_text"]}*" refer to "{instance["span1_text"]}"?\n'
         source += "Answer:"
