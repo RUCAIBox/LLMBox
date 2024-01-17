@@ -6,7 +6,7 @@ from typing import ClassVar, List, Optional, Set, Tuple, Union
 
 from transformers.hf_argparser import HfArg, HfArgumentParser
 
-from ..model.enum import OPENAI_CHAT_MODELS
+from ..model.enum import OPENAI_CHAT_MODELS, ANTHROPIC_MODELS
 from .logging import log_levels, set_logging
 
 
@@ -38,6 +38,10 @@ class ModelArguments:
     openai_api_key: str = HfArg(
         default=None,
         help="The OpenAI API key",
+    )
+    anthropic_api_key: str = HfArg(
+        default=None,
+        help="The Anthropic API key",
     )
 
     tokenizer_name_or_path: str = HfArg(
@@ -102,6 +106,9 @@ class ModelArguments:
     def __post_init__(self):
         if "OPENAI_API_KEY" in os.environ and self.openai_api_key is None:
             self.openai_api_key = os.environ["OPENAI_API_KEY"]
+
+        if "ANTHROPIC_API_KEY" in os.environ and self.anthropic_api_key is None:
+            self.anthropic_api_key = os.environ["ANTHROPIC_API_KEY"]
 
         if self.tokenizer_name_or_path is None:
             self.tokenizer_name_or_path = self.model_name_or_path

@@ -1,7 +1,7 @@
 from logging import getLogger
 
 from ..utils import ModelArguments
-from .enum import OPENAI_MODELS
+from .enum import OPENAI_MODELS, ANTHROPIC_MODELS
 from .model import Model
 
 logger = getLogger(__name__)
@@ -21,6 +21,11 @@ def load_model(args: ModelArguments) -> Model:
         args.vllm = False
         from .openai import Openai
         return Openai(args)
+    elif args.model_name_or_path.lower() in ANTHROPIC_MODELS:
+        logger.info(f"Loading Anthropic API model `{args.model_name_or_path.lower()}`.")
+        args.vllm = False
+        from .anthropic import Anthropic
+        return Anthropic(args)
     else:
         if args.vllm:
             try:
