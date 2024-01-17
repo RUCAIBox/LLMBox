@@ -15,3 +15,6 @@ class Metric:
         raise NotImplementedError(
             f"{self.__class__.__name__} metric must implement the `__call__` function for score calculation."
         )
+
+    def __repr__(self):
+        return self.__class__.__name__ + "()"
