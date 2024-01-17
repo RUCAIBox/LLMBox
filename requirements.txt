@@ -12,3 +12,5 @@ sacrebleu
 rouge_score
 vllm
 flash-attn
+langcodes
+language_data
