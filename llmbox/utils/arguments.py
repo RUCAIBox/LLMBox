@@ -1,31 +1,13 @@
 import os
-import logging
-import coloredlogs
 import warnings
-import datetime
 from builtins import bool
 from dataclasses import MISSING, dataclass
-from logging import getLogger
-from typing import Optional, Tuple, ClassVar, Set, Union, List
+from typing import ClassVar, List, Optional, Set, Tuple, Union
+
 from transformers.hf_argparser import HfArg, HfArgumentParser
 
-from .model.enum import OPENAI_CHAT_MODELS
-
-__all__ = ['ModelArguments', 'DatasetArguments', 'EvaluationArguments', 'parse_argument']
-
-logger = getLogger(__name__)
-
-log_levels = {
-    "debug": logging.DEBUG,
-    "info": logging.INFO,
-    "warning": logging.WARNING,
-    "error": logging.ERROR,
-    "critical": logging.CRITICAL,
-}
-
-DEFAULT_LOG_FORMAT = '%(asctime)s %(levelname)s %(message)s'
-
-DEFAULT_DATETIME_FORMAT = '%Y_%m_%d-%H_%M_%S'  # Compatible with windows, which does not support ':' in filename
+from ..model.enum import OPENAI_CHAT_MODELS
+from .logging import log_levels, set_logging
 
 
 @dataclass
@@ -88,8 +70,7 @@ class ModelArguments:
     )
     repetition_penalty: float = HfArg(
         default=None,
-        help=
-        "Values>1 penalize new tokens based on their existing frequency in the prompt and generated text, vice versa.",
+        help="Values>1 penalize new tokens based on their existing frequency in the prompt and generated text, vice versa.",
     )
     presence_penalty: float = HfArg(
         default=None,
@@ -132,15 +113,13 @@ class DatasetArguments:
     dataset_name: str = HfArg(
         default=MISSING,
         aliases=["-d", "--dataset"],
-        help=
-        "The name of a dataset or the name(s) of a/several subset(s) in a dataset. Format: 'dataset' or 'dataset:subset(s)', e.g., copa, race, race:high, or wmt16:en-ro,en-fr"
+        help="The name of a dataset or the name(s) of a/several subset(s) in a dataset. Format: 'dataset' or 'dataset:subset(s)', e.g., copa, race, race:high, or wmt16:en-ro,en-fr"
     )
     subset_names: ClassVar[Set[str]] = set()
     """The name(s) of a/several subset(s) in a dataset, derived from `dataset_name` argument on initalization"""
     dataset_path: Optional[str] = HfArg(
         default=None,
-        help=
-        "The path of dataset if loading from local. Supports repository cloned from huggingface or dataset saved by `save_to_disk`."
+        help="The path of dataset if loading from local. Supports repository cloned from huggingface or dataset saved by `save_to_disk`."
     )
 
     evaluation_set: Optional[str] = HfArg(
@@ -211,8 +190,7 @@ class EvaluationArguments:
     )
     log_level: str = HfArg(
         default="info",
-        help=
-        "Logger level to use on the main node. Possible choices are the log levels as strings: 'debug', 'info', 'warning', 'error' and 'critical'",
+        help="Logger level to use on the main node. Possible choices are the log levels as strings: 'debug', 'info', 'warning', 'error' and 'critical'",
         metadata={"choices": log_levels.keys()},
     )
     evaluation_results_dir: str = HfArg(
@@ -224,48 +202,6 @@ class EvaluationArguments:
     def __post_init__(self):
         os.makedirs(self.logging_dir, exist_ok=True)
         os.makedirs(self.evaluation_results_dir, exist_ok=True)
-
-
-def set_logging(
-    model_args: ModelArguments,
-    dataset_args: DatasetArguments,
-    evaluation_args: EvaluationArguments,
-    file_log_level: str = 'info',
-) -> None:
-    """Set the logging level for standard output and file."""
-
-    # Use package logger to disable logging of other packages. Set the level to DEBUG first
-    # to allow all logs from our package, and then set the level to the desired one.
-    package_logger = logging.getLogger(__package__)
-    coloredlogs.install(
-        level=logging.DEBUG,
-        logger=package_logger,
-        fmt=DEFAULT_LOG_FORMAT,
-    )
-    package_logger.handlers[0].setLevel(level=log_levels[evaluation_args.log_level])
-
-    # set the log file
-    model_name = model_args.model_name_or_path.strip("/").split("/")[-1]
-    dataset_name = dataset_args.dataset_name + (
-        "_" + ",".join(dataset_args.subset_names) if dataset_args.subset_names else ""
-    )
-    num_shots = str(dataset_args.num_shots)
-    execution_time = datetime.datetime.now().strftime(DEFAULT_DATETIME_FORMAT)
-    log_filename = f"{model_name}-{dataset_name}-{num_shots}shot-{execution_time}"
-    log_path = f"{evaluation_args.logging_dir}/{log_filename}.log"
-    evaluation_results_path = f"{evaluation_args.evaluation_results_dir}/{log_filename}.json"
-    dataset_args.evaluation_results_path = evaluation_results_path  # type: ignore
-
-    # add file handler to root logger
-    handler = logging.FileHandler(log_path)
-    formatter = coloredlogs.BasicFormatter(fmt=DEFAULT_LOG_FORMAT)
-    coloredlogs.HostNameFilter.install(handler=handler)
-    handler.setLevel(level=log_levels[file_log_level])
-    handler.setFormatter(formatter)
-    package_logger.addHandler(handler)
-
-    # finish logging initialization
-    logger.info(f"Saving logs to {log_path}")
 
 
 def check_args(model_args, dataset_args, evaluation_args):
