@@ -1,8 +1,8 @@
-from typing import Union
 from logging import getLogger
+from typing import Union
 
-from transformers import PreTrainedTokenizer, PreTrainedTokenizerFast
 from tiktoken import Encoding
+from transformers import PreTrainedTokenizer, PreTrainedTokenizerFast
 
 logger = getLogger(__name__)
 

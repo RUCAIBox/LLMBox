@@ -4,11 +4,10 @@ from typing import Dict, Tuple
 
 from accelerate.utils import set_seed
 from torch.utils.data import DataLoader
-from tqdm import tqdm
 
 from .dataset import load_dataset
 from .model import load_model
-from .utils import DatasetArguments, EvaluationArguments, ModelArguments
+from .utils import DatasetArguments, EvaluationArguments, ModelArguments, catch_error, dynamic_interval_tqdm
 
 logger = getLogger(__name__)
 
@@ -43,6 +42,7 @@ class Evaluator:
                 )
         self.dataset = load_dataset(self.dataset_args, self.model)
 
+    @catch_error
     def evaluate(self) -> Dict[str, float]:
         r"""It conducts the evaluation on the dataset with corresponding models.
         We support two evaluation types:
@@ -73,10 +73,21 @@ class Evaluator:
                 f"We only support three evaluation types: `ranking`, `generation`, and `user_defined`, but got `{self.dataset.evaluation_type}`."
             )
 
+        # log arguments after model and dataset are loaded, since they may change some arguments
+        logger.info(f"Full arguments:\n    {self.model_args}\n    {self.dataset_args}\n    {self.evaluation_args}")
+        logger.info(f"{self.dataset.name} arguments:\n    {self.dataset}")
+
         # call model
         raw_predictions = []
         if self.dataset_args.batch_size != -1:
-            dataloader = tqdm(dataloader, dynamic_ncols=True, desc="Evaluating")
+            dataloader = dynamic_interval_tqdm(
+                iterable=dataloader,
+                intervals=self.dataset.option_nums,
+                desc=self.dataset.name,
+                dynamic_ncols=True,
+                total=len(self.dataset.evaluation_data),
+                unit="example",
+            )
         for batch in dataloader:
             raw_predictions.extend(call_model(batch))
             self.dataset.log_predictions(raw_predictions)

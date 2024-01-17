@@ -1,7 +1,5 @@
-from functools import partial
 from logging import getLogger
-from pprint import pformat
-from typing import Iterator, List
+from typing import List
 
 from vllm import LLM, SamplingParams
 

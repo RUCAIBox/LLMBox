@@ -3,6 +3,7 @@ transformers
 safetensors
 tokenizers
 openai==0.28.1
+tqdm>=4.58.0
 tiktoken
 datasets
 accelerate
@@ -12,3 +13,5 @@ sacrebleu
 rouge_score
 vllm
 flash-attn
+langcodes
+language_data

@@ -65,6 +65,11 @@ class Dataset(torch.utils.data.Dataset):
     model_args: Dict[str, Any] = dict()
     """Arguments for the model generation or get_ppl. See `set_generation_args` or `set_ppl_args` for details."""
 
+    _repr = [
+        "name", "subset_name", "instruction", "metrics", "evaluation_type", "evaluation_set", "example_set",
+        "load_args", "model_args"
+    ]
+
     def __init__(self, args: DatasetArguments, model: Model, subset_name: Optional[str] = None):
         r"""This should be called by the subclass.
 
@@ -109,7 +114,8 @@ class Dataset(torch.utils.data.Dataset):
         self.globale = args.globale
         self.ape = args.ape
         if self.args.num_shots:
-            self.formatted_example_data = [self.format_instance(data) for data in self.example_data]
+            if self.ape or self.kate or self.globale:
+                self.formatted_example_data = [self.format_instance(data) for data in self.example_data]
             if len(self.example_data) < self.args.num_shots:
                 logger.warning(
                     f"The example data only has {len(self.example_data)} instances, but the few-shot number is set to {self.args.num_shots}. Setting the few-shot number to {len(self.example_data)}."
@@ -227,8 +233,7 @@ class Dataset(torch.utils.data.Dataset):
         # automatic instruction
         if self.ape is True:
             instrction = ape(
-                self.formatted_example_dataset, self.formatted_evaluation_dataset, self.model.get_ppl,
-                self.model.api_key
+                self.formatted_example_data, self.formatted_evaluation_dataset, self.model.get_ppl, self.model.api_key
             )
             self.instruction = instrction
 
@@ -323,7 +328,10 @@ class Dataset(torch.utils.data.Dataset):
         example_text = ""
         example_token_nums = 0
         for index in indice:
-            example = self.formatted_example_data[index]
+            if hasattr(self, 'formatted_example_data'):
+                example = self.formatted_example_data[index]
+            else:
+                example = self.format_instance(self.example_data[index])
             cur_example_text = self.args.instance_format.format_map(example) + "\n\n"
             cur_token_num = len(self.tokenizer.encode(cur_example_text))
             if cur_token_num + example_token_nums <= self.max_example_tokens:
@@ -401,6 +409,9 @@ class Dataset(torch.utils.data.Dataset):
         lines = [dict(zip(keys, line)) for line in lines]
         with open(file, "w", encoding="utf-8") as f:
             json.dump(lines, f, indent=2, ensure_ascii=False)
+
+    def __repr__(self):
+        return "Dataset(" + ", ".join(f"{p}={pformat(getattr(self, p))}" for p in self._repr) + ")"
 
 
 class DatasetCollection(torch.utils.data.Dataset):
