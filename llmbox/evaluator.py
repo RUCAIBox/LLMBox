@@ -73,6 +73,10 @@ class Evaluator:
                 f"We only support three evaluation types: `ranking`, `generation`, and `user_defined`, but got `{self.dataset.evaluation_type}`."
             )
 
+        # log arguments after model and dataset are loaded, since they may change some arguments
+        logger.info(f"Full arguments:\n    {self.model_args}\n    {self.dataset_args}\n    {self.evaluation_args}")
+        logger.info(f"{self.dataset.name} arguments:\n    {self.dataset}")
+
         # call model
         raw_predictions = []
         if self.dataset_args.batch_size != -1:

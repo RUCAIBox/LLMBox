@@ -2,6 +2,7 @@ import datetime
 import logging
 from copy import copy
 from logging import getLogger
+from os.path import abspath
 from typing import Optional
 
 import coloredlogs
@@ -9,7 +10,6 @@ import coloredlogs
 DEFAULT_LOG_FORMAT = '%(asctime)s %(levelname)s %(message)s'
 
 DEFAULT_DATETIME_FORMAT = '%Y_%m_%d-%H_%M_%S'  # Compatible with windows, which does not support ':' in filename
-
 
 logger = getLogger(__name__)
 
@@ -95,4 +95,4 @@ def set_logging(
     package_logger.addHandler(handler)
 
     # finish logging initialization
-    logger.info(f"Saving logs to {log_path}")
+    logger.info(f"Saving logs to {abspath(log_path)}")

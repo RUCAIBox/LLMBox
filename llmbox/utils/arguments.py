@@ -76,7 +76,8 @@ class ModelArguments:
     )
     repetition_penalty: float = HfArg(
         default=None,
-        help="Values>1 penalize new tokens based on their existing frequency in the prompt and generated text, vice versa.",
+        help="Values>1 penalize new tokens based on their existing frequency in the prompt and generated text, vice"
+        " versa.",
     )
     presence_penalty: float = HfArg(
         default=None,
@@ -125,13 +126,15 @@ class DatasetArguments:
     dataset_name: str = HfArg(
         default=MISSING,
         aliases=["-d", "--dataset"],
-        help="The name of a dataset or the name(s) of a/several subset(s) in a dataset. Format: 'dataset' or 'dataset:subset(s)', e.g., copa, race, race:high, or wmt16:en-ro,en-fr"
+        help="The name of a dataset or the name(s) of a/several subset(s) in a dataset. Format: 'dataset'"
+        " or 'dataset:subset(s)', e.g., copa, race, race:high, or wmt16:en-ro,en-fr"
     )
     subset_names: ClassVar[Set[str]] = set()
     """The name(s) of a/several subset(s) in a dataset, derived from `dataset_name` argument on initalization"""
     dataset_path: Optional[str] = HfArg(
         default=None,
-        help="The path of dataset if loading from local. Supports repository cloned from huggingface or dataset saved by `save_to_disk`."
+        help="The path of dataset if loading from local. Supports repository cloned from huggingface or "
+        "dataset saved by `save_to_disk`."
     )
 
     evaluation_set: Optional[str] = HfArg(
@@ -205,7 +208,8 @@ class EvaluationArguments:
     )
     log_level: str = HfArg(
         default="info",
-        help="Logger level to use on the main node. Possible choices are the log levels as strings: 'debug', 'info', 'warning', 'error' and 'critical'",
+        help="Logger level to use on the main node. Possible choices are the log levels as strings: 'debug', 'info', "
+        "'warning', 'error' and 'critical'",
         metadata={"choices": log_levels.keys()},
     )
     evaluation_results_dir: str = HfArg(
@@ -249,8 +253,7 @@ def parse_argument(args=None) -> Tuple[ModelArguments, DatasetArguments, Evaluat
     set_logging(model_args, dataset_args, evaluation_args)
 
     # log arguments and environment variables
-    logger.info("Passed arguments: {}".format(" ".join(args)))
-    logger.info(f"Full arguments:\n{model_args}\n{dataset_args}\n{evaluation_args}")
+    logger.info("Command line arguments: {}".format(" ".join(args)))
     if "CUDA_VISIBLE_DEVICES" in os.environ:
         logger.info(f"CUDA_VISIBLE_DEVICES={os.environ['CUDA_VISIBLE_DEVICES']}")
 
