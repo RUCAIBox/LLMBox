@@ -1,13 +1,14 @@
 import time
+from logging import getLogger
 
 import openai
 import tiktoken
 
-from ..utils import ModelArguments, getQueuedLogger
+from ..utils import ModelArguments
 from .enum import OPENAI_CHAT_MODELS, OPENAI_INSTRUCTION_MODELS
 from .model import Model
 
-logger = getQueuedLogger(__name__)
+logger = getLogger(__name__)
 
 
 class Openai(Model):
@@ -24,7 +25,7 @@ class Openai(Model):
             raise ValueError(
                 "OpenAI API key is required. Please set it by passing a `--openai_api_key` or through environment variable `OPENAI_API_KEY`."
             )
-        logger.info(f"OpenAI API key: {args.openai_api_key}, base: {openai.api_base}")
+        logger.info(f"Trying to load OpenAI model with api_key='{args.openai_api_key}' and base='{openai.api_base}'")
         self.api_key = openai.api_key  # the actual api key is used in icl
 
         self.args = args

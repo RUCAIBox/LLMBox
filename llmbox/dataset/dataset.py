@@ -1,5 +1,6 @@
 import json
 from copy import copy
+from logging import getLogger
 from pprint import pformat
 from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 
@@ -7,11 +8,11 @@ import numpy as np
 import torch
 
 from ..model.model import Model
-from ..utils import DatasetArguments, getQueuedLogger
+from ..utils import DatasetArguments
 from .icl_strategies import ape, global_entropy_ordering_strategy, knn_construct_examples
 from .utils import get_raw_dataset_loader
 
-logger = getQueuedLogger(__name__)
+logger = getLogger(__name__)
 
 
 class Dataset(torch.utils.data.Dataset):
@@ -85,20 +86,7 @@ class Dataset(torch.utils.data.Dataset):
         self.model = model
         self.tokenizer = model.tokenizer
 
-        if self.args.sample_num > 1 and self.evaluation_type == 'ranking':
-            self.args.sample_num = 1
-            logger.warning(
-                f"Self-consistency only supports evaluation using the generation mode, automatically set sample_num=1."
-            )
-
-        if self.args.sample_num > 1 and self.evaluation_type == 'generation' and (
-            getattr(self.model.args, 'temperature') == 0 or
-            (getattr(self.model.args, 'temperature') == None and self.extra_model_args.get('temperature', 1) == 0)
-        ):
-            self.model.args['temperature'] = 1
-            logger.warning(
-                f"Self-consistency only supports generation with temperature>0, automatically set temperature=1."
-            )
+        self._post_init_arguments()
 
         # load `self.evaluation_data` and `self.example_data`
         self.load_raw_dataset(
@@ -128,6 +116,32 @@ class Dataset(torch.utils.data.Dataset):
                 self.random_indice = np.random.choice(len(self.example_data), self.args.num_shots, replace=False)
         self.formatted_evaluation_data = [self.format_instance(data) for data in self.evaluation_data]
         self.construct_instances()
+
+    def _post_init_arguments(self):
+
+        # sample num
+        if self.args.sample_num > 1 and self.evaluation_type == 'ranking':
+            self.args.sample_num = 1
+            logger.warning(
+                f"Self-consistency only supports evaluation using the generation mode, automatically set sample_num = 1."
+            )
+
+        # temperature
+        if "temperature" in self.extra_model_args:
+            self.model.args.temperature = self.extra_model_args["temperature"]
+        if self.args.sample_num > 1 and self.evaluation_type == 'generation' and self.model.args.temperature == 0:
+            self.model.args.temperature = 1
+            logger.warning(
+                f"Self-consistency only supports generation with temperature>0, automatically set temperature = 1."
+            )
+
+        if self.evaluation_type == 'ranking':
+            self.model.set_ppl_args(**self.extra_model_args)
+        elif self.evaluation_type == 'generation':
+            self.model.set_generation_args(**self.extra_model_args)
+
+        logger.info(self.model.args)
+        logger.info(self.args)
 
     def load_raw_dataset(
         self,

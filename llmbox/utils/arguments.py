@@ -3,14 +3,17 @@ import sys
 from builtins import bool
 from copy import copy
 from dataclasses import MISSING, dataclass
-from typing import ClassVar, List, Optional, Set, Tuple, Union
+from logging import getLogger
+from typing import ClassVar, List, Literal, Optional, Set, Tuple, Union
 
 import openai
 from transformers.hf_argparser import HfArg, HfArgumentParser
 
 from ..dataset.utils import list_availabe_datasets
-from ..model.enum import OPENAI_CHAT_MODELS
-from .logging import getQueuedLogger, log_levels, set_logging
+from ..model.enum import OPENAI_CHAT_MODELS, OPENAI_MODELS
+from .logging import log_levels, set_logging
+
+logger = getLogger(__name__)
 
 
 def filter_none_repr(self):
@@ -112,6 +115,12 @@ class ModelArguments:
 
     __repr__ = filter_none_repr
 
+    def is_openai_model(self) -> bool:
+        return self._model_impl == "openai"
+
+    def is_huggingface_model(self) -> bool:
+        return self._model_impl == "huggingface"
+
     def __post_init__(self):
         if "OPENAI_API_KEY" in os.environ and self.openai_api_key is None:
             self.openai_api_key = os.environ["OPENAI_API_KEY"]
@@ -122,6 +131,14 @@ class ModelArguments:
 
         if self.tokenizer_name_or_path is None:
             self.tokenizer_name_or_path = self.model_name_or_path
+
+        if self.model_name_or_path.lower() in OPENAI_MODELS:
+            self._model_impl = "openai"
+        else:
+            self._model_impl = "huggingface"
+
+        if self.is_openai_model():
+            self.vllm = False
 
 
 @dataclass
@@ -245,7 +262,7 @@ def check_args(model_args: ModelArguments, dataset_args: DatasetArguments, evalu
     model_args.seed = evaluation_args.seed
     if model_args.model_name_or_path.lower() in OPENAI_CHAT_MODELS and dataset_args.batch_size > 1:
         dataset_args.batch_size = 1
-        getQueuedLogger(__name__).warning(
+        logger.warning(
             f"OpenAI chat-based model {model_args.model_name_or_path} doesn't support batch_size > 1, automatically set batch_size to 1."
         )
 
@@ -262,7 +279,6 @@ def parse_argument(args=None) -> Tuple[ModelArguments, DatasetArguments, Evaluat
     model_args, dataset_args, evaluation_args = parser.parse_args_into_dataclasses(args)
     set_logging(model_args, dataset_args, evaluation_args)
     check_args(model_args, dataset_args, evaluation_args)
-    logger = getQueuedLogger(__name__)
 
     # log arguments and environment variables
     redact_dict = {"--openai_api_key": model_args.openai_api_key}
@@ -272,6 +288,6 @@ def parse_argument(args=None) -> Tuple[ModelArguments, DatasetArguments, Evaluat
     logger.info("Command line arguments: {}".format(" ".join(args)))
     if "CUDA_VISIBLE_DEVICES" in os.environ:
         logger.info(f"CUDA_VISIBLE_DEVICES={os.environ['CUDA_VISIBLE_DEVICES']}")
-    logger.set_block()
+    logger.info(evaluation_args)
 
     return model_args, dataset_args, evaluation_args

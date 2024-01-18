@@ -1,3 +1,4 @@
+from logging import getLogger
 from typing import Iterator, List, Tuple, Union
 
 import torch
@@ -5,15 +6,15 @@ from torch.nn import CrossEntropyLoss
 from transformers import AutoModelForCausalLM, AutoTokenizer, PreTrainedModel, PreTrainedTokenizer, \
     PreTrainedTokenizerFast
 
-from ..utils import ModelArguments, getQueuedLogger
+from ..utils import ModelArguments
 from .model import Model
 
-logger = getQueuedLogger(__name__)
+logger = getLogger(__name__)
 
 
 def load_hf_model(args: ModelArguments) -> Tuple[PreTrainedModel, Union[PreTrainedTokenizer, PreTrainedTokenizerFast]]:
 
-    logger.info(f"Trying to load {args.model_name_or_path} using Hugging Face Transformers...")
+    logger.info(f"Loading {args.model_name_or_path} using Hugging Face Transformers...")
 
     model_kwargs = dict(
         torch_dtype=torch.float16,
@@ -27,9 +28,12 @@ def load_hf_model(args: ModelArguments) -> Tuple[PreTrainedModel, Union[PreTrain
         model = AutoModelForCausalLM.from_pretrained(args.model_name_or_path, **model_kwargs).eval()
     except TypeError as e:
         if "attn_implementation" in str(e):
-            raise ValueError(
-                f"{args.model_name_or_path} does not support attn_implementation. Please set `--flash_attention False`."
+            logger.warning(
+                f"Cannot set `attn_implementation` for {args.model_name_or_path}. Set `flash_attention` to False."
             )
+            args.flash_attention = False
+            model_kwargs.pop('attn_implementation')
+            model = AutoModelForCausalLM.from_pretrained(args.model_name_or_path, **model_kwargs).eval()
         else:
             raise e
 

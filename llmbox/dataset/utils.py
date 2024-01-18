@@ -2,14 +2,13 @@ import json
 import os
 import re
 from importlib.machinery import SourceFileLoader
+from logging import getLogger
 from os.path import abspath
 from typing import Callable, Optional, Set, Tuple, Union
 
 import datasets
 
-from ..utils.logging import getQueuedLogger
-
-logger = getQueuedLogger(__name__)
+logger = getLogger(__name__)
 
 EXTENDED_SEARCH_PATHS = [
     "/{subset}",

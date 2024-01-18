@@ -1,11 +1,12 @@
+from logging import getLogger
 from typing import Union
 
 from tiktoken import Encoding
 from transformers import PreTrainedTokenizer, PreTrainedTokenizerFast
 
-from ..utils import getQueuedLogger
+from ..utils import ModelArguments
 
-logger = getQueuedLogger(__name__)
+logger = getLogger(__name__)
 
 
 class Model:
@@ -25,7 +26,7 @@ class Model:
     name = ""
     type = ""
 
-    def __init__(self, args):
+    def __init__(self, args: ModelArguments):
         self.args = args
         self.tokenizer: Union[PreTrainedTokenizer, PreTrainedTokenizerFast, Encoding] = None
 

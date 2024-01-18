@@ -59,58 +59,6 @@ def getFileLogger(name=None):
     return logger
 
 
-class Manager:
-    queue = []
-    block_level = logging.CRITICAL
-
-
-manager = Manager()
-
-
-class QueuedLogger:
-    """A queue that stores logs. The logs will not be flushed until specified or until the queue is destroyed."""
-
-    def __init__(self, name: str):
-        self.logger = logging.getLogger(name)
-        self.manager = manager
-
-    def debug(self, msg):
-        self.log(logging.DEBUG, self.logger.debug, msg)
-
-    def info(self, msg):
-        self.log(logging.INFO, self.logger.info, msg)
-
-    def warning(self, msg):
-        self.log(logging.WARNING, self.logger.warning, msg)
-
-    def error(self, msg):
-        self.log(logging.ERROR, self.logger.error, msg)
-
-    def critical(self, msg):
-        self.log(logging.CRITICAL, self.logger.critical, msg)
-
-    def set_block(self, level=logging.DEBUG):
-        """Log messages with level > `level` will be blocked."""
-        self.manager.block_level = level
-
-    def log(self, level, fn, msg):
-        if level > self.manager.block_level:
-            self.manager.queue.append((fn, msg))
-        else:
-            fn(msg)
-
-    def flush(self, disable_block=True):
-        if disable_block:
-            self.manager.block_level = logging.CRITICAL
-        for fn, msg in self.manager.queue:
-            fn(msg)
-        self.manager.queue = []
-
-
-def getQueuedLogger(name=None):
-    return QueuedLogger(name=name)
-
-
 def set_logging(
     model_args,
     dataset_args,
