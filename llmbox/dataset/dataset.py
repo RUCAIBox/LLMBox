@@ -1,4 +1,5 @@
 import json
+from copy import copy
 from pprint import pformat
 from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 
@@ -99,6 +100,7 @@ class Dataset(torch.utils.data.Dataset):
                 f"Self-consistency only supports generation with temperature>0, automatically set temperature=1."
             )
 
+        # load `self.evaluation_data` and `self.example_data`
         self.load_raw_dataset(
             dataset_path=args.dataset_path,
             subset_name=subset_name,
@@ -292,6 +294,11 @@ class Dataset(torch.utils.data.Dataset):
             source = self.instruction + "\n\n" + self.examples + self.args.instance_format.format(
                 source=instance["source"], target=""
             )
+        else:
+            raise ValueError(
+                f"Invalid model type: {self.type}. Please use `--model_type` to specify the"
+                " model type, which can be chosen from `base` and `instruction`."
+            )
 
         return source
 
@@ -411,6 +418,19 @@ class Dataset(torch.utils.data.Dataset):
         with open(file, "w", encoding="utf-8") as f:
             json.dump(lines, f, indent=2, ensure_ascii=False)
 
+    @property
+    def use_normalization(self):
+        return self.name in {"arc", "openbookqa", "race"}
+
+    def evaluation_data_len(self):
+        """Provides a unified interface to retrieve the count of questions within a `Dataset` or `DatasetCollection`.
+
+        Note:
+        - `len(dataset)` yields the total count of options across all questions.
+        - `dataset.evaluation_data_len()` specifically returns the count of individual questions.
+        """
+        return len(self.evaluation_data)
+
     def __repr__(self):
         return "Dataset(" + ", ".join(f"{p}={pformat(getattr(self, p))}" for p in self._repr) + ")"
 
@@ -419,16 +439,29 @@ class DatasetCollection(torch.utils.data.Dataset):
 
     def __init__(self, datasets: Dict[str, Dataset]):
         super().__init__()
-        self._subset_names = list(datasets.keys())
+        self.subset_names = list(datasets.keys())
         self._datasets = list(datasets.values())
         self._cur_idx = 0
+        self._repr = copy(self._datasets[0]._repr)
+        for idx, prop in enumerate(self._repr):
+            if prop == "subset_name":
+                self._repr[idx] = "subset_names"
+                break
 
     @property
     def name(self) -> str:
         return self._datasets[0].name
 
+    @property
+    def option_nums(self) -> List[int]:
+        """If `evaluation_type` is "ranking", this returns the total number of options across all evaluation examples. Otherwise, this returns an empty list."""
+        return sum([d.option_nums for d in self._datasets], [])
+
     def __len__(self):
         return sum(len(d) for d in self._datasets)
+
+    def evaluation_data_len(self):
+        return sum(len(d.evaluation_data) for d in self._datasets)
 
     def __getitem__(self, idx):
         if idx > self.__len__():
@@ -449,10 +482,10 @@ class DatasetCollection(torch.utils.data.Dataset):
     def calculate_metric(self, predictions) -> Dict[str, Dict[str, float]]:
         results = dict()
         cur_len = 0
-        for s, d in zip(self._subset_names, self._datasets):
+        for s, d in zip(self.subset_names, self._datasets):
             results[d.name + ":" + s] = d.calculate_metric(predictions[cur_len:cur_len + len(d)])
             cur_len += len(d)
         return results
 
     def __repr__(self):
-        return "DatasetCollection(" + ", ".join(str(d) for d in self._datasets) + ")"
+        return "DatasetCollection(" + ", ".join(f"{p}={pformat(getattr(self, p))}" for p in self._repr) + ")"
