@@ -1,13 +1,18 @@
 import os
+import sys
 import warnings
 from builtins import bool
 from dataclasses import MISSING, dataclass
+from logging import getLogger
 from typing import ClassVar, List, Optional, Set, Tuple, Union
 
+import openai
 from transformers.hf_argparser import HfArg, HfArgumentParser
 
 from ..model.enum import OPENAI_CHAT_MODELS
 from .logging import log_levels, set_logging
+
+logger = getLogger(__name__)
 
 
 @dataclass
@@ -21,7 +26,7 @@ class ModelArguments:
     model_type: str = HfArg(
         default=None,
         help="The type of the model, which can be chosen from `base` or `instruction`.",
-        metadata={"choices": ['base', 'instruction', None]}
+        metadata={"choices": ['base', 'instruction']}
     )
     device_map: str = HfArg(
         default="auto",
@@ -39,6 +44,7 @@ class ModelArguments:
         default=None,
         help="The OpenAI API key",
     )
+    """The redacted API key for logging."""
 
     tokenizer_name_or_path: str = HfArg(
         default=None, aliases=["--tokenizer"], help="The tokenizer name or path, e.g., meta-llama/Llama-2-7b-hf"
@@ -70,7 +76,8 @@ class ModelArguments:
     )
     repetition_penalty: float = HfArg(
         default=None,
-        help="Values>1 penalize new tokens based on their existing frequency in the prompt and generated text, vice versa.",
+        help="Values>1 penalize new tokens based on their existing frequency in the prompt and generated text, vice"
+        " versa.",
     )
     presence_penalty: float = HfArg(
         default=None,
@@ -99,9 +106,15 @@ class ModelArguments:
         help="Positive values encourage longer sequences, vice versa. Used in beam search.",
     )
 
+    seed: ClassVar[int] = None  # use class variable to facilitate type hint inference
+
     def __post_init__(self):
         if "OPENAI_API_KEY" in os.environ and self.openai_api_key is None:
             self.openai_api_key = os.environ["OPENAI_API_KEY"]
+        if self.openai_api_key is not None:
+            # set openai api key at here and redact the argument
+            openai.api_key = self.openai_api_key
+            self.openai_api_key = self.openai_api_key[:8] + "*" * 39 + self.openai_api_key[-4:]
 
         if self.tokenizer_name_or_path is None:
             self.tokenizer_name_or_path = self.model_name_or_path
@@ -113,13 +126,15 @@ class DatasetArguments:
     dataset_name: str = HfArg(
         default=MISSING,
         aliases=["-d", "--dataset"],
-        help="The name of a dataset or the name(s) of a/several subset(s) in a dataset. Format: 'dataset' or 'dataset:subset(s)', e.g., copa, race, race:high, or wmt16:en-ro,en-fr"
+        help="The name of a dataset or the name(s) of a/several subset(s) in a dataset. Format: 'dataset'"
+        " or 'dataset:subset(s)', e.g., copa, race, race:high, or wmt16:en-ro,en-fr"
     )
     subset_names: ClassVar[Set[str]] = set()
     """The name(s) of a/several subset(s) in a dataset, derived from `dataset_name` argument on initalization"""
     dataset_path: Optional[str] = HfArg(
         default=None,
-        help="The path of dataset if loading from local. Supports repository cloned from huggingface or dataset saved by `save_to_disk`."
+        help="The path of dataset if loading from local. Supports repository cloned from huggingface or "
+        "dataset saved by `save_to_disk`."
     )
 
     evaluation_set: Optional[str] = HfArg(
@@ -171,6 +186,9 @@ class DatasetArguments:
         metadata={"choices": ['base', 'least_to_most', 'pal']},
     )
 
+    # set in `set_logging` with format "{evaluation_results_dir}/{log_filename}.json"
+    evaluation_results_path: ClassVar[str] = None
+
     def __post_init__(self):
         if ":" in self.dataset_name:
             self.dataset_name, subset_names = self.dataset_name.split(":")
@@ -190,7 +208,8 @@ class EvaluationArguments:
     )
     log_level: str = HfArg(
         default="info",
-        help="Logger level to use on the main node. Possible choices are the log levels as strings: 'debug', 'info', 'warning', 'error' and 'critical'",
+        help="Logger level to use on the main node. Possible choices are the log levels as strings: 'debug', 'info', "
+        "'warning', 'error' and 'critical'",
         metadata={"choices": log_levels.keys()},
     )
     evaluation_results_dir: str = HfArg(
@@ -204,7 +223,7 @@ class EvaluationArguments:
         os.makedirs(self.evaluation_results_dir, exist_ok=True)
 
 
-def check_args(model_args, dataset_args, evaluation_args):
+def check_args(model_args: ModelArguments, dataset_args: DatasetArguments, evaluation_args: EvaluationArguments):
     r"""Check the validity of arguments.
 
     Args:
@@ -226,9 +245,16 @@ def parse_argument(args=None) -> Tuple[ModelArguments, DatasetArguments, Evaluat
     Returns:
         Namespace: the parsed arguments
     """
+    if args is None:
+        args = sys.argv[1:]
     parser = HfArgumentParser((ModelArguments, DatasetArguments, EvaluationArguments), description="LLMBox description")
     model_args, dataset_args, evaluation_args = parser.parse_args_into_dataclasses(args)
     check_args(model_args, dataset_args, evaluation_args)
     set_logging(model_args, dataset_args, evaluation_args)
+
+    # log arguments and environment variables
+    logger.info("Command line arguments: {}".format(" ".join(args)))
+    if "CUDA_VISIBLE_DEVICES" in os.environ:
+        logger.info(f"CUDA_VISIBLE_DEVICES={os.environ['CUDA_VISIBLE_DEVICES']}")
 
     return model_args, dataset_args, evaluation_args

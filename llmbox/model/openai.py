@@ -25,10 +25,8 @@ class Openai(Model):
             raise ValueError(
                 "OpenAI API key is required. Please set it by passing a `--openai_api_key` or through environment variable `OPENAI_API_KEY`."
             )
-        openai.api_key = args.openai_api_key
-        secret_key = openai.api_key[:8] + "*" * 39 + openai.api_key[-4:]
-        logger.info(f"OpenAI API key: {secret_key}, base: {openai.api_base}")
-        self.api_key = openai.api_key
+        logger.info(f"OpenAI API key: {args.openai_api_key}, base: {openai.api_base}")
+        self.api_key = openai.api_key  # the actual api key is used in icl
 
         self.args = args
         self.name = args.model_name_or_path
