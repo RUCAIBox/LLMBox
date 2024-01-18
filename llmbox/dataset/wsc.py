@@ -36,8 +36,8 @@ class Wsc(MultipleChoiceDataset):
         source += f'Question: In the passage above, does the pronoun "*{instance["span2_text"]}*" refer to "{instance["span1_text"]}"?\n'
         source += "Answer:"
         label2text = {
-            0: ' no',
-            1: ' yes',
+            0: ' No',
+            1: ' Yes',
         }
 
         options = [label2text[option] for option in [0, 1]]
