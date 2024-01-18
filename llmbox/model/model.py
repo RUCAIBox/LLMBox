@@ -1,10 +1,11 @@
-from logging import getLogger
 from typing import Union
 
 from tiktoken import Encoding
 from transformers import PreTrainedTokenizer, PreTrainedTokenizerFast
 
-logger = getLogger(__name__)
+from ..utils import getQueuedLogger
+
+logger = getQueuedLogger(__name__)
 
 
 class Model:

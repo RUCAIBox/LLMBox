@@ -1,4 +1,3 @@
-from logging import getLogger
 from typing import Iterator, List, Tuple, Union
 
 import torch
@@ -6,10 +5,10 @@ from torch.nn import CrossEntropyLoss
 from transformers import AutoModelForCausalLM, AutoTokenizer, PreTrainedModel, PreTrainedTokenizer, \
     PreTrainedTokenizerFast
 
-from ..utils import ModelArguments
+from ..utils import ModelArguments, getQueuedLogger
 from .model import Model
 
-logger = getLogger(__name__)
+logger = getQueuedLogger(__name__)
 
 
 def load_hf_model(args: ModelArguments) -> Tuple[PreTrainedModel, Union[PreTrainedTokenizer, PreTrainedTokenizerFast]]:
@@ -24,7 +23,16 @@ def load_hf_model(args: ModelArguments) -> Tuple[PreTrainedModel, Union[PreTrain
     if args.flash_attention:
         model_kwargs['attn_implementation'] = "flash_attention_2"
 
-    model = AutoModelForCausalLM.from_pretrained(args.model_name_or_path, **model_kwargs).eval()
+    try:
+        model = AutoModelForCausalLM.from_pretrained(args.model_name_or_path, **model_kwargs).eval()
+    except TypeError as e:
+        if "attn_implementation" in str(e):
+            raise ValueError(
+                f"{args.model_name_or_path} does not support attn_implementation. Please set `--flash_attention False`."
+            )
+        else:
+            raise e
+
     tokenizer = AutoTokenizer.from_pretrained(
         args.tokenizer_name_or_path, use_fast=True, padding_side='left', add_eos_token=False
     )
@@ -56,6 +64,12 @@ class HuggingFaceModel(Model):
         super().__init__(args)
         self.args = args
         self.type = args.model_type
+        if self.type not in {'base', 'instruction'}:
+            raise ValueError(
+                f"Invalid model type: {self.type}. Please use `--model_type` to specify the"
+                " model type, which can be chosen from `base` and `instruction`."
+            )
+
         self.model, self.tokenizer = load_hf_model(args)
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
 

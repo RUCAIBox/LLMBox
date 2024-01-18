@@ -1,15 +1,14 @@
 import importlib
 import inspect
-from logging import getLogger
 from typing import Union
 
 from datasets import get_dataset_config_names
 
 from ..model.model import Model
-from ..utils import DatasetArguments
+from ..utils import DatasetArguments, getQueuedLogger
 from .dataset import Dataset, DatasetCollection
 
-logger = getLogger(__name__)
+logger = getQueuedLogger(__name__)
 
 
 def import_dataset_class(dataset_name: str) -> Dataset:

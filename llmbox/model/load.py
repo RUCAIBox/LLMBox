@@ -1,10 +1,8 @@
-from logging import getLogger
-
-from ..utils import ModelArguments
+from ..utils import ModelArguments, getQueuedLogger
 from .enum import OPENAI_MODELS
 from .model import Model
 
-logger = getLogger(__name__)
+logger = getQueuedLogger(__name__)
 
 
 def load_model(args: ModelArguments) -> Model:

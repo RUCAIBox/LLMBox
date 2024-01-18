@@ -7,9 +7,11 @@ from torch.utils.data import DataLoader
 
 from .dataset import load_dataset
 from .model import load_model
-from .utils import DatasetArguments, EvaluationArguments, ModelArguments, catch_error, dynamic_interval_tqdm
+from .utils import DatasetArguments, EvaluationArguments, ModelArguments, catch_error, dynamic_interval_tqdm, \
+    getQueuedLogger
 
-logger = getLogger(__name__)
+logger = getQueuedLogger(__name__)
+raw_logger = getLogger(__name__)
 
 
 class Evaluator:
@@ -74,8 +76,9 @@ class Evaluator:
             )
 
         # log arguments after model and dataset are loaded, since they may change some arguments
-        logger.info(f"Full arguments:\n    {self.model_args}\n    {self.dataset_args}\n    {self.evaluation_args}")
-        logger.info(f"{self.dataset.name} arguments:\n    {self.dataset}")
+        raw_logger.info(f"Full arguments:\n    {self.model_args}\n    {self.dataset_args}\n    {self.evaluation_args}")
+        raw_logger.info(f"{self.dataset.name} arguments:\n    {self.dataset}")
+        logger.flush()
 
         # call model
         raw_predictions = []

@@ -1,14 +1,13 @@
 import time
-from logging import getLogger
 
 import openai
 import tiktoken
 
-from ..utils import ModelArguments
+from ..utils import ModelArguments, getQueuedLogger
 from .enum import OPENAI_CHAT_MODELS, OPENAI_INSTRUCTION_MODELS
 from .model import Model
 
-logger = getLogger(__name__)
+logger = getQueuedLogger(__name__)
 
 
 class Openai(Model):
