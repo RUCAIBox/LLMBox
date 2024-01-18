@@ -1,8 +1,8 @@
 import re
 import threading
 
-from .generation_dataset import GenerationDataset
 from ..metric import Accuracy
+from .generation_dataset import GenerationDataset
 
 
 class Gsm8k(GenerationDataset):
@@ -20,7 +20,7 @@ class Gsm8k(GenerationDataset):
     example_set = ""
     load_args = ("gsm8k", "main")
     metrics = [Accuracy()]
-    model_args = dict(temperature=0)
+    extra_model_args = dict(temperature=0)
 
     _decimal_separator = re.compile(r"(\d),(\d)")
     _extract_numbers = re.compile(r"[-+]?\d*\.\d+|\d+")
@@ -36,7 +36,7 @@ class Gsm8k(GenerationDataset):
             self.instruction = "Let's use python to solve math problems. Here are some examples how to do it."
 
         if self.model.type == 'base':
-            self.model_args['stop'] = ['\n']
+            self.extra_model_args['stop'] = ['\n']
 
     def post_processing(self, predictions):
         new_predictions = []

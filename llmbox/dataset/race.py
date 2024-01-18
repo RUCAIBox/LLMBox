@@ -67,7 +67,6 @@ class Race(MultipleChoiceDataset):
     def post_processing(self, predictions):
         labels = []
         st = 0
-        print(predictions)
         predictions = list(map(lambda _r: _r[0], predictions))
         predictions = np.array([rc - ra for rc, ra in zip(predictions[::2], predictions[1::2])])
         for num in self.option_nums:

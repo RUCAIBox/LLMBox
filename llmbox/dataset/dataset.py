@@ -62,12 +62,12 @@ class Dataset(torch.utils.data.Dataset):
         - `(dataset_name, subset_name)`: If the dataset itself is a subset of a dataset collection. E.g., `('super_glue', 'copa')`.
     """
 
-    model_args: Dict[str, Any] = dict()
+    extra_model_args: Dict[str, Any] = dict()
     """Arguments for the model generation or get_ppl. See `set_generation_args` or `set_ppl_args` for details."""
 
     _repr = [
         "name", "subset_name", "instruction", "metrics", "evaluation_type", "evaluation_set", "example_set",
-        "load_args", "model_args"
+        "load_args", "extra_model_args"
     ]
 
     def __init__(self, args: DatasetArguments, model: Model, subset_name: Optional[str] = None):
@@ -93,7 +93,7 @@ class Dataset(torch.utils.data.Dataset):
 
         if self.args.sample_num > 1 and self.evaluation_type == 'generation' and (
             getattr(self.model.args, 'temperature') == 0 or
-            (getattr(self.model.args, 'temperature') == None and self.model_args.get('temperature', 1) == 0)
+            (getattr(self.model.args, 'temperature') == None and self.extra_model_args.get('temperature', 1) == 0)
         ):
             self.model.args['temperature'] = 1
             logger.warning(

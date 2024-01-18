@@ -1,7 +1,7 @@
 import re
 
-from .generation_dataset import GenerationDataset
 from ..metric import Accuracy
+from .generation_dataset import GenerationDataset
 
 SUBSTITUTIONS = [('an ', ''), ('a ', ''), ('.$', '$'), ('\\$', ''), (r'\ ', ''), (' ', ''), ('mbox', 'text'),
                  (',\\text{and}', ','), ('\\text{and}', ','), ('\\text{m}', '\\text{}')]
@@ -32,7 +32,7 @@ class Math(GenerationDataset):
     evaluation_set = "test"
     load_args = ("hendrycks/competition_math",)
     metrics = [Accuracy()]
-    model_args = dict(temperature=0)
+    extra_model_args = dict(temperature=0)
 
     @staticmethod
     def normalize_final_answer(final_answer: str) -> str:
