@@ -1,12 +1,16 @@
-from logging import getLogger
 from typing import List
 
-from vllm import LLM, SamplingParams
-
-from ..utils import ModelArguments
+from ..utils import ModelArguments, getQueuedLogger
 from .model import Model
 
-logger = getLogger(__name__)
+try:
+    from vllm import LLM, SamplingParams
+except ModuleNotFoundError:
+    raise ModuleNotFoundError(
+        "Please install vllm by `pip install vllm` to use vllm model. Or you can use huggingface model by `--vllm False`."
+    )
+
+logger = getQueuedLogger(__name__)
 
 
 class vllmModel(Model):

@@ -1,19 +1,20 @@
 import os
 import sys
-import warnings
 from builtins import bool
 from copy import copy
 from dataclasses import MISSING, dataclass
-from logging import getLogger
 from typing import ClassVar, List, Optional, Set, Tuple, Union
 
 import openai
 from transformers.hf_argparser import HfArg, HfArgumentParser
 
+from ..dataset.utils import list_availabe_datasets
 from ..model.enum import OPENAI_CHAT_MODELS
-from .logging import log_levels, set_logging
+from .logging import getQueuedLogger, log_levels, set_logging
 
-logger = getLogger(__name__)
+
+def filter_none_repr(self):
+    return f"{self.__class__.__name__}({', '.join(f'{key}={value!r}' for key, value in self.__dict__.items() if value is not None)})"
 
 
 @dataclass
@@ -109,6 +110,8 @@ class ModelArguments:
 
     seed: ClassVar[int] = None  # use class variable to facilitate type hint inference
 
+    __repr__ = filter_none_repr
+
     def __post_init__(self):
         if "OPENAI_API_KEY" in os.environ and self.openai_api_key is None:
             self.openai_api_key = os.environ["OPENAI_API_KEY"]
@@ -190,10 +193,15 @@ class DatasetArguments:
     # set in `set_logging` with format "{evaluation_results_dir}/{log_filename}.json"
     evaluation_results_path: ClassVar[str] = None
 
+    __repr__ = filter_none_repr
+
     def __post_init__(self):
         if ":" in self.dataset_name:
             self.dataset_name, subset_names = self.dataset_name.split(":")
             self.subset_names = set(subset_names.split(","))
+        available_datasets = list_availabe_datasets()
+        if self.dataset_name not in available_datasets:
+            raise ValueError(f"Dataset {self.dataset_name} is not in available datasets {available_datasets}.")
 
 
 @dataclass
@@ -219,6 +227,8 @@ class EvaluationArguments:
         " and target texts, generated texts, and the references.",
     )
 
+    __repr__ = filter_none_repr
+
     def __post_init__(self):
         os.makedirs(self.logging_dir, exist_ok=True)
         os.makedirs(self.evaluation_results_dir, exist_ok=True)
@@ -235,8 +245,8 @@ def check_args(model_args: ModelArguments, dataset_args: DatasetArguments, evalu
     model_args.seed = evaluation_args.seed
     if model_args.model_name_or_path.lower() in OPENAI_CHAT_MODELS and dataset_args.batch_size > 1:
         dataset_args.batch_size = 1
-        warnings.warn(
-            f"OpenAI chat-based model {model_args.model_name_or_path} doesn't support batch_size > 1, automatically set batch_size=1."
+        getQueuedLogger(__name__).warning(
+            f"OpenAI chat-based model {model_args.model_name_or_path} doesn't support batch_size > 1, automatically set batch_size to 1."
         )
 
 
@@ -250,8 +260,9 @@ def parse_argument(args=None) -> Tuple[ModelArguments, DatasetArguments, Evaluat
         args = copy(sys.argv[1:])
     parser = HfArgumentParser((ModelArguments, DatasetArguments, EvaluationArguments), description="LLMBox description")
     model_args, dataset_args, evaluation_args = parser.parse_args_into_dataclasses(args)
-    check_args(model_args, dataset_args, evaluation_args)
     set_logging(model_args, dataset_args, evaluation_args)
+    check_args(model_args, dataset_args, evaluation_args)
+    logger = getQueuedLogger(__name__)
 
     # log arguments and environment variables
     redact_dict = {"--openai_api_key": model_args.openai_api_key}
@@ -261,5 +272,6 @@ def parse_argument(args=None) -> Tuple[ModelArguments, DatasetArguments, Evaluat
     logger.info("Command line arguments: {}".format(" ".join(args)))
     if "CUDA_VISIBLE_DEVICES" in os.environ:
         logger.info(f"CUDA_VISIBLE_DEVICES={os.environ['CUDA_VISIBLE_DEVICES']}")
+    logger.set_block()
 
     return model_args, dataset_args, evaluation_args

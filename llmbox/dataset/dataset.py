@@ -1,5 +1,4 @@
 import json
-from logging import getLogger
 from pprint import pformat
 from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 
@@ -7,11 +6,11 @@ import numpy as np
 import torch
 
 from ..model.model import Model
-from ..utils import DatasetArguments
+from ..utils import DatasetArguments, getQueuedLogger
 from .icl_strategies import ape, global_entropy_ordering_strategy, knn_construct_examples
 from .utils import get_raw_dataset_loader
 
-logger = getLogger(__name__)
+logger = getQueuedLogger(__name__)
 
 
 class Dataset(torch.utils.data.Dataset):

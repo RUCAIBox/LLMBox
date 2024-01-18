@@ -56,14 +56,18 @@ class Race(MultipleChoiceDataset):
             #     for option in formatted_instance["options"]
             # ]
             self.option_nums.append(len(options))
+
+            # add an "answer option" after each option to normalize
             answer_options = [("A:", option) for option in formatted_instance["options"]]
             options = [item for pair in zip(options, answer_options) for item in pair]
             self.evaluation_instances.extend(options)
+
         self.evaluation_instances = self.evaluation_instances * self.args.sample_num
 
     def post_processing(self, predictions):
         labels = []
         st = 0
+        print(predictions)
         predictions = list(map(lambda _r: _r[0], predictions))
         predictions = np.array([rc - ra for rc, ra in zip(predictions[::2], predictions[1::2])])
         for num in self.option_nums:
