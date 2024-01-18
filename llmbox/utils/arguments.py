@@ -2,6 +2,7 @@ import os
 import sys
 import warnings
 from builtins import bool
+from copy import copy
 from dataclasses import MISSING, dataclass
 from logging import getLogger
 from typing import ClassVar, List, Optional, Set, Tuple, Union
@@ -246,13 +247,17 @@ def parse_argument(args=None) -> Tuple[ModelArguments, DatasetArguments, Evaluat
         Namespace: the parsed arguments
     """
     if args is None:
-        args = sys.argv[1:]
+        args = copy(sys.argv[1:])
     parser = HfArgumentParser((ModelArguments, DatasetArguments, EvaluationArguments), description="LLMBox description")
     model_args, dataset_args, evaluation_args = parser.parse_args_into_dataclasses(args)
     check_args(model_args, dataset_args, evaluation_args)
     set_logging(model_args, dataset_args, evaluation_args)
 
     # log arguments and environment variables
+    redact_dict = {"--openai_api_key": model_args.openai_api_key}
+    for key, value in redact_dict.items():
+        if key in args:
+            args[args.index(key) + 1] = value
     logger.info("Command line arguments: {}".format(" ".join(args)))
     if "CUDA_VISIBLE_DEVICES" in os.environ:
         logger.info(f"CUDA_VISIBLE_DEVICES={os.environ['CUDA_VISIBLE_DEVICES']}")
