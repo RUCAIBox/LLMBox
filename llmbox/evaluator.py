@@ -4,10 +4,11 @@ from typing import Dict, Tuple
 
 from accelerate.utils import set_seed
 from torch.utils.data import DataLoader
+from tqdm import tqdm
 
 from .dataset import load_dataset
 from .model import load_model
-from .utils import DatasetArguments, EvaluationArguments, ModelArguments, catch_error, dynamic_interval_tqdm, \
+from .utils import DatasetArguments, EvaluationArguments, ModelArguments, catch_error, dynamic_stride_tqdm, \
     getQueuedLogger
 
 logger = getQueuedLogger(__name__)
@@ -80,17 +81,22 @@ class Evaluator:
         raw_logger.info(f"{self.dataset.name} arguments:\n    {self.dataset}")
         logger.flush()
 
+        # use tqdm for non-vllm models
+        if self.dataset_args.batch_size != -1:
+            tqdm_kwargs = dict(iterable=dataloader, desc=self.dataset.name, dynamic_ncols=True, unit="example")
+            if self.dataset.evaluation_type == 'ranking':
+                # dataloader is often sacled by batch size and option nums, comparing to evaluation data
+                stride_scale = self.dataset_args.batch_size
+                if self.dataset.use_normalization:
+                    stride_scale /= 2
+                dataloader = dynamic_stride_tqdm(
+                    strides=self.dataset.option_nums, stride_scale=stride_scale, **tqdm_kwargs
+                )
+            else:
+                dataloader = tqdm(unit_scale=self.dataset_args.batch_size, **tqdm_kwargs)
+
         # call model
         raw_predictions = []
-        if self.dataset_args.batch_size != -1:
-            dataloader = dynamic_interval_tqdm(
-                iterable=dataloader,
-                intervals=self.dataset.option_nums,
-                desc=self.dataset.name,
-                dynamic_ncols=True,
-                total=len(self.dataset.evaluation_data),
-                unit="example",
-            )
         for batch in dataloader:
             raw_predictions.extend(call_model(batch))
             self.dataset.log_predictions(raw_predictions)
