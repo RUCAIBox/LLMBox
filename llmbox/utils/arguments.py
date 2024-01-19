@@ -9,7 +9,6 @@ from typing import ClassVar, List, Optional, Set, Tuple, Union
 import openai
 from transformers.hf_argparser import HfArg, HfArgumentParser
 
-from ..dataset.utils import list_availabe_datasets
 from ..model.enum import ANTHROPIC_MODELS, OPENAI_CHAT_MODELS, OPENAI_MODELS
 from .logging import log_levels, set_logging
 

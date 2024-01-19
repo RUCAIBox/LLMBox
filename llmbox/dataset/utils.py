@@ -18,10 +18,6 @@ EXTENDED_SEARCH_PATHS = [
 ]
 
 
-def list_availabe_datasets() -> Set[str]:
-    builtin_files = {"__init__", "utils", "dataset", "generation_dataset", "multiple_choice_dataset", "load"}
-    return set(f[:-3] for f in os.listdir(os.path.dirname(__file__)) if f.endswith(".py")) - builtin_files
-
 
 def get_raw_dataset_loader(
     dataset_name: str,
