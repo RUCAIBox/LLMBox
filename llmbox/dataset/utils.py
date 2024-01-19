@@ -4,7 +4,7 @@ import re
 from importlib.machinery import SourceFileLoader
 from logging import getLogger
 from os.path import abspath
-from typing import Callable, Optional, Tuple, Union
+from typing import Callable, Optional, Set, Tuple, Union
 
 import datasets
 
@@ -16,6 +16,11 @@ EXTENDED_SEARCH_PATHS = [
     "/{subset}/{split}",
     "/{split}/{subset}",
 ]
+
+
+def list_availabe_datasets() -> Set[str]:
+    builtin_files = {'__init__', 'utils', 'dataset', 'generation_dataset', 'multiple_choice_dataset', 'load'}
+    return set(f[:-3] for f in os.listdir(os.path.dirname(__file__)) if f.endswith('.py')) - builtin_files
 
 
 def get_raw_dataset_loader(
@@ -60,9 +65,13 @@ def get_raw_dataset_loader(
 
             # find the correct subset
             if dataset_name in infos:
-                def load_fn(split): return datasets.load_dataset(dataset_path, dataset_name, split=split)
+
+                def load_fn(split):
+                    return datasets.load_dataset(dataset_path, dataset_name, split=split)
             elif subset_name in infos:
-                def load_fn(split): return datasets.load_dataset(dataset_path, subset_name, split=split)
+
+                def load_fn(split):
+                    return datasets.load_dataset(dataset_path, subset_name, split=split)
             else:
                 raise ValueError(
                     f"Cannot find `{subset_name}` subset of `{dataset_name}` dataset in `{dataset_path}`. Available subsets: {infos.keys()}"
@@ -70,9 +79,13 @@ def get_raw_dataset_loader(
 
         # load from a local directory
         elif os.path.exists(os.path.join(dataset_path, "dataset_dict.json")):
-            def load_fn(split): return datasets.load_from_disk(dataset_path)[split]
+
+            def load_fn(split):
+                return datasets.load_from_disk(dataset_path)[split]
         elif subset_name is not None and os.path.exists(os.path.join(dataset_path, subset_name, "dataset_dict.json")):
-            def load_fn(split): return datasets.load_from_disk(os.path.join(dataset_path, subset_name))[split]
+
+            def load_fn(split):
+                return datasets.load_from_disk(os.path.join(dataset_path, subset_name))[split]
 
         # load from a file
         else:
@@ -116,7 +129,9 @@ def get_raw_dataset_loader(
             load_args = (dataset_name, subset_name.split('-')[1] + '-en')
 
         msg += f" from huggingface ({', '.join(load_args)})"
-        def load_fn(split): return datasets.load_dataset(*load_args, split=split, trust_remote_code=True)
+
+        def load_fn(split):
+            return datasets.load_dataset(*load_args, split=split, trust_remote_code=True)
 
     if load_fn is None:
         raise ValueError(

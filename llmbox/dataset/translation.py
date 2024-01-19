@@ -4,17 +4,17 @@ from langcodes import Language
 from llmbox.model.model import Model
 from llmbox.utils import DatasetArguments
 
-from .generation_dataset import GenerationDataset
 from ..metric import Bleu
+from .generation_dataset import GenerationDataset
 
 
 class Translation(GenerationDataset):
     """ The dataset of Wmt dataset.
-    
+
     Example:
         subset_name: ro-en
         instance: {'translation': {'en': 'Obama welcomes Netanyahu', 'ro': 'Obama primește Netanyahu'}
-        prediction: Obama receives Netanyahu 
+        prediction: Obama receives Netanyahu
         reference: Obama welcomes Netanyahu
     """
 

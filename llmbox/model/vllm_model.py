@@ -1,10 +1,15 @@
 from logging import getLogger
 from typing import List
 
-from vllm import LLM, SamplingParams
-
 from ..utils import ModelArguments
 from .model import Model
+
+try:
+    from vllm import LLM, SamplingParams
+except ModuleNotFoundError:
+    raise ModuleNotFoundError(
+        "Please install vllm by `pip install vllm` to use vllm model. Or you can use huggingface model by `--vllm False`."
+    )
 
 logger = getLogger(__name__)
 
@@ -15,7 +20,7 @@ class vllmModel(Model):
         super().__init__(args)
         self.args = args
 
-        logger.info(f"Trying to load {args.model_name_or_path} using vllm...")
+        logger.info(f"Loading {args.model_name_or_path} using vllm...")
         self.type = args.model_type
         self.model = LLM(model=args.model_name_or_path, tokenizer=args.tokenizer_name_or_path)
         self.tokenizer = self.model.get_tokenizer()

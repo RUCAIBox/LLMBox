@@ -4,6 +4,8 @@ from typing import Union
 from tiktoken import Encoding
 from transformers import PreTrainedTokenizer, PreTrainedTokenizerFast
 
+from ..utils import ModelArguments
+
 logger = getLogger(__name__)
 
 
@@ -24,7 +26,7 @@ class Model:
     name = ""
     type = ""
 
-    def __init__(self, args):
+    def __init__(self, args: ModelArguments):
         self.args = args
         self.tokenizer: Union[PreTrainedTokenizer, PreTrainedTokenizerFast, Encoding] = None
 

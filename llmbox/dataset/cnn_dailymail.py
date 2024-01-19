@@ -1,5 +1,5 @@
-from .generation_dataset import GenerationDataset
 from ..metric import Rouge
+from .generation_dataset import GenerationDataset
 
 
 class CNN_DailyMail(GenerationDataset):
@@ -19,7 +19,7 @@ class CNN_DailyMail(GenerationDataset):
     example_set = "test"
     metrics = [Rouge()]
     load_args = ("cnn_dailymail", "3.0.0")
-    model_args = dict(temperature=0)
+    extra_model_args = dict(temperature=0)
 
     def format_instance(self, instance):
         source = instance["article"] + "\n\nTL;DR: "

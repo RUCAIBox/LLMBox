@@ -4,10 +4,11 @@ from typing import Dict, Tuple
 
 from accelerate.utils import set_seed
 from torch.utils.data import DataLoader
+from tqdm import tqdm
 
 from .dataset import load_dataset
 from .model import load_model
-from .utils import DatasetArguments, EvaluationArguments, ModelArguments, catch_error, dynamic_interval_tqdm
+from .utils import DatasetArguments, EvaluationArguments, ModelArguments, catch_error, dynamic_stride_tqdm
 
 logger = getLogger(__name__)
 
@@ -61,10 +62,10 @@ class Evaluator:
         )
 
         if self.dataset.evaluation_type == 'ranking':
-            self.model.set_ppl_args(**self.dataset.model_args)
+            self.model.set_ppl_args(**self.dataset.extra_model_args)
             call_model = self.model.get_ppl
         elif self.dataset.evaluation_type == 'generation':
-            self.model.set_generation_args(**self.dataset.model_args)
+            self.model.set_generation_args(**self.dataset.extra_model_args)
             call_model = self.model.generation
         elif self.dataset.evaluation_type == 'user_defined':
             call_model = self.dataset.evaluation
@@ -73,21 +74,22 @@ class Evaluator:
                 f"We only support three evaluation types: `ranking`, `generation`, and `user_defined`, but got `{self.dataset.evaluation_type}`."
             )
 
-        # log arguments after model and dataset are loaded, since they may change some arguments
-        logger.info(f"Full arguments:\n    {self.model_args}\n    {self.dataset_args}\n    {self.evaluation_args}")
-        logger.info(f"{self.dataset.name} arguments:\n    {self.dataset}")
+        # use tqdm for non-vllm models
+        if self.dataset_args.batch_size != -1:
+            tqdm_kwargs = dict(iterable=dataloader, desc=self.dataset.name, dynamic_ncols=True, unit="example")
+            if self.dataset.evaluation_type == 'ranking':
+                # dataloader is often sacled by batch size and option nums, comparing to evaluation data
+                stride_scale = self.dataset_args.batch_size
+                if self.dataset.use_normalization:
+                    stride_scale /= 2
+                dataloader = dynamic_stride_tqdm(
+                    strides=self.dataset.option_nums, stride_scale=stride_scale, **tqdm_kwargs
+                )
+            else:
+                dataloader = tqdm(unit_scale=self.dataset_args.batch_size, **tqdm_kwargs)
 
         # call model
         raw_predictions = []
-        if self.dataset_args.batch_size != -1:
-            dataloader = dynamic_interval_tqdm(
-                iterable=dataloader,
-                intervals=self.dataset.option_nums,
-                desc=self.dataset.name,
-                dynamic_ncols=True,
-                total=len(self.dataset.evaluation_data),
-                unit="example",
-            )
         for batch in dataloader:
             raw_predictions.extend(call_model(batch))
             self.dataset.log_predictions(raw_predictions)
