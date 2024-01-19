@@ -4,7 +4,7 @@ from builtins import bool
 from copy import copy
 from dataclasses import MISSING, dataclass
 from logging import getLogger
-from typing import ClassVar, List, Literal, Optional, Set, Tuple, Union
+from typing import ClassVar, List, Optional, Set, Tuple, Union
 
 import openai
 from transformers.hf_argparser import HfArg, HfArgumentParser
@@ -277,6 +277,11 @@ def check_args(model_args: ModelArguments, dataset_args: DatasetArguments, evalu
         dataset_args.batch_size = 1
         logger.warning(
             f"OpenAI chat-based model {model_args.model_name_or_path} doesn't support batch_size > 1, automatically set batch_size to 1."
+        )
+    if model_args.model_name_or_path.lower() in ANTHROPIC_MODELS and dataset_args.batch_size > 1:
+        dataset_args.batch_size = 1
+        logger.warning(
+            f"Claude model {model_args.model_name_or_path} doesn't support batch_size > 1, automatically set batch_size to 1."
         )
 
 
