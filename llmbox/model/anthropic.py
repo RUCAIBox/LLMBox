@@ -38,14 +38,14 @@ class Anthropic(Model):
     def set_generation_args(self, **kwargs):
         r"""Set the configurations for open-ended generation. This is useful because different datasets may have different requirements for generation."""
         generation_kwargs = {}
-        for key in ['temperature', 'top_p', 'max_tokens', 'best_of', 'frequency_penalty', 'presence_penalty', 'stop']:
+        for key in ['temperature', 'top_p', 'max_tokens', 'best_of', 'stop']:
             value = getattr(self.args, key) if getattr(self.args, key, None) is not None else kwargs.get(key, None)
             if key == 'max_tokens' and value is None:
-                value = 1024
+                value = 4096
+            if key == 'stop':
+                key = 'stop_sequences'
             if value is not None:
                 generation_kwargs[key] = value
-        if generation_kwargs.get('temperature', 1) == 0:
-            generation_kwargs['seed'] = self.args.seed
         self.generation_kwargs = generation_kwargs
 
     def generation(self, batched_inputs):
@@ -70,18 +70,7 @@ class Anthropic(Model):
         for _ in range(self.max_try_times):
             try:
                 message = [{"role": "user", "content": prompt[0]}]
-                args = {}
-                # Change the args into Anthropic_style.
-                args["max_tokens"] = 4096 if "max_tokens" not in kwargs else kwargs["max_tokens"]
-                if "stop" in kwargs:
-                    args["stop_sequences"] = kwargs["stop"]
-                if "temperature" in kwargs:
-                    args["temperature"] = kwargs["temperature"]
-                if "top_k" in kwargs:
-                    args["top_k"] = kwargs["top_k"]
-                if "top_p" in kwargs:
-                    args["top_p"] = kwargs["top_p"]
-                response = client.beta.messages.create(model=self.name, messages=message, **args)
+                response = client.beta.messages.create(model=self.name, messages=message, **kwargs)
                 return [[response]]
             except anthropic.RateLimitError:
                 logger.warning('Receive anthropic.RateLimitError, retrying...')
