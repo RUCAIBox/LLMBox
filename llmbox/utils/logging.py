@@ -24,6 +24,15 @@ log_levels = {
 }
 
 
+def get_git_revision(base_path):
+    git_dir = pathlib.Path(base_path) / '.git'
+    with (git_dir / 'HEAD').open('r') as head:
+        ref = head.readline().split(' ')[-1].strip()
+
+    with (git_dir / ref).open('r') as git_hash:
+        return git_hash.readline().strip()
+
+
 def _get_file_handler(log_path, int_file_log_level):
     handler = logging.FileHandler(log_path)
     formatter = coloredlogs.BasicFormatter(fmt=DEFAULT_LOG_FORMAT)
@@ -92,3 +101,4 @@ def set_logging(
 
     # finish logging initialization
     logger.info(f"Saving logs to {os.path.abspath(log_path)}")
+    getFileLogger().info(f"LLMBox revision: {get_git_revision(os.path.join(os.path.dirname(__file__), '../..'))}")
