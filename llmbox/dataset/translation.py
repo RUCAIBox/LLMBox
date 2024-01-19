@@ -1,16 +1,16 @@
 from langcodes import Language
 
-from .generation_dataset import GenerationDataset
 from ..metric import Bleu
+from .generation_dataset import GenerationDataset
 
 
 class Translation(GenerationDataset):
     """ The dataset of Wmt dataset.
-    
+
     Example:
         subset_name: ro-en
         instance: {'translation': {'en': 'Obama welcomes Netanyahu', 'ro': 'Obama primește Netanyahu'}
-        prediction: Obama receives Netanyahu 
+        prediction: Obama receives Netanyahu
         reference: Obama welcomes Netanyahu
     """
 
@@ -19,7 +19,7 @@ class Translation(GenerationDataset):
     metrics = [Bleu()]
     instruction = ''
     load_args = ()
-    model_args = dict(temperature=0, stop=['\n'])
+    extra_model_args = dict(temperature=0, stop=['\n'])
 
     def format_instance(self, instance):
         instance = instance['translation']

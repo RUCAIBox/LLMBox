@@ -1,7 +1,6 @@
 import datetime
 import logging
 from copy import copy
-from logging import getLogger
 from os.path import abspath
 from typing import Optional
 
@@ -11,7 +10,7 @@ DEFAULT_LOG_FORMAT = '%(asctime)s %(levelname)s %(message)s'
 
 DEFAULT_DATETIME_FORMAT = '%Y_%m_%d-%H_%M_%S'  # Compatible with windows, which does not support ':' in filename
 
-logger = getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 log_levels = {
     "debug": logging.DEBUG,

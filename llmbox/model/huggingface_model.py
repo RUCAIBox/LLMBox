@@ -14,7 +14,7 @@ logger = getLogger(__name__)
 
 def load_hf_model(args: ModelArguments) -> Tuple[PreTrainedModel, Union[PreTrainedTokenizer, PreTrainedTokenizerFast]]:
 
-    logger.info(f"Trying to load {args.model_name_or_path} using Hugging Face Transformers...")
+    logger.info(f"Loading {args.model_name_or_path} using Hugging Face Transformers...")
 
     model_kwargs = dict(
         torch_dtype=torch.float16,
@@ -24,7 +24,19 @@ def load_hf_model(args: ModelArguments) -> Tuple[PreTrainedModel, Union[PreTrain
     if args.flash_attention:
         model_kwargs['attn_implementation'] = "flash_attention_2"
 
-    model = AutoModelForCausalLM.from_pretrained(args.model_name_or_path, **model_kwargs).eval()
+    try:
+        model = AutoModelForCausalLM.from_pretrained(args.model_name_or_path, **model_kwargs).eval()
+    except TypeError as e:
+        if "attn_implementation" in str(e):
+            logger.warning(
+                f"Cannot set `attn_implementation` for {args.model_name_or_path}. Set `flash_attention` to False."
+            )
+            args.flash_attention = False
+            model_kwargs.pop('attn_implementation')
+            model = AutoModelForCausalLM.from_pretrained(args.model_name_or_path, **model_kwargs).eval()
+        else:
+            raise e
+
     tokenizer = AutoTokenizer.from_pretrained(
         args.tokenizer_name_or_path, use_fast=True, padding_side='left', add_eos_token=False
     )
@@ -56,6 +68,12 @@ class HuggingFaceModel(Model):
         super().__init__(args)
         self.args = args
         self.type = args.model_type
+        if self.type not in {'base', 'instruction'}:
+            raise ValueError(
+                f"Invalid model type: {self.type}. Please use `--model_type` to specify the"
+                " model type, which can be chosen from `base` and `instruction`."
+            )
+
         self.model, self.tokenizer = load_hf_model(args)
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
 

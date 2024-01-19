@@ -1,5 +1,5 @@
-from .generation_dataset import GenerationDataset
 from ..metric import Rouge
+from .generation_dataset import GenerationDataset
 
 
 class TLDR(GenerationDataset):
@@ -18,7 +18,7 @@ class TLDR(GenerationDataset):
     example_set = "test"
     metrics = [Rouge()]
     load_args = ("CarperAI/openai_summarize_tldr",)
-    model_args = dict(temperature=0)
+    extra_model_args = dict(temperature=0)
 
     def format_instance(self, instance):
         source = instance["prompt"]

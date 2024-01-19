@@ -25,7 +25,7 @@ class Openai(Model):
             raise ValueError(
                 "OpenAI API key is required. Please set it by passing a `--openai_api_key` or through environment variable `OPENAI_API_KEY`."
             )
-        logger.info(f"OpenAI API key: {args.openai_api_key}, base: {openai.api_base}")
+        logger.info(f"Trying to load OpenAI model with api_key='{args.openai_api_key}' and base='{openai.api_base}'")
         self.api_key = openai.api_key  # the actual api key is used in icl
 
         self.args = args
@@ -74,12 +74,12 @@ class Openai(Model):
             answers.append(answer)
         return answers
 
-    def request(self, prompt, model_args):
+    def request(self, prompt, openai_kwargs):
         r"""Call the OpenAI API.
 
         Args:
             prompt (List[str]): The list of input prompts.
-            model_args (dict): The additional calling configurations.
+            openai_kwargs (dict): The additional calling configurations.
 
         Returns:
             List[dict]: The responsed JSON results.
@@ -88,10 +88,10 @@ class Openai(Model):
             try:
                 if self.name in OPENAI_CHAT_MODELS:
                     message = [{'role': 'user', 'content': prompt[0]}]
-                    response = openai.ChatCompletion.create(model=self.name, messages=message, **model_args)
+                    response = openai.ChatCompletion.create(model=self.name, messages=message, **openai_kwargs)
                     return [response["choices"]]
                 else:
-                    response = openai.Completion.create(model=self.name, prompt=prompt, **model_args)
+                    response = openai.Completion.create(model=self.name, prompt=prompt, **openai_kwargs)
                     return response["choices"]
             except openai.error.RateLimitError:
                 logger.warning('Receive openai.error.RateLimitError, retrying...')
