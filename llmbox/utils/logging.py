@@ -1,7 +1,8 @@
 import datetime
 import logging
+import os
+import pathlib
 from copy import copy
-from os.path import abspath
 from typing import Optional
 
 import coloredlogs
@@ -11,6 +12,8 @@ DEFAULT_LOG_FORMAT = "%(asctime)s %(levelname)s %(message)s"
 DEFAULT_DATETIME_FORMAT = "%Y_%m_%d-%H_%M_%S"  # Compatible with windows, which does not support ':' in filename
 
 logger = logging.getLogger(__name__)
+
+llmbox_package = __package__.split(".")[0]
 
 log_levels = {
     "debug": logging.DEBUG,
@@ -45,18 +48,7 @@ def _format_path(model_args, dataset_args, evaluation_args):
 
 def getFileLogger(name=None):
     """Get a logger that only logs to file."""
-    file_handler = None
-    for hdlr in logging.getLogger(__package__.split(".")[0]).handlers:
-        if isinstance(hdlr, logging.FileHandler):
-            file_handler = hdlr
-            break
-    if file_handler is None:
-        raise RuntimeError("The logging has not been initialized.")
-
-    logger = copy(logging.getLogger(name))
-    logger.handlers = [file_handler]
-    logger.propagate = False
-    return logger
+    return logging.getLogger("file_" + (name or llmbox_package))
 
 
 def set_logging(
@@ -69,7 +61,7 @@ def set_logging(
 
     # Use package logger to disable logging of other packages. Set the level to DEBUG first
     # to allow all logs from our package, and then set the level to the desired one.
-    package_logger = logging.getLogger(__package__.split(".")[0])
+    package_logger = logging.getLogger(llmbox_package)
     if len(package_logger.handlers) != 0:
         raise RuntimeError("The logging has been initialized before.")
 
@@ -93,5 +85,10 @@ def set_logging(
     handler = _get_file_handler(log_path, int_file_log_level)
     package_logger.addHandler(handler)
 
+    file_package_logger = logging.getLogger("file_" + llmbox_package)
+    file_package_logger.setLevel(package_logger.level)
+    file_package_logger.handlers = [handler]
+    file_package_logger.propagate = False
+
     # finish logging initialization
-    logger.info(f"Saving logs to {abspath(log_path)}")
+    logger.info(f"Saving logs to {os.path.abspath(log_path)}")

@@ -30,10 +30,10 @@ def load_hf_model(args: ModelArguments) -> Tuple[PreTrainedModel, Union[PreTrain
 
     try:
         model = AutoModelForCausalLM.from_pretrained(args.model_name_or_path, **model_kwargs).eval()
-    except TypeError as e:
-        if "attn_implementation" in str(e):
+    except (TypeError, ImportError) as e:
+        if "attn_implementation" in str(e) or "flash_att" in str(e):
             logger.warning(
-                f"Cannot set `attn_implementation` for {args.model_name_or_path}. Set `flash_attention` to False."
+                f"Cannot set `attn_implementation` for {args.model_name_or_path}: {e}. Set `flash_attention` to False."
             )
             args.flash_attention = False
             model_kwargs.pop("attn_implementation")
