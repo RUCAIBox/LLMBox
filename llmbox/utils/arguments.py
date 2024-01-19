@@ -11,6 +11,7 @@ from transformers.hf_argparser import HfArg, HfArgumentParser
 
 from ..dataset.utils import list_availabe_datasets
 from ..model.enum import OPENAI_CHAT_MODELS, OPENAI_MODELS
+from ..model.enum import ANTHROPIC_MODELS
 from .logging import log_levels, set_logging
 
 logger = getLogger(__name__)
@@ -48,6 +49,10 @@ class ModelArguments:
     openai_api_key: str = HfArg(
         default=None,
         help="The OpenAI API key",
+    )
+    anthropic_api_key: str = HfArg(
+        default=None,
+        help="The Anthropic API key",
     )
     """The redacted API key for logging."""
 
@@ -118,6 +123,9 @@ class ModelArguments:
     def is_openai_model(self) -> bool:
         return self._model_impl == "openai"
 
+    def is_anthropic_model(self) -> bool:
+        return self._model_impl == "anthropic"
+
     def is_huggingface_model(self) -> bool:
         return self._model_impl == "huggingface"
 
@@ -129,15 +137,20 @@ class ModelArguments:
             openai.api_key = self.openai_api_key
             self.openai_api_key = self.openai_api_key[:8] + "*" * 39 + self.openai_api_key[-4:]
 
+        if "ANTHROPIC_API_KEY" in os.environ and self.anthropic_api_key is None:
+            self.anthropic_api_key = os.environ["ANTHROPIC_API_KEY"]
+
         if self.tokenizer_name_or_path is None:
             self.tokenizer_name_or_path = self.model_name_or_path
 
         if self.model_name_or_path.lower() in OPENAI_MODELS:
             self._model_impl = "openai"
+        elif self.model_name_or_path.lower() in ANTHROPIC_MODELS:
+            self._model_impl = "anthropic"
         else:
             self._model_impl = "huggingface"
 
-        if self.is_openai_model():
+        if self.is_openai_model() or self.is_anthropic_model():
             self.vllm = False
 
 
