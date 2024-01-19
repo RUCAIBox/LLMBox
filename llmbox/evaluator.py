@@ -68,11 +68,9 @@ class Evaluator:
             pin_memory=True,
         )
 
-        if self.dataset.evaluation_type == "ranking":
-            self.model.set_ppl_args(**self.dataset.extra_model_args)
+        if self.dataset.evaluation_type == 'ranking':
             call_model = self.model.get_ppl
-        elif self.dataset.evaluation_type == "generation":
-            self.model.set_generation_args(**self.dataset.extra_model_args)
+        elif self.dataset.evaluation_type == 'generation':
             call_model = self.model.generation
         elif self.dataset.evaluation_type == "user_defined":
             call_model = self.dataset.evaluation
