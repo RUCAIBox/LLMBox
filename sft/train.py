@@ -12,7 +12,7 @@ from datasets import load_dataset
 from accelerate.utils import set_seed
 from trl import SFTTrainer, DataCollatorForCompletionOnlyLM
 from dataset import Dataset
-from peft import LoraConfig, PrefixTuningConfig, PromptTuningConfig, TaskType
+from peft import LoraConfig, TaskType
 
 @dataclass
 class Arguments(TrainingArguments):
