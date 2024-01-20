@@ -1,8 +1,8 @@
-export CUDA_VISIBLE_DEVICES=0,1,2,3
+export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
 export WANDB_MODE=disabled
 OUTPUT_DIR=./output/alpaca-7b-lora
-torchrun --nproc_per_node=4 train.py \
-    --model_name_or_path /cpfs01/user/GPT/dzc/models/Llama-2-7b-hf \
+torchrun --nproc_per_node=8 train.py \
+    --model_name_or_path meta-llama/Llama-2-7b-hf \
     --data_path data/alpaca_data_1k.json \
     --output_dir $OUTPUT_DIR \
     --num_train_epochs 2 \
