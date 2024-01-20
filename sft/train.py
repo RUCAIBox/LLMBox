@@ -1,6 +1,8 @@
 import warnings
 import logging
 import torch
+import os
+import json
 
 from typing import Optional
 from dataclasses import dataclass
@@ -10,7 +12,7 @@ from datasets import load_dataset
 from accelerate.utils import set_seed
 from trl import SFTTrainer, DataCollatorForCompletionOnlyLM
 from dataset import Dataset
-
+from peft import LoraConfig, PrefixTuningConfig, PromptTuningConfig, TaskType
 
 @dataclass
 class Arguments(TrainingArguments):
@@ -62,6 +64,26 @@ class Arguments(TrainingArguments):
         " API and it may change."
     )
 
+    lora: Optional[bool] = HfArg(
+        default = False,
+        help ="whether to train with LoRA."
+    )
+
+    lora_r: Optional[int] = HfArg(
+        default = 16,
+        help = 'Lora attention dimension (the “rank”)'
+    )
+
+    lora_alpha: Optional[int] = HfArg(
+        default=16,
+        help = 'The alpha parameter for Lora scaling.'
+    )
+
+    lora_dropout: Optional[float] = HfArg(
+        default = 0.05,
+        help="The dropout probability for Lora layers."
+    )
+
 
 def train():
     parser = HfArgumentParser(Arguments)
@@ -99,7 +121,15 @@ def train():
             response_template=response_template_ids,
             tokenizer=tokenizer,
         )
-
+        if args.lora:
+            peft_config = LoraConfig(
+                task_type=TaskType.CAUSAL_LM,
+                r=args.lora_r,
+                lora_alpha=args.lora_alpha,
+                lora_dropout=args.lora_dropout,
+            )
+        else:
+            peft_config=None
         trainer = SFTTrainer(
             model=model,
             args=args,
@@ -109,6 +139,7 @@ def train():
             packing=False,
             data_collator=collator,
             formatting_func=dataset.formatting_func,
+            peft_config=peft_config
         )
     elif args.mode == 'pt':
         dataset = load_dataset('text', data_files=args.data_path)['train']
