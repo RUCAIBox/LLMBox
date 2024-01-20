@@ -14,6 +14,7 @@ from trl import SFTTrainer, DataCollatorForCompletionOnlyLM
 from dataset import Dataset
 from peft import LoraConfig, TaskType
 
+
 @dataclass
 class Arguments(TrainingArguments):
 
@@ -64,25 +65,13 @@ class Arguments(TrainingArguments):
         " API and it may change."
     )
 
-    lora: Optional[bool] = HfArg(
-        default = False,
-        help ="whether to train with LoRA."
-    )
+    lora: Optional[bool] = HfArg(default=False, help="whether to train with LoRA.")
 
-    lora_r: Optional[int] = HfArg(
-        default = 16,
-        help = 'Lora attention dimension (the “rank”)'
-    )
+    lora_r: Optional[int] = HfArg(default=16, help='Lora attention dimension (the "rank")')
 
-    lora_alpha: Optional[int] = HfArg(
-        default=16,
-        help = 'The alpha parameter for Lora scaling.'
-    )
+    lora_alpha: Optional[int] = HfArg(default=16, help='The alpha parameter for Lora scaling.')
 
-    lora_dropout: Optional[float] = HfArg(
-        default = 0.05,
-        help="The dropout probability for Lora layers."
-    )
+    lora_dropout: Optional[float] = HfArg(default=0.05, help="The dropout probability for Lora layers.")
 
 
 def train():
@@ -109,6 +98,19 @@ def train():
         attn_implementation="flash_attention_2" if args.use_flash_attention else None
     )
 
+    if args.lora:
+        peft_config = LoraConfig(
+            task_type=TaskType.CAUSAL_LM,
+            r=args.lora_r,
+            lora_alpha=args.lora_alpha,
+            lora_dropout=args.lora_dropout,
+        )
+    else:
+        peft_config = None
+
+    kwargs = dict(
+        model=model, args=args, tokenizer=tokenizer, max_seq_length=args.model_max_length, peft_config=peft_config
+    )
     if args.mode == 'sft':
         dataset = Dataset(args)
 
@@ -121,40 +123,21 @@ def train():
             response_template=response_template_ids,
             tokenizer=tokenizer,
         )
-        if args.lora:
-            peft_config = LoraConfig(
-                task_type=TaskType.CAUSAL_LM,
-                r=args.lora_r,
-                lora_alpha=args.lora_alpha,
-                lora_dropout=args.lora_dropout,
+        kwargs.update(
+            dict(
+                train_dataset=dataset.load_data(),
+                packing=False,
+                data_collator=collator,
+                formatting_func=dataset.formatting_func
             )
-        else:
-            peft_config=None
-        trainer = SFTTrainer(
-            model=model,
-            args=args,
-            train_dataset=dataset.load_data(),
-            tokenizer=tokenizer,
-            max_seq_length=args.model_max_length,
-            packing=False,
-            data_collator=collator,
-            formatting_func=dataset.formatting_func,
-            peft_config=peft_config
         )
+
     elif args.mode == 'pt':
         dataset = load_dataset('text', data_files=args.data_path)['train']
         model.resize_token_embeddings(len(tokenizer))
+        kwargs.update(dict(train_dataset=dataset, packing=True, dataset_text_field="text"))
 
-        trainer = SFTTrainer(
-            model=model,
-            args=args,
-            train_dataset=dataset,
-            tokenizer=tokenizer,
-            max_seq_length=args.model_max_length,
-            packing=True,
-            dataset_text_field="text"
-        )
-
+    trainer = SFTTrainer(**kwargs)
     trainer.train()
     trainer.save_state()
 
