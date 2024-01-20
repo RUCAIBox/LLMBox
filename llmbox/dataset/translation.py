@@ -1,4 +1,3 @@
-from typing import Optional
 from langcodes import Language
 
 from llmbox.model.model import Model
