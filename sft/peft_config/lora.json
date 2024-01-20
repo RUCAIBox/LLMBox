@@ -1,0 +1,8 @@
+{
+    "peft_type":"LORA",
+    "r": 16,
+    "lora_alpha": 16,
+    "target_modules": ["gate_proj", "down_proj", "up_proj"],
+    "lora_dropout": 0.05,
+    "bias": "none"
+}

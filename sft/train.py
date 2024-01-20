@@ -1,6 +1,8 @@
 import warnings
 import logging
 import torch
+import os
+import json
 
 from typing import Optional
 from dataclasses import dataclass
@@ -10,7 +12,7 @@ from datasets import load_dataset
 from accelerate.utils import set_seed
 from trl import SFTTrainer, DataCollatorForCompletionOnlyLM
 from dataset import Dataset
-
+from peft import LoraConfig, TaskType
 
 @dataclass
 class Arguments(TrainingArguments):
@@ -62,6 +64,28 @@ class Arguments(TrainingArguments):
         " API and it may change."
     )
 
+    peft_config_path: str = HfArg(
+        default = '',
+        help ="The config path of peft_args"
+    )
+
+def peft_configuration(args):
+    if args.peft_config_path and os.path.exists(args.peft_config_path):
+        with open(args.peft_config_path,'r') as fp:
+            peft_config = json.loads(fp.read())
+            method = peft_config.pop('peft_type')
+    else:
+        return None
+    
+    if method.lower() == 'lora':
+        config = LoraConfig(
+            task_type=TaskType.CAUSAL_LM,
+            **peft_config
+        )
+    else:
+        raise ValueError("This peft method has not been supported.")
+    return config
+
 
 def train():
     parser = HfArgumentParser(Arguments)
@@ -99,7 +123,7 @@ def train():
             response_template=response_template_ids,
             tokenizer=tokenizer,
         )
-
+        peft_config = peft_configuration(args)
         trainer = SFTTrainer(
             model=model,
             args=args,
@@ -109,6 +133,7 @@ def train():
             packing=False,
             data_collator=collator,
             formatting_func=dataset.formatting_func,
+            peft_config=peft_config
         )
     elif args.mode == 'pt':
         dataset = load_dataset('text', data_files=args.data_path)['train']
