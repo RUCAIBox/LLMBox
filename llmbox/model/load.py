@@ -19,6 +19,10 @@ def load_model(args: ModelArguments) -> Model:
         logger.info(f"Loading OpenAI API model `{args.model_name_or_path.lower()}`.")
         from .openai import Openai
         return Openai(args)
+    elif args.is_anthropic_model():
+        logger.info(f"Loading Anthropic API model `{args.model_name_or_path.lower()}`.")
+        from .anthropic import Anthropic
+        return Anthropic(args)
     else:
         if args.vllm:
             try:
