@@ -5,7 +5,6 @@ import anthropic
 import tiktoken
 
 from ..utils import ModelArguments
-from .enum import ANTHROPIC_MODELS
 from .model import Model
 
 logger = getLogger(__name__)
@@ -38,12 +37,12 @@ class Anthropic(Model):
     def set_generation_args(self, **kwargs):
         r"""Set the configurations for open-ended generation. This is useful because different datasets may have different requirements for generation."""
         generation_kwargs = {}
-        for key in ['temperature', 'top_p', 'max_tokens', 'best_of', 'stop']:
+        for key in ["temperature", "top_p", "max_tokens", "best_of", "stop"]:
             value = getattr(self.args, key) if getattr(self.args, key, None) is not None else kwargs.get(key, None)
-            if key == 'max_tokens' and value is None:
+            if key == "max_tokens" and value is None:
                 value = 4096
-            if key == 'stop':
-                key = 'stop_sequences'
+            if key == "stop":
+                key = "stop_sequences"
             if value is not None:
                 generation_kwargs[key] = value
         self.generation_kwargs = generation_kwargs
@@ -73,7 +72,7 @@ class Anthropic(Model):
                 response = client.beta.messages.create(model=self.name, messages=message, **kwargs)
                 return [[response]]
             except anthropic.RateLimitError:
-                logger.warning('Receive anthropic.RateLimitError, retrying...')
+                logger.warning("Receive anthropic.RateLimitError, retrying...")
                 time.sleep(10)
             except anthropic.APIStatusError as e:
                 logger.warning("Another non-200-range status code was received")
@@ -82,7 +81,7 @@ class Anthropic(Model):
                 logger.warning("The server could not be reached")
                 raise e
             except Exception as e:
-                logger.warning(f'Receive {e.__class__.__name__}: {str(e)}')
-                logger.warning('retrying...')
+                logger.warning(f"Receive {e.__class__.__name__}: {str(e)}")
+                logger.warning("retrying...")
                 time.sleep(1)
         raise ConnectionError("Anthropic API error")

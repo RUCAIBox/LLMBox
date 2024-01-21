@@ -2,8 +2,7 @@ from llmbox import Evaluator, parse_argument
 
 
 def main():
-    r"""The main pipeline for argument parsing, initialization, and evaluation.
-    """
+    r"""The main pipeline for argument parsing, initialization, and evaluation."""
     args = parse_argument()
 
     evaluator = Evaluator(args)

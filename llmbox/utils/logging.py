@@ -6,9 +6,9 @@ from typing import Optional
 
 import coloredlogs
 
-DEFAULT_LOG_FORMAT = '%(asctime)s %(levelname)s %(message)s'
+DEFAULT_LOG_FORMAT = "%(asctime)s %(levelname)s %(message)s"
 
-DEFAULT_DATETIME_FORMAT = '%Y_%m_%d-%H_%M_%S'  # Compatible with windows, which does not support ':' in filename
+DEFAULT_DATETIME_FORMAT = "%Y_%m_%d-%H_%M_%S"  # Compatible with windows, which does not support ':' in filename
 
 logger = logging.getLogger(__name__)
 

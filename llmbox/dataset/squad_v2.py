@@ -23,11 +23,18 @@ class Squad_v2(GenerationDataset):
     evaluation_set = "validation"
     load_args = ("squad_v2",)
     metrics = [F1(), Em()]
-    extra_model_args = dict(max_tokens=64, temperature=0, stop=['\n'])
+    extra_model_args = dict(max_tokens=64, temperature=0, stop=["\n"])
 
     def format_instance(self, instance):
-        source_text = "Title: " + instance["title"] + "\n\nBackground: " \
-            + instance["context"] + "\n\nQ: " + instance["question"] + "\n\nA:"
+        source_text = (
+            "Title: "
+            + instance["title"]
+            + "\n\nBackground: "
+            + instance["context"]
+            + "\n\nQ: "
+            + instance["question"]
+            + "\n\nA:"
+        )
         text = instance["answers"]["text"]
         if not text:
             text = "Not in background."
@@ -87,13 +94,13 @@ class Squad_v2(GenerationDataset):
     @property
     def references(self):
         return [
-            instance["answers"]["text"] if instance["answers"]["text"] else ['Not in background.']
+            instance["answers"]["text"] if instance["answers"]["text"] else ["Not in background."]
             for instance in self.evaluation_data
         ]
 
     def post_processing(self, preds):
         predictions = []
-        pattern = r'[.!(\n)]'
+        pattern = r"[.!(\n)]"
         for pred in preds:
             match = re.search(pattern, pred)
             if match:

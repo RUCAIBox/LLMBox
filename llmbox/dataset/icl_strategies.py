@@ -90,7 +90,6 @@ def ape(example_dataset, eval_dataset, call_model, api_key):
     """
 
     class ModelArguments:
-
         def __init__(self):
             self.model_name_or_path = "gpt-3.5-turbo-instruct"
             self.openai_api_key = api_key
@@ -98,12 +97,12 @@ def ape(example_dataset, eval_dataset, call_model, api_key):
             self.temperature = 0.9
 
     gpt_config = {
-        'n': 5,
-        'temperature': 0.9,
-        'max_tokens': 50,
-        'top_p': 0.9,
-        'frequency_penalty': 0.0,
-        'presence_penalty': 0.0
+        "n": 5,
+        "temperature": 0.9,
+        "max_tokens": 50,
+        "top_p": 0.9,
+        "frequency_penalty": 0.0,
+        "presence_penalty": 0.0,
     }
     prompt_gen_template = "I gave a friend an instruction. Based on the instruction they produced the following sentences:\n\n{DEMO}\nThe instruction was to "
     prompt_eval_template = "The instruction was {PROMPT}. Based on the instruction they produced the following sentences:\n\n{DEMO}\n now evaluate the sentence:{INPUT}"
@@ -112,14 +111,14 @@ def ape(example_dataset, eval_dataset, call_model, api_key):
     for i in range(5):
         indice = np.random.choice(len(example_dataset), 5)
         full_demo = "\n\n".join([example_dataset[i]["source"] + example_dataset[i]["target"] for i in indice])
-        query = prompt_gen_template.format_map({'DEMO': full_demo})
+        query = prompt_gen_template.format_map({"DEMO": full_demo})
         queries.append(query)
     prompts = []
     model_parameter = ModelArguments()
     instruct_gen_model = openai.Openai(model_parameter)
     for query in queries:
         response = instruct_gen_model.request(query, gpt_config)
-        prompts += [response[i]['text'].strip().replace('\"', '') for i in range(len(response))]
+        prompts += [response[i]["text"].strip().replace('"', "") for i in range(len(response))]
 
     # evaluate prompts
     eval_queries = []
@@ -130,15 +129,14 @@ def ape(example_dataset, eval_dataset, call_model, api_key):
         for i in range(eval_num):
             full_demo = "\n\n".join([eval_dataset[i]["source"] + eval_dataset[i]["target"] for i in demo_indice])
             eval_data = eval_dataset[eval_indice[i]]
-            eval_query = prompt_eval_template.format_map({
-                'DEMO': full_demo,
-                'PROMPT': prompt,
-                'INPUT': eval_data["source"]
-            }), eval_data["target"]
+            eval_query = (
+                prompt_eval_template.format_map({"DEMO": full_demo, "PROMPT": prompt, "INPUT": eval_data["source"]}),
+                eval_data["target"],
+            )
             eval_queries.append(eval_query)
     ppls = []
-    queries_batches = [eval_queries[i:i + 10] for i in range(0, len(eval_queries), 10)]
-    print('----------evaluating instructions----------')
+    queries_batches = [eval_queries[i : i + 10] for i in range(0, len(eval_queries), 10)]
+    print("----------evaluating instructions----------")
     for queries_batch in tqdm(queries_batches):
         batch_ppl = call_model(queries_batch)
         ppls.extend(batch_ppl)

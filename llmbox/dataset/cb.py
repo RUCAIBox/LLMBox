@@ -11,25 +11,25 @@ class Cb(MultipleChoiceDataset):
         passage: the language was peeled down
         label: 0
     """
+
     instruction = ""
     evaluation_set = "validation"
     example_set = "train"
     load_args = ("super_glue", "cb")
 
     def format_instance(self, instance):
-        source = instance["premise"] + '\n' + 'question: ' + instance[
-            "hypothesis"] + '. true, false, or neither?' + '\n' + 'answer:'
+        source = instance["premise"] + "\nquestion: " + instance["hypothesis"] + ". true, false, or neither?\nanswer:"
 
         label2text = {
-            0: ' true',
-            1: ' false',
-            2: ' neither',
+            0: " true",
+            1: " false",
+            2: " neither",
         }
 
         options = [label2text[option] for option in [0, 1, 2]]
         return dict(
             source=source,
-            target=label2text[instance['label']],
+            target=label2text[instance["label"]],
             options=options,
         )
 

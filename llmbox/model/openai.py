@@ -42,14 +42,14 @@ class Openai(Model):
     def set_generation_args(self, **kwargs):
         r"""Set the configurations for open-ended generation. This is useful because different datasets may have different requirements for generation."""
         generation_kwargs = {}
-        for key in ['temperature', 'top_p', 'max_tokens', 'best_of', 'frequency_penalty', 'presence_penalty', 'stop']:
+        for key in ["temperature", "top_p", "max_tokens", "best_of", "frequency_penalty", "presence_penalty", "stop"]:
             value = getattr(self.args, key) if getattr(self.args, key, None) is not None else kwargs.get(key, None)
-            if key == 'max_tokens' and value is None:
+            if key == "max_tokens" and value is None:
                 value = 1024
             if value is not None:
                 generation_kwargs[key] = value
-        if generation_kwargs.get('temperature', 1) == 0:
-            generation_kwargs['seed'] = self.args.seed
+        if generation_kwargs.get("temperature", 1) == 0:
+            generation_kwargs["seed"] = self.args.seed
         self.generation_kwargs = generation_kwargs
 
     def get_ppl(self, batched_inputs):
@@ -57,9 +57,9 @@ class Openai(Model):
         results = self.request(prompt, self.ppl_kwargs)
         ppls = []
         for result, (src, _) in zip(results, batched_inputs):
-            tgt_start = max(1, result['logprobs']['text_offset'].index(len(src)))  # designed for src=''
-            tgt_end = len(result['logprobs']['text_offset'])
-            ppl = -sum(result['logprobs']['token_logprobs'][tgt_start:])
+            tgt_start = max(1, result["logprobs"]["text_offset"].index(len(src)))  # designed for src=''
+            tgt_end = len(result["logprobs"]["text_offset"])
+            ppl = -sum(result["logprobs"]["token_logprobs"][tgt_start:])
             ppls.append((ppl, tgt_end - tgt_start))
         return ppls
 
@@ -68,9 +68,9 @@ class Openai(Model):
         answers = []
         for result in results:
             if self.name in OPENAI_CHAT_MODELS:
-                answer = result[0]['message']['content']
+                answer = result[0]["message"]["content"]
             else:
-                answer = result['text']
+                answer = result["text"]
             answers.append(answer)
         return answers
 
@@ -87,21 +87,21 @@ class Openai(Model):
         for _ in range(self.max_try_times):
             try:
                 if self.name in OPENAI_CHAT_MODELS:
-                    message = [{'role': 'user', 'content': prompt[0]}]
+                    message = [{"role": "user", "content": prompt[0]}]
                     response = openai.ChatCompletion.create(model=self.name, messages=message, **openai_kwargs)
                     return [response["choices"]]
                 else:
                     response = openai.Completion.create(model=self.name, prompt=prompt, **openai_kwargs)
                     return response["choices"]
             except openai.error.RateLimitError:
-                logger.warning('Receive openai.error.RateLimitError, retrying...')
+                logger.warning("Receive openai.error.RateLimitError, retrying...")
                 time.sleep(10)
             except openai.error.AuthenticationError as e:
                 raise e
             except openai.error.InvalidRequestError as e:
                 raise e
             except Exception as e:
-                logger.warning(f'Receive {e.__class__.__name__}: {str(e)}')
-                logger.warning('retrying...')
+                logger.warning(f"Receive {e.__class__.__name__}: {str(e)}")
+                logger.warning("retrying...")
                 time.sleep(1)
         raise ConnectionError("OpenAI API error")
