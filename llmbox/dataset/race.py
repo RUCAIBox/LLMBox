@@ -1,6 +1,7 @@
 import numpy as np
 
 from .multiple_choice_dataset import MultipleChoiceDataset
+from .utils import MISSING_SUBSET
 
 
 class Race(MultipleChoiceDataset):
@@ -32,7 +33,7 @@ class Race(MultipleChoiceDataset):
     instruction = ""
     evaluation_set = "validation"
     example_set = "train"
-    load_args = ("race",)  # specify subset from command line
+    load_args = ("race", MISSING_SUBSET)  # specify subset from command line
 
     def format_instance(self, instance):
         source_text = "Article:\n" + instance["article"] + "\n\n" + "Q: " + instance["question"] + "\n\nA:"
