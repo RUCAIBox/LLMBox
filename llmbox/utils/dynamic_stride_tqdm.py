@@ -4,7 +4,6 @@ import tqdm
 
 
 class dynamic_stride_tqdm(tqdm.tqdm):
-
     def __init__(
         self,
         iterable=None,
@@ -12,7 +11,7 @@ class dynamic_stride_tqdm(tqdm.tqdm):
         stride_scale: Union[float, bool] = False,
         desc: Optional[str] = None,
         disable: bool = False,
-        unit: str = 'it',
+        unit: str = "it",
         dynamic_ncols: bool = False,
         **kwargs
     ):

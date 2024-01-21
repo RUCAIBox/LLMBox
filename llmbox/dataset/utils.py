@@ -19,8 +19,8 @@ EXTENDED_SEARCH_PATHS = [
 
 
 def list_availabe_datasets() -> Set[str]:
-    builtin_files = {'__init__', 'utils', 'dataset', 'generation_dataset', 'multiple_choice_dataset', 'load'}
-    return set(f[:-3] for f in os.listdir(os.path.dirname(__file__)) if f.endswith('.py')) - builtin_files
+    builtin_files = {"__init__", "utils", "dataset", "generation_dataset", "multiple_choice_dataset", "load"}
+    return set(f[:-3] for f in os.listdir(os.path.dirname(__file__)) if f.endswith(".py")) - builtin_files
 
 
 def get_raw_dataset_loader(
@@ -48,9 +48,9 @@ def get_raw_dataset_loader(
 
     """
     if subset_name:
-        dataset_msg = f'{dataset_name}:{subset_name}'
+        dataset_msg = f"{dataset_name}:{subset_name}"
     else:
-        dataset_msg = f'{dataset_name}'
+        dataset_msg = f"{dataset_name}"
     msg = f"Loading raw dataset `{dataset_msg}`"
     load_fn = None
 
@@ -68,10 +68,12 @@ def get_raw_dataset_loader(
 
                 def load_fn(split):
                     return datasets.load_dataset(dataset_path, dataset_name, split=split)
+
             elif subset_name in infos:
 
                 def load_fn(split):
                     return datasets.load_dataset(dataset_path, subset_name, split=split)
+
             else:
                 raise ValueError(
                     f"Cannot find `{subset_name}` subset of `{dataset_name}` dataset in `{dataset_path}`. Available subsets: {infos.keys()}"
@@ -82,6 +84,7 @@ def get_raw_dataset_loader(
 
             def load_fn(split):
                 return datasets.load_from_disk(dataset_path)[split]
+
         elif subset_name is not None and os.path.exists(os.path.join(dataset_path, subset_name, "dataset_dict.json")):
 
             def load_fn(split):
@@ -125,8 +128,8 @@ def get_raw_dataset_loader(
             )
 
         # for wmt, en-xx and xx-en refer to the same subset, xx-en
-        if 'wmt' in dataset_name and subset_name.startswith('en'):
-            load_args = (dataset_name, subset_name.split('-')[1] + '-en')
+        if "wmt" in dataset_name and subset_name.startswith("en"):
+            load_args = (dataset_name, subset_name.split("-")[1] + "-en")
 
         msg += f" from huggingface ({', '.join(load_args)})"
 
@@ -158,7 +161,7 @@ def load_raw_dataset_from_file(dataset_file_path: str) -> datasets.Dataset:
         return datasets.Dataset.from_csv(dataset_file_path)
     elif dataset_file_path.endswith(".txt"):
         return datasets.Dataset.from_text(dataset_file_path)
-    elif dataset_file_path.endswith('.py'):
+    elif dataset_file_path.endswith(".py"):
         module = SourceFileLoader("source_dataset", dataset_file_path).load_module()
         objects = [getattr(module, obj) for obj in dir(module) if not obj.startswith("_")]
         if len(objects) == 1:

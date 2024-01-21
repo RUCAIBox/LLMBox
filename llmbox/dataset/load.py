@@ -13,8 +13,9 @@ logger = getLogger(__name__)
 
 
 def import_dataset_class(dataset_name: str) -> Dataset:
-    if 'wmt' in dataset_name:
+    if "wmt" in dataset_name:
         from .translation import Translation
+
         return Translation
 
     module_path = __package__ + "." + dataset_name
@@ -50,10 +51,10 @@ def load_dataset(args: DatasetArguments, model: Model) -> Union[Dataset, Dataset
         available_subsets = set()
 
     # for wmt, en-xx and xx-en are both supported
-    if 'wmt' in args.dataset_name:
+    if "wmt" in args.dataset_name:
         new_available_subsets = available_subsets.copy()
         for subset in available_subsets:
-            new_available_subsets.add('en-' + subset.split('-')[0])
+            new_available_subsets.add("en-" + subset.split("-")[0])
         available_subsets = new_available_subsets
 
     if not available_subsets.issuperset(args.subset_names):

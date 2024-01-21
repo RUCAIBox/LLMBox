@@ -10,14 +10,22 @@ class AlpacaDataset(SFTDataset):
     response_template = "\n\n### Response:\n"
     format_template = {
         "prompt_input": (
-            "Below is an instruction that describes a task, paired with an input that provides further context. " +
-            "Write a response that appropriately completes the request." + instruction_template + "{instruction}" +
-            "\n\n### Input:\n" + "{input}" + response_template + "{response}"
+            "Below is an instruction that describes a task, paired with an input that provides further context. "
+            + "Write a response that appropriately completes the request."
+            + instruction_template
+            + "{instruction}"
+            + "\n\n### Input:\n"
+            + "{input}"
+            + response_template
+            + "{response}"
         ),
         "prompt_no_input": (
-            "Below is an instruction that describes a task. " +
-            "Write a response that appropriately completes the request." + instruction_template + "{instruction}" +
-            response_template + "{response}"
+            "Below is an instruction that describes a task. "
+            + "Write a response that appropriately completes the request."
+            + instruction_template
+            + "{instruction}"
+            + response_template
+            + "{response}"
         ),
     }
 

@@ -50,7 +50,7 @@ class Race(MultipleChoiceDataset):
         for instance in self.evaluation_data:
             formatted_instance = self.format_instance(instance)
             instance_with_examples = self.format_instruction_and_examples(formatted_instance)
-            options = [(instance_with_examples, option) for option in formatted_instance['options']]
+            options = [(instance_with_examples, option) for option in formatted_instance["options"]]
             # options = [
             #     self.format_instruction_and_examples(formatted_instance["source"], option)
             #     for option in formatted_instance["options"]
@@ -70,7 +70,7 @@ class Race(MultipleChoiceDataset):
         predictions = list(map(lambda _r: _r[0], predictions))
         predictions = np.array([rc - ra for rc, ra in zip(predictions[::2], predictions[1::2])])
         for num in self.option_nums:
-            labels.append(predictions[st:st + num].argmin())
+            labels.append(predictions[st : st + num].argmin())
             st += num
         predictions = labels
         return predictions

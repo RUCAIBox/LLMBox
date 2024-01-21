@@ -39,7 +39,7 @@ class Quac(GenerationDataset):
     evaluation_set = "validation"
     load_args = ("quac",)
     metrics = [F1(), Em()]
-    extra_model_args = dict(max_tokens=64, temperature=0, stop=['\n'])
+    extra_model_args = dict(max_tokens=64, temperature=0, stop=["\n"])
 
     def load_raw_dataset(
         self, dataset_path: str | None, subset_name: str | None, evaluation_set: str, example_set: str | None
@@ -59,10 +59,17 @@ class Quac(GenerationDataset):
         self.evaluation_data = _evaluation_data
 
     def format_instance(self, instance):
-        source_text = "TITLE: " + instance["title"] + "\nPARAGRAPH: " \
-            + instance["paragraph"] + "\n\nQ: " + instance["question"] + "\n\nA:"
+        source_text = (
+            "TITLE: "
+            + instance["title"]
+            + "\nPARAGRAPH: "
+            + instance["paragraph"]
+            + "\n\nQ: "
+            + instance["question"]
+            + "\n\nA:"
+        )
         text = instance["answer"]
-        if 'CANNOTANSWER' in text:
+        if "CANNOTANSWER" in text:
             text = "I don't know."
         else:
             text = text[0]
@@ -94,7 +101,7 @@ class Quac(GenerationDataset):
             for question, answers in zip(instance["questions"], instance["answers"]["texts"]):
                 source_text += "\n\nQ: " + question + "\n\nA:"
                 text = answers[0]
-                if 'CANNOTANSWER' in answers:
+                if "CANNOTANSWER" in answers:
                     text = "I don't know."
                 target_text = " " + text
                 source_text += target_text
@@ -107,13 +114,15 @@ class Quac(GenerationDataset):
 
     @property
     def references(self):
-        return [["I don't know."] if 'CANNOTANSWER' in instance["answer"] else instance["answer"]
-                for instance in self.evaluation_data]
+        return [
+            ["I don't know."] if "CANNOTANSWER" in instance["answer"] else instance["answer"]
+            for instance in self.evaluation_data
+        ]
 
     @staticmethod
     def post_processing(preds):
         predictions = []
-        pattern = r'[.!(\n)]'
+        pattern = r"[.!(\n)]"
         for pred in preds:
             match = re.search(pattern, pred)
             if match:

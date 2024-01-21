@@ -1,12 +1,12 @@
 from datasets import load_dataset
 
 
-class SFTDataset():
+class SFTDataset:
     """
     This is the base class for all SFT datasets.
-    
+
     Please inherit this class and implement your own `instruction_template, response_template, format_template` and `formatting_func()`.
-    
+
     Please refer to https://huggingface.co/docs/trl/sft_trainer for detailed instructions.
     """
 

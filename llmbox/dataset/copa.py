@@ -34,7 +34,7 @@ class Copa(MultipleChoiceDataset):
         options = [label2text[option] for option in [0, 1]]
         return dict(
             source=source,
-            target=label2text[instance['label']],
+            target=label2text[instance["label"]],
             options=options,
         )
 

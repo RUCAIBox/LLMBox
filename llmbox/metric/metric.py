@@ -1,9 +1,8 @@
 class Metric:
-    r""" The base class for metric calculation.
-    """
+    r"""The base class for metric calculation."""
 
     def __call__(self, predictions, references):
-        r""" Compute specific metric scores between predictions and references.
+        r"""Compute specific metric scores between predictions and references.
 
         Args:
             predictions (List[Union[str, int, float]]): The predicted answers.

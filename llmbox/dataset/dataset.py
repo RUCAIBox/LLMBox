@@ -9,7 +9,11 @@ import torch
 
 from ..model.model import Model
 from ..utils import DatasetArguments
-from .icl_strategies import ape, global_entropy_ordering_strategy, knn_construct_examples
+from .icl_strategies import (
+    ape,
+    global_entropy_ordering_strategy,
+    knn_construct_examples,
+)
 from .utils import get_raw_dataset_loader
 
 logger = getLogger(__name__)
@@ -46,7 +50,7 @@ class Dataset(torch.utils.data.Dataset):
     metrics: List
     r"""The metric functions used for evaluation."""
 
-    evaluation_type: Literal['ranking', 'generation', 'user-defined']
+    evaluation_type: Literal["ranking", "generation", "user-defined"]
     r"""The type of evaluation for the dataset."""
 
     evaluation_set: str
@@ -67,8 +71,15 @@ class Dataset(torch.utils.data.Dataset):
     """Arguments for the model generation or get_ppl. See `set_generation_args` or `set_ppl_args` for details."""
 
     _repr = [
-        "name", "subset_name", "instruction", "metrics", "evaluation_type", "evaluation_set", "example_set",
-        "load_args", "extra_model_args"
+        "name",
+        "subset_name",
+        "instruction",
+        "metrics",
+        "evaluation_type",
+        "evaluation_set",
+        "example_set",
+        "load_args",
+        "extra_model_args",
     ]
 
     def __init__(self, args: DatasetArguments, model: Model, subset_name: Optional[str] = None):
@@ -118,9 +129,8 @@ class Dataset(torch.utils.data.Dataset):
         self.construct_instances()
 
     def _post_init_arguments(self):
-
         # sample num
-        if self.args.sample_num > 1 and self.evaluation_type == 'ranking':
+        if self.args.sample_num > 1 and self.evaluation_type == "ranking":
             self.args.sample_num = 1
             logger.warning(
                 f"Self-consistency only supports evaluation using the generation mode, automatically set sample_num = 1."
@@ -129,15 +139,15 @@ class Dataset(torch.utils.data.Dataset):
         # temperature
         if "temperature" in self.extra_model_args:
             self.model.args.temperature = self.extra_model_args["temperature"]
-        if self.args.sample_num > 1 and self.evaluation_type == 'generation' and self.model.args.temperature == 0:
+        if self.args.sample_num > 1 and self.evaluation_type == "generation" and self.model.args.temperature == 0:
             self.model.args.temperature = 1
             logger.warning(
                 f"Self-consistency only supports generation with temperature>0, automatically set temperature = 1."
             )
 
-        if self.evaluation_type == 'ranking':
+        if self.evaluation_type == "ranking":
             self.model.set_ppl_args(**self.extra_model_args)
-        elif self.evaluation_type == 'generation':
+        elif self.evaluation_type == "generation":
             self.model.set_generation_args(**self.extra_model_args)
 
         logger.info(self.model.args)
@@ -210,11 +220,12 @@ class Dataset(torch.utils.data.Dataset):
             dataset_path=dataset_path,
             subset_name=subset_name,
             load_args=self.load_args,
-            return_msg=True
+            return_msg=True,
         )  # type: ignore
         logger.info(
-            msg + f" with evaluation set `{evaluation_set}`" +
-            (f" and example set `{example_set}`" if example_set else "")
+            msg
+            + f" with evaluation set `{evaluation_set}`"
+            + (f" and example set `{example_set}`" if example_set else "")
         )
 
         self.evaluation_data = list(load_fn(evaluation_set))
@@ -257,7 +268,7 @@ class Dataset(torch.utils.data.Dataset):
         for formatted_instance in self.formatted_evaluation_data:
             if self.evaluation_type == "ranking":
                 instance_with_examples = self.format_instruction_and_examples(formatted_instance)
-                options = [(instance_with_examples, option) for option in formatted_instance['options']]
+                options = [(instance_with_examples, option) for option in formatted_instance["options"]]
                 self.evaluation_instances.extend(options)
                 self.option_nums.append(len(options))
             elif self.evaluation_type == "generation":
@@ -300,13 +311,16 @@ class Dataset(torch.utils.data.Dataset):
         Returns:
             str: The final formatted instance.
         """
-        if self.examples == '' or self.kate or self.globale:
+        if self.examples == "" or self.kate or self.globale:
             self.examples = self.construct_examples(instance)
-        if self.model.type == 'base':
+        if self.model.type == "base":
             source = self.examples + self.args.instance_format.format(source=instance["source"], target="")
-        elif self.model.type == 'instruction':
-            source = self.instruction + "\n\n" + self.examples + self.args.instance_format.format(
-                source=instance["source"], target=""
+        elif self.model.type == "instruction":
+            source = (
+                self.instruction
+                + "\n\n"
+                + self.examples
+                + self.args.instance_format.format(source=instance["source"], target="")
             )
         else:
             raise ValueError(
@@ -348,7 +362,7 @@ class Dataset(torch.utils.data.Dataset):
         example_text = ""
         example_token_nums = 0
         for index in indice:
-            if hasattr(self, 'formatted_example_data'):
+            if hasattr(self, "formatted_example_data"):
                 example = self.formatted_example_data[index]
             else:
                 example = self.format_instance(self.example_data[index])
@@ -450,7 +464,6 @@ class Dataset(torch.utils.data.Dataset):
 
 
 class DatasetCollection(torch.utils.data.Dataset):
-
     def __init__(self, datasets: Dict[str, Dataset]):
         super().__init__()
         self.subset_names = list(datasets.keys())
@@ -497,7 +510,7 @@ class DatasetCollection(torch.utils.data.Dataset):
         results = dict()
         cur_len = 0
         for s, d in zip(self.subset_names, self._datasets):
-            results[d.name + ":" + s] = d.calculate_metric(predictions[cur_len:cur_len + len(d)])
+            results[d.name + ":" + s] = d.calculate_metric(predictions[cur_len : cur_len + len(d)])
             cur_len += len(d)
         return results
 

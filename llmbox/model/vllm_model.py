@@ -15,7 +15,6 @@ logger = getLogger(__name__)
 
 
 class vllmModel(Model):
-
     def __init__(self, args: ModelArguments):
         super().__init__(args)
         self.args = args
@@ -25,8 +24,7 @@ class vllmModel(Model):
         self.model = LLM(model=args.model_name_or_path, tokenizer=args.tokenizer_name_or_path)
         self.tokenizer = self.model.get_tokenizer()
         self.tokenizer.model_max_length = min(
-            self.model.llm_engine.model_config.max_model_len,
-            getattr(args, 'max_length') or 1e10
+            self.model.llm_engine.model_config.max_model_len, getattr(args, "max_length") or 1e10
         )
 
     def set_ppl_args(self, **kwargs):
@@ -51,16 +49,25 @@ class vllmModel(Model):
     def set_generation_args(self, **kwargs):
         generation_kwargs = {}
         for key in [
-            'temperature', 'top_p', 'top_k', 'max_tokens', 'best_of', 'frequency_penalty', 'presence_penalty',
-            'repetition_penalty', 'length_penalty', 'early_stopping', 'stop'
+            "temperature",
+            "top_p",
+            "top_k",
+            "max_tokens",
+            "best_of",
+            "frequency_penalty",
+            "presence_penalty",
+            "repetition_penalty",
+            "length_penalty",
+            "early_stopping",
+            "stop",
         ]:
             value = getattr(self.args, key) if getattr(self.args, key, None) is not None else kwargs.get(key, None)
-            if key == 'max_tokens' and value is None:
+            if key == "max_tokens" and value is None:
                 value = 1024
             if value is not None:
                 generation_kwargs[key] = value
-        if generation_kwargs.get('best_of', 0) > 1:
-            generation_kwargs['use_beam_search'] = True
+        if generation_kwargs.get("best_of", 0) > 1:
+            generation_kwargs["use_beam_search"] = True
         self.generation_kwargs = SamplingParams(**generation_kwargs)
 
     def generation(self, batched_inputs) -> List[str]:

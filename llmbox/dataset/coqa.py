@@ -46,8 +46,8 @@ class Coqa(GenerationDataset):
     example_set = "train"
     evaluation_set = "validation"
     load_args = ("coqa",)
-    metrics = [F1(multiref_strategy='leave_one_out'), Em(multiref_strategy='leave_one_out')]
-    extra_model_args = dict(max_tokens=64, temperature=0, stop=['\n'])
+    metrics = [F1(multiref_strategy="leave_one_out"), Em(multiref_strategy="leave_one_out")]
+    extra_model_args = dict(max_tokens=64, temperature=0, stop=["\n"])
 
     def load_raw_dataset(self, dataset_path, subset_name, evaluation_set, example_set):
         # https://nlp.stanford.edu/data/coqa/coqa-dev-v1.0.json
@@ -96,7 +96,7 @@ class Coqa(GenerationDataset):
     @staticmethod
     def post_processing(predictions):
         new_predictions = []
-        pattern = r'[.!(\n)]'
+        pattern = r"[.!(\n)]"
         for pred in predictions:
             match = re.search(pattern, pred)
             if match:

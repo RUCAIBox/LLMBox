@@ -8,7 +8,13 @@ from tqdm import tqdm
 
 from .dataset import load_dataset
 from .model import load_model
-from .utils import DatasetArguments, EvaluationArguments, ModelArguments, catch_error, dynamic_stride_tqdm
+from .utils import (
+    DatasetArguments,
+    EvaluationArguments,
+    ModelArguments,
+    catch_error,
+    dynamic_stride_tqdm,
+)
 
 logger = getLogger(__name__)
 
@@ -36,6 +42,7 @@ class Evaluator:
         self.model = load_model(self.model_args)
         if self.model_args.vllm:
             from vllm import LLM
+
             if isinstance(self.model.model, LLM):
                 self.dataset_args.batch_size = -1
                 logger.info(
@@ -58,16 +65,16 @@ class Evaluator:
             batch_size=self.dataset_args.batch_size if self.dataset_args.batch_size != -1 else len(self.dataset),
             collate_fn=lambda x: x,
             shuffle=False,
-            pin_memory=True
+            pin_memory=True,
         )
 
-        if self.dataset.evaluation_type == 'ranking':
+        if self.dataset.evaluation_type == "ranking":
             self.model.set_ppl_args(**self.dataset.extra_model_args)
             call_model = self.model.get_ppl
-        elif self.dataset.evaluation_type == 'generation':
+        elif self.dataset.evaluation_type == "generation":
             self.model.set_generation_args(**self.dataset.extra_model_args)
             call_model = self.model.generation
-        elif self.dataset.evaluation_type == 'user_defined':
+        elif self.dataset.evaluation_type == "user_defined":
             call_model = self.dataset.evaluation
         else:
             raise ValueError(
@@ -77,7 +84,7 @@ class Evaluator:
         # use tqdm for non-vllm models
         if self.dataset_args.batch_size != -1:
             tqdm_kwargs = dict(iterable=dataloader, desc=self.dataset.name, dynamic_ncols=True, unit="example")
-            if self.dataset.evaluation_type == 'ranking':
+            if self.dataset.evaluation_type == "ranking":
                 # dataloader is often sacled by batch size and option nums, comparing to evaluation data
                 stride_scale = self.dataset_args.batch_size
                 if self.dataset.use_normalization:
@@ -108,12 +115,12 @@ class Evaluator:
         # calculate metric
         metric_results = self.dataset.calculate_metric(mode_results)
 
-        msg = f'Evaluation finished successfully:'
+        msg = f"Evaluation finished successfully:"
         if not isinstance(next(iter(metric_results.values())), dict):
             metric_results = {self.dataset.name: metric_results}
 
         for dataset_name, result in metric_results.items():
-            msg += f'\n##### {dataset_name} #####'
+            msg += f"\n##### {dataset_name} #####"
             for key, value in result.items():
                 msg += "\n{}: {:.2f}".format(key, value)
 

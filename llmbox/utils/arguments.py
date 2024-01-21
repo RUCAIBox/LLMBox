@@ -10,8 +10,7 @@ import openai
 from transformers.hf_argparser import HfArg, HfArgumentParser
 
 from ..dataset.utils import list_availabe_datasets
-from ..model.enum import OPENAI_CHAT_MODELS, OPENAI_MODELS
-from ..model.enum import ANTHROPIC_MODELS
+from ..model.enum import ANTHROPIC_MODELS, OPENAI_CHAT_MODELS, OPENAI_MODELS
 from .logging import log_levels, set_logging
 
 logger = getLogger(__name__)
@@ -23,16 +22,15 @@ def filter_none_repr(self):
 
 @dataclass
 class ModelArguments:
-
     model_name_or_path: str = HfArg(
         default=MISSING,
         aliases=["--model", "-m"],
-        help="The model name or path, e.g., davinci-002, meta-llama/Llama-2-7b-hf, ./mymodel"
+        help="The model name or path, e.g., davinci-002, meta-llama/Llama-2-7b-hf, ./mymodel",
     )
     model_type: str = HfArg(
         default=None,
         help="The type of the model, which can be chosen from `base` or `instruction`.",
-        metadata={"choices": ['base', 'instruction']}
+        metadata={"choices": ["base", "instruction"]},
     )
     device_map: str = HfArg(
         default="auto",
@@ -156,19 +154,18 @@ class ModelArguments:
 
 @dataclass
 class DatasetArguments:
-
     dataset_name: str = HfArg(
         default=MISSING,
         aliases=["-d", "--dataset"],
         help="The name of a dataset or the name(s) of a/several subset(s) in a dataset. Format: 'dataset'"
-        " or 'dataset:subset(s)', e.g., copa, race, race:high, or wmt16:en-ro,en-fr"
+        " or 'dataset:subset(s)', e.g., copa, race, race:high, or wmt16:en-ro,en-fr",
     )
     subset_names: ClassVar[Set[str]] = set()
     """The name(s) of a/several subset(s) in a dataset, derived from `dataset_name` argument on initalization"""
     dataset_path: Optional[str] = HfArg(
         default=None,
         help="The path of dataset if loading from local. Supports repository cloned from huggingface or "
-        "dataset saved by `save_to_disk`."
+        "dataset saved by `save_to_disk`.",
     )
 
     evaluation_set: Optional[str] = HfArg(
@@ -186,13 +183,13 @@ class DatasetArguments:
         help="The system prompt of the model",
     )
     instance_format: str = HfArg(
-        aliases=['-fmt'],
+        aliases=["-fmt"],
         default="{source}{target}",
         help="The format to format the `source` and `target` for each instance",
     )
 
     num_shots: int = HfArg(
-        aliases=['-shots'],
+        aliases=["-shots"],
         default=0,
         help="The few-shot number for demonstration",
     )
@@ -215,9 +212,9 @@ class DatasetArguments:
     globale: bool = HfArg(default=False, aliases=["-globale"], help="Whether to use GlobalE as an ICL strategy")
     ape: bool = HfArg(default=False, aliases=["-ape"], help="Whether to use APE as an ICL strategy")
     cot: str = HfArg(
-        default='base',
+        default="base",
         help="The method to prompt, eg. 'base', 'least_to_most', 'pal'. Only available for some specific datasets.",
-        metadata={"choices": ['base', 'least_to_most', 'pal']},
+        metadata={"choices": ["base", "least_to_most", "pal"]},
     )
 
     # set in `set_logging` with format "{evaluation_results_dir}/{log_filename}.json"
@@ -233,7 +230,6 @@ class DatasetArguments:
 
 @dataclass
 class EvaluationArguments:
-
     seed: int = HfArg(
         default=2023,
         help="The random seed",
