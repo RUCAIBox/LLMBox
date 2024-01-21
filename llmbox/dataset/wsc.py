@@ -21,9 +21,10 @@ class Wsc(MultipleChoiceDataset):
     load_args = ("super_glue", "wsc")
 
     def format_instance(self, instance):
+
         def mark_word(sentence, index, word):
             words = sentence.split()
-            words[index] = "*" + words[index][: len(word)] + "*" + words[index][len(word) :]
+            words[index] = "*" + words[index][:len(word)] + "*" + words[index][len(word):]
             return " ".join(words)
 
         source = "Final Exam with Answer Key\nInstructions: Please carefully read the following passages. For each passage, you must identify which noun the pronoun marked in *bold* refers to.\n"

@@ -90,6 +90,7 @@ def ape(example_dataset, eval_dataset, call_model, api_key):
     """
 
     class ModelArguments:
+
         def __init__(self):
             self.model_name_or_path = "gpt-3.5-turbo-instruct"
             self.openai_api_key = api_key
@@ -130,12 +131,16 @@ def ape(example_dataset, eval_dataset, call_model, api_key):
             full_demo = "\n\n".join([eval_dataset[i]["source"] + eval_dataset[i]["target"] for i in demo_indice])
             eval_data = eval_dataset[eval_indice[i]]
             eval_query = (
-                prompt_eval_template.format_map({"DEMO": full_demo, "PROMPT": prompt, "INPUT": eval_data["source"]}),
+                prompt_eval_template.format_map({
+                    "DEMO": full_demo,
+                    "PROMPT": prompt,
+                    "INPUT": eval_data["source"]
+                }),
                 eval_data["target"],
             )
             eval_queries.append(eval_query)
     ppls = []
-    queries_batches = [eval_queries[i : i + 10] for i in range(0, len(eval_queries), 10)]
+    queries_batches = [eval_queries[i:i + 10] for i in range(0, len(eval_queries), 10)]
     print("----------evaluating instructions----------")
     for queries_batch in tqdm(queries_batches):
         batch_ppl = call_model(queries_batch)

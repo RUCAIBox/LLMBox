@@ -4,6 +4,7 @@ import tqdm
 
 
 class dynamic_stride_tqdm(tqdm.tqdm):
+
     def __init__(
         self,
         iterable=None,

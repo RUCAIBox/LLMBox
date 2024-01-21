@@ -27,13 +27,8 @@ class Squad_v2(GenerationDataset):
 
     def format_instance(self, instance):
         source_text = (
-            "Title: "
-            + instance["title"]
-            + "\n\nBackground: "
-            + instance["context"]
-            + "\n\nQ: "
-            + instance["question"]
-            + "\n\nA:"
+            "Title: " + instance["title"] + "\n\nBackground: " + instance["context"] + "\n\nQ: " +
+            instance["question"] + "\n\nA:"
         )
         text = instance["answers"]["text"]
         if not text:

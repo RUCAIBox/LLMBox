@@ -135,7 +135,8 @@ def main():
     parser.add_argument(
         "--seed_tasks_path",
         default="alpaca_data_cleaned.json",
-        help="Path to seed tasks file (https://github.com/gururise/AlpacaDataCleaned/blob/main/alpaca_data_cleaned.json)",
+        help=
+        "Path to seed tasks file (https://github.com/gururise/AlpacaDataCleaned/blob/main/alpaca_data_cleaned.json)",
     )
     parser.add_argument(
         "--num_instructions_to_generate", type=int, default=100, help="Number of instructions to generate"

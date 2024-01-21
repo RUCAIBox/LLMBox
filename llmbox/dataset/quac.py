@@ -60,13 +60,8 @@ class Quac(GenerationDataset):
 
     def format_instance(self, instance):
         source_text = (
-            "TITLE: "
-            + instance["title"]
-            + "\nPARAGRAPH: "
-            + instance["paragraph"]
-            + "\n\nQ: "
-            + instance["question"]
-            + "\n\nA:"
+            "TITLE: " + instance["title"] + "\nPARAGRAPH: " + instance["paragraph"] + "\n\nQ: " + instance["question"] +
+            "\n\nA:"
         )
         text = instance["answer"]
         if "CANNOTANSWER" in text:
@@ -114,10 +109,8 @@ class Quac(GenerationDataset):
 
     @property
     def references(self):
-        return [
-            ["I don't know."] if "CANNOTANSWER" in instance["answer"] else instance["answer"]
-            for instance in self.evaluation_data
-        ]
+        return [["I don't know."] if "CANNOTANSWER" in instance["answer"] else instance["answer"]
+                for instance in self.evaluation_data]
 
     @staticmethod
     def post_processing(preds):

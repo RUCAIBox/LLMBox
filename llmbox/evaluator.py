@@ -100,7 +100,9 @@ class Evaluator:
             self.dataset.log_predictions(raw_predictions)
 
         if len(raw_predictions) != self.dataset.len():
-            raise RuntimeError(f"The number of results {len(raw_predictions)} should be equal to the number of samples in the dataset {self.dataset.len()}.")
+            raise RuntimeError(
+                f"The number of results {len(raw_predictions)} should be equal to the number of samples in the dataset {self.dataset.len()}."
+            )
 
         # post processing and self-consistency
         predictions = self.dataset.post_processing(raw_predictions)
