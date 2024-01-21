@@ -472,6 +472,8 @@ class Dataset(torch.utils.data.Dataset):
                 return zip(*wrapper())
 
             source_text, target_text = zip(*self.evaluation_instances)
+            if self.use_normalization:
+                source_text, target_text, raw_predictions = source_text[::2], target_text[::2], raw_predictions[::2]
             index, references, transposed_score_lists, option_nums = repeat_by_option(
                 self.references, transposed_score_lists
             )

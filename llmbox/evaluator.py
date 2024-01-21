@@ -8,13 +8,7 @@ from tqdm import tqdm
 
 from .dataset import load_dataset
 from .model import load_model
-from .utils import (
-    DatasetArguments,
-    EvaluationArguments,
-    ModelArguments,
-    catch_error,
-    dynamic_stride_tqdm,
-)
+from .utils import DatasetArguments, EvaluationArguments, ModelArguments, catch_error, dynamic_stride_tqdm
 
 logger = getLogger(__name__)
 
@@ -106,9 +100,9 @@ class Evaluator:
 
         # post processing and self-consistency
         predictions = self.dataset.post_processing(raw_predictions)
-        assert len(predictions) == self.dataset.len(option_num=False)
+        assert len(predictions) == self.dataset.len(option_num=False, normalization=False)
 
-        step = self.dataset.len(option_num=False, sample_num=False)
+        step = self.dataset.len(option_num=False, sample_num=False, normalization=False)
         mode_predictions = [mode(predictions[i::step]) for i in range(step)]
 
         # calculate metric
