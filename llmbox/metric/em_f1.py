@@ -1,6 +1,7 @@
 import re
 import string
 from collections import Counter
+from typing import List
 
 import numpy as np
 from nltk import word_tokenize
@@ -45,7 +46,11 @@ def is_number(s):
 
 
 class Em(Metric):
-    r"""Calculate the Exact Match score."""
+    r""" Calculate the Exact Match score.
+
+    Return:
+        "EM": float
+    """
 
     def __init__(self, multiref_strategy="none"):
         self.multiref_strategy = multiref_strategy
@@ -54,16 +59,21 @@ class Em(Metric):
     def _calculate_em_score(reference, prediction):
         return int(normalize_answer(reference) == normalize_answer(prediction))
 
-    def __call__(self, predictions, references):
+    def __call__(self, predictions: List[str], references: List[List[str]]):
         score_list = []
         for prediction, reference in zip(predictions, references):
             scores = [self._calculate_em_score(ref, prediction) for ref in reference]
             score_list.append(multi_ref_aggregation(scores, self.multiref_strategy))
-        return {"EM": np.mean(score_list) * 100}
+        self._last_score_lists = {'EM': score_list}
+        return {'EM': np.mean(score_list) * 100}
 
 
 class F1(Metric):
-    r"""Calculate the F1 score."""
+    r""" Calculate the F1 score.
+
+    Return:
+        "F1": float
+    """
 
     def __init__(self, multiref_strategy="none", force_number_match=False):
         self.multiref_strategy = multiref_strategy
@@ -91,9 +101,10 @@ class F1(Metric):
         f1 = (2 * precision * recall) / (precision + recall)
         return f1
 
-    def __call__(self, predictions, references):
+    def __call__(self, predictions: List[str], references: List[List[str]]):
         score_list = []
         for prediction, reference in zip(predictions, references):
             scores = [self._calculate_f1_score(ref, prediction, self.force_number_match) for ref in reference]
             score_list.append(multi_ref_aggregation(scores, self.multiref_strategy))
+        self._last_score_lists = {'F1': score_list}
         return {"F1": np.mean(score_list) * 100}
