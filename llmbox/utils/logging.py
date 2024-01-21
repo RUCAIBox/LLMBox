@@ -44,9 +44,9 @@ def _get_file_handler(log_path, int_file_log_level):
 
 def _format_path(model_args, dataset_args, evaluation_args):
     model_name = model_args.model_name_or_path.strip("/").split("/")[-1]
-    dataset_name = dataset_args.dataset_name + (
-        "_" + ",".join(dataset_args.subset_names) if dataset_args.subset_names else ""
-    )
+    dataset_name = dataset_args.dataset_name.replace(
+        '/', '-'
+    ) + ("_" + ",".join(dataset_args.subset_names) if dataset_args.subset_names else "")
     num_shots = str(dataset_args.num_shots)
     execution_time = datetime.datetime.now().strftime(DEFAULT_DATETIME_FORMAT)
     log_filename = f"{model_name}-{dataset_name}-{num_shots}shot-{execution_time}"

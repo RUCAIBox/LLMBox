@@ -475,18 +475,18 @@ class Dataset(torch.utils.data.Dataset):
             index, references, transposed_score_lists, option_nums = repeat_by_option(
                 self.references, transposed_score_lists
             )
-            lines = pd.DataFrame({
-                "index": index,
-                "source": source_text,
-                "option": target_text,
-                "option_num": option_nums,
-                "perplexity": map(lambda r: r[0], raw_predictions),
-                "reference": references,
-                "metric": transposed_score_lists,
-            })
-            lines = lines.groupby("index")\
-                .apply(to_dict(merge=["index", "source", "reference", "metric"], merge_by_option=["option"]))\
-                .to_json(file, orient="records", indent=4, force_ascii=False)
+            # lines = pd.DataFrame({
+            #     "index": index,
+            #     "source": source_text,
+            #     "option": target_text,
+            #     "option_num": option_nums,
+            #     "perplexity": map(lambda r: r[0], raw_predictions),
+            #     "reference": references,
+            #     "metric": transposed_score_lists,
+            # })
+            # lines = lines.groupby("index")\
+            #     .apply(to_dict(merge=["index", "source", "reference", "metric"], merge_by_option=["option"]))\
+            #     .to_json(file, orient="records", indent=4, force_ascii=False)
 
     def last_score_lists(self) -> Dict[str, float]:
         results = {}
@@ -515,8 +515,6 @@ class Dataset(torch.utils.data.Dataset):
             length = len(self.references)
             if sample_num and self.args.sample_num > 1:
                 length *= self.args.sample_num
-            if normalization and self.use_normalization:
-                length *= 2
         return length
 
     def __repr__(self):
