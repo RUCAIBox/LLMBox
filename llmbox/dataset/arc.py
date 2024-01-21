@@ -1,9 +1,10 @@
 import numpy as np
 
 from .multiple_choice_dataset import MultipleChoiceDataset
+from .utils import MISSING_SUBSET
 
 
-class Arce(MultipleChoiceDataset):
+class Arcc(MultipleChoiceDataset):
     """The dataset of ai2_arc.
 
         A new dataset of 7,787 genuine grade-school level, multiple-choice science questions, assembled to encourage
@@ -12,19 +13,19 @@ class Arce(MultipleChoiceDataset):
         algorithm.
 
         Example:
-            'id': 'Mercury_7175875', 
-            'question': 'An astronomer observes that a planet rotates faster after a meteorite impact. Which is the most likely effect of this increase in rotation?', 
+            'id': 'Mercury_7175875',
+            'question': 'An astronomer observes that a planet rotates faster after a meteorite impact. Which is the most likely effect of this increase in rotation?',
             'choices': {
-                'text': ['Planetary density will decrease.', 'Planetary years will become longer.', 'Planetary days will become shorter.', 'Planetary gravity will become stronger.'], 
+                'text': ['Planetary density will decrease.', 'Planetary years will become longer.', 'Planetary days will become shorter.', 'Planetary gravity will become stronger.'],
                 'label': ['A', 'B', 'C', 'D']
-            }, 
+            },
             'answerKey': 'C'
         """
 
     instruction = ""
     evaluation_set = "test"
     example_set = "train"
-    load_args = ("allenai/ai2_arc", "ARC-Easy")
+    load_args = ("allenai/ai2_arc", MISSING_SUBSET)
 
     def format_instance(self, instance):
         source_text = "Question: " + instance["question"] + "\nAnswer:"
