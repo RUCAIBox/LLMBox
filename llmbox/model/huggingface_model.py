@@ -73,6 +73,7 @@ def load_hf_model(args: ModelArguments) -> Tuple[PreTrainedModel, Union[PreTrain
 
 
 class HuggingFaceModel(Model):
+
     def __init__(self, args: ModelArguments):
         super().__init__(args)
         self.args = args
@@ -117,9 +118,8 @@ class HuggingFaceModel(Model):
             shift_logits = logits[:, :-1].contiguous()
             shift_labels = batched_encodings["input_ids"][:, 1:].contiguous()
             shift_labels[shift_labels == self.tokenizer.pad_token_id] = -100
-            probs = self.loss_fct(shift_logits.view(-1, self.model.config.vocab_size), shift_labels.view(-1)).view(
-                shift_labels.size(0), -1
-            )
+            probs = self.loss_fct(shift_logits.view(-1, self.model.config.vocab_size),
+                                  shift_labels.view(-1)).view(shift_labels.size(0), -1)
 
         ppls = []
         for prob, (src, _), offset, attention_mask in zip(
@@ -128,7 +128,8 @@ class HuggingFaceModel(Model):
             ppl = [None] + prob.tolist()
             offset = [st for st, ed in offset]
             tgt_start = max(
-                offset.index(len(src)), attention_mask.nonzero()[0][0].item() + 1
+                offset.index(len(src)),
+                attention_mask.nonzero()[0][0].item() + 1
             )  # designed for src!='' and src=''
             tgt_end = len(offset)
             ppl = sum(ppl[tgt_start:])

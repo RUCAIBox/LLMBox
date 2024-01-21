@@ -52,7 +52,8 @@ class Arguments(TrainingArguments):
 
     save_only_model: bool = HfArg(
         default=True,
-        help="Whether to use flash attention for a faster and more efficient implementation of the standard attention mechanism.",
+        help=
+        "Whether to use flash attention for a faster and more efficient implementation of the standard attention mechanism.",
     )
 
     bf16: bool = HfArg(

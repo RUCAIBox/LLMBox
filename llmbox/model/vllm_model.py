@@ -15,6 +15,7 @@ logger = getLogger(__name__)
 
 
 class vllmModel(Model):
+
     def __init__(self, args: ModelArguments):
         super().__init__(args)
         self.args = args
@@ -24,7 +25,8 @@ class vllmModel(Model):
         self.model = LLM(model=args.model_name_or_path, tokenizer=args.tokenizer_name_or_path)
         self.tokenizer = self.model.get_tokenizer()
         self.tokenizer.model_max_length = min(
-            self.model.llm_engine.model_config.max_model_len, getattr(args, "max_length") or 1e10
+            self.model.llm_engine.model_config.max_model_len,
+            getattr(args, "max_length") or 1e10
         )
 
     def set_ppl_args(self, **kwargs):
