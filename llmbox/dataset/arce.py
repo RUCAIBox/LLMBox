@@ -3,7 +3,7 @@ import numpy as np
 from .multiple_choice_dataset import MultipleChoiceDataset
 
 
-class Arc(MultipleChoiceDataset):
+class Arce(MultipleChoiceDataset):
     """The dataset of ai2_arc.
 
         A new dataset of 7,787 genuine grade-school level, multiple-choice science questions, assembled to encourage
