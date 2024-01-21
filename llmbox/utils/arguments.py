@@ -229,9 +229,6 @@ class DatasetArguments:
         if ":" in self.dataset_name:
             self.dataset_name, subset_names = self.dataset_name.split(":")
             self.subset_names = set(subset_names.split(","))
-        available_datasets = list_availabe_datasets()
-        if self.dataset_name not in available_datasets:
-            raise ValueError(f"Dataset {self.dataset_name} is not in available datasets {available_datasets}.")
 
 
 @dataclass

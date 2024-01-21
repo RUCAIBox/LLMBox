@@ -22,18 +22,15 @@ class Translation(GenerationDataset):
     metrics = [Bleu()]
     instruction = ''
     load_args = ()
-    model_args = dict(temperature=0, stop=['\n'])
-    
+    extra_model_args = dict(temperature=0, stop=['\n'])
+
     def __init__(self, args: DatasetArguments, model: Model, subset_name: str | None = None):
         self.language = Language(subset_name[3:5]).language_name('en')
         super().__init__(args, model, subset_name)
-        
+
     def format_instance(self, instance):
         instance = instance['translation']
-        if self.num_shots == 0:
-            source_text = f"Q: What is the {self.language} translation of {instance[self.subset_name[:2]]}\nA:"
-        else:
-            source_text = f"Q: Translate to {self.language}. {instance[self.subset_name[:2]]}\nA:"
+        source_text = f"Q: Translate to {self.language}. {instance[self.subset_name[:2]]}\nA:"
         target_text = " " + instance[self.subset_name[3:5]]
         return dict(source=source_text, target=target_text)
 
