@@ -1,3 +1,5 @@
+import torch
+
 from logging import getLogger
 from typing import List
 
@@ -22,7 +24,7 @@ class vllmModel(Model):
 
         logger.info(f"Loading {args.model_name_or_path} using vllm...")
         self.type = args.model_type
-        self.model = LLM(model=args.model_name_or_path, tokenizer=args.tokenizer_name_or_path)
+        self.model = LLM(model=args.model_name_or_path, tokenizer=args.tokenizer_name_or_path, tensor_parallel_size=torch.cuda.device_count())
         self.tokenizer = self.model.get_tokenizer()
         self.tokenizer.model_max_length = min(
             self.model.llm_engine.model_config.max_model_len,
