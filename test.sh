@@ -22,6 +22,10 @@ python inference.py -m davinci-002 -d winogrande --evaluation_set validation\[:5
 python inference.py -m davinci-002 -d arc --evaluation_set test\[:500\] -b 20 # 55.6 challenge
 python inference.py -m davinci-002 -d arc --evaluation_set test\[:500\] -b 20 # 72.0 easy
 
+python inference.py -m davinci-002 -d nq --evaluation_set validation\[:500\] -b 20 # 33 / 21
+python inference.py -m davinci-002 -d nq --evaluation_set validation\[:500\] -b 20 -shots 1 # 38 / 26
+python inference.py -m davinci-002 -d triviaqa --evaluation_set validation\[:500\] -b 20 # 70 / 63
+python inference.py -m davinci-002 -d webq --evaluation_set test\[:500\] -b 20 # 37 / 19
 
 python inference.py -m gpt-3.5-turbo-instruct -d tldr --evaluation_set test\[:500\] -b 20 # 22.02
 python inference.py -m gpt-3.5-turbo-instruct -d cnn_dailymail --evaluation_set test\[:500\] -b 20 # 21.79
