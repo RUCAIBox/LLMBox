@@ -12,7 +12,7 @@ from ..metric.metric import Metric
 from ..model.model import Model
 from ..utils import DatasetArguments
 from .icl_strategies import ape, global_entropy_ordering_strategy, knn_construct_examples
-from .utils import MISSING_SUBSET, get_raw_dataset_loader
+from .utils import get_raw_dataset_loader
 
 logger = getLogger(__name__)
 
@@ -27,7 +27,7 @@ class Dataset(torch.utils.data.Dataset):
         - `evaluation_type (Literal['ranking', 'generation', 'user-defined'])`: The type of evaluation for the dataset.
         - `evaluation_set (str)`: The evaluation split of the dataset. Evaluation data will be automatically loaded.
         - `example_set (Optional[str])`: The example split of the dataset. Example data will be automatically loaded if this is not None.
-        - `load_args (Union[Tuple[str], Tuple[str, str], Tuple[str, MISSING_SUBSET], Tuple[()]])`: Arguments for loading the dataset with huggingface `load_dataset`.
+        - `load_args (Union[Tuple[str], Tuple[str, str], Tuple[()]])`: Arguments for loading the dataset with huggingface `load_dataset`.
 
     Attributes:
         - `args (DatasetArguments)`: The arguments for the dataset.
@@ -57,12 +57,11 @@ class Dataset(torch.utils.data.Dataset):
     example_set: Optional[str]
     r"""The example split of dataset. Example data will be automatically loaded if this is not None."""
 
-    load_args: Union[Tuple[str], Tuple[str, MISSING_SUBSET], Tuple[str, str], Tuple[()]]
+    load_args: Union[Tuple[str], Tuple[str, str], Tuple[()]]
     r"""Arguments for loading the dataset with huggingface `load_dataset`.
 
     Supported formats:
-        - `(dataset_name,)`: If the dataset only has one subset. E.g., `('race',)`.
-        - `(dataset_name, MISSING_SUBSET)`: If the dataset has more than one subset name. E.g., `("allenai/ai2_arc", MISSING_SUBSET)` accepts command line argument `--dataset arc:ARC-Easy,ARC-Challenge`.
+        - `(dataset_name,)`: If the dataset only has one subset. E.g., `('race',)`. Or the dataset has more than one subset name. E.g., `("allenai/ai2_arc",)` accepts command line argument `--dataset arc:ARC-Easy,ARC-Challenge`.
         - `(dataset_name, subset_name)`: If the dataset is a subset of a dataset collection. E.g., `('super_glue', 'copa')`.
         - `()`: Sepcial case like `wmt` dataset.
     """

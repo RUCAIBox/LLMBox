@@ -73,6 +73,16 @@ class Evaluator:
                 f"We only support three evaluation types: `ranking`, `generation`, and `user_defined`, but got `{self.dataset.evaluation_type}`."
             )
 
+        if self.evaluation_args.dry_run:
+            if self.dataset.evaluation_type == "ranking":
+
+                def call_model(batch):
+                    return [(0, 0)] * len(batch)
+            else:
+
+                def call_model(batch):
+                    return [""] * len(batch)
+
         # use tqdm for non-vllm models
         if self.dataset_args.batch_size != -1:
             tqdm_kwargs = dict(iterable=dataloader, desc=self.dataset.name, dynamic_ncols=True, unit="example")

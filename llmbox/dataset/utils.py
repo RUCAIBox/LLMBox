@@ -17,22 +17,26 @@ EXTENDED_SEARCH_PATHS = [
     "/{split}/{subset}",
 ]
 
-MISSING_SUBSET = None
-"""Missing subset for dataset."""
 
-
-def accepts_subset(load_args: Union[Tuple[str], Tuple[str, MISSING_SUBSET], Tuple[str, str], Tuple[()]]) -> bool:
-    if len(load_args) >= 2 and isinstance(load_args[1], str):
-        logger.warning(f"Dataset class already has a subset to load. Overwriting it with {load_args[1]}.")
-    # len(load_args) == 1 means no subset to load and len(load_args) == 0 means special case like wmt
-    return len(load_args) != 1
+def accepts_subset(
+    load_args: Union[Tuple[str], Tuple[str, str], Tuple[()]], overwrite_subset: bool = True, subset: str = ""
+) -> bool:
+    if len(load_args) == 2 and isinstance(load_args[1], str):
+        if overwrite_subset and load_args[1] == subset:
+            logger.warning(
+                f"Dataset class already has a subset '{load_args[1]}' to load. Overwriting it with '{subset}'."
+            )
+        else:
+            return load_args[1] == subset
+    # len(load_args) == 1 means accept subset and len(load_args) == 0 means special case like wmt
+    return True
 
 
 def get_raw_dataset_loader(
     dataset_name: str,
     dataset_path: Optional[str],
     subset_name: Optional[str],
-    load_args: Optional[Union[Tuple[str], Tuple[str, MISSING_SUBSET], Tuple[str, str], Tuple[()]]],
+    load_args: Optional[Union[Tuple[str], Tuple[str, str], Tuple[()]]],
     return_msg: bool = False,
 ) -> Union[Callable[[Optional[str]], datasets.Dataset], Tuple[Callable[[str], datasets.Dataset], str]]:
     """Get the function to load the raw dataset from huggingface (if `load_args` is not None) or local path (if `dataset_path` is not None).
@@ -123,9 +127,10 @@ def get_raw_dataset_loader(
     elif load_args is not None:
         # specify the dataset name if if its not specified in `dataset.load_args` (e.g. translation)
         if len(load_args) == 0:
-            load_args = (dataset_name, MISSING_SUBSET)
+            load_args = (dataset_name,)
         # trying to load a subset if its not specified in `dataset.load_args` (e.g. `load_args=("mmlu",)`
-        if accepts_subset(load_args) and subset_name is not None:
+        if accepts_subset(load_args, subset=subset_name) and subset_name is not None:
+            # ignore load_args[1], because if it is specified, it is equivalent to `subset_name`
             load_args = (load_args[0], subset_name)
         elif subset_name is not None:
             raise ValueError(

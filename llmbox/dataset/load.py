@@ -1,7 +1,7 @@
 import importlib
 import inspect
 from logging import getLogger
-from typing import Tuple, Union
+from typing import Union
 
 from datasets import get_dataset_config_names
 
@@ -52,6 +52,10 @@ def load_dataset(args: DatasetArguments, model: Model) -> Union[Dataset, Dataset
     except Exception as e:
         logger.info(f"Failed when trying to get_dataset_config_names: {e}")
         available_subsets = set()
+    # TODO catch connection warning
+    if available_subsets == {"default"}:
+        available_subsets = set()
+    logger.debug(f"{name} - available_subsets: {available_subsets}, load_args: {dataset_cls.load_args}")
 
     # for wmt, en-xx and xx-en are both supported
     if "wmt" in args.dataset_name:
@@ -68,12 +72,14 @@ def load_dataset(args: DatasetArguments, model: Model) -> Union[Dataset, Dataset
     subset_names = args.subset_names or available_subsets
 
     # load dataset
-    if len(subset_names) > 1 and accepts_subset(dataset_cls.load_args):
+    if len(subset_names) > 1 and accepts_subset(dataset_cls.load_args, overwrite_subset=len(args.subset_names) > 0):
         # race:middle,high (several subsets) , super_glue (all the subsets)
         logger.info(f"Loading subsets of dataset `{args.dataset_name}`: " + ", ".join(subset_names))
         datasets = {s: dataset_cls(args, model, s) for s in subset_names}
         return DatasetCollection(datasets)
-    elif len(subset_names) == 1 and accepts_subset(dataset_cls.load_args) and len(available_subsets) != 1:
+    elif len(subset_names) == 1 and len(available_subsets) != 1 and accepts_subset(
+        dataset_cls.load_args, overwrite_subset=len(args.subset_names) > 0, subset=next(iter(subset_names))
+    ):
         # in some cases of get_dataset_config_names() have only one subset, loading dataset with the a subset name is not allowed in huggingface datasets library
         # len(available_subsets) == 0 means a special case, like wmt
         # race:middle (one of the subsets), coqa (default)
