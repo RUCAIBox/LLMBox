@@ -30,4 +30,4 @@ class Metric:
         if self._last_score_lists is None:
             logger.warning(f"Metric {self.__class__.__name__} have not been called yet. Return empty score lists.")
             return dict()
-        return self._last_score_lists
+        return {m: list(l) for m, l in self._last_score_lists.items()}

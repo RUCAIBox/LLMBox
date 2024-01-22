@@ -77,7 +77,7 @@ class Evaluator:
             if self.dataset.evaluation_type == "ranking":
 
                 def call_model(batch):
-                    return [(0, 0)] * len(batch)
+                    return [(0, 1)] * len(batch)
             else:
 
                 def call_model(batch):
@@ -110,14 +110,17 @@ class Evaluator:
 
         # post processing and self-consistency
         predictions = self.dataset.post_processing(raw_predictions)
-        assert len(predictions) == self.dataset.len(option_num=False, normalization=False)
+        if len(predictions) != self.dataset.len(option_num=False, normalization=False):
+            raise RuntimeError(
+                f"The number of results {len(predictions)} should be equal to the number of samples in the dataset {self.dataset.len(option_num=False, normalization=False)}."
+            )
 
         step = self.dataset.len(option_num=False, sample_num=False, normalization=False)
         mode_predictions = [mode(predictions[i::step]) for i in range(step)]
 
         # calculate metric
-        metric_results = self.dataset.calculate_metric(mode_predictions)
-        self.dataset.log_predictions(raw_predictions, predictions, self.dataset.last_score_lists())
+        metric_results, last_score_lists = self.dataset.calculate_metric(mode_predictions)
+        self.dataset.log_predictions(raw_predictions, predictions, last_score_lists)
 
         msg = f"Evaluation finished successfully:"
         if not isinstance(next(iter(metric_results.values())), dict):
