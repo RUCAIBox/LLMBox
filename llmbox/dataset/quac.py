@@ -1,4 +1,5 @@
 import re
+from typing import Optional
 
 import numpy as np
 
@@ -42,7 +43,7 @@ class Quac(GenerationDataset):
     extra_model_args = dict(max_tokens=64, temperature=0, stop=["\n"])
 
     def load_raw_dataset(
-        self, dataset_path: str | None, subset_name: str | None, evaluation_set: str, example_set: str | None
+        self, dataset_path: Optional[str], subset_name: Optional[str], evaluation_set: str, example_set: Optional[str]
     ):
         super().load_raw_dataset(dataset_path, subset_name, evaluation_set, example_set)
         _evaluation_data = []
