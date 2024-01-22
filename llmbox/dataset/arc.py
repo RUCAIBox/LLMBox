@@ -1,10 +1,9 @@
 import numpy as np
 
 from .multiple_choice_dataset import MultipleChoiceDataset
-from .utils import MISSING_SUBSET
 
 
-class Arcc(MultipleChoiceDataset):
+class Arc(MultipleChoiceDataset):
     """The dataset of ai2_arc.
 
         A new dataset of 7,787 genuine grade-school level, multiple-choice science questions, assembled to encourage
@@ -25,7 +24,7 @@ class Arcc(MultipleChoiceDataset):
     instruction = ""
     evaluation_set = "test"
     example_set = "train"
-    load_args = ("allenai/ai2_arc", MISSING_SUBSET)
+    load_args = ("allenai/ai2_arc",)
 
     def format_instance(self, instance):
         source_text = "Question: " + instance["question"] + "\nAnswer:"

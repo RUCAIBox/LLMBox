@@ -18,9 +18,16 @@ EXTENDED_SEARCH_PATHS = [
 ]
 
 
-def accepts_subset(load_args: Union[Tuple[str], Tuple[str, str], Tuple[()]]) -> bool:
+def accepts_subset(
+    load_args: Union[Tuple[str], Tuple[str, str], Tuple[()]], overwrite_subset: bool = True, subset: str = ""
+) -> bool:
     if len(load_args) == 2 and isinstance(load_args[1], str):
-        logger.warning(f"Dataset class already has a subset to load. Overwriting it with {load_args[1]}.")
+        if overwrite_subset and load_args[1] == subset:
+            logger.warning(
+                f"Dataset class already has a subset '{load_args[1]}' to load. Overwriting it with '{subset}'."
+            )
+        else:
+            return load_args[1] == subset
     # len(load_args) == 1 means accept subset and len(load_args) == 0 means special case like wmt
     return True
 
@@ -122,7 +129,8 @@ def get_raw_dataset_loader(
         if len(load_args) == 0:
             load_args = (dataset_name,)
         # trying to load a subset if its not specified in `dataset.load_args` (e.g. `load_args=("mmlu",)`
-        if accepts_subset(load_args) and subset_name is not None:
+        if accepts_subset(load_args, subset=subset_name) and subset_name is not None:
+            # ignore load_args[1], because if it is specified, it is equivalent to `subset_name`
             load_args = (load_args[0], subset_name)
         elif subset_name is not None:
             raise ValueError(
