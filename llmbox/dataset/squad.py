@@ -8,7 +8,7 @@ from .generation_dataset import GenerationDataset
 
 
 class Squad(GenerationDataset):
-    """The dataset of Squad_v2.
+    """The dataset of Squad and Squad_v2.
 
     Gcombines the 100,000 questions in SQuAD1.1 with over 50,000 unanswerable questions written adversarially by crowdworkers to look similar to answerable ones.
 
