@@ -8,17 +8,17 @@ from .generation_dataset import GenerationDataset
 
 
 class Squad(GenerationDataset):
-    """The dataset of Squad.
+    """The dataset of Squad_v2.
 
-    Stanford Question Answering Dataset (SQuAD) is a reading comprehension dataset, consisting of questions posed by crowdworkers on a set of Wikipedia articles, where the answer to every question is a segment of text, or span, from the corresponding reading passage.
+    Gcombines the 100,000 questions in SQuAD1.1 with over 50,000 unanswerable questions written adversarially by crowdworkers to look similar to answerable ones.
 
     Examples:
-        context: Architecturally, the school has a Catholic character. Atop the Main Building\'s gold dome is a golden statue of the Virgin Mary. Immediately in front of the Main Building and facing it, is a copper statue of Christ with arms upraised with the legend "Venite Ad Me Omnes". Next to the Main Building is the Basilica of the Sacred Heart. Immediately behind the basilica is the Grotto, a Marian place of prayer and reflection. It is a replica of the grotto at Lourdes, France where the Virgin Mary reputedly appeared to Saint Bernadette Soubirous in 1858. At the end of the main drive (and in a direct line that connects through 3 statues and the Gold Dome), is a simple, modern stone statue of Mary.
-        question: To whom did the Virgin Mary allegedly appear in 1858 in Lourdes France?
-        answer: ['Saint Bernadette Soubirous']
+        context: The Normans (Norman: Nourmands; French: Normands; Latin: Normanni) were the people who in the 10th and 11th centuries gave their name to Normandy, a region in France. They were descended from Norse ("Norman" comes from "Norseman") raiders and pirates from Denmark, Iceland and Norway who, under their leader Rollo, agreed to swear fealty to King Charles III of West Francia. Through generations of assimilation and mixing with the native Frankish and Roman-Gaulish populations, their descendants would gradually merge with the Carolingian-based cultures of West Francia. The distinct cultural and ethnic identity of the Normans emerged initially in the first half of the 10th century, and it continued to evolve over the succeeding centuries.
+        question: In what country is Normandy located?
+        answer: ['France', 'France', 'France', 'France']
     """
 
-    instruction = 'Answer each question using information in the preceding background paragraph.'
+    instruction = 'Answer each question using information in the preceding background paragraph.\nIf there is not enough information provided, answer with "Not in background."'
     example_set = "train"
     evaluation_set = "validation"
     load_args = ("squad",)
@@ -30,7 +30,12 @@ class Squad(GenerationDataset):
             "Title: " + instance["title"] + "\n\nBackground: " + instance["context"] + "\n\nQ: " +
             instance["question"] + "\n\nA:"
         )
-        target_text = " " + instance["answers"]["text"][0]
+        text = instance["answers"]["text"]
+        if not text:
+            text = "Not in background."
+        else:
+            text = text[0]
+        target_text = " " + text
         return dict(source=source_text, target=target_text)
 
     def construct_examples(self, instance=None) -> str:
@@ -67,7 +72,12 @@ class Squad(GenerationDataset):
             random.shuffle(data)
             for instance in data:
                 source_text += "\n\nQ: " + instance["question"] + "\n\nA:"
-                target_text = " " + instance["answers"]["text"][0]
+                text = instance["answers"]["text"]
+                if not text:
+                    text = "Not in background."
+                else:
+                    text = text[0]
+                target_text = " " + text
                 source_text += target_text
             cur_example_text = source_text + "\n\n"
             cur_token_num = len(self.tokenizer.encode(cur_example_text))
@@ -78,7 +88,10 @@ class Squad(GenerationDataset):
 
     @property
     def references(self):
-        return [instance["answers"]["text"] for instance in self.evaluation_data]
+        return [
+            instance["answers"]["text"] if instance["answers"]["text"] else ["Not in background."]
+            for instance in self.evaluation_data
+        ]
 
     def post_processing(self, preds):
         predictions = []

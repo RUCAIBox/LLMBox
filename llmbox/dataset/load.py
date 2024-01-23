@@ -18,6 +18,11 @@ def import_dataset_class(dataset_name: str) -> Dataset:
 
         return Translation
 
+    if 'squad' in dataset_name:
+        from .squad import Squad
+
+        return Squad
+
     module_path = __package__ + "." + dataset_name
     module = importlib.import_module(module_path)
     clsmembers = inspect.getmembers(module, inspect.isclass)
@@ -66,6 +71,10 @@ def load_dataset(args: DatasetArguments, model: Model) -> Union[Dataset, Dataset
 
     # load dataset
     dataset_cls = import_dataset_class(args.dataset_name)
+
+    if "squad_v2" in args.dataset_name:
+        dataset_cls.load_args = ("squad_v2",)
+
     if len(subset_names) > 1 and len(dataset_cls.load_args) <= 1:
         # race:middle,high (several subsets) , super_glue (all the subsets)
         logger.info(f"Loading subsets of dataset `{args.dataset_name}`: " + ", ".join(subset_names))
