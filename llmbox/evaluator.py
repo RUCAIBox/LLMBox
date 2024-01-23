@@ -92,7 +92,7 @@ class Evaluator:
 
         # use tqdm for non-vllm models
         if self.dataset_args.batch_size != -1:
-            tqdm_kwargs = dict(iterable=dataloader, desc=self.dataset.name, dynamic_ncols=True, unit="example")
+            tqdm_kwargs = dict(iterable=dataloader, desc=self.dataset.name, dynamic_ncols=True, unit=" examples")
             if self.dataset.evaluation_type == "ranking":
                 # dataloader is often sacled by batch size and option nums, comparing to evaluation data
                 stride_scale = self.dataset_args.batch_size
