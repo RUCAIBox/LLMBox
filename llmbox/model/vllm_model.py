@@ -1,6 +1,8 @@
 from logging import getLogger
 from typing import List
 
+import torch
+
 from ..utils import ModelArguments
 from .model import Model
 
@@ -22,14 +24,15 @@ class vllmModel(Model):
 
         logger.info(f"Loading {args.model_name_or_path} using vllm...")
         self.type = args.model_type
-        self.model = LLM(model=args.model_name_or_path, tokenizer=args.tokenizer_name_or_path)
+        self.model = LLM(model=args.model_name_or_path, tokenizer=args.tokenizer_name_or_path, tensor_parallel_size=torch.cuda.device_count())
         self.tokenizer = self.model.get_tokenizer()
+        self.tokenizer.truncation_side = "left"
         self.tokenizer.model_max_length = min(
             self.model.llm_engine.model_config.max_model_len,
             getattr(args, "max_length") or 1e10
         )
 
-    def set_ppl_args(self, **kwargs):
+    def set_ppl_args(self, **extra_model_args):
         self.ppl_kwargs = SamplingParams(max_tokens=1, prompt_logprobs=0)
 
     def get_ppl(self, batched_inputs):
@@ -48,7 +51,7 @@ class vllmModel(Model):
             ppls.append((ppl, tgt_end - tgt_start))
         return ppls
 
-    def set_generation_args(self, **kwargs):
+    def set_generation_args(self, **extra_model_args):
         generation_kwargs = {}
         for key in [
             "temperature",
@@ -63,7 +66,11 @@ class vllmModel(Model):
             "early_stopping",
             "stop",
         ]:
-            value = getattr(self.args, key) if getattr(self.args, key, None) is not None else kwargs.get(key, None)
+            # ModelArguments > extra_model_args
+            value = getattr(self.args, key, None)
+            if value is None:
+                value = extra_model_args.get(key, None)
+
             if key == "max_tokens" and value is None:
                 value = 1024
             if value is not None:

@@ -42,7 +42,7 @@ def load_hf_model(args: ModelArguments) -> Tuple[PreTrainedModel, Union[PreTrain
             raise e
 
     tokenizer = AutoTokenizer.from_pretrained(
-        args.tokenizer_name_or_path, use_fast=True, padding_side="left", add_eos_token=False
+        args.tokenizer_name_or_path, use_fast=True, padding_side="left", truncation_side="left", add_eos_token=False
     )
 
     # TODO: [Important]!!! check for each tokenizer
@@ -95,7 +95,7 @@ class HuggingFaceModel(Model):
                 yield token_idx
         yield len(offset_mapping)
 
-    def set_ppl_args(self, **kwargs):
+    def set_ppl_args(self, **extra_model_args):
         r"""Set the configurations for PPL score calculation. This is useful because different datasets may have different requirements for ppl calculation."""
         self.loss_fct = CrossEntropyLoss(reduction="none")
 
@@ -136,7 +136,7 @@ class HuggingFaceModel(Model):
             ppls.append((ppl, tgt_end - tgt_start))
         return ppls
 
-    def set_generation_args(self, **kwargs):
+    def set_generation_args(self, **extra_model_args):
         generation_kwargs = {}
         for key in [
             "temperature",
@@ -149,7 +149,10 @@ class HuggingFaceModel(Model):
             "early_stopping",
             "no_repeat_ngram_size",
         ]:
-            value = getattr(self.args, key) if getattr(self.args, key, None) is not None else kwargs.get(key, None)
+            # ModelArguments > extra_model_args
+            value = getattr(self.args, key, None)
+            if value is None:
+                value = extra_model_args.get(key, None)
             if key == "max_tokens" and value is None:
                 value = 1024
             if value is not None:

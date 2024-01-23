@@ -30,7 +30,7 @@ class Model:
         self.args = args
         self.tokenizer: Union[PreTrainedTokenizer, PreTrainedTokenizerFast, Encoding] = None
 
-    def set_ppl_args(self, **kwargs):
+    def set_ppl_args(self, **extra_model_args):
         r"""Set the configurations for PPL score calculation. This is useful because different datasets may have different requirements for ppl calculation."""
         raise NotImplementedError(f"{self.name} model must implement the `set_ppl_args` function.")
 
@@ -45,7 +45,7 @@ class Model:
         """
         raise NotImplementedError(f"{self.name} model must implement the `get_ppl` function.")
 
-    def set_generation_args(self, **kwargs):
+    def set_generation_args(self, **extra_model_args):
         r"""Set the configurations for open-ended generation. This is useful because different datasets may have different requirements for generation."""
 
         raise NotImplementedError(f"{self.name} model must implement the `set_generation_args` function.")
