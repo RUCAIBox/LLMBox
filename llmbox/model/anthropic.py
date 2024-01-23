@@ -34,11 +34,15 @@ class Anthropic(Model):
         self.tokenizer = tiktoken.get_encoding("cl100k_base")
         self.max_try_times = 5
 
-    def set_generation_args(self, **kwargs):
+    def set_generation_args(self, **extra_model_args):
         r"""Set the configurations for open-ended generation. This is useful because different datasets may have different requirements for generation."""
         generation_kwargs = {}
         for key in ["temperature", "top_p", "max_tokens", "best_of", "stop"]:
-            value = getattr(self.args, key) if getattr(self.args, key, None) is not None else kwargs.get(key, None)
+            # ModelArguments > extra_model_args
+            value = getattr(self.args, key, None)
+            if value is None:
+                value = extra_model_args.get(key, None)
+
             if key == "max_tokens" and value is None:
                 value = 4096
             if key == "stop":

@@ -62,7 +62,7 @@ class dynamic_stride_tqdm(tqdm.tqdm):
                     cur_t = time()
                     dt = cur_t - last_print_t
                     if dt >= mininterval and cur_t >= min_start_t:
-                        self.update(n - last_print_n)
+                        self.update(int(n - last_print_n))
                         last_print_n = self.last_print_n
                         last_print_t = self.last_print_t
         finally:

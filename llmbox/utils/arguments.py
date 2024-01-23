@@ -104,7 +104,7 @@ class ModelArguments:
     )
     stop: Union[str, List[str]] = HfArg(
         default=None,
-        help="List of strings that stop the generation when they are generated.",
+        help="List of strings that stop the generation when they are generated. E.g. --stop 'stop' 'sequence'",
     )
     no_repeat_ngram_size: int = HfArg(
         default=None,
@@ -264,6 +264,10 @@ class EvaluationArguments:
         default="evaluation_results",
         help="The directory to save evaluation results, which includes source"
         " and target texts, generated texts, and the references.",
+    )
+    dry_run: bool = HfArg(
+        default=False,
+        help="Test the evaluation pipeline without actually calling the model.",
     )
 
     __repr__ = filter_none_repr

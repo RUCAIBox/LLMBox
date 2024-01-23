@@ -8,6 +8,7 @@ from typing import Optional
 import coloredlogs
 
 DEFAULT_LOG_FORMAT = "%(asctime)s %(levelname)s %(message)s"
+DEBUG_LOG_FORMAT = "%(asctime)s %(levelname)s %(filename)s:%(lineno)d %(message)s"
 
 DEFAULT_DATETIME_FORMAT = "%Y_%m_%d-%H_%M_%S"  # Compatible with windows, which does not support ':' in filename
 
@@ -35,7 +36,9 @@ def get_git_revision(base_path):
 
 def _get_file_handler(log_path, int_file_log_level):
     handler = logging.FileHandler(log_path)
-    formatter = coloredlogs.BasicFormatter(fmt=DEFAULT_LOG_FORMAT)
+    formatter = coloredlogs.BasicFormatter(
+        fmt=DEFAULT_LOG_FORMAT if int_file_log_level != logging.DEBUG else DEBUG_LOG_FORMAT
+    )
     coloredlogs.HostNameFilter.install(handler=handler)
     handler.setLevel(level=int_file_log_level)
     handler.setFormatter(formatter)
@@ -72,13 +75,13 @@ def set_logging(
     # to allow all logs from our package, and then set the level to the desired one.
     package_logger = logging.getLogger(llmbox_package)
     if len(package_logger.handlers) != 0:
-        raise RuntimeError("The logging has been initialized before.")
+        return
 
     # add stream handler to root logger
     coloredlogs.install(
         level=logging.DEBUG,
         logger=package_logger,
-        fmt=DEFAULT_LOG_FORMAT,
+        fmt=DEFAULT_LOG_FORMAT if evaluation_args.log_level != "debug" else DEBUG_LOG_FORMAT,
     )
     package_logger.handlers[0].setLevel(level=log_levels[evaluation_args.log_level])
 
