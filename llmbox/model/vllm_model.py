@@ -1,7 +1,7 @@
-import torch
-
 from logging import getLogger
 from typing import List
+
+import torch
 
 from ..utils import ModelArguments
 from .model import Model
@@ -26,6 +26,7 @@ class vllmModel(Model):
         self.type = args.model_type
         self.model = LLM(model=args.model_name_or_path, tokenizer=args.tokenizer_name_or_path, tensor_parallel_size=torch.cuda.device_count())
         self.tokenizer = self.model.get_tokenizer()
+        self.tokenizer.truncation_side = "left"
         self.tokenizer.model_max_length = min(
             self.model.llm_engine.model_config.max_model_len,
             getattr(args, "max_length") or 1e10

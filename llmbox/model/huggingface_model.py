@@ -3,8 +3,13 @@ from typing import Iterator, List, Tuple, Union
 
 import torch
 from torch.nn import CrossEntropyLoss
-from transformers import AutoModelForCausalLM, AutoTokenizer, PreTrainedModel, PreTrainedTokenizer, \
-    PreTrainedTokenizerFast
+from transformers import (
+    AutoModelForCausalLM,
+    AutoTokenizer,
+    PreTrainedModel,
+    PreTrainedTokenizer,
+    PreTrainedTokenizerFast,
+)
 
 from ..utils import ModelArguments
 from .model import Model
@@ -37,7 +42,7 @@ def load_hf_model(args: ModelArguments) -> Tuple[PreTrainedModel, Union[PreTrain
             raise e
 
     tokenizer = AutoTokenizer.from_pretrained(
-        args.tokenizer_name_or_path, use_fast=True, padding_side="left", add_eos_token=False
+        args.tokenizer_name_or_path, use_fast=True, padding_side="left", truncation_side="left", add_eos_token=False
     )
 
     # TODO: [Important]!!! check for each tokenizer
