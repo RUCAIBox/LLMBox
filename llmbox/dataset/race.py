@@ -1,6 +1,10 @@
+from logging import getLogger
+
 import numpy as np
 
 from .multiple_choice_dataset import MultipleChoiceDataset
+
+logger = getLogger(__name__)
 
 
 class Race(MultipleChoiceDataset):
@@ -54,7 +58,9 @@ class Race(MultipleChoiceDataset):
             answer_options = [("A:", option) for option in formatted_instance["options"]]
             options = [item for pair in zip(options, answer_options) for item in pair]
             self.evaluation_instances.extend(options)
-
+        logger.info("Evaluation mode: calculate PPL of the optional text based on the source text")
+        logger.info("Formatted example (source)\n" + self.evaluation_instances[0][0])
+        logger.info("Formatted example (option)\n" + self.evaluation_instances[0][1])
         self.evaluation_instances = self.evaluation_instances * self.args.sample_num
 
     def post_processing(self, predictions):
