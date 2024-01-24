@@ -230,7 +230,7 @@ class Dataset(torch.utils.data.Dataset):
             self.example_data = list(load_fn(example_set)) if example_set else []
 
         logger.info(f"Evaluation data with {len(self.evaluation_data)} instances")
-        logger.info(f"The example instance:\n{pformat(self.evaluation_data[0])}")
+        logger.info(f"The example instance:\n{pformat(self.evaluation_data[0], sort_dicts=False)}")
 
     def __len__(self):
         return len(self.evaluation_instances)
@@ -548,8 +548,11 @@ class Dataset(torch.utils.data.Dataset):
                 length *= 2
         return length
 
+    def update_tqdm(self, tqdm):
+        pass
+
     def __repr__(self):
-        return "Dataset(" + ", ".join(f"{p}={pformat(getattr(self, p))}" for p in self._repr) + ")"
+        return "Dataset(" + ", ".join(f"{p}={getattr(self, p)!r}" for p in self._repr) + ")"
 
 
 class DatasetCollection(torch.utils.data.Dataset):
@@ -656,5 +659,8 @@ class DatasetCollection(torch.utils.data.Dataset):
                 score_lists.setdefault(k, []).extend(v)
         return results, score_lists
 
+    def update_tqdm(self, tqdm):
+        tqdm.set_description(self.name + ":" + self.subset_names[self._cur_idx])
+
     def __repr__(self):
-        return "DatasetCollection(" + ", ".join(f"{p}={pformat(getattr(self, p))}" for p in self._repr) + ")"
+        return "DatasetCollection(" + ", ".join(f"{p}={getattr(self, p)!r}" for p in self._repr) + ")"

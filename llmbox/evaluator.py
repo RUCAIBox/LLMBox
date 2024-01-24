@@ -102,6 +102,7 @@ class Evaluator:
         for batch in dataloader:
             raw_predictions.extend(call_model(batch))
             self.dataset.log_predictions(raw_predictions)
+            self.dataset.update_tqdm(dataloader)
 
         if len(raw_predictions) != self.dataset.len():
             raise RuntimeError(
@@ -124,7 +125,10 @@ class Evaluator:
 
         msg = f"Evaluation finished successfully:"
         if not isinstance(next(iter(metric_results.values())), dict):
-            metric_results = {self.dataset.name: metric_results}
+            if self.dataset_args.subset_names:
+                metric_results = {f"{self.dataset.name}:{next(iter(self.dataset_args.subset_names))}": metric_results}
+            else:
+                metric_results = {self.dataset.name: metric_results}
 
         for dataset_name, result in metric_results.items():
             msg += f"\n##### {dataset_name} #####"
