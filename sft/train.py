@@ -10,6 +10,7 @@ from peft import LoraConfig, TaskType
 from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
+    AutoConfig,
     HfArgumentParser,
     TrainingArguments,
 )
@@ -56,6 +57,16 @@ class Arguments(TrainingArguments):
         "Whether to use flash attention for a faster and more efficient implementation of the standard attention mechanism.",
     )
 
+    rope_scaling_type: str = HfArg(
+        default = "none",
+        help="Whether to scaling the RoPE. `none` denotes no scaling of RoPE . `dynamic` and `linear` denoted to scaling RoPE with dynamic NTK and Position Interpolation."
+    )
+
+    rope_scaling_factor: int = HfArg(
+        default = 4,
+        help="Scaling factor of RoPE. The maximum context length will be expanded to the factor times the original maximum positional embedding length."
+    )
+
     bf16: bool = HfArg(
         default=True,
         help="Whether to use bf16 (mixed) precision instead of 32-bit. Requires Ampere or higher NVIDIA"
@@ -95,10 +106,20 @@ def train():
     )
     tokenizer.pad_token = tokenizer.unk_token  # for llama-1
 
+    config = AutoConfig.from_pretrained(args.model_name_or_path)
+    if args.rope_scaling_type != "none":
+        config.rope_scaling = {
+            "type" : args.rope_scaling_type,
+            "factor" : args.rope_scaling_factor
+        }
+    if args.use_flash_attention:
+        config._attn_implementation = "flash_attention_2"
+    else:
+        config._attn_implementation = None
+    config.use_cache=False
     model = AutoModelForCausalLM.from_pretrained(
         args.model_name_or_path,
-        use_cache=False,  # When gradient checkpointing used, set this to False
-        attn_implementation="flash_attention_2" if args.use_flash_attention else None,
+        config=config
     )
 
     if args.lora:
