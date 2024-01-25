@@ -22,7 +22,7 @@ def accepts_subset(
     load_args: Union[Tuple[str], Tuple[str, str], Tuple[()]], overwrite_subset: bool = True, subset: str = ""
 ) -> bool:
     if len(load_args) == 2 and isinstance(load_args[1], str):
-        if overwrite_subset and load_args[1] == subset:
+        if overwrite_subset or load_args[1] == subset:
             logger.warning(
                 f"Dataset class already has a subset '{load_args[1]}' to load. Overwriting it with '{subset}'."
             )

@@ -66,5 +66,5 @@ class dynamic_stride_tqdm(tqdm.tqdm):
                         last_print_n = self.last_print_n
                         last_print_t = self.last_print_t
         finally:
-            self.n = n
+            self.n = int(n)
             self.close()

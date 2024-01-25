@@ -1,3 +1,5 @@
+import json
+from collections import OrderedDict
 from copy import copy
 from logging import getLogger
 from pprint import pformat
@@ -230,7 +232,7 @@ class Dataset(torch.utils.data.Dataset):
             self.example_data = list(load_fn(example_set)) if example_set else []
 
         logger.info(f"Evaluation data with {len(self.evaluation_data)} instances")
-        logger.info(f"The example instance:\n{pformat(self.evaluation_data[0])}")
+        logger.info(f"The example instance:\n{pformat(self.evaluation_data[0], sort_dicts=False)}")
 
     def __len__(self):
         return len(self.evaluation_instances)
@@ -369,21 +371,40 @@ class Dataset(torch.utils.data.Dataset):
 
         return example_text
 
-    def calculate_metric(self, predictions) -> Tuple[Dict[str, float], Dict[str, List[float]]]:
+    def calculate_metric(self, predictions) -> Tuple[Dict[str, Dict[str, float]], Dict[str, List[float]]]:
         r"""Calculate the metric score between `predictions` and `references`.
 
         Args:
             predictions (List[Union[int, str]]): The predicted answers.
 
         Returns:
-            Dict[str, float]: The metric results.
+            Dict[str, Dict[str, float]]: The metric results in the format `{"Dataset Name": {"Metric": Score}}`.
+            Dict[str, List[float]]: The score lists.
         """
-        results = {}
+
+        def _calculate_metric(predictions, references):
+            results = {}
+            for metric_func in self.metrics:
+                results.update(metric_func(predictions, references))
+            return results
+
         score_lists = {}
+        overall_results = _calculate_metric(predictions, self.references)
         for metric_func in self.metrics:
-            results.update(metric_func(predictions, self.references))
             score_lists.update(metric_func.last_score_lists())
-        return results, score_lists
+
+        sub_col = getattr(self, "subject_column", None)
+        subject_results = {}
+        if sub_col is not None:
+            subject_results = pd.DataFrame({
+                "predictions": predictions,
+                "references": self.references,
+                "subject": map(lambda i: f"{self.name}:{i[sub_col]}", self.evaluation_data),
+            }).groupby("subject").apply(lambda df: _calculate_metric(df["predictions"], df["references"])).to_dict()
+
+        metric_results = OrderedDict(**subject_results)
+        metric_results[self.name + (f":{self.subset_name}" if self.subset_name else "")] = overall_results
+        return metric_results, score_lists
 
     def post_processing(self, predictions: List[Union[str, float]]):
         r"""Post processing for the predictions.
@@ -439,17 +460,23 @@ class Dataset(torch.utils.data.Dataset):
 
         if processed_predictions is None:
             # log intermediate results only
-            lines = {
-                "index": range(self.len()),
-                "source": self.evaluation_instances,
-                "raw_prediction": raw_predictions,
-                "reference": repeat_iter(self.references, self.args.sample_num),
-            }
-            # use zip because arrays may have different lengths
-            lines = pd.DataFrame(dict(zip(lines.keys(), line)) for line in zip(*lines.values()))
-            if _to_json:
-                lines.to_json(file, orient="records", indent=4, force_ascii=False)
-            return lines
+            if not hasattr(self, "_lines_iter"):
+                self._lines_iter = zip(
+                    range(self.len()), self.evaluation_instances, repeat_iter(self.references, self.args.sample_num)
+                )
+            for idx, source, reference in self._lines_iter:
+                lines = {
+                    "index": idx,
+                    "source": source,
+                    "raw_prediction": raw_predictions[-1],
+                    "reference": reference,
+                }
+                if _to_json:
+                    with open(file, "a") as f:
+                        json.dump(lines, f, ensure_ascii=False)
+                        f.write("\n")
+                return lines
+            return None
 
         elif self.evaluation_type == "generation":
             # only generation tasks support self-consistency
@@ -548,8 +575,11 @@ class Dataset(torch.utils.data.Dataset):
                 length *= 2
         return length
 
+    def update_tqdm(self, tqdm):
+        pass
+
     def __repr__(self):
-        return "Dataset(" + ", ".join(f"{p}={pformat(getattr(self, p))}" for p in self._repr) + ")"
+        return "Dataset(" + ", ".join(f"{p}={getattr(self, p)!r}" for p in self._repr) + ")"
 
 
 class DatasetCollection(torch.utils.data.Dataset):
@@ -619,13 +649,20 @@ class DatasetCollection(torch.utils.data.Dataset):
         raw = self._split_by_subset(raw_predictions, strict=processed_predictions is not None)
         processed = self._split_by_subset(processed_predictions, option_num=False, normalization=False)
         score = self._split_by_subset(score_lists, sample_num=False, option_num=False, normalization=False)
-        for d, r, p, s in zip(self._datasets, raw, processed, score):
-            lines.append(d.log_predictions(r, p, s, file, False))
-        file = file or self.args.evaluation_results_path
-        try:
-            pd.concat(lines).to_json(file, orient="records", indent=4, force_ascii=False)
-        except Exception as e:
-            logger.debug(f"Failed to log predictions: {e}")
+
+        if processed_predictions is None:
+            for d, r, p, s in zip(self._datasets, raw, processed, score):
+                results = d.log_predictions(r, p, s, file, True)
+                if results is not None:
+                    return
+        else:
+            for d, r, p, s in zip(self._datasets, raw, processed, score):
+                lines.append(d.log_predictions(r, p, s, file, False))
+            file = file or self.args.evaluation_results_path
+            try:
+                pd.concat(lines).to_json(file, orient="records", indent=4, force_ascii=False)
+            except Exception as e:
+                logger.debug(f"Failed to log predictions: {e}")
 
     def post_processing(self, predictions: List[Union[str, float]]):
         return sum((d.post_processing(p) for d, p in zip(self._datasets, self._split_by_subset(predictions))), [])
@@ -650,11 +687,15 @@ class DatasetCollection(torch.utils.data.Dataset):
         results = dict()
         score_lists = dict()
         splitted = self._split_by_subset(predictions, option_num=False, normalization=False)
-        for s, d, p in zip(self.subset_names, self._datasets, splitted):
-            results[d.name + ":" + s], score_list = d.calculate_metric(p)
+        for d, p in zip(self._datasets, splitted):
+            subset_results, score_list = d.calculate_metric(p)
+            results.update(subset_results)
             for k, v in score_list.items():
                 score_lists.setdefault(k, []).extend(v)
         return results, score_lists
 
+    def update_tqdm(self, tqdm):
+        tqdm.set_description(self.name + ":" + self.subset_names[self._cur_idx])
+
     def __repr__(self):
-        return "DatasetCollection(" + ", ".join(f"{p}={pformat(getattr(self, p))}" for p in self._repr) + ")"
+        return "DatasetCollection(" + ", ".join(f"{p}={getattr(self, p)!r}" for p in self._repr) + ")"

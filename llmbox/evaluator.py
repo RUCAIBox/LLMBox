@@ -3,6 +3,7 @@ from statistics import mode
 from typing import Dict, Tuple
 
 from accelerate.utils import set_seed
+from prefetch_generator import BackgroundGenerator
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
@@ -11,6 +12,12 @@ from .model import load_model
 from .utils import DatasetArguments, EvaluationArguments, ModelArguments, catch_error, dynamic_stride_tqdm
 
 logger = getLogger(__name__)
+
+
+class DataLoaderX(DataLoader):
+
+    def __iter__(self):
+        return BackgroundGenerator(super().__iter__())
 
 
 class Evaluator:
@@ -85,7 +92,7 @@ class Evaluator:
 
         # use tqdm for non-vllm models
         if self.dataset_args.batch_size != -1:
-            tqdm_kwargs = dict(iterable=dataloader, desc=self.dataset.name, dynamic_ncols=True, unit="example")
+            tqdm_kwargs = dict(iterable=dataloader, desc=self.dataset.name, dynamic_ncols=True, unit=" examples")
             if self.dataset.evaluation_type == "ranking":
                 # dataloader is often sacled by batch size and option nums, comparing to evaluation data
                 stride_scale = self.dataset_args.batch_size
@@ -102,6 +109,7 @@ class Evaluator:
         for batch in dataloader:
             raw_predictions.extend(call_model(batch))
             self.dataset.log_predictions(raw_predictions)
+            self.dataset.update_tqdm(dataloader)
 
         if len(raw_predictions) != self.dataset.len():
             raise RuntimeError(
@@ -121,11 +129,7 @@ class Evaluator:
         # calculate metric
         metric_results, last_score_lists = self.dataset.calculate_metric(mode_predictions)
         self.dataset.log_predictions(raw_predictions, predictions, last_score_lists)
-
         msg = f"Evaluation finished successfully:"
-        if not isinstance(next(iter(metric_results.values())), dict):
-            metric_results = {self.dataset.name: metric_results}
-
         for dataset_name, result in metric_results.items():
             msg += f"\n##### {dataset_name} #####"
             for key, value in result.items():

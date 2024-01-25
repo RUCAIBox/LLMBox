@@ -84,7 +84,7 @@ def load_dataset(args: DatasetArguments, model: Model) -> Union[Dataset, Dataset
     if len(subset_names) > 1 and accepts_subset(dataset_cls.load_args, overwrite_subset=len(args.subset_names) > 0):
         # race:middle,high (several subsets) , super_glue (all the subsets)
         logger.info(f"Loading subsets of dataset `{args.dataset_name}`: " + ", ".join(subset_names))
-        datasets = {s: dataset_cls(args, model, s) for s in subset_names}
+        datasets = {s: dataset_cls(args, model, s) for s in sorted(subset_names)}
         return DatasetCollection(datasets)
     elif len(subset_names) == 1 and len(available_subsets) != 1 and accepts_subset(
         dataset_cls.load_args, overwrite_subset=len(args.subset_names) > 0, subset=next(iter(subset_names))
