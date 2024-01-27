@@ -1,9 +1,7 @@
 import re
 
-import numpy as np
-
-from .generation_dataset import GenerationDataset
 from ..metric import Accuracy
+from .generation_dataset import GenerationDataset
 
 SUBSTITUTIONS = [('an ', ''), ('a ', ''), ('.$', '$'), ('\\$', ''), (r'\ ', ''), (' ', ''), ('mbox', 'text'),
                  (',\\text{and}', ','), ('\\text{and}', ','), ('\\text{m}', '\\text{}')]
@@ -29,14 +27,12 @@ class Math(GenerationDataset):
         solution: For the piecewise function to be continuous, the cases must "meet" at $2$ and $-2$. For example, $ax+3$ and $x-5$ must be equal when $x=2$. This implies $a(2)+3=2-5$, which we solve to get $2a=-6 \Rightarrow a=-3$. Similarly, $x-5$ and $2x-b$ must be equal when $x=-2$. Substituting, we get $-2-5=2(-2)-b$, which implies $b=3$. So $a+b=-3+3=\boxed{0}$.
     """
 
-    name = "math"
-    instruction = "Answer the following question."
-
+    instruction = "Solve the following math problem."
     example_set = "train"
     evaluation_set = "test"
-
     load_args = ("hendrycks/competition_math",)
     metrics = [Accuracy()]
+    extra_model_args = dict(temperature=0)
 
     @staticmethod
     def normalize_final_answer(final_answer: str) -> str:
@@ -105,12 +101,10 @@ class Math(GenerationDataset):
         return new_predictions
 
     def format_instance(self, instance):
-        solution_pattern = " {solution}\nFinal Answer: The final answer is ${short_answer}$. I hope it is correct."
-
         if "short_answer" not in instance:
             instance["short_answer"] = self.extract_inner_content(instance["solution"])
         problem = "Q: " + instance["problem"] + "\n" + "A:"
-        solution = solution_pattern.format(solution=instance["solution"], short_answer=instance["short_answer"])
+        solution = f' {instance["solution"]}\nFinal Answer: The final answer is ${instance["short_answer"]}$. I hope it is correct.'
         return dict(
             source=problem,
             target=solution,

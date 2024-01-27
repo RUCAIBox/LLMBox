@@ -1,6 +1,10 @@
+from logging import getLogger
+
 import numpy as np
 
 from .multiple_choice_dataset import MultipleChoiceDataset
+
+logger = getLogger(__name__)
 
 
 class Race(MultipleChoiceDataset):
@@ -29,12 +33,9 @@ class Race(MultipleChoiceDataset):
         ]
     """
 
-    name = "race"
     instruction = ""
-
     evaluation_set = "validation"
     example_set = "train"
-
     load_args = ("race",)  # specify subset from command line
 
     def format_instance(self, instance):
@@ -50,18 +51,16 @@ class Race(MultipleChoiceDataset):
     def construct_instances(self):
         self.evaluation_instances = []
         self.option_nums = []
-        for instance in self.evaluation_data:
-            formatted_instance = self.format_instance(instance)
+        for formatted_instance in self.formatted_evaluation_data:
             instance_with_examples = self.format_instruction_and_examples(formatted_instance)
-            options = [(instance_with_examples, option) for option in formatted_instance['options']]
-            # options = [
-            #     self.format_instruction_and_examples(formatted_instance["source"], option)
-            #     for option in formatted_instance["options"]
-            # ]
+            options = [(instance_with_examples, option) for option in formatted_instance["options"]]
             self.option_nums.append(len(options))
             answer_options = [("A:", option) for option in formatted_instance["options"]]
             options = [item for pair in zip(options, answer_options) for item in pair]
             self.evaluation_instances.extend(options)
+        logger.info("Evaluation mode: calculate PPL of the optional text based on the source text")
+        logger.info("Formatted example (source)\n" + self.evaluation_instances[0][0])
+        logger.info("Formatted example (option)\n" + self.evaluation_instances[0][1])
         self.evaluation_instances = self.evaluation_instances * self.args.sample_num
 
     def post_processing(self, predictions):

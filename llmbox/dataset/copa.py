@@ -14,12 +14,9 @@ class Copa(MultipleChoiceDataset):
         label: 1
     """
 
-    name = "copa"
     instruction = "Complete the following the sentence."
-
     evaluation_set = "validation"
     example_set = "train"
-
     load_args = ("super_glue", "copa")
 
     def format_instance(self, instance):
@@ -37,7 +34,7 @@ class Copa(MultipleChoiceDataset):
         options = [label2text[option] for option in [0, 1]]
         return dict(
             source=source,
-            target=label2text[instance['label']],
+            target=label2text[instance["label"]],
             options=options,
         )
 

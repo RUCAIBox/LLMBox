@@ -1,13 +1,16 @@
-from .generation_dataset import GenerationDataset
+import random
 import re
-from ..metric import F1, Em
+
 import numpy as np
 
+from ..metric import F1, Em
+from .generation_dataset import GenerationDataset
 
-class Squad_v2(GenerationDataset):
-    """The dataset of Squad_v2.
 
-    Gcombines the 100,000 questions in SQuAD1.1 with over 50,000 unanswerable questions written adversarially by crowdworkers to look similar to answerable ones. 
+class Squad(GenerationDataset):
+    """The dataset of Squad and Squad_v2.
+
+    Gcombines the 100,000 questions in SQuAD1.1 with over 50,000 unanswerable questions written adversarially by crowdworkers to look similar to answerable ones.
 
     Examples:
         context: The Normans (Norman: Nourmands; French: Normands; Latin: Normanni) were the people who in the 10th and 11th centuries gave their name to Normandy, a region in France. They were descended from Norse ("Norman" comes from "Norseman") raiders and pirates from Denmark, Iceland and Norway who, under their leader Rollo, agreed to swear fealty to King Charles III of West Francia. Through generations of assimilation and mixing with the native Frankish and Roman-Gaulish populations, their descendants would gradually merge with the Carolingian-based cultures of West Francia. The distinct cultural and ethnic identity of the Normans emerged initially in the first half of the 10th century, and it continued to evolve over the succeeding centuries.
@@ -15,17 +18,18 @@ class Squad_v2(GenerationDataset):
         answer: ['France', 'France', 'France', 'France']
     """
 
-    name = "squad_v2"
     instruction = 'Answer each question using information in the preceding background paragraph.\nIf there is not enough information provided, answer with "Not in background."'
     example_set = "train"
     evaluation_set = "validation"
-
-    load_args = ("squad_v2",)
+    load_args = ("squad",)
     metrics = [F1(), Em()]
+    extra_model_args = dict(max_tokens=64, temperature=0, stop=["\n"])
 
     def format_instance(self, instance):
-        source_text = "Title: " + instance["title"]  + "\n\nBackground: " \
-            + instance["context"] + "\n\nQ: " + instance["question"] + "\n\nA:"
+        source_text = (
+            "Title: " + instance["title"] + "\n\nBackground: " + instance["context"] + "\n\nQ: " +
+            instance["question"] + "\n\nA:"
+        )
         text = instance["answers"]["text"]
         if not text:
             text = "Not in background."
@@ -54,17 +58,18 @@ class Squad_v2(GenerationDataset):
         generation_example_token_nums = 0
         classified_title = {}
         for item in self.example_data:
-            title = item["title"]
-            if title in classified_title:
-                classified_title[title].append(item)
+            key = (item["title"], item["context"])
+            if key in classified_title:
+                classified_title[key].append(item)
             else:
-                classified_title[title] = [item]
+                classified_title[key] = [item]
+
         keys = list(classified_title.keys())
-        randoms_keys = np.random.choice(keys, self.num_shots)
+        randoms_keys = [keys[i] for i in np.random.choice(range(len(keys)), self.num_shots, replace=False)]
         for data in [classified_title[key] for key in randoms_keys]:
             instance = data[0]
-            source_text = "Title: " + instance["title"]  + "\n\nBackground: " \
-            + instance["context"]
+            source_text = "Title: " + instance["title"] + "\n\nBackground: " + instance["context"]
+            random.shuffle(data)
             for instance in data:
                 source_text += "\n\nQ: " + instance["question"] + "\n\nA:"
                 text = instance["answers"]["text"]
@@ -84,13 +89,13 @@ class Squad_v2(GenerationDataset):
     @property
     def references(self):
         return [
-            instance["answers"]["text"] if instance["answers"]["text"] else ['Not in background.']
+            instance["answers"]["text"] if instance["answers"]["text"] else ["Not in background."]
             for instance in self.evaluation_data
         ]
 
     def post_processing(self, preds):
         predictions = []
-        pattern = r'[.!(\n)]'
+        pattern = r"[.!(\n)]"
         for pred in preds:
             match = re.search(pattern, pred)
             if match:

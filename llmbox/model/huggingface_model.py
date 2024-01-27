@@ -1,60 +1,91 @@
-from functools import partial
 from logging import getLogger
-from pprint import pformat
-from typing import Iterator, List
+from typing import Iterator, List, Tuple, Union
 
 import torch
-from torch import Tensor
 from torch.nn import CrossEntropyLoss
-from transformers import GenerationConfig, StoppingCriteria
+from transformers import (
+    AutoModelForCausalLM,
+    AutoTokenizer,
+    PreTrainedModel,
+    PreTrainedTokenizer,
+    PreTrainedTokenizerFast,
+)
 
 from ..utils import ModelArguments
 from .model import Model
-from .utils import load_llm_and_tokenizer, LoggedDict
 
 logger = getLogger(__name__)
 
 
-class KeyWordsCriteria(StoppingCriteria):
+def load_hf_model(args: ModelArguments) -> Tuple[PreTrainedModel, Union[PreTrainedTokenizer, PreTrainedTokenizerFast]]:
+    logger.info(f"Loading {args.model_name_or_path} using Hugging Face Transformers...")
 
-    def __init__(self, stop_id_sequences):
-        assert isinstance(stop_id_sequences[0], list), "stop_id_sequences should be a list of list of ids"
-        self.stop_sequences = stop_id_sequences
+    model_kwargs = dict(
+        torch_dtype=torch.float16,
+        device_map=args.device_map,
+    )
 
-    def __call__(self, input_ids: torch.LongTensor, scores: torch.FloatTensor, **kwargs) -> bool:
-        sequences_should_be_stopped = []
-        for i in range(input_ids.shape[0]):
-            for stop_sequence in self.stop_sequences:
-                if input_ids[i][-len(stop_sequence):].tolist() == stop_sequence:
-                    sequences_should_be_stopped.append(True)
-                    break
-            sequences_should_be_stopped.append(False)
-        return all(sequences_should_be_stopped)
+    if args.flash_attention:
+        model_kwargs["attn_implementation"] = "flash_attention_2"
+
+    try:
+        model = AutoModelForCausalLM.from_pretrained(args.model_name_or_path, **model_kwargs).eval()
+    except (TypeError, ImportError) as e:
+        if "attn_implementation" in str(e) or "flash_att" in str(e):
+            logger.warning(
+                f"Cannot set `attn_implementation` for {args.model_name_or_path}: {e}. Set `flash_attention` to False."
+            )
+            args.flash_attention = False
+            model_kwargs.pop("attn_implementation")
+            model = AutoModelForCausalLM.from_pretrained(args.model_name_or_path, **model_kwargs).eval()
+        else:
+            raise e
+
+    tokenizer = AutoTokenizer.from_pretrained(
+        args.tokenizer_name_or_path, use_fast=True, padding_side="left", truncation_side="left", add_eos_token=False
+    )
+
+    # TODO: [Important]!!! check for each tokenizer
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.unk_token
+
+    # TODO: [Important]!!! check for each tokenizer
+    max_length = min(getattr(tokenizer, "tokenizer_model_max_length", 1e10), getattr(args, "max_length") or 1e10)
+    for key in [
+        "max_sequence_length",
+        "max_position_embeddings",
+        "model_max_length",
+        "seq_length",
+        "seq_len",
+        "n_positions",
+        "max_seq_len",
+        "max_seq_length",
+    ]:
+        max_length = min(max_length, getattr(model.config, key, 1e10))
+    if not max_length or max_length >= 1e10:
+        max_length = 2048
+        logger.warning(
+            f"Cannot specify model's maximum length according to `args` or model config. Set to 2048 by default."
+        )
+
+    tokenizer.model_max_length = max_length
+    return model, tokenizer
 
 
 class HuggingFaceModel(Model):
 
-    type = "instruction"
-
-    def __init__(self, model_name_or_path: str, args: ModelArguments):
+    def __init__(self, args: ModelArguments):
         super().__init__(args)
         self.args = args
-        self.model_name_or_path = model_name_or_path
-
-        model, tokenizer = load_llm_and_tokenizer(model_name_or_path, args=self.args)
-        self.model = model
-        self.tokenizer = tokenizer
-        self.device = next(model.parameters()).device
-
-        # get the correct max length of the model, which is agnostic to tasks
-        max_sequence_length = getattr(self.model.config, "max_sequence_length", None) or 0
-        max_position_embeddings = getattr(self.model.config, "max_position_embeddings", None) or 0
-        self.model_max_length = self.args.max_sequence_length or max(max_position_embeddings, max_sequence_length)
-        if self.model_max_length <= 0:
+        self.type = args.model_type
+        if self.type not in {"base", "instruction"}:
             raise ValueError(
-                f"max_sequence_length is not specified in the model config, and no value is provided in the arguments."
+                f"Invalid model type: {self.type}. Please use `--model_type` to specify the"
+                " model type, which can be chosen from `base` and `instruction`."
             )
-        logger.info(f"model_max_length: {self.model_max_length}")
+
+        self.model, self.tokenizer = load_hf_model(args)
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
 
     @staticmethod
     def _subsentences_start_idx(offset_mapping: torch.Tensor) -> Iterator[int]:
@@ -64,113 +95,83 @@ class HuggingFaceModel(Model):
                 yield token_idx
         yield len(offset_mapping)
 
-    def set_ppl_args(self, **kwargs):
+    def set_ppl_args(self, **extra_model_args):
         r"""Set the configurations for PPL score calculation. This is useful because different datasets may have different requirements for ppl calculation."""
-        self.add_start_token = True
-        self.task_max_length = self.model_max_length - int(self.add_start_token)
         self.loss_fct = CrossEntropyLoss(reduction="none")
-        logger.info(f"task_max_length: {self.task_max_length}")
 
     def get_ppl(self, batched_inputs):
+        prompt = [src + tgt for src, tgt in batched_inputs]
 
-        if not all([tgt.startswith(" ") for _, tgt in batched_inputs]):
-            logger.warning(
-                f'Target text does not start with a whitespace: ...{batched_inputs[0][0][-10:]}{batched_inputs[0][1][:10]}..."'
-            )
-
-        # add_special_tokens=False will still pad the inputs
         batched_encodings = self.tokenizer(
-            batched_inputs,
-            add_special_tokens=False,
+            prompt,
             padding=True,
             truncation=True,
             return_offsets_mapping=True,
             return_attention_mask=True,
             return_tensors="pt",
-            max_length=self.task_max_length,
         ).to(self.device)
 
-        encoded_batch = batched_encodings.input_ids
-        attn_mask = batched_encodings.attention_mask
-
-        if self.add_start_token:
-            bos_tokens_tensor = torch.tensor([[self.tokenizer.bos_token_id]] * encoded_batch.size(dim=0)
-                                             ).to(self.device)
-            encoded_batch = torch.cat([bos_tokens_tensor, encoded_batch], dim=1)
-            attn_mask = torch.cat([torch.ones(bos_tokens_tensor.size(), dtype=torch.int64).to(self.device), attn_mask],
-                                  dim=1)
-
         with torch.no_grad():
-            out_logits = self.model(encoded_batch, attention_mask=attn_mask).logits
+            logits = self.model(
+                input_ids=batched_encodings["input_ids"], attention_mask=batched_encodings["attention_mask"]
+            ).logits
+            shift_logits = logits[:, :-1].contiguous()
+            shift_labels = batched_encodings["input_ids"][:, 1:].contiguous()
+            shift_labels[shift_labels == self.tokenizer.pad_token_id] = -100
+            probs = self.loss_fct(shift_logits.view(-1, self.model.config.vocab_size),
+                                  shift_labels.view(-1)).view(shift_labels.size(0), -1)
 
         ppls = []
-        zipped = zip(out_logits, encoded_batch, attn_mask, batched_encodings.offset_mapping)
-
-        for logits, input_ids, attn_masks, offsets in zipped:
-            tgt_st, tgt_ed = list(self._subsentences_start_idx(offsets))[1:3]
-            # output logits are shifted by one position
-            shift_logits = logits[tgt_st - 1:tgt_ed - 1, :].contiguous()
-            shift_labels = input_ids[tgt_st:tgt_ed].contiguous()
-            shift_attn_masks = attn_masks[tgt_st:tgt_ed].contiguous()
-
-            perplexity = torch.exp(
-                (self.loss_fct(shift_logits, shift_labels) * shift_attn_masks).sum(0) / shift_attn_masks.sum(0)
-            )
-            ppls.append((perplexity.item(), tgt_ed - tgt_st))
-
+        for prob, (src, _), offset, attention_mask in zip(
+            probs, batched_inputs, batched_encodings.offset_mapping, batched_encodings.attention_mask
+        ):
+            ppl = [None] + prob.tolist()
+            offset = [st for st, ed in offset]
+            tgt_start = max(
+                offset.index(len(src)),
+                attention_mask.nonzero()[0][0].item() + 1
+            )  # designed for src!='' and src=''
+            tgt_end = len(offset)
+            ppl = sum(ppl[tgt_start:])
+            ppls.append((ppl, tgt_end - tgt_start))
         return ppls
 
-    def set_generation_args(self, **kwargs):
-        r"""Set the configurations for open-ended generation. This is useful because different datasets may have different requirements for generation.
+    def set_generation_args(self, **extra_model_args):
+        generation_kwargs = {}
+        for key in [
+            "temperature",
+            "top_p",
+            "top_k",
+            "max_tokens",
+            "best_of",
+            "repetition_penalty",
+            "length_penalty",
+            "early_stopping",
+            "no_repeat_ngram_size",
+        ]:
+            # ModelArguments > extra_model_args
+            value = getattr(self.args, key, None)
+            if value is None:
+                value = extra_model_args.get(key, None)
+            if key == "max_tokens" and value is None:
+                value = 1024
+            if value is not None:
+                if key == "max_tokens":
+                    generation_kwargs["max_new_tokens"] = value
+                elif key == "best_of":
+                    generation_kwargs["num_beams"] = value
+                elif key == "temperature":
+                    if value > 0:
+                        generation_kwargs["temperature"] = value
+                        generation_kwargs["do_sample"] = True
+                    else:
+                        generation_kwargs["do_sample"] = False
+                else:
+                    generation_kwargs[key] = value
 
-        Args:
-            **kwargs: The generation arguments. It will first be merged with a `GenerationConfig`, and then all unused kwargs are passed as model kwargs. Huggingface-model-specific kwargs are also accepted:
-
-                - `stop_id_sequences` (List[List[int]]): A list of list of token ids. If a list of token ids is found at the end of the generated sequence, the generation will be stopped.
-                - `stopping_criteria` (List[StoppingCriteria]): A list of stopping criteria. If any of the stopping criteria is met, the generation will be stopped.
-        """
-        kwargs = LoggedDict.from_dict(kwargs, logger, "generation_args")
-        self.processors = []
-
-        echo = kwargs.pop("echo", False)
-        stop_sequences = kwargs.pop("stop_sequences", [])
-        stopping_criteria = kwargs.pop("stopping_criteria", [])
-        max_new_tokens = kwargs.pop("max_new_tokens", self.args.max_new_tokens) or 512
-
-        self.task_max_length = self.model_max_length - max_new_tokens - 1
-        if self.task_max_length <= 0:
-            raise ValueError(
-                f"`max_new_tokens` is too large ({max_new_tokens}) to fit the capacity of model. Please decrease it to at least {self.model_max_length - 2}."
-            )
-        logger.info(f"task_max_length: {self.task_max_length}")
-
-        if len(stop_sequences) > 0:
-            stop_id_sequences = []
-            for sequence in stop_sequences:
-                # add a prefix space and manually remove it: https://github.com/huggingface/transformers/issues/26273
-                stop_id_sequences.append(self.tokenizer.encode(" " + sequence, add_special_tokens=False)[1:])
-
-            logger.debug(f"stop_id_sequences: {stop_id_sequences}")
-            stopping_criteria.append(KeyWordsCriteria(stop_id_sequences))
-            self.processors.append(
-                partial(
-                    self.stop_processor,
-                    stop_id_sequences=stop_id_sequences,
-                    pad_token_id=self.tokenizer.pad_token_id,
-                )
-            )
-
-        if not echo:
-            self.processors.append(partial(self.remove_echo_processor, pad_token_id=self.tokenizer.pad_token_id))
-
-        logger.debug(f"extra generation_config: {kwargs}")
-        self.generation_config = GenerationConfig(
-            max_new_tokens=max_new_tokens,
-            pad_token_id=self.tokenizer.pad_token_id,
-            eos_token_id=self.tokenizer.eos_token_id,
-            stopping_criteria=stopping_criteria,
-            **kwargs
-        )
+        generation_kwargs["pad_token_id"] = self.tokenizer.pad_token_id
+        generation_kwargs["eos_token_id"] = self.tokenizer.eos_token_id
+        self.generation_kwargs = generation_kwargs
 
     def generation(self, batched_inputs) -> List[str]:
         """Generate the response of given question for this batch.
@@ -178,52 +179,19 @@ class HuggingFaceModel(Model):
         Returns:
             List(str): The list of generation results.
         """
-        # print(batched_inputs)
+
         batched_encodings = self.tokenizer(
             batched_inputs,
-            return_tensors="pt",
             padding=True,
             truncation=True,
-            add_special_tokens=True,
-            return_offsets_mapping=True,
-            max_length=self.task_max_length,
+            return_attention_mask=True,
+            return_tensors="pt",
         ).to(self.device)
-        # TODO Python tokenizers doesn't support return_offsets_mapping
 
-        for idx, (lo, li) in enumerate(
-            zip(batched_encodings.offset_mapping[:, -1, -1].tolist(), [len(s) for s in batched_inputs])
-        ):
-            if lo != li:
-                overflowed = "..." + batched_inputs[idx][lo:]
-                logger.warning(f"Overflowing input during tokenization detected: {pformat(overflowed)}")
-
-        batch_outputs = self.model.generate(
-            input_ids=batched_encodings.input_ids,
-            attention_mask=batched_encodings.attention_mask,
-            generation_config=self.generation_config,
+        batch_outputs = self.model.generate(**batched_encodings, **self.generation_kwargs)
+        max_input_length = batched_encodings["input_ids"].size(1)
+        batch_outputs = batch_outputs[:, max_input_length:]
+        answers = self.tokenizer.batch_decode(
+            batch_outputs, skip_special_tokens=True, clean_up_tokenization_spaces=False
         )
-
-        prompt_len = batched_encodings.input_ids.size(1)
-        for seq_idx in range(batch_outputs.size(0)):
-            for processor in self.processors:
-                processor(seq_idx, prompt_len, batch_outputs)
-
-        answers = self.tokenizer.batch_decode(batch_outputs, skip_special_tokens=True)
         return answers
-
-    @staticmethod
-    def stop_processor(
-        seq_idx: int,
-        prompt_len: int,
-        batch_outputs: Tensor,
-        stop_id_sequences: List[List[int]],
-        pad_token_id: int,
-    ):
-        for token_idx in range(prompt_len, batch_outputs[seq_idx, :].size(0)):
-            if any(batch_outputs[seq_idx, token_idx:token_idx + len(s)].tolist() == s for s in stop_id_sequences):
-                batch_outputs[seq_idx, token_idx:] = pad_token_id
-                break
-
-    @staticmethod
-    def remove_echo_processor(seq_idx: int, prompt_len: int, batch_outputs: Tensor, pad_token_id: int):
-        batch_outputs[seq_idx, :prompt_len] = pad_token_id

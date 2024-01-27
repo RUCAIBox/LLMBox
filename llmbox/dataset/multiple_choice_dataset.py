@@ -1,12 +1,11 @@
 import numpy as np
 
-from .dataset import Dataset
 from ..metric import Accuracy
+from .dataset import Dataset
 
 
 class MultipleChoiceDataset(Dataset):
-    r"""The dataset for multiple choice tasks. It ranks given options and is evaluated using `accuracy` score.
-    """
+    r"""The dataset for multiple choice tasks. It ranks given options and is evaluated using `accuracy` score."""
 
     evaluation_type = "ranking"
     metrics = [Accuracy()]

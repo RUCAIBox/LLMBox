@@ -1,5 +1,5 @@
-from .generation_dataset import GenerationDataset
 from ..metric import Rouge
+from .generation_dataset import GenerationDataset
 
 
 class CNN_DailyMail(GenerationDataset):
@@ -14,16 +14,12 @@ class CNN_DailyMail(GenerationDataset):
         highlights: The elderly woman suffered from diabetes and hypertension, ship's doctors say .\nPreviously, 86 passengers had fallen ill on the ship, Agencia Brasil says .
     """
 
-    name = "cnn_dailymail"
     instruction = ""
-
     evaluation_set = "train"
     example_set = "test"
-
-    metric = "rouge"
     metrics = [Rouge()]
-
     load_args = ("cnn_dailymail", "3.0.0")
+    extra_model_args = dict(temperature=0)
 
     def format_instance(self, instance):
         source = instance["article"] + "\n\nTL;DR: "

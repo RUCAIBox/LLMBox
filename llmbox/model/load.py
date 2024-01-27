@@ -1,10 +1,7 @@
 from logging import getLogger
 
 from ..utils import ModelArguments
-from .huggingface_model import HuggingFaceModel
 from .model import Model
-from .openai import Openai
-from .enum import OPENAI_MODELS
 
 logger = getLogger(__name__)
 
@@ -18,9 +15,28 @@ def load_model(args: ModelArguments) -> Model:
     Returns:
         Model: Our class for model.
     """
-    if args.model_name_or_path.lower() in OPENAI_MODELS:
+    if args.is_openai_model():
         logger.info(f"Loading OpenAI API model `{args.model_name_or_path.lower()}`.")
+        from .openai import Openai
+
         return Openai(args)
+    elif args.is_anthropic_model():
+        logger.info(f"Loading Anthropic API model `{args.model_name_or_path.lower()}`.")
+        from .anthropic import Anthropic
+
+        return Anthropic(args)
     else:
-        logger.info(f"Loading HuggingFace pretrained model `{args.model_name_or_path}`.")
-        return HuggingFaceModel(args.model_name_or_path, args)
+        if args.vllm:
+            try:
+                from .vllm_model import vllmModel
+
+                return vllmModel(args)
+            except ValueError as e:
+                if "are not supported for now" in str(e):
+                    args.vllm = False
+                    logger.warning(f"vllm has not supported the architecture of {args.model_name_or_path} for now.")
+                else:
+                    raise e
+        from .huggingface_model import HuggingFaceModel
+
+        return HuggingFaceModel(args)

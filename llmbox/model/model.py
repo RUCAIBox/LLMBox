@@ -1,6 +1,12 @@
-from typing import Optional, Union
+from logging import getLogger
+from typing import Union
 
+from tiktoken import Encoding
 from transformers import PreTrainedTokenizer, PreTrainedTokenizerFast
+
+from ..utils import ModelArguments
+
+logger = getLogger(__name__)
 
 
 class Model:
@@ -12,7 +18,7 @@ class Model:
     Attributes:
         name (str): The name of this model.
         type (str): The type of this model, which can be chosen from `base` and `instruction`.
-        tokenizer (Union[transformers.PreTrainedTokenizer, tiktoken.Encoding]): The tokenizer of this model.
+        tokenizer (Union[transformers.PreTrainedTokenizer, PreTrainedTokenizerFast, tiktoken.Encoding]): The tokenizer of this model.
         max_tokens (int): The maximum token length of this model.
         generation_kwargs (dict): The configurations for open-ended generation.
         ppl_kwargs (dict, *optional*): The configurations for computing PPL score.
@@ -20,13 +26,12 @@ class Model:
     name = ""
     type = ""
 
-    def __init__(self, args):
+    def __init__(self, args: ModelArguments):
         self.args = args
-        self.tokenizer: Union[PreTrainedTokenizer, PreTrainedTokenizerFast] = None
+        self.tokenizer: Union[PreTrainedTokenizer, PreTrainedTokenizerFast, Encoding] = None
 
-    def set_ppl_args(self, **kwargs):
+    def set_ppl_args(self, **extra_model_args):
         r"""Set the configurations for PPL score calculation. This is useful because different datasets may have different requirements for ppl calculation."""
-
         raise NotImplementedError(f"{self.name} model must implement the `set_ppl_args` function.")
 
     def get_ppl(self, batched_inputs):
@@ -40,7 +45,7 @@ class Model:
         """
         raise NotImplementedError(f"{self.name} model must implement the `get_ppl` function.")
 
-    def set_generation_args(self, **kwargs):
+    def set_generation_args(self, **extra_model_args):
         r"""Set the configurations for open-ended generation. This is useful because different datasets may have different requirements for generation."""
 
         raise NotImplementedError(f"{self.name} model must implement the `set_generation_args` function.")

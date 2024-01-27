@@ -1,22 +1,28 @@
-import warnings
 import logging
-import torch
-
+import warnings
+from dataclasses import dataclass
 from typing import Optional
-from dataclasses import dataclass, MISSING
-from transformers import AutoModelForCausalLM, AutoTokenizer, TrainingArguments, HfArgumentParser
-from transformers.hf_argparser import HfArg
-from datasets import load_dataset
+
 from accelerate.utils import set_seed
-from trl import SFTTrainer, DataCollatorForCompletionOnlyLM
 from dataset import Dataset
+from datasets import load_dataset
+from peft import LoraConfig, TaskType
+from transformers import (
+    AutoModelForCausalLM,
+    AutoTokenizer,
+    AutoConfig,
+    HfArgumentParser,
+    TrainingArguments,
+)
+from transformers.hf_argparser import HfArg
+from trl import DataCollatorForCompletionOnlyLM, SFTTrainer
 
 
 @dataclass
 class Arguments(TrainingArguments):
-
     model_name_or_path: str = HfArg(
-        default=MISSING, help="The model name or path, e.g., `meta-llama/Llama-2-7b-hf` or `./output/saved_model`"
+        default=None,
+        help="The model name or path, e.g., `meta-llama/Llama-2-7b-hf` or `./output/saved_model`",
     )
 
     tokenizer_name_or_path: Optional[str] = HfArg(
@@ -25,7 +31,8 @@ class Arguments(TrainingArguments):
     )
 
     data_path: str = HfArg(
-        default=MISSING, help="The path of dataset, e.g., `data/alpaca_data.json.` or `data/chinese.txt`"
+        default=None,
+        help="The path of dataset, e.g., `data/alpaca_data.json.` or `data/chinese.txt`",
     )
 
     model_max_length: int = HfArg(
@@ -34,33 +41,51 @@ class Arguments(TrainingArguments):
     )
 
     mode: str = HfArg(
-        default='sft',
+        default="sft",
         help="The mode of the training programs, which must be chosen from either `sft` or `pt`.",
-        metadata={"choices": ['sft', 'pt']},
+        metadata={"choices": ["sft", "pt"]},
     )
 
     use_flash_attention: bool = HfArg(
         default=True,
-        help="When checkpointing, whether to only save the model, or also the optimizer, scheduler & rng state."
+        help="When checkpointing, whether to only save the model, or also the optimizer, scheduler & rng state.",
     )
 
     save_only_model: bool = HfArg(
         default=True,
         help=
-        "Whether to use flash attention for a faster and more efficient implementation of the standard attention mechanism."
+        "Whether to use flash attention for a faster and more efficient implementation of the standard attention mechanism.",
+    )
+
+    rope_scaling_type: str = HfArg(
+        default = "none",
+        help="Whether to scaling the RoPE. `none` denotes no scaling of RoPE . `dynamic` and `linear` denoted to scaling RoPE with dynamic NTK and Position Interpolation."
+    )
+
+    rope_scaling_factor: int = HfArg(
+        default = 4,
+        help="Scaling factor of RoPE. The maximum context length will be expanded to the factor times the original maximum positional embedding length."
     )
 
     bf16: bool = HfArg(
         default=True,
         help="Whether to use bf16 (mixed) precision instead of 32-bit. Requires Ampere or higher NVIDIA"
-        " architecture or using CPU (use_cpu) or Ascend NPU. This is an experimental API and it may change."
+        " architecture or using CPU (use_cpu) or Ascend NPU. This is an experimental API and it may change.",
     )
 
     tf32: Optional[bool] = HfArg(
         default=True,
         help="Whether to enable tf32 mode, available in Ampere and newer GPU architectures. This is an experimental"
-        " API and it may change."
+        " API and it may change.",
     )
+
+    lora: Optional[bool] = HfArg(default=False, help="whether to train with LoRA.")
+
+    lora_r: Optional[int] = HfArg(default=16, help='Lora attention dimension (the "rank")')
+
+    lora_alpha: Optional[int] = HfArg(default=16, help="The alpha parameter for Lora scaling.")
+
+    lora_dropout: Optional[float] = HfArg(default=0.05, help="The dropout probability for Lora layers.")
 
 
 def train():
@@ -81,13 +106,40 @@ def train():
     )
     tokenizer.pad_token = tokenizer.unk_token  # for llama-1
 
+    config = AutoConfig.from_pretrained(args.model_name_or_path)
+    if args.rope_scaling_type != "none":
+        config.rope_scaling = {
+            "type" : args.rope_scaling_type,
+            "factor" : args.rope_scaling_factor
+        }
+    if args.use_flash_attention:
+        config._attn_implementation = "flash_attention_2"
+    else:
+        config._attn_implementation = None
+    config.use_cache=False
     model = AutoModelForCausalLM.from_pretrained(
         args.model_name_or_path,
-        use_cache=False,  # When gradient checkpointing used, set this to False
-        attn_implementation="flash_attention_2" if args.use_flash_attention else None
+        config=config
     )
 
-    if args.mode == 'sft':
+    if args.lora:
+        peft_config = LoraConfig(
+            task_type=TaskType.CAUSAL_LM,
+            r=args.lora_r,
+            lora_alpha=args.lora_alpha,
+            lora_dropout=args.lora_dropout,
+        )
+    else:
+        peft_config = None
+
+    kwargs = dict(
+        model=model,
+        args=args,
+        tokenizer=tokenizer,
+        max_seq_length=args.model_max_length,
+        peft_config=peft_config,
+    )
+    if args.mode == "sft":
         dataset = Dataset(args)
 
         # set the template for the instruction and response
@@ -99,31 +151,21 @@ def train():
             response_template=response_template_ids,
             tokenizer=tokenizer,
         )
-
-        trainer = SFTTrainer(
-            model=model,
-            args=args,
-            train_dataset=dataset.load_data(),
-            tokenizer=tokenizer,
-            max_seq_length=args.model_max_length,
-            packing=False,
-            data_collator=collator,
-            formatting_func=dataset.formatting_func,
+        kwargs.update(
+            dict(
+                train_dataset=dataset.load_data(),
+                packing=False,
+                data_collator=collator,
+                formatting_func=dataset.formatting_func,
+            )
         )
-    elif args.mode == 'pt':
-        dataset = load_dataset('text', data_files=args.data_path)['train']
+
+    elif args.mode == "pt":
+        dataset = load_dataset("text", data_files=args.data_path)["train"]
         model.resize_token_embeddings(len(tokenizer))
+        kwargs.update(dict(train_dataset=dataset, packing=True, dataset_text_field="text"))
 
-        trainer = SFTTrainer(
-            model=model,
-            args=args,
-            train_dataset=dataset,
-            tokenizer=tokenizer,
-            max_seq_length=args.model_max_length,
-            packing=True,
-            dataset_text_field="text"
-        )
-
+    trainer = SFTTrainer(**kwargs)
     trainer.train()
     trainer.save_state()
 

@@ -12,8 +12,8 @@ class EvolInstructDataset(SFTDataset):
     def concatenate_conversation(self, conversation):
         result = ""
         for message in conversation:
-            sender = message['from']
-            value = message['value']
+            sender = message["from"]
+            value = message["value"]
 
             # Concatenate the sender and message value
             if sender == "human":

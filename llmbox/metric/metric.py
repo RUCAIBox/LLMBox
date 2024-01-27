@@ -1,8 +1,15 @@
-class Metric:
-    r""" The base class for metric calculation.
-    """
+from logging import getLogger
+from typing import Dict, List
 
-    def __call__(self, predictions, references):
+logger = getLogger(__name__)
+
+
+class Metric:
+    r"""The base class for metric calculation."""
+
+    _last_score_lists = None
+
+    def __call__(self, predictions, references) -> Dict[str, float]:
         r""" Compute specific metric scores between predictions and references.
 
         Args:
@@ -15,3 +22,12 @@ class Metric:
         raise NotImplementedError(
             f"{self.__class__.__name__} metric must implement the `__call__` function for score calculation."
         )
+
+    def __repr__(self) -> str:
+        return self.__class__.__name__ + "()"
+
+    def last_score_lists(self) -> Dict[str, List[float]]:
+        if self._last_score_lists is None:
+            logger.warning(f"Metric {self.__class__.__name__} have not been called yet. Return empty score lists.")
+            return dict()
+        return {m: list(l) for m, l in self._last_score_lists.items()}

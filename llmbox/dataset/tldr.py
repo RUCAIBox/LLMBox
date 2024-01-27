@@ -1,5 +1,5 @@
-from .generation_dataset import GenerationDataset
 from ..metric import Rouge
+from .generation_dataset import GenerationDataset
 
 
 class TLDR(GenerationDataset):
@@ -13,16 +13,12 @@ class TLDR(GenerationDataset):
         label: Progress is still happening, even when you think it might not be! Don't get discouraged, even if your journey seems to be going slowly. Don't give up, warriors.
     """
 
-    name = "tldr"
     instruction = ""
-
     evaluation_set = "train"
     example_set = "test"
-
-    metric = "rouge"
     metrics = [Rouge()]
-
     load_args = ("CarperAI/openai_summarize_tldr",)
+    extra_model_args = dict(temperature=0)
 
     def format_instance(self, instance):
         source = instance["prompt"]

@@ -4,11 +4,11 @@ from .sftdataset import SFTDataset
 class LimaDataset(SFTDataset):
     """
     LIMA is an English instruction dataset consisting of a train set with 1K data instances.
-    
-    75% are sampled from three community question & answers websites (i.e., Stack Exchange, wikiHow, and the Pushshift Reddit Dataset); 
-    
-    20% are manually written by a set of the authors inspired by their interests; 
-    
+
+    75% are sampled from three community question & answers websites (i.e., Stack Exchange, wikiHow, and the Pushshift Reddit Dataset);
+
+    20% are manually written by a set of the authors inspired by their interests;
+
     5% are sampled from the Super-Natural Instructions dataset.
     """
 
@@ -23,7 +23,7 @@ class LimaDataset(SFTDataset):
             response = conversation[i + 1] if i + 1 < len(conversation) else ""
 
             # Concatenate conversation
-            result += f'\n\n### Human:\n{instruction}\n\n### Assistant:\n{response}'
+            result += f"\n\n### Human:\n{instruction}\n\n### Assistant:\n{response}"
         return result
 
     def formatting_func(self, examples):

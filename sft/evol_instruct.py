@@ -1,9 +1,10 @@
+import argparse
 import json
 import random
-import argparse
 import string
 
 from tqdm import tqdm
+
 from llmbox.model.openai import Openai
 from llmbox.utils import ModelArguments
 
@@ -47,7 +48,7 @@ def createConstraintsPrompt(instruction):
 def createDeepenPrompt(instruction):
     prompt = base_instruction_depth.format(
         "If #The Given Prompt# contains inquiries about certain issues, the depth and breadth of the inquiry can be increased.",
-        instruction
+        instruction,
     )
     return prompt
 
@@ -60,7 +61,7 @@ def createConcretizingPrompt(instruction):
 def createReasoningPrompt(instruction):
     prompt = base_instruction_depth.format(
         "If #The Given Prompt# can be solved with just a few simple thinking processes, you can rewrite it to explicitly request multiple-step reasoning.",
-        instruction
+        instruction,
     )
     return prompt
 
@@ -71,21 +72,21 @@ def createBreadthPrompt(instruction):
 
 
 def call_chatgpt(instruction):
-    model_args = ModelArguments(model_name_or_path='gpt-3.5-turbo-instruct')
+    model_args = ModelArguments(model_name_or_path="gpt-3.5-turbo-instruct")
     openai_instance = Openai(model_args)
-    prompt = instruction,
+    prompt = (instruction,)
     model_args_for_request = {
-        'temperature': 1,
-        'max_tokens': 2048,
-        'top_p': 0.95,
-        'frequency_penalty': 0,
-        'presence_penalty': 0,
-        'stop': None
+        "temperature": 1,
+        "max_tokens": 2048,
+        "top_p": 0.95,
+        "frequency_penalty": 0,
+        "presence_penalty": 0,
+        "stop": None,
     }
 
     response = openai_instance.request(prompt, model_args_for_request)
-    res = ''
-    res = response[0]['text']
+    res = ""
+    res = response[0]["text"]
     return res
 
 
@@ -93,7 +94,7 @@ def evol_elimination(seed_insinstruction, evol_instruction, response):
     # 1. use ChatGPT to compare the evolved instruction with seed.
     gpt_compare_instruction = gpt_compare_instruction_temp.format(seed_insinstruction, evol_instruction)
     judgement = call_chatgpt(gpt_compare_instruction)
-    if 'not' not in judgement.lower():  # Equal instructions
+    if "not" not in judgement.lower():  # Equal instructions
         return False
 
     # 2. The evolved instruction makes it difficult for the LLM to generate a response.
@@ -106,7 +107,7 @@ def evol_elimination(seed_insinstruction, evol_instruction, response):
     # common stop words(en)
     common_stopwords = set(["the", "and", "is", "of", "in", "it", "you", "that", "for", "on", "with", "this"])
     # Remove punctuation from the response
-    response_no_punctuation = response.translate(str.maketrans('', '', string.punctuation))
+    response_no_punctuation = response.translate(str.maketrans("", "", string.punctuation))
     # Split the cleaned response into a list of words
     words = response_no_punctuation.split()
     only_punctuation_and_stopwords = all(
@@ -130,19 +131,20 @@ def evol_elimination(seed_insinstruction, evol_instruction, response):
 def main():
     parser = argparse.ArgumentParser(description="Generate instruction-following data.")
 
-    parser.add_argument('--output_dir', default='alpaca_data_evol.json', help='Output directory for generated data')
+    parser.add_argument("--output_dir", default="alpaca_data_evol.json", help="Output directory for generated data")
     parser.add_argument(
-        '--seed_tasks_path',
-        default='alpaca_data_cleaned.json',
-        help='Path to seed tasks file (https://github.com/gururise/AlpacaDataCleaned/blob/main/alpaca_data_cleaned.json)'
+        "--seed_tasks_path",
+        default="alpaca_data_cleaned.json",
+        help=
+        "Path to seed tasks file (https://github.com/gururise/AlpacaDataCleaned/blob/main/alpaca_data_cleaned.json)",
     )
     parser.add_argument(
-        '--num_instructions_to_generate', type=int, default=100, help='Number of instructions to generate'
+        "--num_instructions_to_generate", type=int, default=100, help="Number of instructions to generate"
     )
 
     args = parser.parse_args()
 
-    fr = open(args.seed_tasks_path, 'r')
+    fr = open(args.seed_tasks_path, "r")
     all_objs = json.load(fr)
     objs_index = 0
     evol_objs = []
@@ -152,13 +154,16 @@ def main():
         while True:
             cur_obj = all_objs[objs_index]
             objs_index = (objs_index + 1) % len(all_objs)
-            seed_instruction = cur_obj['instruction']
-            instruction = cur_obj['instruction'].strip() + '\r\n' + cur_obj['input'].strip()
+            seed_instruction = cur_obj["instruction"]
+            instruction = cur_obj["instruction"].strip() + "\r\n" + cur_obj["input"].strip()
 
             # randomly choose one evol function generate the result
             evol_functions = [
-                createConstraintsPrompt, createDeepenPrompt, createConcretizingPrompt, createReasoningPrompt,
-                createBreadthPrompt
+                createConstraintsPrompt,
+                createDeepenPrompt,
+                createConcretizingPrompt,
+                createReasoningPrompt,
+                createBreadthPrompt,
             ]
             selected_function = random.choice(evol_functions)
             selected_evol_prompt = selected_function(instruction)
@@ -174,14 +179,14 @@ def main():
 
                 print("seed:", seed_instruction)
                 print("instruction:", evol_instruction, "output:", answer)
-                print('evol success!')
+                print("evol success!")
                 break
             else:
                 print("seed:", seed_instruction)
                 print("instruction:", evol_instruction, "output:", answer)
-                print('evol fail!')
+                print("evol fail!")
 
-    with open(args.output_dir, 'w') as f:
+    with open(args.output_dir, "w") as f:
         json.dump(evol_objs, f, indent=4)
 
 

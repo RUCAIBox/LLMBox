@@ -1,8 +1,9 @@
-from .generation_dataset import GenerationDataset
-import re
-import json
 import copy
+import json
+import re
+
 from ..metric import F1, Em
+from .generation_dataset import GenerationDataset
 
 
 class Coqa(GenerationDataset):
@@ -24,7 +25,7 @@ class Coqa(GenerationDataset):
                 ['a bucket of water', 'dropped her into a big bucket of water', 'into a big bucket of water', 'a big bucket of water'],
                 ['licked her face', 'licked her face', 'licked her face', 'licked her face'],
                 ['no', 'no', 'No', 'no']]
-        questions: 
+        questions:
                ['What color was Cotton?',
                 'Where did she live?',
                 'Did she live alone?',
@@ -38,20 +39,20 @@ class Coqa(GenerationDataset):
                 'What did the other cats do when Cotton emerged from the bucket of water?',
                 'Did they want Cotton to change the color of her fur?']
         source: 'mctest',
-        story:  'Once upon a time, in a barn near a farm house, there lived a little white kitten named Cotton. Cotton lived high up in a nice warm place above the barn where all of the farmer\'s horses slept. But Cotton wasn\'t alone in her little home above the barn, oh no. She shared her hay bed with her mommy and 5 other sisters. All of her sisters were cute and fluffy, like Cotton. But she was the only white one in the bunch. The rest of her sisters were all orange with beautiful white tiger stripes like Cotton\'s mommy. Being different made Cotton quite sad. She often wished she looked like the rest of her family. So one day, when Cotton found a can of the old farmer\'s orange paint, she used it to paint herself like them. When her mommy and sisters found her they started laughing. \n\n"What are you doing, Cotton?!" \n\n"I only wanted to be more like you". \n\nCotton\'s mommy rubbed her face on Cotton\'s and said "Oh Cotton, but your fur is so pretty and special, like you. We would never want you to be any other way". And with that, Cotton\'s mommy picked her up and dropped her into a big bucket of water. When Cotton came out she was herself again. Her sisters licked her face until Cotton\'s fur was all all dry. \n\n"Don\'t ever do that again, Cotton!" they all cried. "Next time you might mess up that pretty white fur of yours and we wouldn\'t want that!" \n\nThen Cotton thought, "I change my mind. I like being special".' 
+        story:  'Once upon a time, in a barn near a farm house, there lived a little white kitten named Cotton. Cotton lived high up in a nice warm place above the barn where all of the farmer\'s horses slept. But Cotton wasn\'t alone in her little home above the barn, oh no. She shared her hay bed with her mommy and 5 other sisters. All of her sisters were cute and fluffy, like Cotton. But she was the only white one in the bunch. The rest of her sisters were all orange with beautiful white tiger stripes like Cotton\'s mommy. Being different made Cotton quite sad. She often wished she looked like the rest of her family. So one day, when Cotton found a can of the old farmer\'s orange paint, she used it to paint herself like them. When her mommy and sisters found her they started laughing. \n\n"What are you doing, Cotton?!" \n\n"I only wanted to be more like you". \n\nCotton\'s mommy rubbed her face on Cotton\'s and said "Oh Cotton, but your fur is so pretty and special, like you. We would never want you to be any other way". And with that, Cotton\'s mommy picked her up and dropped her into a big bucket of water. When Cotton came out she was herself again. Her sisters licked her face until Cotton\'s fur was all all dry. \n\n"Don\'t ever do that again, Cotton!" they all cried. "Next time you might mess up that pretty white fur of yours and we wouldn\'t want that!" \n\nThen Cotton thought, "I change my mind. I like being special".'
     """
 
-    name = "coqa"
     instruction = "Answer the last question based on the given passage."
-
     example_set = "train"
     evaluation_set = "validation"
-
     load_args = ("coqa",)
-    metrics = [F1(multiref_strategy='leave_one_out'), Em(multiref_strategy='leave_one_out')]
+    metrics = [F1(multiref_strategy="leave_one_out"), Em(multiref_strategy="leave_one_out")]
+    extra_model_args = dict(max_tokens=64, temperature=0, stop=["\n"])
 
-    def _load_raw_dataset(self, dataset_path, subset_name, evaluation_set, example_set):
+    def load_raw_dataset(self, dataset_path, subset_name, evaluation_set, example_set):
+        # https://nlp.stanford.edu/data/coqa/coqa-dev-v1.0.json
         evaluation_dataset = json.load(open("coqa-dev-v1.0.json"))["data"]
+        # https://nlp.stanford.edu/data/coqa/coqa-train-v1.0.json
         example_dataset = json.load(open("coqa-train-v1.0.json"))["data"]
         self.evaluation_data = self.convert(evaluation_dataset, "dev")
         self.example_data = self.convert(example_dataset, "train")
@@ -95,7 +96,7 @@ class Coqa(GenerationDataset):
     @staticmethod
     def post_processing(predictions):
         new_predictions = []
-        pattern = r'[.!(\n)]'
+        pattern = r"[.!(\n)]"
         for pred in predictions:
             match = re.search(pattern, pred)
             if match:
