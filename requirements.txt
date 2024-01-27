@@ -16,3 +16,4 @@ flash-attn
 langcodes
 language_data
 anthropic
+prefetch_generator

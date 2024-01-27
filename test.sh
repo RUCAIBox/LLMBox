@@ -19,8 +19,10 @@ python inference.py -m davinci-002 -d openbookqa -b 20 # 59.20
 python inference.py -m davinci-002 -d piqa --evaluation_set validation\[:500\] -b 20 # 83.0
 python inference.py -m davinci-002 -d winogrande --evaluation_set validation\[:500\] -b 20 # 70.4
 python inference.py -m davinci-002 -d winogrande --evaluation_set validation\[:500\] -b 20 -shots 5 # 79.4
-python inference.py -m davinci-002 -d arc --evaluation_set test\[:500\] -b 20 # 55.6 challenge
-python inference.py -m davinci-002 -d arc --evaluation_set test\[:500\] -b 20 # 72.0 easy
+python inference.py -m davinci-002 -d arc:ARC-Challenge --evaluation_set test\[:500\] -b 20 # 55.6
+python inference.py -m davinci-002 -d arc:ARC-Easy --evaluation_set test\[:500\] -b 20 # 72.0
+python inference.py -m davinci-002 -d hellaswag --evaluation_set validation\[:500\] -b 20 -shots 0 # 67.8
+python inference.py -m davinci-002 -d hellaswag --evaluation_set validation -b 20 -shots 0 # 79.7
 
 python inference.py -m davinci-002 -d nq --evaluation_set validation\[:500\] -b 20 # 33 / 21
 python inference.py -m davinci-002 -d nq --evaluation_set validation\[:500\] -b 20 -shots 1 # 38 / 26
