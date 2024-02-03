@@ -27,58 +27,44 @@ class WinoGender(MultipleChoiceDataset):
     example_set = ""
     load_args = ("oskarvanderwal/winogender", 'gotcha')  # specify subset from command line
 
+    # def format_instance(self, instance):
+    #     text = instance['sentence'].split(' ' + instance['pronoun'] + ' ')
+    #     if instance['pronoun'] in ['his', 'her']:
+    #         source_text = [text[0] + ' the ' + instance[option] + '\'s' for option in ['occupation', 'participant']]
+    #     elif instance['pronoun'] in ['their']:
+    #         source_text = [text[0] + ' the ' + instance[option] + 's\'' for option in ['occupation', 'participant']]
+    #     else:
+    #         source_text = [text[0] + ' the ' + instance[option] for option in ['occupation', 'participant']]
+    #     options = [' ' + text[1]] * 2
+    #     return dict(
+    #         source=source_text,
+    #         target=source_text[int(instance["label"]) - 1],
+    #         options=options,
+    #     )
     def format_instance(self, instance):
-        text = instance['sentence'].split(' ' + instance['pronoun'] + ' ')
-        source_text = [text[0] + ' the ' + instance[option] for option in ['occupation', 'participant']]
-        options = [text[1]] * 2
+
+        def mark_word(sentence, word):
+            new_sentence = sentence.replace(" " + word + ' ', " *" + word + "* ")
+            return new_sentence
+
+        source = "Final Exam with Answer Key\nInstructions: Please carefully read the following stentences. For each stentence, you must identify which noun the pronoun marked in *bold* refers to.\n"
+        source += "=====\n"
+        modified_text = mark_word(instance["sentence"], instance["pronoun"])
+        source += f"Sentence: {modified_text}\n"
+        source += f'Question: In the sentence above, the pronoun "*{instance["pronoun"]}*" refer to the "{instance["occupation"]}" or the "{instance["participant"]}"?\n'
+        source += "Answer:"
+        label2text = {
+            0: f" the {instance['occupation']}",
+            1: f" the {instance['participant']}",
+        }
+
+        options = [label2text[option] for option in [0, 1]]
         return dict(
-            source=source_text,
-            target=source_text[int(instance["label"]) - 1],
+            source=source,
+            target=label2text[instance["label"]],
             options=options,
         )
 
     @property
     def references(self):
-        return [int(instance["label"]) - 1 for instance in self.evaluation_data]
-
-    def construct_examples(self, instance=None) -> str:
-        if self.num_shots == 0:
-            return ""
-        indice = self.random_indice
-        example_text = ""
-        example_token_nums = 0
-        for index in indice:
-            if hasattr(self, "formatted_example_data"):
-                example = self.formatted_example_data[index]
-            else:
-                example = self.format_instance(self.example_data[index])
-            cur_example_text = self.args.instance_format.format(
-                source=example["target"], target=example["options"][0]
-            ) + "\n\n"
-            cur_token_num = len(self.tokenizer.encode(cur_example_text))
-            if cur_token_num + example_token_nums <= self.max_example_tokens:
-                example_text += cur_example_text
-                example_token_nums += cur_token_num
-
-        return example_text
-
-    def construct_instances(self):
-        self.evaluation_instances = []
-        self.option_nums = []
-        for formatted_instance in self.formatted_evaluation_data:
-            for source, option in zip(formatted_instance['source'], formatted_instance['options']):
-                if self.examples == "":
-                    self.examples = self.construct_examples()
-                if self.model.type == "base":
-                    source = self.examples + self.args.instance_format.format(source=source, target="")
-                elif self.model.type == "instruction":
-                    source = (
-                        self.instruction + "\n\n" + self.examples +
-                        self.args.instance_format.format(source=source, target="")
-                    )
-                self.evaluation_instances.append((source, option))
-            self.option_nums.append(2)
-
-        logger.info("Evaluation mode: calculate PPL of the optional text based on the source text")
-        logger.info("Formatted example (source)\n" + self.evaluation_instances[0][0])
-        logger.info("Formatted example (option)\n" + self.evaluation_instances[0][1])
+        return [int(instance["label"]) for instance in self.evaluation_data]
