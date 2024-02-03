@@ -27,20 +27,6 @@ class WinoGender(MultipleChoiceDataset):
     example_set = ""
     load_args = ("oskarvanderwal/winogender", 'gotcha')  # specify subset from command line
 
-    # def format_instance(self, instance):
-    #     text = instance['sentence'].split(' ' + instance['pronoun'] + ' ')
-    #     if instance['pronoun'] in ['his', 'her']:
-    #         source_text = [text[0] + ' the ' + instance[option] + '\'s' for option in ['occupation', 'participant']]
-    #     elif instance['pronoun'] in ['their']:
-    #         source_text = [text[0] + ' the ' + instance[option] + 's\'' for option in ['occupation', 'participant']]
-    #     else:
-    #         source_text = [text[0] + ' the ' + instance[option] for option in ['occupation', 'participant']]
-    #     options = [' ' + text[1]] * 2
-    #     return dict(
-    #         source=source_text,
-    #         target=source_text[int(instance["label"]) - 1],
-    #         options=options,
-    #     )
     def format_instance(self, instance):
 
         def mark_word(sentence, word):
