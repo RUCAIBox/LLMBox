@@ -19,7 +19,9 @@ EXTENDED_SEARCH_PATHS = [
 
 
 def accepts_subset(
-    load_args: Union[Tuple[str], Tuple[str, str], Tuple[()]], overwrite_subset: bool = True, subset: str = ""
+    load_args: Union[Tuple[str], Tuple[str, str], Tuple[()]],
+    overwrite_subset: bool = True,
+    subset: str = "",
 ) -> bool:
     if len(load_args) == 2 and isinstance(load_args[1], str):
         if overwrite_subset or load_args[1] == subset:
@@ -38,7 +40,10 @@ def get_raw_dataset_loader(
     subset_name: Optional[str],
     load_args: Optional[Union[Tuple[str], Tuple[str, str], Tuple[()]]],
     return_msg: bool = False,
-) -> Union[Callable[[Optional[str]], datasets.Dataset], Tuple[Callable[[str], datasets.Dataset], str]]:
+) -> Union[
+    Callable[[Optional[str]], datasets.Dataset],
+    Tuple[Callable[[str], datasets.Dataset], str],
+]:
     """Get the function to load the raw dataset from huggingface (if `load_args` is not None) or local path (if `dataset_path` is not None).
 
     ```python
@@ -81,7 +86,12 @@ def get_raw_dataset_loader(
             elif subset_name in infos:
 
                 def load_fn(split):
-                    return datasets.load_dataset(dataset_path, subset_name, split=split, trust_remote_code=True)
+                    return datasets.load_dataset(
+                        dataset_path,
+                        subset_name,
+                        split=split,
+                        trust_remote_code=True,
+                    )
 
             else:
                 raise ValueError(
@@ -98,6 +108,18 @@ def get_raw_dataset_loader(
 
             def load_fn(split):
                 return datasets.load_from_disk(os.path.join(dataset_path, subset_name))[split]
+
+        # for those datasets that is in huggingface but should be downloaded manually
+        elif os.path.isdir(dataset_path):
+
+            def load_fn(split):
+                return datasets.load_dataset(
+                    dataset_name,
+                    subset_name,
+                    split=split,
+                    data_dir=dataset_path,
+                    trust_remote_code=True,
+                )
 
         # load from a file
         else:
