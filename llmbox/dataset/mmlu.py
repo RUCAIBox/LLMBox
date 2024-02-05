@@ -26,7 +26,7 @@ class Mmlu(MultipleChoiceDataset):
     def format_instance(self, instance):
         options = list(map(lambda op: " " + op, instance["choices"]))
         return dict(
-            source="Question: " + instance["question"] + "\nAnswer:",
+            source=instance["question"],
             target=options[instance["answer"]],
             options=options,
         )

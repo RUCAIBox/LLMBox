@@ -69,31 +69,21 @@ class Evaluator:
             pin_memory=True,
         )
 
-        if self.dataset.evaluation_type == 'ranking':
-            call_model = self.model.get_ppl
-        elif self.dataset.evaluation_type == 'generation':
-            call_model = self.model.generation
-        elif self.dataset.evaluation_type == "user_defined":
-            call_model = self.dataset.evaluation
-        else:
-            raise ValueError(
-                f"We only support three evaluation types: `ranking`, `generation`, and `user_defined`, but got `{self.dataset.evaluation_type}`."
-            )
-
         if self.evaluation_args.dry_run:
-            if self.dataset.evaluation_type == "ranking":
+            self.model.get_ppl = lambda x: [(0, 1)] * len(x)
+            self.model.generation = lambda x: [""] * len(x)
 
-                def call_model(batch):
-                    return [(0, 1)] * len(batch)
-            else:
-
-                def call_model(batch):
-                    return [""] * len(batch)
+        if self.dataset.model_evaluation_method == 'get_ppl':
+            call_model = self.model.get_ppl
+        elif self.dataset.model_evaluation_method == 'generation':
+            call_model = self.model.generation
+        elif self.dataset.model_evaluation_method == "user_defined":
+            call_model = self.dataset.evaluation
 
         # use tqdm for non-vllm models
         if self.dataset_args.batch_size != -1:
             tqdm_kwargs = dict(iterable=dataloader, desc=self.dataset.name, dynamic_ncols=True, unit=" examples")
-            if self.dataset.evaluation_type == "ranking":
+            if self.dataset.model_evaluation_method == "get_ppl":
                 # dataloader is often sacled by batch size and option nums, comparing to evaluation data
                 stride_scale = self.dataset_args.batch_size
                 if self.dataset.use_normalization:

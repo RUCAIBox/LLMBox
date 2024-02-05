@@ -1,10 +1,11 @@
 import os
+import re
 import sys
 from builtins import bool
 from copy import copy
 from dataclasses import MISSING, dataclass
 from logging import getLogger
-from typing import ClassVar, Dict, List, Optional, Set, Tuple, Union
+from typing import ClassVar, Dict, List, Literal, Optional, Set, Tuple, Union
 
 import openai
 from transformers.hf_argparser import HfArg, HfArgumentParser
@@ -224,6 +225,14 @@ class DatasetArguments:
         default=0,
         help="The few-shot number for demonstration",
     )
+    ranking_with_options: bool = HfArg(
+        default=False,
+        help="Whether to evaluate with all options for ranking task",
+    )
+    ranking_type: Literal["ppl_of_whole_option"] = HfArg(
+        default="ppl_of_whole_option",
+        help="The evaluation method for ranking task",
+    )
     max_example_tokens: int = HfArg(
         default=1024,
         help="The maximum token number of demonstration",
@@ -265,6 +274,14 @@ class DatasetArguments:
         if ":" in self.dataset_name:
             self.dataset_name, subset_names = self.dataset_name.split(":")
             self.subset_names = set(subset_names.split(","))
+
+        # argparse encodes string with unicode_escape, decode it to normal string, e.g., "\\n" -> "\n"
+        self.instance_format = self.instance_format.encode('utf-8').decode('unicode_escape')
+        if not self.ranking_with_options and self.ranking_type != "ppl_of_whole_option":
+            raise ValueError(
+                "The `ranking_type` argument is only available for ranking task with options, "
+                "which requires `ranking_with_options` to be True."
+            )
 
 
 @dataclass
