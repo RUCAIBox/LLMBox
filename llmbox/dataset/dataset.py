@@ -140,7 +140,7 @@ class Dataset(torch.utils.data.Dataset):
 
     def _post_init_arguments(self):
         # sample num
-        if self.args.sample_num > 1 and self.model_evaluation_method == "get_ppl":
+        if self.args.sample_num > 1 and self.model_evaluation_method in {"get_ppl", "get_prob"}:
             self.args.sample_num = 1
             logger.warning(
                 f"Self-consistency only supports evaluation using the generation mode, automatically set sample_num = 1."
@@ -156,24 +156,31 @@ class Dataset(torch.utils.data.Dataset):
             )
 
         # ranking with options
-        if self.model_evaluation_method != "get_ppl" and self.args.ranking_with_options:
-            self.args.ranking_with_options = False
+        if self.model_evaluation_method not in {"get_ppl", "get_prob"} and self.args.ranking_with_options:
             logger.warning(
-                f"Ranking with options only supports evaluation using the ranking mode, automatically set ranking_with_options = False."
+                f'Ranking with options only supports evaluation using the ranking mode but receive "{self.model_evaluation_method}", automatically set ranking_with_options = False.'
             )
+            self.args.ranking_with_options = False
 
         if self.model_evaluation_method == "get_ppl":
             self.model.set_ppl_args(**self.extra_model_args)
         elif self.model_evaluation_method == "generation":
             self.model.set_generation_args(**self.extra_model_args)
+        elif self.model_evaluation_method == "get_prob":
+            self.model.set_prob_args(**self.extra_model_args)
 
         logger.info(self.model.args)
         logger.info(self.args)
+        logger.debug(self)
 
     @property
-    def model_evaluation_method(self) -> Literal['get_ppl', 'generation', 'user_defined']:
-        if self.evaluation_type == "ranking" and self.args.ranking_type == "ppl_of_whole_option":
-            return "get_ppl"
+    def model_evaluation_method(self) -> Literal['get_ppl', 'get_prob', 'generation', 'user_defined']:
+        if self.evaluation_type == "ranking":
+            if self.args.ranking_type == "ppl_of_whole_option":
+                return "get_ppl"
+            elif self.args.ranking_type == "prob_of_just_option":
+                assert self.args.ranking_with_options
+                return "get_prob"
         elif self.evaluation_type == "generation":
             return "generation"
         elif self.evaluation_type == "user_defined":
@@ -301,13 +308,30 @@ class Dataset(torch.utils.data.Dataset):
                 self.evaluation_instances.extend(options)
                 self.option_nums.append(len(options))
             logger.info("Evaluation mode: calculate PPL of the optional text based on the source text")
-            logger.info("Formatted example (source)\n" + self.evaluation_instances[0][0])
-            logger.info("Formatted example (option)\n" + self.evaluation_instances[0][1])
-        else:
+            logger.info("Formatted example (source)\n" + pformat(self.evaluation_instances[0][0]))
+            logger.info("Formatted example (option)\n" + pformat(self.evaluation_instances[0][1]))
+            logger.debug("Next formatted example (source)\n" + pformat(self.evaluation_instances[1][0]))
+            logger.debug("Next formatted example (option)\n" + pformat(self.evaluation_instances[1][1]))
+        elif self.model_evaluation_method == "generation":
             for formatted_instance in self.formatted_evaluation_data:
                 self.evaluation_instances.append(self.format_instruction_and_examples(formatted_instance))
             logger.info("Evaluation mode: generation based on the source text")
             logger.info("Formatted example (source)\n" + self.evaluation_instances[0])
+            logger.debug("Next formatted example (source)\n" + self.evaluation_instances[1])
+        elif self.model_evaluation_method == "get_prob":
+            for formatted_instance in self.formatted_evaluation_data:
+                self.evaluation_instances.append(self.format_instruction_and_examples(formatted_instance))
+                self.option_nums.append(len(formatted_instance["options"]))
+            self.evaluation_instances = list(zip(self.evaluation_instances, self.option_nums))
+            logger.info("Evaluation mode: get the probability of each option label")
+            logger.info("Formatted example (source)\n" + pformat(self.evaluation_instances[0][0]))
+            logger.debug("Next formatted example (source)\n" + pformat(self.evaluation_instances[1][0]))
+        else:
+            for formatted_instance in self.formatted_evaluation_data:
+                self.evaluation_instances.append(self.format_instruction_and_examples(formatted_instance))
+            logger.info("Evaluation mode: user defined")
+            logger.info("Formatted example (source)\n" + pformat(self.evaluation_instances[0]))
+            logger.debug("Formatted example (source)\n" + pformat(self.evaluation_instances[1]))
 
         # for self-consistency
         self.evaluation_instances = self.evaluation_instances * self.args.sample_num
@@ -323,7 +347,7 @@ class Dataset(torch.utils.data.Dataset):
                     formatted_instance["options"][i] = chr(65 + i) + "." + option
                 formatted_instance["source"] += "\n\n" + "\n".join(formatted_instance["options"]) + "\n"
 
-            formatted_instance["target"] = formatted_instance["options"][formatted_instance.pop("target_idx")]
+            formatted_instance["target"] = " " + formatted_instance["options"][formatted_instance.pop("target_idx")]
 
         if "source_postfix" in formatted_instance:
             formatted_instance["source"] += formatted_instance.pop("source_postfix")
@@ -453,7 +477,7 @@ class Dataset(torch.utils.data.Dataset):
         metric_results[self.name + (f":{self.subset_name}" if self.subset_name else "")] = overall_results
         return metric_results, score_lists
 
-    def post_processing(self, predictions: List[Union[str, float]]):
+    def post_processing(self, predictions: Union[List[Tuple[str, float]], List[List[float]]]):
         r"""Post processing for the predictions.
 
         Args:
@@ -528,7 +552,7 @@ class Dataset(torch.utils.data.Dataset):
         elif self.model_evaluation_method == "generation":
             # only generation tasks support self-consistency
             lines = {
-                "index": repeat_iter(range(len(self.references)), self.args.sample_num),
+                "index": repeat_iter(range(len(self.evaluation_data)), self.args.sample_num),
                 "source": self.evaluation_instances,
                 "raw_prediction": raw_predictions,
                 "processed_prediction": processed_predictions,
@@ -585,6 +609,26 @@ class Dataset(torch.utils.data.Dataset):
                 logger.warning(f"Failed to log_predictions: {e}\n{lines}")
                 return None
 
+        elif self.model_evaluation_method == "get_prob":
+
+            lines = {
+                "index": range(len(self.evaluation_data)),
+                "source": map(lambda i: i[0], self.evaluation_instances),
+                "probabilites": raw_predictions,
+                "prediction": processed_predictions,
+                "reference": self.references,
+                "metric": transposed_score_lists,
+            }
+            try:
+                lines = pd.DataFrame(lines)
+                if _to_json:
+                    lines.to_json(file, orient="records", indent=4, force_ascii=False)
+                return lines
+            except Exception as e:
+                lines = {k: len(v) for k, v in lines.items()}
+                logger.warning(f"Failed to log_predictions: {e}\n{lines}")
+                return None
+
         else:
             logger.debug(
                 f"Failed to log predictions: processed_predictions={processed_predictions}, model_evaluation_method={self.model_evaluation_method}"
@@ -604,7 +648,7 @@ class Dataset(torch.utils.data.Dataset):
     def len(self, sample_num: bool = True, option_num: bool = True, normalization: bool = True) -> int:
         """Provides a unified interface to retrieve the length of dataset`.
 
-        - `len(dataset.reference)` or `len(dataset.evaluation_data)`: the length of raw evaluation data
+        - `len(dataset.evaluation_data)` or `len(dataset.evaluation_data)`: the length of raw evaluation data
         - `len(dataset)` or `len(dataset.evaluation_instances)`: the length of `__iter__`. Equal to length of raw data multiplied by `args.sample_num`, option_num (if `model_evaluation_method` is "get_ppl") and 2 (if `use_normalization` is True)
         """
         # if `model_evaluation_method` is not "get_ppl", two branches of `option_num` should be equivalent
@@ -615,7 +659,7 @@ class Dataset(torch.utils.data.Dataset):
             if not normalization and self.use_normalization:
                 length = length // 2
         else:
-            length = len(self.references)
+            length = len(self.evaluation_data)
             if sample_num and self.args.sample_num > 1:
                 length *= self.args.sample_num
             if normalization and self.use_normalization:

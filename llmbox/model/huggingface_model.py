@@ -1,5 +1,5 @@
 from logging import getLogger
-from typing import Iterator, List, Tuple, Union
+from typing import Iterator, List, Optional, Tuple, Union
 
 import torch
 from torch.nn import CrossEntropyLoss
@@ -98,8 +98,10 @@ class HuggingFaceModel(Model):
     def set_ppl_args(self, **extra_model_args):
         r"""Set the configurations for PPL score calculation. This is useful because different datasets may have different requirements for ppl calculation."""
         self.loss_fct = CrossEntropyLoss(reduction="none")
+        if len(extra_model_args) > 0:
+            logger.warning(f"Unused generation arguments: {extra_model_args}")
 
-    def get_ppl(self, batched_inputs):
+    def get_ppl(self, batched_inputs: List[Tuple[str, str]]) -> List[float]:
         prompt = [src + tgt for src, tgt in batched_inputs]
 
         batched_encodings = self.tokenizer(
@@ -152,7 +154,7 @@ class HuggingFaceModel(Model):
             # ModelArguments > extra_model_args
             value = getattr(self.args, key, None)
             if value is None:
-                value = extra_model_args.get(key, None)
+                value = extra_model_args.pop(key, None)
             if key == "max_tokens" and value is None:
                 value = 1024
             if value is not None:
@@ -172,12 +174,14 @@ class HuggingFaceModel(Model):
         generation_kwargs["pad_token_id"] = self.tokenizer.pad_token_id
         generation_kwargs["eos_token_id"] = self.tokenizer.eos_token_id
         self.generation_kwargs = generation_kwargs
+        if len(extra_model_args) > 0:
+            logger.warning(f"Unused generation arguments: {extra_model_args}")
 
-    def generation(self, batched_inputs) -> List[str]:
+    def generation(self, batched_inputs: List[str]) -> List[str]:
         """Generate the response of given question for this batch.
 
         Returns:
-            List(str): The list of generation results.
+            List[str]: The list of generation results.
         """
 
         batched_encodings = self.tokenizer(
@@ -194,4 +198,53 @@ class HuggingFaceModel(Model):
         answers = self.tokenizer.batch_decode(
             batch_outputs, skip_special_tokens=True, clean_up_tokenization_spaces=False
         )
+        return answers
+
+    def set_prob_args(self, **extra_model_args):
+        self._token_labels = []
+        self._word_labels = []
+        self._candidate_ids = extra_model_args.pop("candidate_ids", None)
+        self.candidate_only = extra_model_args.pop("candidate_only", True)
+
+        if len(extra_model_args) > 0:
+            logger.warning(f"Unused generation arguments: {extra_model_args}")
+
+    def _get_label_ids(self, option_num: Optional[int]) -> List[int]:
+        """Return the tokenized labels of options."""
+        if option_num is not None:
+            if len(self._token_labels) < option_num:
+                labels = [chr(i + 65) for i in range(len(self._token_labels), option_num)]
+                self._word_labels.extend([self.tokenizer.encode(l, add_special_tokens=False)[0] for l in labels])
+                self._token_labels.extend([self.tokenizer.convert_tokens_to_ids(l) for l in labels])
+            return self._word_labels[:option_num] + self._token_labels[:option_num]
+        else:
+            if self._candidate_ids is None:
+                raise ValueError("The candidate_ids must be provided when option_num is None.")
+            return self._candidate_ids
+
+    def get_prob(self, batched_inputs: List[Tuple[str, int]]) -> List[List[float]]:
+        batched_prompts, batched_option_nums = map(list, zip(*batched_inputs))
+        batched_encodings = self.tokenizer(
+            batched_prompts,
+            padding=True,
+            truncation=True,
+            return_attention_mask=True,
+            return_tensors="pt",
+        )
+        sent_ids = torch.arange(batched_encodings["input_ids"].size(0))
+        attention_lens = batched_encodings["attention_mask"].sum(dim=-1) - 1
+
+        with torch.no_grad():
+            batch_logits = self.model(
+                batched_encodings["input_ids"].to(self.device),
+                batched_encodings["attention_mask"].to(self.device),
+            ).logits[(sent_ids, attention_lens)]
+
+            if self.candidate_only:
+                answers = []
+                for i, option_num in enumerate(batched_option_nums):
+                    label_ids = self._get_label_ids(option_num)
+                    answers.append(torch.softmax(batch_logits[i, label_ids], dim=-1).tolist())
+            else:
+                answers = torch.softmax(batch_logits, dim=-1).tolist()
         return answers

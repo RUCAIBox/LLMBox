@@ -229,7 +229,7 @@ class DatasetArguments:
         default=False,
         help="Whether to evaluate with all options for ranking task",
     )
-    ranking_type: Literal["ppl_of_whole_option"] = HfArg(
+    ranking_type: Literal["ppl_of_whole_option", "prob_of_just_option"] = HfArg(
         default="ppl_of_whole_option",
         help="The evaluation method for ranking task",
     )
