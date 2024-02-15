@@ -128,7 +128,7 @@ class Evaluator:
 
         # calculate metric
         metric_results, last_score_lists = self.dataset.calculate_metric(mode_predictions)
-        self.dataset.log_predictions(raw_predictions, predictions, last_score_lists)
+        # self.dataset.log_predictions(raw_predictions, predictions, last_score_lists)
         msg = f"Evaluation finished successfully:"
         for dataset_name, result in metric_results.items():
             msg += f"\n##### {dataset_name} #####"

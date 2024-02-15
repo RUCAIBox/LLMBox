@@ -25,7 +25,7 @@ class WinoGender(MultipleChoiceDataset):
     instruction = ""
     evaluation_set = "test"
     example_set = ""
-    load_args = ("oskarvanderwal/winogender", 'gotcha')  # specify subset from command line
+    load_args = ("oskarvanderwal/winogender",)  # specify subset from command line
 
     def format_instance(self, instance):
         source_text = [instance['sentence'] + f" {instance['pronoun']} refers to the"]
@@ -46,7 +46,7 @@ class WinoGender(MultipleChoiceDataset):
             dataset=dataset,
             gender=gender,
             references=references,
-        )
+            )
 
 
         logger.info("Evaluation mode: calculate PPL of the optional text based on the source text")

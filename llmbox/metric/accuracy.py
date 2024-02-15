@@ -12,8 +12,8 @@ class Accuracy(Metric):
 
     def __call__(self, predictions, references):
         if isinstance(references, dict) and references['dataset'] == "winogender":
-            def cal_sub_score(predictions, references, i):
-                indices = [i for i, value in enumerate(references["gender"]) if value == i]
+            def cal_sub_score(predictions, references, index):
+                indices = [i for i, value in enumerate(references["gender"]) if value == index]
                 predictions = [predictions[i] for i in indices]
                 references = [references["references"][i] for i in indices]
                 score_list = np.asarray(predictions) == np.asarray(references)
@@ -22,9 +22,11 @@ class Accuracy(Metric):
             score = {}
             for key in gender_dict:
                 score_list = cal_sub_score(predictions, references, gender_dict[key])
+                if(len(score_list) == 0):
+                    continue
                 self._last_score_lists.update({f"Accuracy_{key}": score_list})
                 score.update({f"Accuracy_{key}": np.mean(score_list) * 100})
-            score_list = np.asarray(predictions) == np.asarray(references)
+            score_list = np.asarray(predictions) == np.asarray(references['references'])
             self._last_score_lists.update({'Accuracy_all': score_list})
             score.update({'Accuracy_all': np.mean(score_list) * 100})
             return score
