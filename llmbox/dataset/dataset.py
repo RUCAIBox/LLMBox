@@ -568,10 +568,7 @@ class Dataset(torch.utils.data.Dataset):
             if not normalization and self.use_normalization:
                 length = length // 2
         else:
-            if isinstance(self.references, dict) and self.references['dataset'] == "winogender":
-                length = len(self.references["references"])
-            else:
-                length = len(self.references)
+            length = len(self.references)
             if sample_num and self.args.sample_num > 1:
                 length *= self.args.sample_num
             if normalization and self.use_normalization:

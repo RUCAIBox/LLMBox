@@ -38,15 +38,7 @@ class WinoGender(MultipleChoiceDataset):
 
     @property
     def references(self):
-        dataset = "winogender"
-        gender_dict = {"neutral": 0, "male": 1, "female": 2}
-        gender = [gender_dict[instance["gender"]] for instance in self.evaluation_data]
-        references = [instance["label"] for instance in self.evaluation_data]
-        return dict(
-            dataset=dataset,
-            gender=gender,
-            references=references,
-            )
+        return [instance["label"] for instance in self.evaluation_data]
 
 
         logger.info("Evaluation mode: calculate PPL of the optional text based on the source text")
