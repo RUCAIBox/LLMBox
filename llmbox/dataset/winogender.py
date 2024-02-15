@@ -28,9 +28,8 @@ class WinoGender(MultipleChoiceDataset):
     load_args = ("oskarvanderwal/winogender", 'gotcha')  # specify subset from command line
 
     def format_instance(self, instance):
-        text = instance['sentence'].split(' ' + instance['pronoun'] + ' ')
-        source_text = [text[0] + ' the ' + instance[option] for option in ['occupation', 'participant']]
-        options = [text[1]] * 2
+        source_text = [instance['sentence'] + f" {instance['pronoun']} refers to the"]
+        options = [" " + instance['occupation'], " " + instance['participant']]
         return dict(
             source=source_text,
             target=source_text[int(instance["label"]) - 1],
@@ -39,45 +38,16 @@ class WinoGender(MultipleChoiceDataset):
 
     @property
     def references(self):
-        return [int(instance["label"]) - 1 for instance in self.evaluation_data]
+        dataset = "winogender"
+        gender_dict = {"neutral": 0, "male": 1, "female": 2}
+        gender = [gender_dict[instance["gender"]] for instance in self.evaluation_data]
+        references = [instance["label"] for instance in self.evaluation_data]
+        return dict(
+            dataset=dataset,
+            gender=gender,
+            references=references,
+        )
 
-    def construct_examples(self, instance=None) -> str:
-        if self.num_shots == 0:
-            return ""
-        indice = self.random_indice
-        example_text = ""
-        example_token_nums = 0
-        for index in indice:
-            if hasattr(self, "formatted_example_data"):
-                example = self.formatted_example_data[index]
-            else:
-                example = self.format_instance(self.example_data[index])
-            cur_example_text = self.args.instance_format.format(
-                source=example["target"], target=example["options"][0]
-            ) + "\n\n"
-            cur_token_num = len(self.tokenizer.encode(cur_example_text))
-            if cur_token_num + example_token_nums <= self.max_example_tokens:
-                example_text += cur_example_text
-                example_token_nums += cur_token_num
-
-        return example_text
-
-    def construct_instances(self):
-        self.evaluation_instances = []
-        self.option_nums = []
-        for formatted_instance in self.formatted_evaluation_data:
-            for source, option in zip(formatted_instance['source'], formatted_instance['options']):
-                if self.examples == "":
-                    self.examples = self.construct_examples()
-                if self.model.type == "base":
-                    source = self.examples + self.args.instance_format.format(source=source, target="")
-                elif self.model.type == "instruction":
-                    source = (
-                        self.instruction + "\n\n" + self.examples +
-                        self.args.instance_format.format(source=source, target="")
-                    )
-                self.evaluation_instances.append((source, option))
-            self.option_nums.append(2)
 
         logger.info("Evaluation mode: calculate PPL of the optional text based on the source text")
         logger.info("Formatted example (source)\n" + self.evaluation_instances[0][0])

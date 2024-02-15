@@ -10,4 +10,8 @@ def main():
 
 
 if __name__ == "__main__":
+    import os
+
+    os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
+    # os.environ['CUDA_VISIBLE_DEVICES'] = '3'
     main()

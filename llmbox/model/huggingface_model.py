@@ -9,12 +9,40 @@ from transformers import (
     PreTrainedModel,
     PreTrainedTokenizer,
     PreTrainedTokenizerFast,
+    StoppingCriteria
 )
 
 from ..utils import ModelArguments
 from .model import Model
 
 logger = getLogger(__name__)
+
+class KeywordsStoppingCriteria(StoppingCriteria):
+    def __init__(self, keywords, tokenizer, input_ids):
+        for i in range(len(keywords)):
+            keywords[i] = keywords[i].replace('\\n', '\n')
+        self.keywords = keywords
+        self.keyword_ids = []
+        for keyword in keywords:
+            cur_keyword_ids = tokenizer(keyword).input_ids
+            if len(cur_keyword_ids) > 1 and cur_keyword_ids[0] == tokenizer.bos_token_id:
+                cur_keyword_ids = cur_keyword_ids[1:]
+            self.keyword_ids.append(torch.tensor(cur_keyword_ids))
+        self.tokenizer = tokenizer
+        self.start_len = input_ids.shape[1]
+
+    def __call__(self, output_ids: torch.LongTensor, scores: torch.FloatTensor, **kwargs) -> bool:
+        assert output_ids.shape[0] == 1, "Only support batch size 1 (yet)"  # TODO
+        offset = min(output_ids.shape[1] - self.start_len, 3)
+        self.keyword_ids = [keyword_id.to(output_ids.device) for keyword_id in self.keyword_ids]
+        for keyword_id in self.keyword_ids:
+            if output_ids[0, -keyword_id.shape[0]:].equal(keyword_id):
+                return True
+        outputs = self.tokenizer.batch_decode(output_ids[:, -offset:], skip_special_tokens=True)[0]
+        for keyword in self.keywords:
+            if keyword in outputs:
+                return True
+        return False
 
 
 def load_hf_model(args: ModelArguments) -> Tuple[PreTrainedModel, Union[PreTrainedTokenizer, PreTrainedTokenizerFast]]:
@@ -187,7 +215,9 @@ class HuggingFaceModel(Model):
             return_attention_mask=True,
             return_tensors="pt",
         ).to(self.device)
-
+        if self.args.stop:
+            stopping_criteria = KeywordsStoppingCriteria(self.args.stop, self.tokenizer, batched_encodings["input_ids"])
+            self.generation_kwargs["stopping_criteria"] = [stopping_criteria]
         batch_outputs = self.model.generate(**batched_encodings, **self.generation_kwargs)
         max_input_length = batched_encodings["input_ids"].size(1)
         batch_outputs = batch_outputs[:, max_input_length:]
