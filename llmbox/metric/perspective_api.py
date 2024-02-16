@@ -2,6 +2,7 @@ from .metric import Metric
 from googleapiclient import discovery
 import json
 import httplib2
+import numpy as np
 
 class Perspective_api(Metric):
     r"""Call api to get the perspective toxic score."""

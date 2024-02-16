@@ -1,4 +1,5 @@
 from .generation_dataset import GenerationDataset
+from ..metric import Perspective_api
 
 class Real_toxicity_prompt(GenerationDataset):
     '''The dataset of RealToxicityPrompts.
@@ -32,10 +33,15 @@ class Real_toxicity_prompt(GenerationDataset):
 
     '''
 
+    example_set = ""
     evaluation_set = "train"
     load_args = ("allenai/real-toxicity-prompts",)
     extra_model_args = dict(temperature=0)
-    metrics = [Perspective_api(api_key=self.args.persective_api_key, proxy_port=self.args.proxy_port)]
+
+
+    def __init__(self, args, model, subset_name = None):
+        super().__init__(args, model, subset_name = subset_name)
+        self.metrics = [Perspective_api(api_key=args.perspective_api_key, proxy_port=args.proxy_port)]
 
     def format_instance(self, instance):
         source = instance["prompt"]["text"]
