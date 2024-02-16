@@ -4,7 +4,7 @@ import re
 from importlib.machinery import SourceFileLoader
 from logging import getLogger
 from os.path import abspath
-from typing import Callable, Optional, Set, Tuple, Union
+from typing import Callable, Optional, Tuple, Union
 
 import datasets
 
@@ -18,18 +18,32 @@ EXTENDED_SEARCH_PATHS = [
 ]
 
 
-def list_availabe_datasets() -> Set[str]:
-    builtin_files = {"__init__", "utils", "dataset", "generation_dataset", "multiple_choice_dataset", "load"}
-    return set(f[:-3] for f in os.listdir(os.path.dirname(__file__)) if f.endswith(".py")) - builtin_files
+def accepts_subset(
+    load_args: Union[Tuple[str], Tuple[str, str], Tuple[()]],
+    overwrite_subset: bool = True,
+    subset: str = "",
+) -> bool:
+    if len(load_args) == 2 and isinstance(load_args[1], str):
+        if overwrite_subset or load_args[1] == subset:
+            logger.warning(
+                f"Dataset class already has a subset '{load_args[1]}' to load. Overwriting it with '{subset}'."
+            )
+        else:
+            return load_args[1] == subset
+    # len(load_args) == 1 means accept subset and len(load_args) == 0 means special case like wmt
+    return True
 
 
 def get_raw_dataset_loader(
     dataset_name: str,
     dataset_path: Optional[str],
     subset_name: Optional[str],
-    load_args: Optional[Union[Tuple[str], Tuple[str, str]]],
+    load_args: Optional[Union[Tuple[str], Tuple[str, str], Tuple[()]]],
     return_msg: bool = False,
-) -> Union[Callable[[Optional[str]], datasets.Dataset], Tuple[Callable[[str], datasets.Dataset], str]]:
+) -> Union[
+    Callable[[Optional[str]], datasets.Dataset],
+    Tuple[Callable[[str], datasets.Dataset], str],
+]:
     """Get the function to load the raw dataset from huggingface (if `load_args` is not None) or local path (if `dataset_path` is not None).
 
     ```python
@@ -40,7 +54,7 @@ def get_raw_dataset_loader(
 
     Search path:
     - huggingface `load_dataset(*load_args)`
-    - huggingface `load_dataset(*load_args, subset_name)`
+    - huggingface `load_dataset(load_args[0], subset_name)`
     - local repo or directory `"{dataset_path}"`
     - local repo or directory `"{dataset_path}/{subset_name}"`
     - local repo or directory `"{dataset_path}/{dataset_name}"`
@@ -67,12 +81,17 @@ def get_raw_dataset_loader(
             if dataset_name in infos:
 
                 def load_fn(split):
-                    return datasets.load_dataset(dataset_path, dataset_name, split=split)
+                    return datasets.load_dataset(dataset_path, dataset_name, split=split, trust_remote_code=True)
 
             elif subset_name in infos:
 
                 def load_fn(split):
-                    return datasets.load_dataset(dataset_path, subset_name, split=split)
+                    return datasets.load_dataset(
+                        dataset_path,
+                        subset_name,
+                        split=split,
+                        trust_remote_code=True,
+                    )
 
             else:
                 raise ValueError(
@@ -89,6 +108,18 @@ def get_raw_dataset_loader(
 
             def load_fn(split):
                 return datasets.load_from_disk(os.path.join(dataset_path, subset_name))[split]
+
+        # for those datasets that is in huggingface but should be downloaded manually
+        elif os.path.isdir(dataset_path):
+
+            def load_fn(split):
+                return datasets.load_dataset(
+                    dataset_name,
+                    subset_name,
+                    split=split,
+                    data_dir=dataset_path,
+                    trust_remote_code=True,
+                )
 
         # load from a file
         else:
@@ -120,8 +151,9 @@ def get_raw_dataset_loader(
         if len(load_args) == 0:
             load_args = (dataset_name,)
         # trying to load a subset if its not specified in `dataset.load_args` (e.g. `load_args=("mmlu",)`
-        if len(load_args) == 1 and subset_name is not None:
-            load_args = load_args + (subset_name,)
+        if accepts_subset(load_args, subset=subset_name) and subset_name is not None:
+            # ignore load_args[1], because if it is specified, it is equivalent to `subset_name`
+            load_args = (load_args[0], subset_name)
         elif subset_name is not None:
             raise ValueError(
                 f"Failed to specify `{subset_name}` subset since dataset `{dataset_name}` already has defined one to load ({', '.join(load_args)}). Please use `{dataset_name}`."

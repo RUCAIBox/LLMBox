@@ -4,9 +4,13 @@ from .metric import Metric
 
 
 class Accuracy(Metric):
-    r"""Calculate the Accuracy score."""
+    r""" Calculate the Accuracy score.
 
-    @staticmethod
-    def __call__(predictions, references):
+    Return:
+        "Accuracy": float
+    """
+
+    def __call__(self, predictions, references):
         score_list = np.asarray(predictions) == np.asarray(references)
-        return {"Accuracy": np.mean(score_list) * 100}
+        self._last_score_lists = {'Accuracy': score_list}
+        return {'Accuracy': np.mean(score_list) * 100}

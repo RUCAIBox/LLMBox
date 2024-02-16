@@ -15,7 +15,7 @@ class MultipleChoiceDataset(Dataset):
         st = 0
         predictions = np.array([result / length for result, length in predictions])
         for num in self.option_nums:
-            labels.append(predictions[st : st + num].argmin())
+            labels.append(predictions[st:st + num].argmin())
             st += num
         predictions = labels
 

@@ -7,8 +7,8 @@ from ..metric import F1, Em
 from .generation_dataset import GenerationDataset
 
 
-class Squad_v2(GenerationDataset):
-    """The dataset of Squad_v2.
+class Squad(GenerationDataset):
+    """The dataset of Squad and Squad_v2.
 
     Gcombines the 100,000 questions in SQuAD1.1 with over 50,000 unanswerable questions written adversarially by crowdworkers to look similar to answerable ones.
 
@@ -21,19 +21,14 @@ class Squad_v2(GenerationDataset):
     instruction = 'Answer each question using information in the preceding background paragraph.\nIf there is not enough information provided, answer with "Not in background."'
     example_set = "train"
     evaluation_set = "validation"
-    load_args = ("squad_v2",)
+    load_args = ("squad",)
     metrics = [F1(), Em()]
     extra_model_args = dict(max_tokens=64, temperature=0, stop=["\n"])
 
     def format_instance(self, instance):
         source_text = (
-            "Title: "
-            + instance["title"]
-            + "\n\nBackground: "
-            + instance["context"]
-            + "\n\nQ: "
-            + instance["question"]
-            + "\n\nA:"
+            "Title: " + instance["title"] + "\n\nBackground: " + instance["context"] + "\n\nQ: " +
+            instance["question"] + "\n\nA:"
         )
         text = instance["answers"]["text"]
         if not text:

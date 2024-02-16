@@ -15,6 +15,20 @@ python inference.py -m davinci-002 -d copa -b 10 -shots 64 # 86.0
 python inference.py -m davinci-002 -d race:middle --evaluation_set test\[:500\] -b 20 # 59.4
 python inference.py -m davinci-002 -d race:high --evaluation_set test\[:500\] -b 10 # 44.2
 
+python inference.py -m davinci-002 -d openbookqa -b 20 # 59.20
+python inference.py -m davinci-002 -d piqa --evaluation_set validation\[:500\] -b 20 # 83.0
+python inference.py -m davinci-002 -d winogrande --evaluation_set validation\[:500\] -b 20 # 70.4
+python inference.py -m davinci-002 -d winogrande --evaluation_set validation\[:500\] -b 20 -shots 5 # 79.4
+python inference.py -m davinci-002 -d arc:ARC-Challenge --evaluation_set test\[:500\] -b 20 # 55.6
+python inference.py -m davinci-002 -d arc:ARC-Easy --evaluation_set test\[:500\] -b 20 # 72.0
+python inference.py -m davinci-002 -d hellaswag --evaluation_set validation\[:500\] -b 20 -shots 0 # 67.8
+python inference.py -m davinci-002 -d hellaswag --evaluation_set validation -b 20 -shots 0 # 79.7
+
+python inference.py -m davinci-002 -d nq --evaluation_set validation\[:500\] -b 20 # 33 / 21
+python inference.py -m davinci-002 -d nq --evaluation_set validation\[:500\] -b 20 -shots 1 # 38 / 26
+python inference.py -m davinci-002 -d triviaqa --evaluation_set validation\[:500\] -b 20 # 70 / 63
+python inference.py -m davinci-002 -d webq --evaluation_set test\[:500\] -b 20 # 37 / 19
+
 python inference.py -m gpt-3.5-turbo-instruct -d tldr --evaluation_set test\[:500\] -b 20 # 22.02
 python inference.py -m gpt-3.5-turbo-instruct -d cnn_dailymail --evaluation_set test\[:500\] -b 20 # 21.79
 python inference.py -m gpt-3.5-turbo-instruct -d squad_v2 --evaluation_set validation\[:500\] -b 20 # 55 / 47

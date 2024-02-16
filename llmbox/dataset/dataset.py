@@ -1,19 +1,18 @@
 import json
+from collections import OrderedDict
 from copy import copy
 from logging import getLogger
 from pprint import pformat
-from typing import Any, Dict, List, Literal, Optional, Tuple, Union
+from typing import Any, Dict, Iterator, List, Literal, Optional, Tuple, Union
 
 import numpy as np
+import pandas as pd
 import torch
 
+from ..metric.metric import Metric
 from ..model.model import Model
 from ..utils import DatasetArguments
-from .icl_strategies import (
-    ape,
-    global_entropy_ordering_strategy,
-    knn_construct_examples,
-)
+from .icl_strategies import ape, global_entropy_ordering_strategy, knn_construct_examples
 from .utils import get_raw_dataset_loader
 
 logger = getLogger(__name__)
@@ -29,7 +28,7 @@ class Dataset(torch.utils.data.Dataset):
         - `evaluation_type (Literal['ranking', 'generation', 'user-defined'])`: The type of evaluation for the dataset.
         - `evaluation_set (str)`: The evaluation split of the dataset. Evaluation data will be automatically loaded.
         - `example_set (Optional[str])`: The example split of the dataset. Example data will be automatically loaded if this is not None.
-        - `load_args (Union[Tuple[str], Tuple[str, str]])`: Arguments for loading the dataset with huggingface `load_dataset`.
+        - `load_args (Union[Tuple[str], Tuple[str, str], Tuple[()]])`: Arguments for loading the dataset with huggingface `load_dataset`.
 
     Attributes:
         - `args (DatasetArguments)`: The arguments for the dataset.
@@ -47,7 +46,7 @@ class Dataset(torch.utils.data.Dataset):
     instruction: str
     r"""Dataset-specific instruction for the task."""
 
-    metrics: List
+    metrics: List[Metric]
     r"""The metric functions used for evaluation."""
 
     evaluation_type: Literal["ranking", "generation", "user-defined"]
@@ -59,12 +58,13 @@ class Dataset(torch.utils.data.Dataset):
     example_set: Optional[str]
     r"""The example split of dataset. Example data will be automatically loaded if this is not None."""
 
-    load_args: Union[Tuple[str], Tuple[str, str]]
+    load_args: Union[Tuple[str], Tuple[str, str], Tuple[()]]
     r"""Arguments for loading the dataset with huggingface `load_dataset`.
 
     Supported formats:
-        - `(dataset_name,)`: If the dataset supports specifying subset name from command line, or only has one subset. E.g., `('race',)` and `('hendrycks/competition_math',)` respectively.
-        - `(dataset_name, subset_name)`: If the dataset itself is a subset of a dataset collection. E.g., `('super_glue', 'copa')`.
+        - `(dataset_name,)`: If the dataset only has one subset. E.g., `('race',)`. Or the dataset has more than one subset name. E.g., `("allenai/ai2_arc",)` accepts command line argument `--dataset arc:ARC-Easy,ARC-Challenge`.
+        - `(dataset_name, subset_name)`: If the dataset is a subset of a dataset collection. E.g., `('super_glue', 'copa')`.
+        - `()`: Sepcial case like `wmt` dataset.
     """
 
     extra_model_args: Dict[str, Any] = dict()
@@ -137,12 +137,12 @@ class Dataset(torch.utils.data.Dataset):
             )
 
         # temperature
-        if "temperature" in self.extra_model_args:
+        if "temperature" in self.extra_model_args and self.model.args.temperature is None:
             self.model.args.temperature = self.extra_model_args["temperature"]
         if self.args.sample_num > 1 and self.evaluation_type == "generation" and self.model.args.temperature == 0:
             self.model.args.temperature = 1
             logger.warning(
-                f"Self-consistency only supports generation with temperature>0, automatically set temperature = 1."
+                f"Self-consistency only supports generation with temperature > 0, automatically set temperature = 1."
             )
 
         if self.evaluation_type == "ranking":
@@ -223,9 +223,8 @@ class Dataset(torch.utils.data.Dataset):
             return_msg=True,
         )  # type: ignore
         logger.info(
-            msg
-            + f" with evaluation set `{evaluation_set}`"
-            + (f" and example set `{example_set}`" if example_set else "")
+            msg + f" with evaluation set `{evaluation_set}`" +
+            (f" and example set `{example_set}`" if example_set else "")
         )
 
         self.evaluation_data = list(load_fn(evaluation_set))
@@ -233,7 +232,7 @@ class Dataset(torch.utils.data.Dataset):
             self.example_data = list(load_fn(example_set)) if example_set else []
 
         logger.info(f"Evaluation data with {len(self.evaluation_data)} instances")
-        logger.info(f"The example instance:\n{pformat(self.evaluation_data[0])}")
+        logger.info(f"The example instance:\n{pformat(self.evaluation_data[0], sort_dicts=False)}")
 
     def __len__(self):
         return len(self.evaluation_instances)
@@ -317,10 +316,8 @@ class Dataset(torch.utils.data.Dataset):
             source = self.examples + self.args.instance_format.format(source=instance["source"], target="")
         elif self.model.type == "instruction":
             source = (
-                self.instruction
-                + "\n\n"
-                + self.examples
-                + self.args.instance_format.format(source=instance["source"], target="")
+                self.instruction + "\n\n" + self.examples +
+                self.args.instance_format.format(source=instance["source"], target="")
             )
         else:
             raise ValueError(
@@ -374,19 +371,40 @@ class Dataset(torch.utils.data.Dataset):
 
         return example_text
 
-    def calculate_metric(self, predictions) -> Dict[str, float]:
+    def calculate_metric(self, predictions) -> Tuple[Dict[str, Dict[str, float]], Dict[str, List[float]]]:
         r"""Calculate the metric score between `predictions` and `references`.
 
         Args:
             predictions (List[Union[int, str]]): The predicted answers.
 
         Returns:
-            Dict[str, float]: The metric results.
+            Dict[str, Dict[str, float]]: The metric results in the format `{"Dataset Name": {"Metric": Score}}`.
+            Dict[str, List[float]]: The score lists.
         """
-        results = {}
+
+        def _calculate_metric(predictions, references):
+            results = {}
+            for metric_func in self.metrics:
+                results.update(metric_func(predictions, references))
+            return results
+
+        score_lists = {}
+        overall_results = _calculate_metric(predictions, self.references)
         for metric_func in self.metrics:
-            results.update(metric_func(predictions, self.references))
-        return results
+            score_lists.update(metric_func.last_score_lists())
+
+        sub_col = getattr(self, "subject_column", None)
+        subject_results = {}
+        if sub_col is not None:
+            subject_results = pd.DataFrame({
+                "predictions": predictions,
+                "references": self.references,
+                "subject": map(lambda i: f"{self.name}:{i[sub_col]}", self.evaluation_data),
+            }).groupby("subject").apply(lambda df: _calculate_metric(df["predictions"], df["references"])).to_dict()
+
+        metric_results = OrderedDict(**subject_results)
+        metric_results[self.name + (f":{self.subset_name}" if self.subset_name else "")] = overall_results
+        return metric_results, score_lists
 
     def post_processing(self, predictions: List[Union[str, float]]):
         r"""Post processing for the predictions.
@@ -403,72 +421,175 @@ class Dataset(torch.utils.data.Dataset):
         self,
         raw_predictions: List[str],
         processed_predictions: Optional[List[Union[str, float]]] = None,
+        score_lists: Optional[Dict[str, List[float]]] = None,
         file: Optional[str] = None,
-    ):
-        r"""Save the dataset inputs and corresponding model predictions to file.
+        _to_json: bool = True,
+    ) -> pd.DataFrame:
+        r"""Save the dataset inputs and corresponding model predictions to file. Log intermediate results with `log_predictions(raw_predictions)` and log final results with `log_predictions(raw_predictions, processed_predictions, score_lists)`.
 
         Args:
             raw_predictions (List[str]): The raw predictions of model.
             processed_predictions (Optional[List[Union[str, float]]]): The processed answers.
             file (Optional[str]): The file path to save the predictions. If None, will use `args.evaluation_results_path`.
         """
-        file = file or self.args.evaluation_results_path
-        if self.evaluation_type == "generation" and processed_predictions is not None:
-            # log intermediate and post-processed results
-            # TODO , add perplexity
-            dataset_info = (self.evaluation_instances, processed_predictions)
-            keys = ["index", "input", "processed_prediction", "raw_prediction", "reference"]
-        elif self.evaluation_type == "generation" and processed_predictions is None:
-            # log intermediate results only
-            dataset_info = (self.evaluation_instances,)
-            keys = ["index", "input", "raw_prediction", "reference"]
-        else:  # ranking
-            # TODO group by question
-            indices = [(i, j) for i in range(len(self.option_nums)) for j in range(self.option_nums[i])]
-            question_index, option_index = zip(*indices)
-            source_text, target_text = zip(*self.evaluation_instances)
 
-            dataset_info = [question_index, option_index, source_text, target_text]
-            keys = ["index", "question_index", "option_index", "source", "target", "perplexity", "reference"]
+        file = file or self.args.evaluation_results_path
+        if processed_predictions is not None:
+            assert score_lists is not None and score_lists is not None
+            transposed_score_lists = [dict(zip(score_lists.keys(), values)) for values in zip(*score_lists.values())]
 
         def repeat_iter(obj, n):
             for _ in range(n):
                 yield from obj
 
-        lines = zip(
-            range(len(self)),
-            *dataset_info,
-            raw_predictions,
-            repeat_iter(self.references, self.args.sample_num),
-        )
+        def to_dict(merge: Optional[List[str]] = None, merge_by_option: Optional[List[str]] = None):
+            merge = merge or []
+            merge_by_option = merge_by_option or []
 
-        lines = [dict(zip(keys, line)) for line in lines]
-        with open(file, "w", encoding="utf-8") as f:
-            json.dump(lines, f, indent=2, ensure_ascii=False)
+            def wrapper(df):
+                df_dict = df.to_dict(orient="list")
+                for col in merge:
+                    df_dict[col] = df_dict[col][0]
+                if "option_num" in df_dict:
+                    option_num = df_dict.pop("option_num")[0]
+                    for col in merge_by_option:
+                        df_dict[col] = df_dict[col][:option_num]
+                return df_dict
+
+            return wrapper
+
+        if processed_predictions is None:
+            # log intermediate results only
+            if not hasattr(self, "_lines_iter"):
+                self._lines_iter = zip(
+                    range(self.len()), self.evaluation_instances, repeat_iter(self.references, self.args.sample_num)
+                )
+            for idx, source, reference in self._lines_iter:
+                lines = {
+                    "index": idx,
+                    "source": source,
+                    "raw_prediction": raw_predictions[-1],
+                    "reference": reference,
+                }
+                if _to_json:
+                    with open(file, "a") as f:
+                        json.dump(lines, f, ensure_ascii=False)
+                        f.write("\n")
+                return lines
+            return None
+
+        elif self.evaluation_type == "generation":
+            # only generation tasks support self-consistency
+            lines = {
+                "index": repeat_iter(range(len(self.references)), self.args.sample_num),
+                "source": self.evaluation_instances,
+                "raw_prediction": raw_predictions,
+                "processed_prediction": processed_predictions,
+                "reference": repeat_iter(self.references, self.args.sample_num),
+                "metric": repeat_iter(transposed_score_lists, self.args.sample_num),
+            }
+            try:
+                lines = pd.DataFrame(lines).groupby("index").apply(
+                    to_dict(merge=["index", "source", "metric", "reference"])
+                )
+                if _to_json:
+                    lines.to_json(file, orient="records", indent=4, force_ascii=False)
+                return lines
+            except Exception as e:
+                lines = {k: len(v) for k, v in lines.items()}
+                logger.warning(f"Failed to log_predictions: {e}\n{lines}")
+                return None
+
+        elif self.evaluation_type == "ranking":  # ranking
+
+            def repeat_by_option(*arr):
+
+                def wrapper():
+                    for cols in zip(range(len(self.option_nums)), *arr):
+                        for _ in range(self.option_nums[cols[0]]):
+                            yield (*cols, self.option_nums[cols[0]])
+
+                return zip(*wrapper())
+
+            source_text, target_text = zip(*self.evaluation_instances)
+            if self.use_normalization:
+                source_text, target_text, raw_predictions = source_text[::2], target_text[::2], raw_predictions[::2]
+            index, references, transposed_score_lists, option_nums = repeat_by_option(
+                self.references, transposed_score_lists
+            )
+            lines = {
+                "index": index,
+                "source": source_text,
+                "option": target_text,
+                "option_num": option_nums,
+                "perplexity": map(lambda r: r[0], raw_predictions),
+                "reference": references,
+                "metric": transposed_score_lists,
+            }
+            try:
+                lines = pd.DataFrame(lines).groupby("index").apply(
+                    to_dict(merge=["index", "source", "reference", "metric"], merge_by_option=["option"])
+                )
+                if _to_json:
+                    lines.to_json(file, orient="records", indent=4, force_ascii=False)
+                return lines
+            except Exception as e:
+                lines = {k: len(v) for k, v in lines.items()}
+                logger.warning(f"Failed to log_predictions: {e}\n{lines}")
+                return None
+
+        else:
+            logger.debug(
+                f"Failed to log predictions: processed_predictions={processed_predictions}, evaluation_type{self.evaluation_type}"
+            )
+            return None
+
+    def last_score_lists(self) -> Dict[str, List[float]]:
+        results = {}
+        for metric in self.metrics:
+            results.update(metric.last_score_lists())
+        return results
 
     @property
-    def use_normalization(self):
+    def use_normalization(self) -> bool:
         return self.name in {"arc", "openbookqa", "race"}
 
-    def evaluation_data_len(self):
-        """Provides a unified interface to retrieve the count of questions within a `Dataset` or `DatasetCollection`.
+    def len(self, sample_num: bool = True, option_num: bool = True, normalization: bool = True) -> int:
+        """Provides a unified interface to retrieve the length of dataset`.
 
-        Note:
-        - `len(dataset)` yields the total count of options across all questions.
-        - `dataset.evaluation_data_len()` specifically returns the count of individual questions.
+        - `len(dataset.reference)` or `len(dataset.evaluation_data)`: the length of raw evaluation data
+        - `len(dataset)` or `len(dataset.evaluation_instances)`: the length of `__iter__`, multiplied by `args.sample_num`, option_num (if `evaluation_type` is "ranking") and 2 (if `use_normalization` is True)
         """
-        return len(self.evaluation_data)
+        # if `evaluation_type` is not "ranking", two branches of `option_num` should be equivalent
+        if option_num:
+            length = len(self.evaluation_instances)
+            if not sample_num and self.args.sample_num > 1:
+                length = length // self.args.sample_num
+            if not normalization and self.use_normalization:
+                length = length // 2
+        else:
+            length = len(self.references)
+            if sample_num and self.args.sample_num > 1:
+                length *= self.args.sample_num
+            if normalization and self.use_normalization:
+                length *= 2
+        return length
+
+    def update_tqdm(self, tqdm):
+        pass
 
     def __repr__(self):
-        return "Dataset(" + ", ".join(f"{p}={pformat(getattr(self, p))}" for p in self._repr) + ")"
+        return "Dataset(" + ", ".join(f"{p}={getattr(self, p)!r}" for p in self._repr) + ")"
 
 
 class DatasetCollection(torch.utils.data.Dataset):
+
     def __init__(self, datasets: Dict[str, Dataset]):
         super().__init__()
         self.subset_names = list(datasets.keys())
         self._datasets = list(datasets.values())
         self._cur_idx = 0
+        self.args = self._datasets[0].args
         self._repr = copy(self._datasets[0]._repr)
         for idx, prop in enumerate(self._repr):
             if prop == "subset_name":
@@ -484,18 +605,74 @@ class DatasetCollection(torch.utils.data.Dataset):
         """If `evaluation_type` is "ranking", this returns the total number of options across all evaluation examples. Otherwise, this returns an empty list."""
         return sum([d.option_nums for d in self._datasets], [])
 
+    def len(self, sample_num: bool = True, option_num: bool = True, normalization: bool = True) -> int:
+        return sum(d.len(sample_num, option_num, normalization) for d in self._datasets)
+
     def __len__(self):
         return sum(len(d) for d in self._datasets)
 
-    def evaluation_data_len(self):
-        return sum(len(d.evaluation_data) for d in self._datasets)
+    def _split_by_subset(
+        self,
+        obj: Optional[Union[list, dict]] = None,
+        sample_num=True,
+        option_num=True,
+        normalization=True,
+        strict=True,
+    ) -> Iterator[Union[list, dict]]:
+        st = 0
+        if obj is None:
+            yield from [None] * len(self._datasets)
+        elif isinstance(obj, list):
+            if strict:
+                assert self.len(sample_num, option_num, normalization) == len(obj)
+            for d in self._datasets:
+                dlen = d.len(sample_num, option_num, normalization)
+                if st >= len(obj):
+                    return
+                yield obj[st:st + dlen]
+                st += dlen
+        elif isinstance(obj, dict):
+            assert all(len(v) == self.len(sample_num, option_num, normalization) for v in obj.values())
+            for d in self._datasets:
+                dlen = d.len(sample_num, option_num, normalization)
+                yield {k: v[st:st + dlen] for k, v in obj.items()}
+                st += dlen
+
+    def log_predictions(
+        self,
+        raw_predictions: List[str],
+        processed_predictions: Optional[List[Union[str, float]]] = None,
+        score_lists: Optional[Dict[str, List[float]]] = None,
+        file: Optional[str] = None
+    ):
+        lines = []
+        raw = self._split_by_subset(raw_predictions, strict=processed_predictions is not None)
+        processed = self._split_by_subset(processed_predictions, option_num=False, normalization=False)
+        score = self._split_by_subset(score_lists, sample_num=False, option_num=False, normalization=False)
+
+        if processed_predictions is None:
+            for d, r, p, s in zip(self._datasets, raw, processed, score):
+                results = d.log_predictions(r, p, s, file, True)
+                if results is not None:
+                    return
+        else:
+            for d, r, p, s in zip(self._datasets, raw, processed, score):
+                lines.append(d.log_predictions(r, p, s, file, False))
+            file = file or self.args.evaluation_results_path
+            try:
+                pd.concat(lines).to_json(file, orient="records", indent=4, force_ascii=False)
+            except Exception as e:
+                logger.debug(f"Failed to log predictions: {e}")
+
+    def post_processing(self, predictions: List[Union[str, float]]):
+        return sum((d.post_processing(p) for d, p in zip(self._datasets, self._split_by_subset(predictions))), [])
 
     def __getitem__(self, idx):
         if idx > self.__len__():
             raise IndexError(f"Index {idx} out of range")
         self._cur_idx = 0
-        while idx >= len(self._datasets[self._cur_idx]):
-            idx -= len(self._datasets[self._cur_idx])
+        while idx >= self._datasets[self._cur_idx].len():
+            idx -= self._datasets[self._cur_idx].len()
             self._cur_idx += 1
         return self._datasets[self._cur_idx][idx]
 
@@ -506,13 +683,19 @@ class DatasetCollection(torch.utils.data.Dataset):
     def __getattr__(self, attr):
         return getattr(self._datasets[self._cur_idx], attr)
 
-    def calculate_metric(self, predictions) -> Dict[str, Dict[str, float]]:
+    def calculate_metric(self, predictions) -> Tuple[Dict[str, Dict[str, float]], Dict[str, List[float]]]:
         results = dict()
-        cur_len = 0
-        for s, d in zip(self.subset_names, self._datasets):
-            results[d.name + ":" + s] = d.calculate_metric(predictions[cur_len : cur_len + len(d)])
-            cur_len += len(d)
-        return results
+        score_lists = dict()
+        splitted = self._split_by_subset(predictions, option_num=False, normalization=False)
+        for d, p in zip(self._datasets, splitted):
+            subset_results, score_list = d.calculate_metric(p)
+            results.update(subset_results)
+            for k, v in score_list.items():
+                score_lists.setdefault(k, []).extend(v)
+        return results, score_lists
+
+    def update_tqdm(self, tqdm):
+        tqdm.set_description(self.name + ":" + self.subset_names[self._cur_idx])
 
     def __repr__(self):
-        return "DatasetCollection(" + ", ".join(f"{p}={pformat(getattr(self, p))}" for p in self._repr) + ")"
+        return "DatasetCollection(" + ", ".join(f"{p}={getattr(self, p)!r}" for p in self._repr) + ")"

@@ -11,22 +11,21 @@ from .self_instruct import SelfInstructDataset
 from .sharegpt import ShareGPTDataset
 
 # You can add your own dataset name and corresponding class here
-DATASETNAMEMAP = OrderedDict(
-    {
-        "alpaca": AlpacaDataset,
-        "belle": BelleDataset,
-        "self_instruct": SelfInstructDataset,
-        "evol_instruct": EvolInstructDataset,
-        "dolly": DollyDataset,
-        "lima": LimaDataset,
-        "sharegpt": ShareGPTDataset,
-        "openassistant": OpenAssistantDataset,
-        "flan": FlanDataset,
-    }
-)
+DATASETNAMEMAP = OrderedDict({
+    "alpaca": AlpacaDataset,
+    "belle": BelleDataset,
+    "self_instruct": SelfInstructDataset,
+    "evol_instruct": EvolInstructDataset,
+    "dolly": DollyDataset,
+    "lima": LimaDataset,
+    "sharegpt": ShareGPTDataset,
+    "openassistant": OpenAssistantDataset,
+    "flan": FlanDataset,
+})
 
 
 class Dataset:
+
     def __new__(self, args):
         datapath = args.data_path
         for datasetname, datasetclass in DATASETNAMEMAP.items():

@@ -24,11 +24,8 @@ class Wic(MultipleChoiceDataset):
 
     def format_instance(self, instance):
         source = (
-            instance["sentence1"]
-            + "\n"
-            + instance["sentence2"]
-            + "\n"
-            + f"question: Is the word '{instance['word']}' used in the same way in the two sentences above?\nanswer:"
+            instance["sentence1"] + "\n" + instance["sentence2"] + "\n" +
+            f"question: Is the word '{instance['word']}' used in the same way in the two sentences above?\nanswer:"
         )
 
         label2text = {

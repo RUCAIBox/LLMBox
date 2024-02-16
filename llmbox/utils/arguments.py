@@ -4,20 +4,31 @@ from builtins import bool
 from copy import copy
 from dataclasses import MISSING, dataclass
 from logging import getLogger
-from typing import ClassVar, List, Optional, Set, Tuple, Union
+from typing import ClassVar, Dict, List, Optional, Set, Tuple, Union
 
 import openai
 from transformers.hf_argparser import HfArg, HfArgumentParser
 
-from ..dataset.utils import list_availabe_datasets
 from ..model.enum import ANTHROPIC_MODELS, OPENAI_CHAT_MODELS, OPENAI_MODELS
 from .logging import log_levels, set_logging
 
 logger = getLogger(__name__)
 
 
+def get_redacted(sensitive: str) -> str:
+    middle = len(sensitive) - 12
+    if middle <= 0:
+        return "*" * len(sensitive)
+    return sensitive[:8] + "*" * middle + sensitive[-4:]
+
+
 def filter_none_repr(self):
-    return f"{self.__class__.__name__}({', '.join(f'{key}={value!r}' for key, value in self.__dict__.items() if value is not None)})"
+    kwargs = {}
+    redact = getattr(self, "_redact", set())
+    for key, value in self.__dict__.items():
+        if value is not None and not key.startswith("_"):
+            kwargs[key] = value if key not in redact else get_redacted(value)
+    return f"{self.__class__.__name__}({', '.join(f'{key}={value!r}' for key, value in kwargs.items())})"
 
 
 @dataclass
@@ -93,7 +104,7 @@ class ModelArguments:
     )
     stop: Union[str, List[str]] = HfArg(
         default=None,
-        help="List of strings that stop the generation when they are generated.",
+        help="List of strings that stop the generation when they are generated. E.g. --stop 'stop' 'sequence'",
     )
     no_repeat_ngram_size: int = HfArg(
         default=None,
@@ -118,6 +129,12 @@ class ModelArguments:
 
     __repr__ = filter_none_repr
 
+    _model_specific_arguments: ClassVar[Dict[str, Set[str]]] = {
+        "openai": {"openai_api_key"},
+        "anthropic": {"anthropic_api_key"},
+        "huggingface": {"device_map", "vllm", "flash_attention", "tokenizer_name_or_path"},
+    }
+
     def is_openai_model(self) -> bool:
         return self._model_impl == "openai"
 
@@ -128,25 +145,24 @@ class ModelArguments:
         return self._model_impl == "huggingface"
 
     def __post_init__(self):
-        if "OPENAI_API_KEY" in os.environ and self.openai_api_key is None:
-            self.openai_api_key = os.environ["OPENAI_API_KEY"]
-        if self.openai_api_key is not None:
-            # set openai api key at here and redact the argument
-            openai.api_key = self.openai_api_key
-            self.openai_api_key = self.openai_api_key[:8] + "*" * 39 + self.openai_api_key[-4:]
-
-        if "ANTHROPIC_API_KEY" in os.environ and self.anthropic_api_key is None:
-            self.anthropic_api_key = os.environ["ANTHROPIC_API_KEY"]
-
-        if self.tokenizer_name_or_path is None:
-            self.tokenizer_name_or_path = self.model_name_or_path
-
+        # set _model_impl first
         if self.model_name_or_path.lower() in OPENAI_MODELS:
             self._model_impl = "openai"
         elif self.model_name_or_path.lower() in ANTHROPIC_MODELS:
             self._model_impl = "anthropic"
         else:
             self._model_impl = "huggingface"
+
+        if "OPENAI_API_KEY" in os.environ and self.openai_api_key is None:
+            self.openai_api_key = os.environ["OPENAI_API_KEY"]
+        if self.openai_api_key is not None:
+            openai.api_key = self.openai_api_key
+
+        if "ANTHROPIC_API_KEY" in os.environ and self.anthropic_api_key is None:
+            self.anthropic_api_key = os.environ["ANTHROPIC_API_KEY"]
+
+        if self.tokenizer_name_or_path is None:
+            self.tokenizer_name_or_path = self.model_name_or_path
 
         if self.is_openai_model() or self.is_anthropic_model():
             self.vllm = False
@@ -257,6 +273,10 @@ class EvaluationArguments:
         help="The directory to save evaluation results, which includes source"
         " and target texts, generated texts, and the references.",
     )
+    dry_run: bool = HfArg(
+        default=False,
+        help="Test the evaluation pipeline without actually calling the model.",
+    )
 
     __repr__ = filter_none_repr
 
@@ -285,6 +305,20 @@ def check_args(model_args: ModelArguments, dataset_args: DatasetArguments, evalu
             f"Claude model {model_args.model_name_or_path} doesn't support batch_size > 1, automatically set batch_size to 1."
         )
 
+    args_ignored = set()
+    for model_impl, args in model_args._model_specific_arguments.items():
+        if model_impl != model_args._model_impl:
+            args_ignored.update(args)
+    # some arguments might be shared by multiple model implementations
+    args_ignored -= model_args._model_specific_arguments[model_args._model_impl]
+
+    for arg in args_ignored:
+        if hasattr(model_args, arg):
+            # Ellipsis is just a placeholder that never equals to any default value of the argument
+            if model_args.__dataclass_fields__[arg].hash:
+                logger.warning(f"Argument `{arg}` is not supported for model `{model_args.model_name_or_path}`")
+            setattr(model_args, arg, None)
+
 
 def parse_argument(args=None) -> Tuple[ModelArguments, DatasetArguments, EvaluationArguments]:
     r"""Parse arguments from command line. Using `argparse` for predefined ones, and an easy mannal parser for others (saved in `kwargs`).
@@ -296,6 +330,10 @@ def parse_argument(args=None) -> Tuple[ModelArguments, DatasetArguments, Evaluat
         args = copy(sys.argv[1:])
     parser = HfArgumentParser((ModelArguments, DatasetArguments, EvaluationArguments), description="LLMBox description")
     model_args, dataset_args, evaluation_args = parser.parse_args_into_dataclasses(args)
+    commandline_args = {arg.lstrip('-') for arg in args if arg.startswith("-")}
+    for type_args in [model_args, dataset_args, evaluation_args]:
+        for name, field in type_args.__dataclass_fields__.items():
+            field.hash = name in commandline_args  # borrow `hash` attribute to indicate whether the argument is set
     set_logging(model_args, dataset_args, evaluation_args)
     check_args(model_args, dataset_args, evaluation_args)
 
@@ -303,7 +341,7 @@ def parse_argument(args=None) -> Tuple[ModelArguments, DatasetArguments, Evaluat
     redact_dict = {"--openai_api_key": model_args.openai_api_key}
     for key, value in redact_dict.items():
         if key in args:
-            args[args.index(key) + 1] = value
+            args[args.index(key) + 1] = repr(value)
     logger.info("Command line arguments: {}".format(" ".join(args)))
     if "CUDA_VISIBLE_DEVICES" in os.environ:
         logger.info(f"CUDA_VISIBLE_DEVICES={os.environ['CUDA_VISIBLE_DEVICES']}")

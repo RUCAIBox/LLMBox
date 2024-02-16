@@ -7,44 +7,33 @@ from .multiple_choice_dataset import MultipleChoiceDataset
 logger = getLogger(__name__)
 
 
-class Race(MultipleChoiceDataset):
-    """The dataset of RACE_h and RACE_m.
+class OpenBookQA(MultipleChoiceDataset):
+    """The dataset of OpenBookQA.
 
-    The ReAding Comprehension dataset from Examinations (RACE) dataset is a machine reading comprehension dataset
-    consisting of 27,933 passages and 97,867 questions from English exams, targeting Chinese students aged 12-18.
-    RACE consists of two subsets, RACE-M and RACE-H, from middle school and high school exams, respectively.
-    RACE-M has 28,293 questions and RACE-H has 69,574.
-    Each question is associated with 4 candidate answers, one of which is correct.
+    OpenBookQA contains questions that require multi-step reasoning, use of additional common and commonsense knowledge, and rich text comprehension. OpenBookQA is a new kind of question-answering dataset modeled after open book exams for assessing human understanding of a subject.
 
     Example:
-        article:
-        The rain had continued for a week and the flood had created a big river which were ... with tears.
-
-        question: What did Nancy try to do before she fell over?
-
-        answer: C
-
-        options':
-        [
-        'Measure the depth of the river',
-        'Look for a fallen tree trunk',
-        'Protect her cows from being drowned',
-        'Run away from the flooded farm'
-        ]
+        'id': 8-343
+        'question_stem': 'A person wants to start saving money so that they can afford a nice vacation at the end of the year. After looking over their budget and expenses, they decide the best way to save money is to'
+        'choices': {
+            'text': ['make more phone calls', 'quit eating lunch out', 'buy less with monopoly money', 'have lunch with friends']
+            'label': ['A', 'B', 'C', 'D']
+        }
+        'answerKey': 'B'
     """
 
     instruction = ""
-    evaluation_set = "validation"
+    evaluation_set = "test"
     example_set = "train"
-    load_args = ("race",)  # specify subset from command line
+    load_args = ("openbookqa", "main")
 
     def format_instance(self, instance):
-        source_text = "Article:\n" + instance["article"] + "\n\n" + "Q: " + instance["question"] + "\n\nA:"
-        options = instance["options"]
+        source_text = "Q: " + instance['question_stem'] + '\n' + 'A:'
+        options = instance["choices"]['text']
         options = list(map(lambda _s: " " + _s, options))
         return dict(
             source=source_text,
-            target=options[ord(instance["answer"]) - 65],
+            target=options[ord(instance["answerKey"]) - 65],
             options=options,
         )
 
@@ -53,7 +42,7 @@ class Race(MultipleChoiceDataset):
         self.option_nums = []
         for formatted_instance in self.formatted_evaluation_data:
             instance_with_examples = self.format_instruction_and_examples(formatted_instance)
-            options = [(instance_with_examples, option) for option in formatted_instance["options"]]
+            options = [(instance_with_examples, option) for option in formatted_instance['options']]
             self.option_nums.append(len(options))
             answer_options = [("A:", option) for option in formatted_instance["options"]]
             options = [item for pair in zip(options, answer_options) for item in pair]
@@ -76,4 +65,4 @@ class Race(MultipleChoiceDataset):
 
     @property
     def references(self):
-        return [ord(instance["answer"]) - 65 for instance in self.evaluation_data]
+        return [ord(instance["answerKey"]) - 65 for instance in self.evaluation_data]

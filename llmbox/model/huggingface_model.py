@@ -30,10 +30,10 @@ def load_hf_model(args: ModelArguments) -> Tuple[PreTrainedModel, Union[PreTrain
 
     try:
         model = AutoModelForCausalLM.from_pretrained(args.model_name_or_path, **model_kwargs).eval()
-    except TypeError as e:
-        if "attn_implementation" in str(e):
+    except (TypeError, ImportError) as e:
+        if "attn_implementation" in str(e) or "flash_att" in str(e):
             logger.warning(
-                f"Cannot set `attn_implementation` for {args.model_name_or_path}. Set `flash_attention` to False."
+                f"Cannot set `attn_implementation` for {args.model_name_or_path}: {e}. Set `flash_attention` to False."
             )
             args.flash_attention = False
             model_kwargs.pop("attn_implementation")
@@ -42,7 +42,7 @@ def load_hf_model(args: ModelArguments) -> Tuple[PreTrainedModel, Union[PreTrain
             raise e
 
     tokenizer = AutoTokenizer.from_pretrained(
-        args.tokenizer_name_or_path, use_fast=True, padding_side="left", add_eos_token=False
+        args.tokenizer_name_or_path, use_fast=True, padding_side="left", truncation_side="left", add_eos_token=False
     )
 
     # TODO: [Important]!!! check for each tokenizer
@@ -73,6 +73,7 @@ def load_hf_model(args: ModelArguments) -> Tuple[PreTrainedModel, Union[PreTrain
 
 
 class HuggingFaceModel(Model):
+
     def __init__(self, args: ModelArguments):
         super().__init__(args)
         self.args = args
@@ -94,7 +95,7 @@ class HuggingFaceModel(Model):
                 yield token_idx
         yield len(offset_mapping)
 
-    def set_ppl_args(self, **kwargs):
+    def set_ppl_args(self, **extra_model_args):
         r"""Set the configurations for PPL score calculation. This is useful because different datasets may have different requirements for ppl calculation."""
         self.loss_fct = CrossEntropyLoss(reduction="none")
 
@@ -117,9 +118,8 @@ class HuggingFaceModel(Model):
             shift_logits = logits[:, :-1].contiguous()
             shift_labels = batched_encodings["input_ids"][:, 1:].contiguous()
             shift_labels[shift_labels == self.tokenizer.pad_token_id] = -100
-            probs = self.loss_fct(shift_logits.view(-1, self.model.config.vocab_size), shift_labels.view(-1)).view(
-                shift_labels.size(0), -1
-            )
+            probs = self.loss_fct(shift_logits.view(-1, self.model.config.vocab_size),
+                                  shift_labels.view(-1)).view(shift_labels.size(0), -1)
 
         ppls = []
         for prob, (src, _), offset, attention_mask in zip(
@@ -128,14 +128,15 @@ class HuggingFaceModel(Model):
             ppl = [None] + prob.tolist()
             offset = [st for st, ed in offset]
             tgt_start = max(
-                offset.index(len(src)), attention_mask.nonzero()[0][0].item() + 1
+                offset.index(len(src)),
+                attention_mask.nonzero()[0][0].item() + 1
             )  # designed for src!='' and src=''
             tgt_end = len(offset)
             ppl = sum(ppl[tgt_start:])
             ppls.append((ppl, tgt_end - tgt_start))
         return ppls
 
-    def set_generation_args(self, **kwargs):
+    def set_generation_args(self, **extra_model_args):
         generation_kwargs = {}
         for key in [
             "temperature",
@@ -148,7 +149,10 @@ class HuggingFaceModel(Model):
             "early_stopping",
             "no_repeat_ngram_size",
         ]:
-            value = getattr(self.args, key) if getattr(self.args, key, None) is not None else kwargs.get(key, None)
+            # ModelArguments > extra_model_args
+            value = getattr(self.args, key, None)
+            if value is None:
+                value = extra_model_args.get(key, None)
             if key == "max_tokens" and value is None:
                 value = 1024
             if value is not None:
