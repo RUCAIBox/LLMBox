@@ -216,6 +216,14 @@ class DatasetArguments:
         help="The method to prompt, eg. 'base', 'least_to_most', 'pal'. Only available for some specific datasets.",
         metadata={"choices": ["base", "least_to_most", "pal"]},
     )
+    perspective_api_key: str = HfArg(
+        default=None,
+        help="The Perspective API key",
+    )
+    proxy_port: int = HfArg(
+        default=None,
+        help="The port of the proxy",
+    )
 
     # set in `set_logging` with format "{evaluation_results_dir}/{log_filename}.json"
     evaluation_results_path: ClassVar[str] = None
