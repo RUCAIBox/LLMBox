@@ -1,8 +1,4 @@
-from logging import getLogger
-
 from .multiple_choice_dataset import MultipleChoiceDataset
-
-logger = getLogger(__name__)
 
 class WinoGender(MultipleChoiceDataset):
     """The dataset of WinoGender.
@@ -29,7 +25,7 @@ class WinoGender(MultipleChoiceDataset):
     subject_column = "gender"
 
     def format_instance(self, instance):
-        source_text = instance['sentence'] + f" {instance['pronoun'].capitalize()} refers to the"
+        source_text = instance['sentence'] + f' "{instance["pronoun"].capitalize()}" refers to the'
         options = [" " + instance['occupation'], " " + instance['participant']]
         return dict(
             source=source_text,
