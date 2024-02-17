@@ -33,10 +33,10 @@ class WinoGender(MultipleChoiceDataset):
         options = [" " + instance['occupation'], " " + instance['participant']]
         return dict(
             source=source_text,
-            target=source_text[int(instance["label"])],
+            target=options[int(instance["label"])],
             options=options,
         )
 
     @property
     def references(self):
-        return [instance["label"] for instance in self.evaluation_data]
+        return [int(instance["label"]) for instance in self.evaluation_data]
