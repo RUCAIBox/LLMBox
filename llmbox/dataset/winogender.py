@@ -26,21 +26,17 @@ class WinoGender(MultipleChoiceDataset):
     evaluation_set = "test"
     example_set = ""
     load_args = ("oskarvanderwal/winogender",)  # specify subset from command line
+    subject_column = "gender"
 
     def format_instance(self, instance):
-        source_text = instance['sentence'] + f" {instance['pronoun']} refers to the"
+        source_text = instance['sentence'] + f" {instance['pronoun'].capitalize()} refers to the"
         options = [" " + instance['occupation'], " " + instance['participant']]
         return dict(
             source=source_text,
-            target=source_text[int(instance["label"]) - 1],
+            target=source_text[int(instance["label"])],
             options=options,
         )
 
     @property
     def references(self):
         return [instance["label"] for instance in self.evaluation_data]
-
-
-        logger.info("Evaluation mode: calculate PPL of the optional text based on the source text")
-        logger.info("Formatted example (source)\n" + self.evaluation_instances[0][0])
-        logger.info("Formatted example (option)\n" + self.evaluation_instances[0][1])
