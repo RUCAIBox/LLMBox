@@ -1,4 +1,4 @@
-from ..metric import Mt_bench
+from ..metric import GPTEval
 from .generation_dataset import GenerationDataset
 
 class Vicuna_bench(GenerationDataset):
@@ -15,7 +15,7 @@ class Vicuna_bench(GenerationDataset):
     example_set = ""
     evaluation_set = ""
     load_args = ()
-    metrics = [Mt_bench()]
+    metrics = [GPTEval()]
 
 
     def load_raw_dataset(self, dataset_path, subset_name, evaluation_set, example_set):
