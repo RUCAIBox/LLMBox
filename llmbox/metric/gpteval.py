@@ -18,7 +18,7 @@ class GPTEval(Metric):
     r""" using strong LLMs as judges to evaluate models.
 
         Return:
-            "Mt_bench score": float
+            "GPT-Eval": float
         """
 
     def __call__(self, predictions, references):
@@ -50,7 +50,7 @@ class GPTEval(Metric):
                 logger.warning(f"Failed to extract rating from response: {response}")
 
         score_list = np.array(ratings)
-        self._last_score_lists = {'Mt_bench score': score_list}
+        self._last_score_lists = {'GPT-Eval': score_list}
         filtered_arr = score_list[score_list != -1]
-        return {'Mt_bench score': np.mean(filtered_arr) if len(filtered_arr) > 0 else -1}
+        return {'GPT-Eval': np.mean(filtered_arr) if len(filtered_arr) > 0 else -1}
 
