@@ -13,7 +13,7 @@ from ..metric.metric import Metric
 from ..model.model import Model
 from ..utils import DatasetArguments
 from .icl_strategies import ape, global_entropy_ordering_strategy, knn_construct_examples
-from .utils import get_raw_dataset_loader
+from .utils import MMLU_SUBJECTS, get_raw_dataset_loader
 
 logger = getLogger(__name__)
 
@@ -684,7 +684,7 @@ class DatasetCollection(torch.utils.data.Dataset):
         return getattr(self._datasets[self._cur_idx], attr)
 
     def calculate_metric(self, predictions) -> Tuple[Dict[str, Dict[str, float]], Dict[str, List[float]]]:
-        results = dict()
+        results = OrderedDict()
         score_lists = dict()
         splitted = self._split_by_subset(predictions, option_num=False, normalization=False)
         for d, p in zip(self._datasets, splitted):
@@ -692,6 +692,17 @@ class DatasetCollection(torch.utils.data.Dataset):
             results.update(subset_results)
             for k, v in score_list.items():
                 score_lists.setdefault(k, []).extend(v)
+
+        metric_entries = results[f"{self.name}:{self.subset_names[0]}"].keys()
+
+        # append mmlu subcategories
+        if self.name == "mmlu":
+            for cat, cat_subjects in MMLU_SUBJECTS.items():
+                cat_results = [results[f"mmlu:{subject}"] for subject in cat_subjects]
+                results[f"mmlu[{cat}]"] = {m: np.mean([r[m] for r in cat_results]) for m in metric_entries}
+
+        results[self.name+"[Arithmetic Mean]"] = {m: np.mean([r[m] for k, r in results.items() if ":" in k]) for m in metric_entries}
+
         return results, score_lists
 
     def update_tqdm(self, tqdm):

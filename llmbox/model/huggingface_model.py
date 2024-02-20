@@ -115,11 +115,11 @@ class HuggingFaceModel(Model):
             logits = self.model(
                 input_ids=batched_encodings["input_ids"], attention_mask=batched_encodings["attention_mask"]
             ).logits
-            shift_logits = logits[:, :-1].contiguous()
+            shift_logits = logits.detach()[:, :-1].contiguous()
             shift_labels = batched_encodings["input_ids"][:, 1:].contiguous()
             shift_labels[shift_labels == self.tokenizer.pad_token_id] = -100
             probs = self.loss_fct(shift_logits.view(-1, self.model.config.vocab_size),
-                                  shift_labels.view(-1)).view(shift_labels.size(0), -1)
+                                  shift_labels.view(-1)).view(shift_labels.size(0), -1).cpu()
 
         ppls = []
         for prob, (src, _), offset, attention_mask in zip(

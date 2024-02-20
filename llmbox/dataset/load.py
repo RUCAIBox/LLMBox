@@ -67,6 +67,10 @@ def load_dataset(args: DatasetArguments, model: Model) -> Union[Dataset, Dataset
         for subset in available_subsets.copy():
             available_subsets.add("en-" + subset.split("-")[0])
 
+    # for mmlu and race dataset, remove "all" subset by default
+    if args.dataset_name in {"mmlu", "race"} and len(args.subset_names) == 0:
+        available_subsets.remove("all")
+
     # if dataset not in huggingface, allow to manually specify subset_names
     if len(available_subsets) and not available_subsets.issuperset(args.subset_names):
         raise ValueError(
@@ -77,7 +81,6 @@ def load_dataset(args: DatasetArguments, model: Model) -> Union[Dataset, Dataset
     subset_names = args.subset_names or available_subsets
 
     # load dataset
-
     if "squad_v2" in args.dataset_name:
         dataset_cls.load_args = ("squad_v2",)
 
