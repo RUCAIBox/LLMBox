@@ -196,8 +196,8 @@ class DatasetArguments:
     """The name(s) of a/several subset(s) in a dataset, derived from `dataset_name` argument on initalization"""
     dataset_path: Optional[str] = HfArg(
         default=None,
-        help="The path of dataset if loading from local. Supports repository cloned from huggingface or "
-        "dataset saved by `save_to_disk`.",
+        help="The path of dataset if loading from local. Supports repository cloned from huggingface, "
+        "dataset saved by `save_to_disk`, or a template string e.g. 'mmlu/{split}/{subset}_{split}.csv'.",
     )
 
     evaluation_set: Optional[str] = HfArg(

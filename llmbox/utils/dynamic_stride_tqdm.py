@@ -10,6 +10,7 @@ class dynamic_stride_tqdm(tqdm.tqdm):
         iterable=None,
         strides: Iterable[float] = None,
         stride_scale: Union[float, bool] = False,
+        total: Optional[int] = None,
         desc: Optional[str] = None,
         disable: bool = False,
         unit: str = "it",
@@ -18,7 +19,10 @@ class dynamic_stride_tqdm(tqdm.tqdm):
         **kwargs
     ):
         """Tqdm progress bar with dynamic strides. Use `strides` to specify the strides for each step and `stride_scale` to scale the strides. For example, if `strides` is `[1, 2, 3]` and `stride_scale` is `2`, then the fianl strides will be `[2, 4, 6]`, which require 12 iterations to stop. Different from `unit_scale` which changes the unit of the progress bar., `stride_scale` only changes the stride of each iteration. `total` is set to the length of `strides` list by default."""
-        self.strides = list(strides)
+        if strides is not None:
+            self.strides = list(strides)
+        else:
+            self.strides = [1] * total
         self.stride_scale = float(stride_scale)
         super().__init__(
             iterable=iterable,
@@ -57,6 +61,7 @@ class dynamic_stride_tqdm(tqdm.tqdm):
                 else:
                     # Update the progress bar with dynamic strides
                     n += 1 * self.stride_scale / self.strides[int(n)]
+                n = min(n, len(self.strides))
 
                 if n - last_print_n >= self.miniters:
                     cur_t = time()

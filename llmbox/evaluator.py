@@ -4,7 +4,6 @@ from typing import Dict, Tuple
 
 from accelerate.utils import set_seed
 from torch.utils.data import DataLoader
-from tqdm import tqdm
 
 from .dataset import load_dataset
 from .model import load_model
@@ -88,7 +87,8 @@ class Evaluator:
                     strides=self.dataset.option_nums, stride_scale=stride_scale, **tqdm_kwargs
                 )
             else:
-                dataloader = tqdm(unit_scale=self.dataset_args.batch_size, **tqdm_kwargs)
+                stride_scale = self.dataset_args.batch_size
+                dataloader = dynamic_stride_tqdm(stride_scale=self.dataset_args.batch_size, total=self.dataset.len(option_num=False), **tqdm_kwargs)
 
         # call model
         raw_predictions = []
@@ -115,7 +115,7 @@ class Evaluator:
         # calculate metric
         metric_results, last_score_lists = self.dataset.calculate_metric(mode_predictions)
         self.dataset.log_predictions(raw_predictions, predictions, last_score_lists)
-        msg = f"Evaluation finished successfully:"
+        msg = f"Evaluation finished successfully:\nevaluation results: {self.dataset_args.evaluation_results_path}"
         for dataset_name, result in metric_results.items():
             msg += f"\n##### {dataset_name} #####"
             for key, value in result.items():
