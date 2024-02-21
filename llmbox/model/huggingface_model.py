@@ -205,6 +205,9 @@ class HuggingFaceModel(Model):
 
         if len(extra_model_args) > 0:
             logger.warning(f"Unused generation arguments: {extra_model_args}")
+        logger.debug(
+            f"candidate_ids: {self._candidate_ids}, candidate_only: {self.candidate_only}, label_ids: {self._get_label_ids(4)}"
+        )
 
     def _get_label_ids(self, option_num: Optional[int]) -> List[int]:
         """Return the tokenized labels of options."""

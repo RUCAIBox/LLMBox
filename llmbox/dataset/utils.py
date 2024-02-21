@@ -4,21 +4,24 @@ import re
 from importlib.machinery import SourceFileLoader
 from logging import getLogger
 from os.path import abspath
-from typing import Callable, Optional, Tuple, Union
+from typing import Callable, List, Optional, Tuple, Union
 
 import datasets
 
 logger = getLogger(__name__)
 
 
-def pjoin(pleft: str, pright: str) -> str:
+def pjoin(pleft: Union[str, List[str]], pright: str) -> str:
     """Join two prompts. Add/remove a white space between them if necessary."""
-    if not pleft.endswith((" ", "\n")) and not pright.startswith((" ", "\n")):
-        return f"{pleft} {pright}"
-    elif pleft.endswith((" ")) and pright.startswith((" ")):
-        return pleft + pright[1:]
+    if isinstance(pleft, list):
+        return [pjoin(prompt, pright) for prompt in pleft]
     else:
-        return pleft + pright
+        if not pleft.endswith((" ", "\n")) and not pright.startswith((" ", "\n")):
+            return f"{pleft} {pright}"
+        elif pleft.endswith((" ")) and pright.startswith((" ")):
+            return pleft + pright[1:]
+        else:
+            return pleft + pright
 
 
 def accepts_subset(
