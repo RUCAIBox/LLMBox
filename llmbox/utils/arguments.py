@@ -15,7 +15,9 @@ from .logging import log_levels, set_logging
 logger = getLogger(__name__)
 
 
-def get_redacted(sensitive: str) -> str:
+def get_redacted(sensitive: Optional[str]) -> str:
+    if sensitive is None:
+        return ""
     middle = len(sensitive) - 12
     if middle <= 0:
         return "*" * len(sensitive)
@@ -63,7 +65,6 @@ class ModelArguments:
         default=None,
         help="The Anthropic API key",
     )
-    """The redacted API key for logging."""
 
     tokenizer_name_or_path: str = HfArg(
         default=None, aliases=["--tokenizer"], help="The tokenizer name or path, e.g., meta-llama/Llama-2-7b-hf"
@@ -129,6 +130,10 @@ class ModelArguments:
 
     __repr__ = filter_none_repr
 
+    # redact sensitive information when logging with `__repr__`
+    _redact = {"openai_api_key", "anthropic_api_key"}
+
+    # simplify logging with model-specific arguments
     _model_specific_arguments: ClassVar[Dict[str, Set[str]]] = {
         "openai": {"openai_api_key"},
         "anthropic": {"anthropic_api_key"},
@@ -153,17 +158,23 @@ class ModelArguments:
         else:
             self._model_impl = "huggingface"
 
-        if "OPENAI_API_KEY" not in os.environ and self.openai_api_key is None and openai.api_key is None:
-            raise ValueError(
-                "OpenAI API key is required. Please set it by passing a `--openai_api_key` or through environment variable `OPENAI_API_KEY`."
-            )
+        # set `self.openai_api_key` and `openai.api_key` from environment variables
         if "OPENAI_API_KEY" in os.environ and self.openai_api_key is None:
             self.openai_api_key = os.environ["OPENAI_API_KEY"]
         if self.openai_api_key is not None:
             openai.api_key = self.openai_api_key
+        if self.is_openai_model() and self.openai_api_key is None:
+            raise ValueError(
+                "OpenAI API key is required. Please set it by passing a `--openai_api_key` or through environment variable `OPENAI_API_KEY`."
+            )
 
+        # set `self.anthropic_api_key` from environment variables
         if "ANTHROPIC_API_KEY" in os.environ and self.anthropic_api_key is None:
             self.anthropic_api_key = os.environ["ANTHROPIC_API_KEY"]
+        if self.is_anthropic_model() and self.anthropic_api_key is None:
+            raise ValueError(
+                "Anthropic API key is required. Please set it by passing a `--anthropic_api_key` or through environment variable `ANTHROPIC_API_KEY`."
+            )
 
         if self.tokenizer_name_or_path is None:
             self.tokenizer_name_or_path = self.model_name_or_path
@@ -342,7 +353,7 @@ def parse_argument(args=None) -> Tuple[ModelArguments, DatasetArguments, Evaluat
     check_args(model_args, dataset_args, evaluation_args)
 
     # log arguments and environment variables
-    redact_dict = {"--openai_api_key": model_args.openai_api_key}
+    redact_dict = {f"--{arg}": get_redacted(getattr(model_args, arg, "")) for arg in model_args._redact}
     for key, value in redact_dict.items():
         if key in args:
             args[args.index(key) + 1] = repr(value)
