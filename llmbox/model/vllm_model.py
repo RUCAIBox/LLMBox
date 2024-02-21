@@ -24,7 +24,11 @@ class vllmModel(Model):
 
         logger.info(f"Loading {args.model_name_or_path} using vllm...")
         self.type = args.model_type
-        self.model = LLM(model=args.model_name_or_path, tokenizer=args.tokenizer_name_or_path, tensor_parallel_size=torch.cuda.device_count())
+        self.model = LLM(
+            model=args.model_name_or_path,
+            tokenizer=args.tokenizer_name_or_path,
+            tensor_parallel_size=torch.cuda.device_count()
+        )
         self.tokenizer = self.model.get_tokenizer()
         self.tokenizer.truncation_side = "left"
         self.tokenizer.model_max_length = min(
