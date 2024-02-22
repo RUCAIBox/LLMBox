@@ -3,13 +3,10 @@ from typing import Iterator, List, Optional, Tuple, Union
 
 import torch
 from torch.nn import CrossEntropyLoss
-from transformers import (
-    AutoModelForCausalLM,
-    AutoTokenizer,
-    PreTrainedModel,
-    PreTrainedTokenizer,
-    PreTrainedTokenizerFast,
-)
+from transformers.modeling_utils import PreTrainedModel
+from transformers.models.auto import AutoModelForCausalLM, AutoTokenizer
+from transformers.tokenization_utils import PreTrainedTokenizer
+from transformers.tokenization_utils_fast import PreTrainedTokenizerFast
 
 from ..utils import ModelArguments
 from .model import Model
@@ -69,6 +66,7 @@ def load_hf_model(args: ModelArguments) -> Tuple[PreTrainedModel, Union[PreTrain
         )
 
     tokenizer.model_max_length = max_length
+    logger.debug(f"Model: {model}\nTokenizer: {tokenizer}")
     return model, tokenizer
 
 
@@ -204,7 +202,6 @@ class HuggingFaceModel(Model):
         self._token_labels = []
         self._word_labels = []
         self._candidate_ids = extra_model_args.pop("candidate_ids", None)
-        self.candidate_only = extra_model_args.pop("candidate_only", True)
 
         if len(extra_model_args) > 0:
             logger.warning(f"Unused generation arguments: {extra_model_args}")
@@ -226,25 +223,20 @@ class HuggingFaceModel(Model):
         batched_prompts, batched_option_nums = map(list, zip(*batched_inputs))
         batched_encodings = self.tokenizer(
             batched_prompts,
-            padding=True,
+            padding="longest",
             truncation=True,
             return_attention_mask=True,
             return_tensors="pt",
         )
-        sent_ids = torch.arange(batched_encodings["input_ids"].size(0))
-        attention_lens = batched_encodings["attention_mask"].sum(dim=-1) - 1
 
         with torch.no_grad():
             batch_logits = self.model(
-                batched_encodings["input_ids"].to(self.device),
-                batched_encodings["attention_mask"].to(self.device),
-            ).logits[(sent_ids, attention_lens)]
+                input_ids=batched_encodings["input_ids"].to(self.device),
+                attention_mask=batched_encodings["attention_mask"].to(self.device),
+            ).logits.detach()[:, -1].contiguous()  # padding_side="left" in tokenizer
 
-            if self.candidate_only:
-                answers = []
-                for i, option_num in enumerate(batched_option_nums):
-                    label_ids = self._get_label_ids(option_num)
-                    answers.append(torch.softmax(batch_logits[i, label_ids], dim=-1).tolist())
-            else:
-                answers = torch.softmax(batch_logits, dim=-1).tolist()
+            answers = []
+            for i, option_num in enumerate(batched_option_nums):
+                label_ids = self._get_label_ids(option_num)
+                answers.append(torch.softmax(batch_logits[i, label_ids], dim=-1, dtype=torch.float32).tolist())
         return answers

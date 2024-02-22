@@ -9,6 +9,7 @@ from typing import Dict, Iterator, List, Literal, Optional, Tuple, Union
 import numpy as np
 import pandas as pd
 import torch
+import tqdm as tqdm_lib
 
 from .enum import MMLU_SUBJECTS
 from .icl_strategies import (
@@ -16,7 +17,7 @@ from .icl_strategies import (
     global_entropy_ordering_strategy,
     knn_construct_examples,
 )
-from .utils import get_raw_dataset_loader
+from .utils import get_raw_dataset_loader, pjoin
 
 if typing.TYPE_CHECKING:
     # solve the circular import
@@ -137,6 +138,7 @@ class Dataset(torch.utils.data.Dataset):
                 self.random_indice = np.random.choice(len(self.example_data), self.args.num_shots, replace=False)
         self.formatted_evaluation_data = [self._format_instance(data) for data in self.evaluation_data]
         self.construct_instances()
+        logger.debug(self)
 
     def _post_init_arguments(self):
         # sample num
@@ -171,7 +173,6 @@ class Dataset(torch.utils.data.Dataset):
 
         logger.info(self.model.args)
         logger.info(self.args)
-        logger.debug(self)
 
     @property
     def model_evaluation_method(self) -> Literal['get_ppl', 'get_prob', 'generation', 'user_defined']:
@@ -312,14 +313,18 @@ class Dataset(torch.utils.data.Dataset):
             logger.info("Evaluation mode: calculate PPL of the optional text based on the source text")
             logger.info("Formatted example (source)\n" + pformat(self.evaluation_instances[0][0]))
             logger.info("Formatted example (option)\n" + pformat(self.evaluation_instances[0][1]))
-            logger.debug("Next formatted example (source)\n" + pformat(self.evaluation_instances[1][0]))
-            logger.debug("Next formatted example (option)\n" + pformat(self.evaluation_instances[1][1]))
+            if len(self.evaluation_instances) > 1:
+                logger.debug("Next formatted example (source)\n" + pformat(self.evaluation_instances[1][0]))
+                logger.debug("Next formatted example (option)\n" + pformat(self.evaluation_instances[1][1]))
+
         elif self.model_evaluation_method == "generation":
             for formatted_instance in self.formatted_evaluation_data:
                 self.evaluation_instances.append(self.format_instruction_and_examples(formatted_instance))
             logger.info("Evaluation mode: generation based on the source text")
             logger.info("Formatted example (source)\n" + self.evaluation_instances[0])
-            logger.debug("Next formatted example (source)\n" + self.evaluation_instances[1])
+            if len(self.evaluation_instances) > 1:
+                logger.debug("Next formatted example (source)\n" + self.evaluation_instances[1])
+
         elif self.model_evaluation_method == "get_prob":
             for formatted_instance in self.formatted_evaluation_data:
                 self.evaluation_instances.append(self.format_instruction_and_examples(formatted_instance))
@@ -327,32 +332,47 @@ class Dataset(torch.utils.data.Dataset):
             self.evaluation_instances = list(zip(self.evaluation_instances, self.option_nums))
             logger.info("Evaluation mode: get the probability of each option label")
             logger.info("Formatted example (source)\n" + pformat(self.evaluation_instances[0][0]))
-            logger.debug("Next formatted example (source)\n" + pformat(self.evaluation_instances[1][0]))
+            if len(self.evaluation_instances) > 1:
+                logger.debug("Next formatted example (source)\n" + pformat(self.evaluation_instances[1][0]))
+            logger.debug(f"option_nums: {self.option_nums}")
+
         else:
             for formatted_instance in self.formatted_evaluation_data:
                 self.evaluation_instances.append(self.format_instruction_and_examples(formatted_instance))
             logger.info("Evaluation mode: user defined")
             logger.info("Formatted example (source)\n" + pformat(self.evaluation_instances[0]))
-            logger.debug("Formatted example (source)\n" + pformat(self.evaluation_instances[1]))
+            if len(self.evaluation_instances) > 1:
+                logger.debug("Formatted example (source)\n" + pformat(self.evaluation_instances[1]))
 
         # for self-consistency
         self.evaluation_instances = self.evaluation_instances * self.args.sample_num
         self.option_nums = self.option_nums * self.args.sample_num
 
-    def _format_instance(self, instance):
+    def _format_instance(self, instance, loose: bool = False):
         # it is not recommended to modify instance, in case of multiple calls
         formatted_instance = self.format_instance(instance)
+        loose = "\n" if loose else ""
 
         if self.evaluation_type == "ranking" and "target_idx" in formatted_instance:
             if self.args.ranking_with_options:
+                # update options with labels and then append options to source
                 for i, option in enumerate(formatted_instance["options"]):
-                    formatted_instance["options"][i] = chr(65 + i) + "." + option
-                formatted_instance["source"] += "\n\n" + "\n".join(formatted_instance["options"]) + "\n"
+                    formatted_instance["options"][i] = chr(65 + i) + ". " + option.lstrip()
+                formatted_instance["source"] += "\n" + loose + "\n".join(formatted_instance["options"]) + "\n" + loose
+                # loose: "[source]\n\n[options]\n[source_postfix]"
+                # not loose: "[source]\n[options]\n[source_postfix]"
 
-            formatted_instance["target"] = " " + formatted_instance["options"][formatted_instance.pop("target_idx")]
+            target_idx = formatted_instance.pop("target_idx")
+            if self.model_evaluation_method == "get_ppl":
+                formatted_instance["target"] = formatted_instance["options"][target_idx]
+            elif self.model_evaluation_method == "get_prob":
+                formatted_instance["target"] = chr(65 + target_idx)
 
         if "source_postfix" in formatted_instance:
-            formatted_instance["source"] += formatted_instance.pop("source_postfix")
+            formatted_instance["source"] = pjoin(formatted_instance["source"], formatted_instance.pop("source_postfix"))
+
+        if not formatted_instance["target"].startswith(" "):
+            formatted_instance["target"] = " " + formatted_instance["target"]
 
         return formatted_instance
 
@@ -390,7 +410,7 @@ class Dataset(torch.utils.data.Dataset):
 
         if self.model.type not in ["base", "instruction"]:
             raise ValueError(
-                f"Invalid model type: {self.type}. Please use `--model_type` to specify the"
+                f"Invalid model type: {self.model.type}. Please use `--model_type` to specify the"
                 " model type, which can be chosen from `base` and `instruction`."
             )
 
@@ -673,7 +693,9 @@ class Dataset(torch.utils.data.Dataset):
         pass
 
     def __repr__(self):
-        return "Dataset(" + ", ".join(f"{p}={getattr(self, p)!r}" for p in self._repr) + ")"
+        reprs = [f"{p}={getattr(self, p)!r}" for p in self._repr]
+        reprs.append(f"len={len(self)}")
+        return "Dataset(" + ", ".join(reprs) + ")"
 
 
 class DatasetCollection(torch.utils.data.Dataset):
@@ -803,7 +825,10 @@ class DatasetCollection(torch.utils.data.Dataset):
         return results, score_lists
 
     def update_tqdm(self, tqdm):
-        tqdm.set_description(self.name + ":" + self.subset_names[self._cur_idx])
+        if isinstance(tqdm, tqdm_lib.tqdm):
+            tqdm.set_description(self.name + ":" + self.subset_names[self._cur_idx])
 
     def __repr__(self):
-        return "DatasetCollection(" + ", ".join(f"{p}={getattr(self, p)!r}" for p in self._repr) + ")"
+        reprs = [f"{p}={getattr(self, p)!r}" for p in self._repr]
+        reprs.append(f"len={len(self)}")
+        return "DatasetCollection(" + ", ".join(reprs) + ")"
