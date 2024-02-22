@@ -37,6 +37,4 @@ class Commonsenseqa(MultipleChoiceDataset):
 
     @property
     def references(self):
-        return [
-            ord(instance["answerKey"]) - ord("A") for instance in self.evaluation_data
-        ]
+        return [ord(instance["answerKey"]) - ord("A") for instance in self.evaluation_data]
