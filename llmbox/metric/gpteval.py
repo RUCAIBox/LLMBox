@@ -14,6 +14,7 @@ JUDGE_PROMPT_MATH = "[Instruction]\nPlease act as an impartial judge and evaluat
 score_pattern = re.compile("\[\[(\d+\.?\d*)\]\]")
 score_pattern_backup = re.compile("\[(\d+\.?\d*)\]")
 
+
 class GPTEval(Metric):
     r""" using strong LLMs as judges to evaluate models.
 
@@ -34,7 +35,9 @@ class GPTEval(Metric):
             if "ref_answer_1" not in refer:
                 user_prompt = JUDGE_PROMPT.format(question=refer["turns"][0], answer=pred)
             else:
-                user_prompt = JUDGE_PROMPT_MATH.format(question=refer["turns"][0], ref_answer_1=refer["ref_answer_1"], answer=pred)
+                user_prompt = JUDGE_PROMPT_MATH.format(
+                    question=refer["turns"][0], ref_answer_1=refer["ref_answer_1"], answer=pred
+                )
             responses.extend(model.generation([user_prompt]))
 
         ratings = []
@@ -53,4 +56,3 @@ class GPTEval(Metric):
         self._last_score_lists = {'GPT-Eval': score_list}
         filtered_arr = score_list[score_list != -1]
         return {'GPT-Eval': np.mean(filtered_arr) if len(filtered_arr) > 0 else -1}
-

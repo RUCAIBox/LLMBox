@@ -1,5 +1,6 @@
 from .multiple_choice_dataset import MultipleChoiceDataset
 
+
 class WinoGender(MultipleChoiceDataset):
     """The dataset of WinoGender.
 

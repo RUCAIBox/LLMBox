@@ -40,10 +40,7 @@ def get_raw_dataset_loader(
     subset_name: Optional[str],
     load_args: Optional[Union[Tuple[str], Tuple[str, str], Tuple[()]]],
     return_msg: bool = False,
-) -> Union[
-    Callable[[Optional[str]], datasets.Dataset],
-    Tuple[Callable[[str], datasets.Dataset], str],
-]:
+) -> Union[Callable[[Optional[str]], datasets.Dataset], Tuple[Callable[[str], datasets.Dataset], str],]:
     """Get the function to load the raw dataset from huggingface (if `load_args` is not None) or local path (if `dataset_path` is not None).
 
     ```python
