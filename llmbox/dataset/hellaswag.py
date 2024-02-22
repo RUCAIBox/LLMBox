@@ -25,7 +25,7 @@ class Hellaswag(MultipleChoiceDataset):
     evaluation_set = "validation"
     example_set = "train"
     load_args = ("hellaswag",)
-    
+
     @staticmethod
     def preprocess(text):
         text = text.strip()
@@ -35,7 +35,9 @@ class Hellaswag(MultipleChoiceDataset):
         return text
 
     def format_instance(self, instance):
-        source = self.preprocess(instance["activity_label"] + ": " + instance["ctx_a"] + " " + instance["ctx_b"].capitalize())
+        source = self.preprocess(
+            instance["activity_label"] + ": " + instance["ctx_a"] + " " + instance["ctx_b"].capitalize()
+        )
 
         label2text = {i: " " + self.preprocess(instance["endings"][i]) for i in [0, 1, 2, 3]}
         options = [label2text[option] for option in [0, 1, 2, 3]]

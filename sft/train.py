@@ -58,13 +58,15 @@ class Arguments(TrainingArguments):
     )
 
     rope_scaling_type: str = HfArg(
-        default = "none",
-        help="Whether to scaling the RoPE. `none` denotes no scaling of RoPE . `dynamic` and `linear` denoted to scaling RoPE with dynamic NTK and Position Interpolation."
+        default="none",
+        help=
+        "Whether to scaling the RoPE. `none` denotes no scaling of RoPE . `dynamic` and `linear` denoted to scaling RoPE with dynamic NTK and Position Interpolation."
     )
 
     rope_scaling_factor: int = HfArg(
-        default = 4,
-        help="Scaling factor of RoPE. The maximum context length will be expanded to the factor times the original maximum positional embedding length."
+        default=4,
+        help=
+        "Scaling factor of RoPE. The maximum context length will be expanded to the factor times the original maximum positional embedding length."
     )
 
     bf16: bool = HfArg(
@@ -108,19 +110,13 @@ def train():
 
     config = AutoConfig.from_pretrained(args.model_name_or_path)
     if args.rope_scaling_type != "none":
-        config.rope_scaling = {
-            "type" : args.rope_scaling_type,
-            "factor" : args.rope_scaling_factor
-        }
+        config.rope_scaling = {"type": args.rope_scaling_type, "factor": args.rope_scaling_factor}
     if args.use_flash_attention:
         config._attn_implementation = "flash_attention_2"
     else:
         config._attn_implementation = None
-    config.use_cache=False
-    model = AutoModelForCausalLM.from_pretrained(
-        args.model_name_or_path,
-        config=config
-    )
+    config.use_cache = False
+    model = AutoModelForCausalLM.from_pretrained(args.model_name_or_path, config=config)
 
     if args.lora:
         peft_config = LoraConfig(
