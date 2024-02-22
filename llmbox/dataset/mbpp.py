@@ -1,6 +1,6 @@
 import re
 
-from ..metric import pass_at_k
+from ..metric import PassAtK
 from .generation_dataset import GenerationDataset
 
 class Mbpp(GenerationDataset):
@@ -21,8 +21,11 @@ class Mbpp(GenerationDataset):
     example_set = "train"
     evaluation_set = "test"
     load_args = ("mbpp","full")
-    metrics = [pass_at_k()]
     extra_model_args = dict(temperature=0)
+
+    def __init__(self, args, model, subset_name=None):
+        super().__init__(args, model, subset_name=subset_name)
+        self.metrics = [PassAtK(k=args.pass_at_k)]
 
     def format_instance(self, instance):
         prompt = instance["text"]
@@ -36,8 +39,8 @@ class Mbpp(GenerationDataset):
         )
 
     def post_processing(self, predictions):
-        answer_pattern = re.compile(r"\[BEGIN\](.*)\[DONE\]", re.DOTALL)
-        return [re.search(answer_pattern, p).group(1).strip() for p in predictions]
+        answer_pattern = re.compile(r"\[BEGIN\](.*?)\[DONE\]", re.DOTALL)
+        return [re.search(answer_pattern, p).group(1).strip() if re.search(answer_pattern, p) else p for p in predictions]
 
     @property
     def references(self):

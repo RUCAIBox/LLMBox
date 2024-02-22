@@ -232,6 +232,10 @@ class DatasetArguments:
         help="The method to prompt, eg. 'base', 'least_to_most', 'pal'. Only available for some specific datasets.",
         metadata={"choices": ["base", "least_to_most", "pal"]},
     )
+    pass_at_k: int = HfArg(
+        default=None,
+        help="The k value for pass@k metric",
+    )
 
     # set in `set_logging` with format "{evaluation_results_dir}/{log_filename}.json"
     evaluation_results_path: ClassVar[str] = None

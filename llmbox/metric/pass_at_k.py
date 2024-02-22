@@ -1,10 +1,27 @@
 import itertools
 from typing import List, Union
 import numpy as np
+import threading
 
 from .metric import Metric
-from ..dataset.gsm8k import Timeout
 
+IMPORT_HELPER = [
+        "import math",
+        "import re",
+        "import sys",
+        "import copy",
+        "import datetime",
+        "import itertools",
+        "import collections",
+        "import heapq",
+        "import functools",
+        "import hashlib",
+        "import numpy",
+        "import numpy as np",
+        "import string",
+        "from typing import *",
+        "from collections import *",
+    ]
 class PassAtK(Metric):
     r""" Calculate the Pass@K score.
 
@@ -13,23 +30,38 @@ class PassAtK(Metric):
 
     """
 
+    def __init__(self, k: int):
+        self.k = k
+
     def __call__(self, predictions, references):
         result = []
-        for pred, refer in zip(predictions, references):
-            code = pred + "\n" + "\n".join(references["test_list"])
-            with Timeout():
-                try:
-                    exec(code)
-                    result.append('passed')
-                except TimeoutError:
-                    result.append("timed out")
-                except AssertionError:
-                    result.append(f"failed: AssertionError")
-                except BaseException as e:
-                    result.append(f"failed: {e}")
+        for samples, refer in zip(predictions, references):
+            sample_result = []
+            for pred in samples:
+                code = "\n".join(IMPORT_HELPER) + '\n' + pred + "\n" + "\n".join(refer["test_list"])
+                with Timeout():
+                    try:
+                        exec(code)
+                        sample_result.append('passed')
+                    except TimeoutError:
+                        sample_result.append("timed out")
+                    except AssertionError:
+                        sample_result.append(f"failed: AssertionError")
+                    except BaseException as e:
+                        sample_result.append(f"failed: {e}")
+            result.append(sample_result)
+
+        total, correct = [], []
+        for sample_result in result:
+            total.append(len(sample_result))
+            correct.append(sample_result.count('passed'))
+        pass_at_k = self.estimate_pass_at_k(total, correct, self.k)
+        self._last_score_lists = {f"pass@{self.k}": pass_at_k}
+        return {f"pass@{self.k}": np.mean(pass_at_k)}
 
 
     def estimate_pass_at_k(
+            self,
             num_samples: Union[int, List[int], np.ndarray],
             num_correct: Union[List[int], np.ndarray],
             k: int
@@ -53,3 +85,19 @@ class PassAtK(Metric):
             num_samples_it = iter(num_samples)
 
         return np.array([estimator(int(n), int(c), k) for n, c in zip(num_samples_it, num_correct)])
+
+class Timeout:
+
+    def __init__(self, seconds=10, error_message='Timeout'):
+        self.seconds = seconds
+        self.error_message = error_message
+        self.timer = threading.Timer(self.seconds, self.timeout_handler)
+
+    def timeout_handler(self):
+        raise TimeoutError(self.error_message)
+
+    def __enter__(self):
+        self.timer.start()
+
+    def __exit__(self, type, value, traceback):
+        self.timer.cancel()
