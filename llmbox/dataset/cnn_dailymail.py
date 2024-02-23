@@ -21,7 +21,7 @@ class CNN_DailyMail(GenerationDataset):
     load_args = ("cnn_dailymail", "3.0.0")
     extra_model_args = dict(temperature=0)
 
-    def format_instance(self, instance):
+    def _format_instance(self, instance):
         source = instance["article"] + "\n\nTL;DR: "
         target = instance["highlights"]
         return dict(source=source, target=target)

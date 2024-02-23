@@ -125,7 +125,7 @@ class Dataset(torch.utils.data.Dataset):
         self.ape = args.ape
         if self.args.num_shots:
             if self.ape or self.kate or self.globale:
-                self.formatted_example_data = [self._format_instance(data) for data in self.example_data]
+                self.formatted_example_data = [self.format_instance(data) for data in self.example_data]
             if len(self.example_data) < self.args.num_shots:
                 logger.warning(
                     f"The example data only has {len(self.example_data)} instances, but the few-shot number is set to {self.args.num_shots}. Setting the few-shot number to {len(self.example_data)}."
@@ -135,7 +135,7 @@ class Dataset(torch.utils.data.Dataset):
                 self.random_indice = list(range(len(self.example_data)))
             else:
                 self.random_indice = np.random.choice(len(self.example_data), self.args.num_shots, replace=False)
-        self.formatted_evaluation_data = [self._format_instance(data) for data in self.evaluation_data]
+        self.formatted_evaluation_data = [self.format_instance(data) for data in self.evaluation_data]
         self.construct_instances()
 
     def _post_init_arguments(self):
@@ -313,11 +313,24 @@ class Dataset(torch.utils.data.Dataset):
         self.evaluation_instances = self.evaluation_instances * self.args.sample_num
         self.option_nums = self.option_nums * self.args.sample_num
 
-    def _format_instance(self, instance):
-        formatted_instance = self.format_instance(instance)
+    def format_instance(self, instance):
+        # it is not recommended to modify instance, in case of multiple calls
+        formatted_instance = self._format_instance(instance)
+
+        if self.evaluation_type == "ranking" and "target_idx" in formatted_instance:
+            if self.args.ranking_with_options:
+                for i, option in enumerate(formatted_instance["options"]):
+                    formatted_instance["options"][i] = chr(65 + i) + "." + option
+                formatted_instance["source"] += "\n\n" + "\n".join(formatted_instance["options"]) + "\n"
+
+            formatted_instance["target"] = formatted_instance["options"][formatted_instance.pop("target_idx")]
+
+        if "source_postfix" in formatted_instance:
+            formatted_instance["source"] += formatted_instance.pop("source_postfix")
+
         return formatted_instance
 
-    def format_instance(self, instance):
+    def _format_instance(self, instance: dict) -> dict:
         r"""Format the dataset instance into task source text, target text, and options (for ranking).
 
         Notes:
@@ -327,12 +340,15 @@ class Dataset(torch.utils.data.Dataset):
             instance (Dict): an instance dict of multiple key-value pairs.
 
         Returns:
-            Dict: A dictionary containing the formatted instance.
-                source (str): The source text.
-                target (str): The target text.
-                options (List[str], optional): The options for ranking.
+            `Dict`: A dictionary containing the formatted instance.
+                `source` (`Unino[str, List[str]]`): The source text. If this is a list, `source_idx` is required.
+                `source_idx` (`int`, optional): The index of the correct source (for multiple contexts ranking dataset like winogrande).
+                `source_postfix` (`str`, optional): The postfix of the source text. This will be appended to the source text after options when `ranking_with_options` is True.
+                `target` (`str`, optional): The target text. Either `target` or `target_idx` should be provided.
+                `target_idx` (`int`, optional): The index of the target in the options (for ranking). This will generate the `target` text in `format_instance`.
+                `options` (`List[str]`, optional): The options for ranking.
         """
-        raise NotImplementedError(f"{self.name} dataset must implement the `format_instance` function.")
+        raise NotImplementedError(f"{self.name} dataset must implement the `_format_instance` function.")
 
     def format_instruction_and_examples(self, instance) -> str:
         r"""Format one instance with the instruction and demonstration.

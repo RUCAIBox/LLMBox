@@ -34,7 +34,7 @@ class Hellaswag(MultipleChoiceDataset):
         text = text.replace("  ", " ")
         return text
 
-    def format_instance(self, instance):
+    def _format_instance(self, instance):
         source = self.preprocess(
             instance["activity_label"] + ": " + instance["ctx_a"] + " " + instance["ctx_b"].capitalize()
         )
@@ -43,7 +43,7 @@ class Hellaswag(MultipleChoiceDataset):
         options = [label2text[option] for option in [0, 1, 2, 3]]
         return dict(
             source=source,
-            target=label2text[int(instance["label"])],
+            target_idx=int(instance["label"]),
             options=options,
         )
 

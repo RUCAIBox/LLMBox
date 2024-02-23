@@ -17,7 +17,7 @@ class Anli(MultipleChoiceDataset):
     example_set = "train_r2"
     load_args = ("anli",)
 
-    def format_instance(self, instance):
+    def _format_instance(self, instance):
         source = (
             instance["premise"] + "\nQuestion: " + instance["hypothesis"] + " True, False, or Neither?\n" + "Answer:"
         )
@@ -27,7 +27,7 @@ class Anli(MultipleChoiceDataset):
         options = [label2text[option] for option in [0, 1, 2]]
         return dict(
             source=source,
-            target=label2text[instance["label"]],
+            target_idx=instance["label"],
             options=options,
         )
 

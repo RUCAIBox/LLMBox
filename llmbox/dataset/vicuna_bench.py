@@ -31,7 +31,7 @@ class Vicuna_bench(GenerationDataset):
         self.example_data = []
         self.evaluation_data = VICUNA_BENCH
 
-    def format_instance(self, instance):
+    def _format_instance(self, instance):
         return dict(
             source=instance["turns"][0],
             target="",

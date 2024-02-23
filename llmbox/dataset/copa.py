@@ -19,7 +19,7 @@ class Copa(MultipleChoiceDataset):
     example_set = "train"
     load_args = ("super_glue", "copa")
 
-    def format_instance(self, instance):
+    def _format_instance(self, instance):
         source = instance["premise"][:-1]
         if instance["question"] == "cause":
             source += " because"
@@ -34,7 +34,7 @@ class Copa(MultipleChoiceDataset):
         options = [label2text[option] for option in [0, 1]]
         return dict(
             source=source,
-            target=label2text[instance["label"]],
+            target_idx=instance["label"],
             options=options,
         )
 

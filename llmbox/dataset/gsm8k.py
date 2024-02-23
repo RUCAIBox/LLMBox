@@ -66,7 +66,7 @@ class Gsm8k(GenerationDataset):
                     new_predictions.append(pred)
         return new_predictions
 
-    def format_instance(self, instance):
+    def _format_instance(self, instance):
         instance["question"] = instance["question"].replace("\n", " ")
         question = f'Question: {instance["question"]}\nAnswer:'
 

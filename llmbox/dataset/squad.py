@@ -25,7 +25,7 @@ class Squad(GenerationDataset):
     metrics = [F1(), Em()]
     extra_model_args = dict(max_tokens=64, temperature=0, stop=["\n"])
 
-    def format_instance(self, instance):
+    def _format_instance(self, instance):
         source_text = (
             "Title: " + instance["title"] + "\n\nBackground: " + instance["context"] + "\n\nQ: " +
             instance["question"] + "\n\nA:"

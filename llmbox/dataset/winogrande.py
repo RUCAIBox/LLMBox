@@ -1,5 +1,6 @@
-import numpy as np
 from logging import getLogger
+
+import numpy as np
 
 from .multiple_choice_dataset import MultipleChoiceDataset
 

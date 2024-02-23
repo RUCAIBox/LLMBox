@@ -100,7 +100,7 @@ class Math(GenerationDataset):
                 new_predictions.append(numbers[-1] if numbers else pred)
         return new_predictions
 
-    def format_instance(self, instance):
+    def _format_instance(self, instance):
         if "short_answer" not in instance:
             instance["short_answer"] = self.extract_inner_content(instance["solution"])
         problem = "Q: " + instance["problem"] + "\n" + "A:"

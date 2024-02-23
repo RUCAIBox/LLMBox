@@ -27,7 +27,7 @@ class Drop(GenerationDataset):
     metrics = [F1(force_number_match=True), Em()]
     extra_model_args = dict(max_tokens=64, temperature=0, stop=["\n"])
 
-    def format_instance(self, instance):
+    def _format_instance(self, instance):
         source_text = "Passage: " + instance["passage"] + "\nQuestion: " + instance["question"] + "\nAnswer:"
         target_text = " " + instance["answers_spans"]["spans"][0]
         return dict(source=source_text, target=target_text)

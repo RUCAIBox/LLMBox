@@ -24,7 +24,7 @@ class WebQ(GenerationDataset):
     metrics = [F1(), Em()]
     extra_model_args = dict(max_tokens=64, temperature=0, stop=["\n"])
 
-    def format_instance(self, instance):
+    def _format_instance(self, instance):
         source_text = "Q: " + instance["question"] + "\n\nA:"
         target_text = " " + instance["answers"][0]
         return dict(source=source_text, target=target_text)
