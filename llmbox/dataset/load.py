@@ -1,9 +1,10 @@
 import importlib
 import inspect
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from logging import getLogger
 from typing import TYPE_CHECKING, Union
 
-from datasets import get_dataset_config_names
+from datasets import DownloadConfig, get_dataset_config_names
 
 from ..metric import GPTEval
 from .dataset import Dataset, DatasetCollection
@@ -15,6 +16,8 @@ if TYPE_CHECKING:
     from ..utils import DatasetArguments
 
 logger = getLogger(__name__)
+
+_dataset_class = {}
 
 
 def import_dataset_class(dataset_name: str) -> Dataset:
@@ -28,6 +31,9 @@ def import_dataset_class(dataset_name: str) -> Dataset:
 
         return Squad
 
+    if dataset_name in _dataset_class:
+        return _dataset_class[dataset_name]
+
     module_path = __package__ + "." + dataset_name
     module = importlib.import_module(module_path)
     clsmembers = inspect.getmembers(module, inspect.isclass)
@@ -35,6 +41,7 @@ def import_dataset_class(dataset_name: str) -> Dataset:
     for name, obj in clsmembers:
         if issubclass(obj, Dataset) and name.lower() == dataset_name.lower():
             logger.debug(f"Dataset class `{name}` imported from `{module_path}`.")
+            _dataset_class[dataset_name] = obj
             return obj
 
     raise ValueError(
@@ -43,7 +50,7 @@ def import_dataset_class(dataset_name: str) -> Dataset:
     )
 
 
-def load_dataset(args: "DatasetArguments", model: "Model") -> Union[Dataset, DatasetCollection]:
+def load_dataset(args: "DatasetArguments", model: "Model", threading: bool = True) -> Union[Dataset, DatasetCollection]:
     r"""Load corresponding dataset class.
 
     Args:
@@ -56,8 +63,9 @@ def load_dataset(args: "DatasetArguments", model: "Model") -> Union[Dataset, Dat
     dataset_cls = import_dataset_class(args.dataset_name)
 
     name = dataset_cls.load_args[0] if len(dataset_cls.load_args) > 0 else args.dataset_name
+    download_config = DownloadConfig(use_etag=False)
     try:
-        available_subsets = set(get_dataset_config_names(name))
+        available_subsets = set(get_dataset_config_names(name, download_config=download_config))
     except Exception as e:
         logger.info(f"Failed when trying to get_dataset_config_names: {e}")
         available_subsets = set()
@@ -97,8 +105,15 @@ def load_dataset(args: "DatasetArguments", model: "Model") -> Union[Dataset, Dat
     if len(subset_names) > 1 and accepts_subset(dataset_cls.load_args, overwrite_subset=len(args.subset_names) > 0):
         # race:middle,high (several subsets) , super_glue (all the subsets)
         logger.info(f"Loading subsets of dataset `{args.dataset_name}`: " + ", ".join(subset_names))
-        datasets = {s: dataset_cls(args, model, s) for s in sorted(subset_names)}
-        return DatasetCollection(datasets)
+        if threading and len(subset_names) >= 8:
+            with ThreadPoolExecutor(max_workers=len(subset_names)) as executor:
+                res = [executor.submit(lambda s: (s, dataset_cls(args, model, s)), s) for s in subset_names]
+            datasets = dict(sorted((f.result() for f in as_completed(res)), key=lambda x: x[0]))
+        else:
+            datasets = {s: dataset_cls(args, model, s) for s in sorted(subset_names)}
+        dataset_collection = DatasetCollection(datasets)
+        logger.debug(dataset_collection)
+        return dataset_collection
     elif len(subset_names) == 1 and len(available_subsets) != 1 and accepts_subset(
         dataset_cls.load_args, overwrite_subset=len(args.subset_names) > 0, subset=next(iter(subset_names))
     ):

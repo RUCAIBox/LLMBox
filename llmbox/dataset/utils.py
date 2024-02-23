@@ -11,6 +11,16 @@ import datasets
 logger = getLogger(__name__)
 
 
+def pjoin(pleft: str, pright: str) -> str:
+    """Join two prompts. Add/remove a white space between them if necessary."""
+    if not pleft.endswith((" ", "\n")) and not pright.startswith((" ", "\n")):
+        return f"{pleft} {pright}"
+    elif pleft.endswith((" ")) and pright.startswith((" ")):
+        return pleft + pright[1:]
+    else:
+        return pleft + pright
+
+
 def accepts_subset(
     load_args: Union[Tuple[str], Tuple[str, str], Tuple[()]],
     overwrite_subset: bool = True,
@@ -36,6 +46,7 @@ def get_raw_dataset_loader(
     subset_name: Optional[str],
     load_args: Optional[Union[Tuple[str], Tuple[str, str], Tuple[()]]],
     return_msg: bool = False,
+    use_etag: bool = False,
 ) -> Union[
     Callable[[Optional[str]], datasets.Dataset],
     Tuple[Callable[[str], datasets.Dataset], str],
@@ -64,6 +75,8 @@ def get_raw_dataset_loader(
     msg = f"Loading raw dataset `{dataset_msg}`"
     load_fn = None
 
+    download_config = datasets.DownloadConfig(use_etag=use_etag)
+
     # if `dataset_path` is not None, load from local path
     if dataset_path is not None:
         dataset_path = abspath(dataset_path)
@@ -77,7 +90,13 @@ def get_raw_dataset_loader(
             if dataset_name in infos:
 
                 def load_fn(split):
-                    return datasets.load_dataset(dataset_path, dataset_name, split=split, trust_remote_code=True)
+                    return datasets.load_dataset(
+                        dataset_path,
+                        dataset_name,
+                        split=split,
+                        trust_remote_code=True,
+                        download_config=download_config
+                    )
 
             elif subset_name in infos:
 
@@ -87,6 +106,7 @@ def get_raw_dataset_loader(
                         subset_name,
                         split=split,
                         trust_remote_code=True,
+                        download_config=download_config,
                     )
 
             else:
@@ -115,6 +135,7 @@ def get_raw_dataset_loader(
                     split=split,
                     data_dir=dataset_path,
                     trust_remote_code=True,
+                    download_config=download_config,
                 )
 
         # load from a file
@@ -160,7 +181,9 @@ def get_raw_dataset_loader(
         msg += f" from huggingface ({', '.join(load_args)})"
 
         def load_fn(split):
-            return datasets.load_dataset(*load_args, split=split, trust_remote_code=True)
+            return datasets.load_dataset(
+                *load_args, split=split, trust_remote_code=True, download_config=download_config
+            )
 
     if load_fn is None:
         raise ValueError(

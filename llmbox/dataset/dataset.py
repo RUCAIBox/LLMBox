@@ -175,6 +175,8 @@ class Dataset(torch.utils.data.Dataset):
 
     @property
     def model_evaluation_method(self) -> Literal['get_ppl', 'get_prob', 'generation', 'user_defined']:
+        if not hasattr(self, "args"):
+            raise ValueError("The `args` attribute is not found. Please call `__init__` first.")
         if self.evaluation_type == "ranking":
             if self.args.ranking_type == "ppl_of_whole_option":
                 return "get_ppl"
