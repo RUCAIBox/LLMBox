@@ -1,7 +1,6 @@
 import re
-import numpy as np
 
-from ..metric import Accuracy
+from ..metric import Uniformed_Accuracy
 from .generation_dataset import GenerationDataset
 
 
@@ -19,45 +18,10 @@ class Lambada(GenerationDataset):
     evaluation_set = "test"
     example_set = "validation"
     metrics = [
-        Accuracy(),
+        Uniformed_Accuracy(),
     ]
     load_args = ("lambada",)
-    extra_model_args = dict(max_tokens=3, n=1, temperature=0, best_of=4, length_penalty=0.6)
-
-    def _format_source(self, source: str) -> str:
-        """
-        convert the source to the right format according to the paper
-        """
-        # using capital I, remove space before n't
-        source = source.replace(" i ",
-                                " I ").replace(" n't", "n't").replace(" 's", "'s").replace(" 're", "'re").replace(
-                                    " 'm", "'m"
-                                ).replace(" 've", "'ve").replace(" 'll", "'ll").replace(" 'd", "'d")
-        # check if "''" appear before "``", if so, add "``" in the front
-        if "''" in source:
-            # make the start of the passage have the right format
-            if "``" not in source:
-                source = f"`` {source}"
-            elif source.index("''") < source.index("``"):
-                source = f"`` {source}"
-        # remove extra space before "''" and extra space after "``"
-        source = source.replace(" ''", "''").replace("`` ", "``")
-        # detect if "``" appear right after "''", if so, insert a newline in between
-        source = source.replace("'' ``", "''\n``")
-        source = source.replace("``", "\"").replace("''", "\"")
-        # remove extra space before punctuation
-        source = source.replace(" .", ".").replace(" ,", ",").replace(" ?", "?").replace(" !", "!")
-
-        # the first letter of each sentence should be capitalized
-        # find the first of the whole passage and capitalize it
-        source = source[0].upper() + source[1:] if source[0].isalpha() else source[0] + source[1].upper() + source[2:]
-        # using regular expression to find the end position of each sentence
-        end_positions = [m.end() for m in re.finditer(r'(," |(\.+|\?|!)"*( |\n))(?=("|[a-zA-Z]))', source)]
-        for end_position in end_positions:
-            # capitalize the first letter of the next sentence
-            source = source[:end_position] + source[end_position].upper() + source[end_position + 1:]
-
-        return source
+    extra_model_args = dict(max_tokens=5, n=1, temperature=0, best_of=4, length_penalty=0.6)
 
     def format_instance(self, instance):
         """
@@ -70,19 +34,8 @@ class Lambada(GenerationDataset):
         # get the rest of the passage
         source = " ".join(instance["text"].split()[:-1])
 
-        source = self._format_source(source)
-
-        return dict(source=source, target=target)
-
-    @staticmethod
-    def post_processing(predictions: list[str]):
-        predictions = [pred.split() for pred in predictions]
-        predictions = [pred[0] if pred else "" for pred in predictions]
-        return [
-            pred.replace(".", "").replace(",", "").replace('"', "").replace("?", "").replace("!", "").lower()
-            for pred in predictions
-        ]
+        return dict(source=source, target=f" {target}")
 
     @property
     def references(self):
-        return [instance["text"].split()[-1] for instance in self.evaluation_data]
+        return [" " + instance["text"].split()[-1] for instance in self.evaluation_data]
