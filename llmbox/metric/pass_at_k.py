@@ -26,7 +26,7 @@ class PassAtK(Metric):
     r""" Calculate the Pass@K score.
 
     Return:
-        # TODO:RETURN
+        "Pass@K": float
 
     """
 
