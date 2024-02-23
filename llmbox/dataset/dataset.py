@@ -1,19 +1,28 @@
 import json
+import typing
 from collections import OrderedDict
 from copy import copy
 from logging import getLogger
 from pprint import pformat
-from typing import Any, Dict, Iterator, List, Literal, Optional, Tuple, Union
+from typing import Dict, Iterator, List, Literal, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
 import torch
 
-from ..metric.metric import Metric
-from ..model.model import Model
-from ..utils import DatasetArguments
-from .icl_strategies import ape, global_entropy_ordering_strategy, knn_construct_examples
-from .utils import MMLU_SUBJECTS, get_raw_dataset_loader
+from .enum import MMLU_SUBJECTS
+from .icl_strategies import (
+    ape,
+    global_entropy_ordering_strategy,
+    knn_construct_examples,
+)
+from .utils import get_raw_dataset_loader
+
+if typing.TYPE_CHECKING:
+    # solve the circular import
+    from ..metric.metric import Metric
+    from ..model.model import Model
+    from ..utils import DatasetArguments
 
 logger = getLogger(__name__)
 
@@ -46,7 +55,7 @@ class Dataset(torch.utils.data.Dataset):
     instruction: str
     r"""Dataset-specific instruction for the task."""
 
-    metrics: List[Metric]
+    metrics: List["Metric"]
     r"""The metric functions used for evaluation."""
 
     evaluation_type: Literal["ranking", "generation", "user-defined"]
@@ -67,7 +76,7 @@ class Dataset(torch.utils.data.Dataset):
         - `()`: Sepcial case like `wmt` dataset.
     """
 
-    extra_model_args: Dict[str, Any] = dict()
+    extra_model_args: Dict[str, typing.Any] = dict()
     """Arguments for the model generation or get_ppl. See `set_generation_args` or `set_ppl_args` for details."""
 
     _repr = [
@@ -82,7 +91,7 @@ class Dataset(torch.utils.data.Dataset):
         "extra_model_args",
     ]
 
-    def __init__(self, args: DatasetArguments, model: Model, subset_name: Optional[str] = None):
+    def __init__(self, args: "DatasetArguments", model: "Model", subset_name: Optional[str] = None):
         r"""This should be called by the subclass.
 
         Args:
@@ -701,7 +710,10 @@ class DatasetCollection(torch.utils.data.Dataset):
                 cat_results = [results[f"mmlu:{subject}"] for subject in cat_subjects]
                 results[f"mmlu[{cat}]"] = {m: np.mean([r[m] for r in cat_results]) for m in metric_entries}
 
-        results[self.name+"[Arithmetic Mean]"] = {m: np.mean([r[m] for k, r in results.items() if ":" in k]) for m in metric_entries}
+        results[self.name + "[Arithmetic Mean]"] = {
+            m: np.mean([r[m] for k, r in results.items() if ":" in k])
+            for m in metric_entries
+        }
 
         return results, score_lists
 

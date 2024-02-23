@@ -320,6 +320,11 @@ def check_args(model_args: ModelArguments, dataset_args: DatasetArguments, evalu
             f"Claude model {model_args.model_name_or_path} doesn't support batch_size > 1, automatically set batch_size to 1."
         )
 
+    if dataset_args.dataset_name == "vicuna_bench" and model_args.openai_api_key is None:
+        raise ValueError(
+            "OpenAI API key is required for GPTEval metrics. Please set it by passing a `--openai_api_key` or through environment variable `OPENAI_API_KEY`."
+        )
+
     args_ignored = set()
     for model_impl, args in model_args._model_specific_arguments.items():
         if model_impl != model_args._model_impl:

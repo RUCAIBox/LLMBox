@@ -1,16 +1,19 @@
 from logging import getLogger
+from typing import TYPE_CHECKING
 
-from ..utils import ModelArguments
-from .model import Model
+if TYPE_CHECKING:
+    # solve the circular import
+    from ..utils import ModelArguments
+    from .model import Model
 
 logger = getLogger(__name__)
 
 
-def load_model(args: ModelArguments) -> Model:
+def load_model(args: "ModelArguments") -> "Model":
     r"""Load corresponding model class.
 
     Args:
-        args (Namespace): The global configurations.
+        args (ModelArguments): The global configurations.
 
     Returns:
         Model: Our class for model.

@@ -2,10 +2,13 @@ import datetime
 import logging
 import os
 import pathlib
-from copy import copy
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 import coloredlogs
+
+if TYPE_CHECKING:
+    # solve the circular import
+    from .arguments import DatasetArguments, EvaluationArguments, ModelArguments
 
 DEFAULT_LOG_FORMAT = "%(asctime)s %(levelname)s %(message)s"
 DEBUG_LOG_FORMAT = "%(asctime)s %(levelname)s %(filename)s:%(lineno)d %(message)s"
@@ -64,9 +67,9 @@ def getFileLogger(name=None):
 
 
 def set_logging(
-    model_args,
-    dataset_args,
-    evaluation_args,
+    model_args: "ModelArguments",
+    dataset_args: "DatasetArguments",
+    evaluation_args: "EvaluationArguments",
     file_log_level: Optional[str] = None,
 ) -> None:
     """Set the logging level for standard output and file."""
