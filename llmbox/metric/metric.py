@@ -7,7 +7,7 @@ logger = getLogger(__name__)
 class Metric:
     r"""The base class for metric calculation."""
 
-    _last_score_lists = None
+    _last_score_lists = {}
 
     def __call__(self, predictions, references) -> Dict[str, float]:
         r""" Compute specific metric scores between predictions and references.

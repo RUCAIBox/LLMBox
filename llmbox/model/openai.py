@@ -21,11 +21,8 @@ class Openai(Model):
 
     def __init__(self, args: ModelArguments):
         super().__init__(args)
-        if not args.openai_api_key:
-            raise ValueError(
-                "OpenAI API key is required. Please set it by passing a `--openai_api_key` or through environment variable `OPENAI_API_KEY`."
-            )
-        logger.info(f"Trying to load OpenAI model with api_key='{args.openai_api_key}' and base='{openai.api_base}'")
+
+        logger.info(f"Trying to load OpenAI model with api_key='{openai.api_key}' and base='{openai.api_base}'")
         self.api_key = openai.api_key  # the actual api key is used in icl
 
         self.args = args
@@ -42,7 +39,15 @@ class Openai(Model):
     def set_generation_args(self, **extra_model_args):
         r"""Set the configurations for open-ended generation. This is useful because different datasets may have different requirements for generation."""
         generation_kwargs = {}
-        for key in ["temperature", "top_p", "max_tokens", "best_of", "frequency_penalty", "presence_penalty", "stop"]:
+        for key in [
+            "temperature",
+            "top_p",
+            "max_tokens",
+            "best_of",
+            "frequency_penalty",
+            "presence_penalty",
+            "stop",
+        ]:
             # ModelArguments > extra_model_args
             value = getattr(self.args, key, None)
             if value is None:

@@ -153,6 +153,10 @@ class ModelArguments:
         else:
             self._model_impl = "huggingface"
 
+        if "OPENAI_API_KEY" not in os.environ and self.openai_api_key is None and openai.api_key is None:
+            raise ValueError(
+                "OpenAI API key is required. Please set it by passing a `--openai_api_key` or through environment variable `OPENAI_API_KEY`."
+            )
         if "OPENAI_API_KEY" in os.environ and self.openai_api_key is None:
             self.openai_api_key = os.environ["OPENAI_API_KEY"]
         if self.openai_api_key is not None:
