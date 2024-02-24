@@ -1,10 +1,12 @@
 from logging import getLogger
-from typing import Union
+from typing import TYPE_CHECKING, Union
 
 from tiktoken import Encoding
 from transformers import PreTrainedTokenizer, PreTrainedTokenizerFast
 
-from ..utils import ModelArguments
+if TYPE_CHECKING:
+    # solve the circular import
+    from ..utils import ModelArguments
 
 logger = getLogger(__name__)
 
@@ -26,7 +28,7 @@ class Model:
     name = ""
     type = ""
 
-    def __init__(self, args: ModelArguments):
+    def __init__(self, args: "ModelArguments"):
         self.args = args
         self.tokenizer: Union[PreTrainedTokenizer, PreTrainedTokenizerFast, Encoding] = None
 
