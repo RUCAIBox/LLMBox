@@ -2,7 +2,6 @@ import logging
 import warnings
 from dataclasses import dataclass
 from typing import Optional
-import time
 from accelerate.utils import set_seed
 from sft_dataset import AutoDataset
 from datasets import load_dataset
@@ -19,7 +18,8 @@ from transformers.hf_argparser import HfArg
 from typing import Dict, Optional, Sequence
 import torch
 import transformers
-from trl import SFTTrainer
+
+
 IGNORE_INDEX = -100
 
 @dataclass
@@ -176,13 +176,11 @@ def train():
         model=model,
         args=args,
         tokenizer=tokenizer,
-        # max_seq_length=args.model_max_length,
-        # peft_config=peft_config,
     )
     if args.mode == "sft":
         kwargs.update(
             dict(
-                train_dataset=AutoDataset(args,tokenizer),
+                train_dataset=AutoDataset(args, tokenizer),
                 data_collator=DataCollatorForSupervisedDataset(tokenizer, packing=args.packing),
             )
         )
