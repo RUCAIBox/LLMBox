@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Optional
 from accelerate.utils import set_seed
 from sft_dataset import AutoDataset
+from pt_dataset.pt_dataset import PTDataset
 from datasets import load_dataset
 from peft import LoraConfig, TaskType
 from transformers import (
@@ -40,7 +41,7 @@ class Arguments(TrainingArguments):
     )
 
     model_max_length: int = HfArg(
-        default=2048,
+        default=512, # 2048
         help="The maximum sequence length",
     )
 
@@ -51,7 +52,7 @@ class Arguments(TrainingArguments):
     )
 
     use_flash_attention: bool = HfArg(
-        default=True,
+        default=False,
         help="When checkpointing, whether to only save the model, or also the optimizer, scheduler & rng state.",
     )
 
@@ -178,6 +179,7 @@ def train():
         tokenizer=tokenizer,
     )
     if args.mode == "sft":
+        temp_dataset = AutoDataset(args, tokenizer)
         kwargs.update(
             dict(
                 train_dataset=AutoDataset(args, tokenizer),
@@ -186,9 +188,16 @@ def train():
         )
 
     elif args.mode == "pt":
-        dataset = load_dataset("text", data_files=args.data_path)["train"]
+        train_dataset = PTDataset(args, tokenizer)
+
         model.resize_token_embeddings(len(tokenizer))
-        kwargs.update(dict(train_dataset=dataset, packing=True, dataset_text_field="text"))
+
+        kwargs.update(
+            dict(
+                train_dataset=train_dataset,
+                data_collator=DataCollatorForSupervisedDataset(tokenizer, packing=args.packing),
+            )
+        )
 
     trainer = Trainer(**kwargs)
     trainer.train()
