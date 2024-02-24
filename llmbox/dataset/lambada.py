@@ -1,6 +1,4 @@
-import re
-
-from ..metric import Uniformed_Accuracy
+from ..metric import Word_Accuracy
 from .generation_dataset import GenerationDataset
 
 
@@ -17,25 +15,25 @@ class Lambada(GenerationDataset):
 
     evaluation_set = "test"
     example_set = "validation"
-    metrics = [
-        Uniformed_Accuracy(),
-    ]
-    load_args = ("lambada",)
-    extra_model_args = dict(max_tokens=5, n=1, temperature=0, best_of=4, length_penalty=0.6)
+    load_args = ("EleutherAI/lambada_openai", "default")
+    extra_model_args = dict(max_tokens=5, temperature=0)
+    
+    def __init__(self, args, model, subset_name = None):
+        super().__init__(args, model, subset_name = subset_name)
+        self.metrics = [Word_Accuracy(self.tokenizer)]
 
     def format_instance(self, instance):
         """
 
         According to the README of the dataset, for dev and test set, the last word of the passage is the target, and the rest of the passage is the source.
         """
-
+        instance["text"] = instance["text"].split()
         # get the last word of the passage
-        target = instance["text"].split()[-1]
+        target = " " + instance["text"][-1]
         # get the rest of the passage
-        source = " ".join(instance["text"].split()[:-1])
-
-        return dict(source=source, target=f" {target}")
+        source = " ".join(instance["text"][:-1])
+        return dict(source=source, target=target)
 
     @property
     def references(self):
-        return [" " + instance["text"].split()[-1] for instance in self.evaluation_data]
+        return [" " + instance["text"][-1] for instance in self.evaluation_data]
