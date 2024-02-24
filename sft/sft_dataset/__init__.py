@@ -33,7 +33,7 @@ class AutoDataset:
             if datasetname in datapath:
                 import warnings
                 warnings.warn(f"Dataset: {datasetname} is selected", stacklevel=2)
-                return datasetclass(args,tokenizer)
+                return datasetclass(args, tokenizer)
 
         # failed to find the dataset
         raise ValueError(
