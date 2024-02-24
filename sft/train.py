@@ -2,9 +2,8 @@ import logging
 import warnings
 from dataclasses import dataclass
 from typing import Optional
-
 from accelerate.utils import set_seed
-from dataset import Dataset
+from sft_dataset import AutoDataset
 from datasets import load_dataset
 from peft import LoraConfig, TaskType
 from transformers import (
@@ -13,10 +12,15 @@ from transformers import (
     AutoConfig,
     HfArgumentParser,
     TrainingArguments,
+    Trainer,
 )
 from transformers.hf_argparser import HfArg
-from trl import DataCollatorForCompletionOnlyLM, SFTTrainer
+from typing import Dict, Optional, Sequence
+import torch
+import transformers
 
+
+IGNORE_INDEX = -100
 
 @dataclass
 class Arguments(TrainingArguments):
@@ -86,6 +90,42 @@ class Arguments(TrainingArguments):
     lora_alpha: Optional[int] = HfArg(default=16, help="The alpha parameter for Lora scaling.")
 
     lora_dropout: Optional[float] = HfArg(default=0.05, help="The dropout probability for Lora layers.")
+    
+    packing: Optional[bool] = HfArg(default=False, help="Whether to pack the input sequences to the maximum length of the model.")
+
+
+@dataclass
+class DataCollatorForSupervisedDataset(object):
+    """Collate examples for supervised fine-tuning."""
+
+    tokenizer: transformers.PreTrainedTokenizer
+    packing: bool
+
+    def __call__(self, instances: Sequence[Dict]) -> Dict[str, torch.Tensor]:
+        input_ids, labels = tuple([instance[key] for instance in instances] for key in ("input_ids", "labels"))
+
+        if self.packing:
+            new_input_ids, new_labels = [torch.tensor([], dtype=input_ids[0].dtype)], [torch.tensor([], dtype=input_ids[0].dtype)]
+            lengths = [[]]
+            for input_id, label in zip(input_ids, labels):
+                if len(new_input_ids[-1]) + len(input_id) <= self.tokenizer.model_max_length:
+                    new_input_ids[-1] = torch.cat((new_input_ids[-1], input_id))
+                    new_labels[-1] = torch.cat((new_labels[-1], label))
+                    lengths[-1].append(len(input_id))
+                else:
+                    new_input_ids.append(input_id)
+                    new_labels.append(label)
+                    lengths.append([len(input_id)])
+
+            input_ids, labels = new_input_ids, new_labels
+
+        input_ids = torch.nn.utils.rnn.pad_sequence(input_ids, batch_first=True, padding_value=self.tokenizer.pad_token_id)
+        labels = torch.nn.utils.rnn.pad_sequence(labels, batch_first=True, padding_value=IGNORE_INDEX)
+
+        return dict(
+            input_ids=input_ids,
+            labels=labels,
+        )
 
 
 def train():
@@ -136,27 +176,12 @@ def train():
         model=model,
         args=args,
         tokenizer=tokenizer,
-        max_seq_length=args.model_max_length,
-        peft_config=peft_config,
     )
     if args.mode == "sft":
-        dataset = Dataset(args)
-
-        # set the template for the instruction and response
-        instruction_template_ids = tokenizer.encode(dataset.instruction_template, add_special_tokens=False)[1:]
-        response_template_ids = tokenizer.encode(dataset.response_template, add_special_tokens=False)[1:]
-
-        collator = DataCollatorForCompletionOnlyLM(
-            instruction_template=instruction_template_ids,
-            response_template=response_template_ids,
-            tokenizer=tokenizer,
-        )
         kwargs.update(
             dict(
-                train_dataset=dataset.load_data(),
-                packing=False,
-                data_collator=collator,
-                formatting_func=dataset.formatting_func,
+                train_dataset=AutoDataset(args, tokenizer),
+                data_collator=DataCollatorForSupervisedDataset(tokenizer, packing=args.packing),
             )
         )
 
@@ -165,7 +190,7 @@ def train():
         model.resize_token_embeddings(len(tokenizer))
         kwargs.update(dict(train_dataset=dataset, packing=True, dataset_text_field="text"))
 
-    trainer = SFTTrainer(**kwargs)
+    trainer = Trainer(**kwargs)
     trainer.train()
     trainer.save_state()
 

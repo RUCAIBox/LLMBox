@@ -1,14 +1,18 @@
 import importlib
 import inspect
 from logging import getLogger
-from typing import Union
+from typing import TYPE_CHECKING, Union
 
 from datasets import get_dataset_config_names
 
-from ..model.model import Model
-from ..utils import DatasetArguments
+from ..metric import GPTEval
 from .dataset import Dataset, DatasetCollection
 from .utils import accepts_subset
+
+if TYPE_CHECKING:
+    # solve the circular import
+    from ..model.model import Model
+    from ..utils import DatasetArguments
 
 logger = getLogger(__name__)
 
@@ -39,7 +43,7 @@ def import_dataset_class(dataset_name: str) -> Dataset:
     )
 
 
-def load_dataset(args: DatasetArguments, model: Model) -> Union[Dataset, DatasetCollection]:
+def load_dataset(args: "DatasetArguments", model: "Model") -> Union[Dataset, DatasetCollection]:
     r"""Load corresponding dataset class.
 
     Args:
@@ -67,6 +71,10 @@ def load_dataset(args: DatasetArguments, model: Model) -> Union[Dataset, Dataset
         for subset in available_subsets.copy():
             available_subsets.add("en-" + subset.split("-")[0])
 
+    # for mmlu and race dataset, remove "all" subset by default
+    if args.dataset_name in {"mmlu", "race"} and len(args.subset_names) == 0:
+        available_subsets.remove("all")
+
     # if dataset not in huggingface, allow to manually specify subset_names
     if len(available_subsets) and not available_subsets.issuperset(args.subset_names):
         raise ValueError(
@@ -76,8 +84,13 @@ def load_dataset(args: DatasetArguments, model: Model) -> Union[Dataset, Dataset
     # use specified subset_names if available
     subset_names = args.subset_names or available_subsets
 
-    # load dataset
+    # GPTEval requires openai-gpt
+    if any(isinstance(m, GPTEval) for m in dataset_cls.metrics) and model.args.openai_api_key is None:
+        raise ValueError(
+            "OpenAI API key is required for GPTEval metrics. Please set it by passing a `--openai_api_key` or through environment variable `OPENAI_API_KEY`."
+        )
 
+    # load dataset
     if "squad_v2" in args.dataset_name:
         dataset_cls.load_args = ("squad_v2",)
 

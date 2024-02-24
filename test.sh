@@ -8,6 +8,9 @@ python inference.py -m /home/tangtianyi/meta-llama/Llama-2-7b-hf -d gsm8k --eval
 python inference.py -m /home/tangtianyi/meta-llama/Llama-2-7b-hf -d gsm8k --evaluation_set test\[:100\] --model_type base -shots 8 --vllm False -b 4 # 16
 python inference.py -m /home/tangtianyi/meta-llama/Llama-2-7b-hf -d drop --evaluation_set validation\[:500\] --model_type base --evaluation_set validation\[:500\] # 30 / 17
 python inference.py -m /home/tangtianyi/meta-llama/Llama-2-7b-hf -d drop --evaluation_set validation\[:500\] --model_type base --evaluation_set validation\[:500\] --vllm False -b 4 # 30 / 17
+python inference.py -m /home/tangtianyi/meta-llama/Llama-7b-hf -d winogender:gotcha --model_type base # 59.2, 56.3, 59.2, 58.2
+python inference.py -m /home/tangtianyi/meta-llama/Llama-7b-hf -d winogender:gotcha --model_type base # 87.9, 91.9, 90
+
 
 python inference.py -m davinci-002 -d copa -b 20 # 88.0
 python inference.py -m davinci-002 -d copa -b 20 -shots 1 # 88.0
@@ -23,11 +26,15 @@ python inference.py -m davinci-002 -d arc:ARC-Challenge --evaluation_set test\[:
 python inference.py -m davinci-002 -d arc:ARC-Easy --evaluation_set test\[:500\] -b 20 # 72.0
 python inference.py -m davinci-002 -d hellaswag --evaluation_set validation\[:500\] -b 20 -shots 0 # 67.8
 python inference.py -m davinci-002 -d hellaswag --evaluation_set validation -b 20 -shots 0 # 79.7
+python inference.py -m davinci-002 -d lambada -b 20 --evaluation_set test\[:500\] # 74.4
+python inference.py -m davinci-002 -d story_cloze:2016 --dataset_path /home/tangtianyi/data/story_cloze --evaluation_set test\[:500\] -b 20 # 83.4
 
 python inference.py -m davinci-002 -d nq --evaluation_set validation\[:500\] -b 20 # 33 / 21
 python inference.py -m davinci-002 -d nq --evaluation_set validation\[:500\] -b 20 -shots 1 # 38 / 26
 python inference.py -m davinci-002 -d triviaqa --evaluation_set validation\[:500\] -b 20 # 70 / 63
 python inference.py -m davinci-002 -d webq --evaluation_set test\[:500\] -b 20 # 37 / 19
+
+python inference.py -m davinci-002 -d real_toxicity_prompts --evaluation_set train\[:100\] -b 20 --proxy_port 1428 --perspective_api_key AIzaSyA8au5E8NZ5-RLMgYEwCgo5-rCT6-1FjD4 # 6.39
 
 python inference.py -m gpt-3.5-turbo-instruct -d tldr --evaluation_set test\[:500\] -b 20 # 22.02
 python inference.py -m gpt-3.5-turbo-instruct -d cnn_dailymail --evaluation_set test\[:500\] -b 20 # 21.79
