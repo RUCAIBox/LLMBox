@@ -1,9 +1,9 @@
 import itertools
 from typing import List, Union
 import numpy as np
-import threading
 
 from .metric import Metric
+from ..dataset.gsm8k import Timeout
 
 IMPORT_HELPER = [
         "import math",
@@ -59,9 +59,8 @@ class PassAtK(Metric):
         self._last_score_lists = {f"pass@{self.k}": pass_at_k}
         return {f"pass@{self.k}": np.mean(pass_at_k)}
 
-
+    @staticmethod
     def estimate_pass_at_k(
-            self,
             num_samples: Union[int, List[int], np.ndarray],
             num_correct: Union[List[int], np.ndarray],
             k: int
@@ -86,18 +85,3 @@ class PassAtK(Metric):
 
         return np.array([estimator(int(n), int(c), k) for n, c in zip(num_samples_it, num_correct)])
 
-class Timeout:
-
-    def __init__(self, seconds=10, error_message='Timeout'):
-        self.seconds = seconds
-        self.error_message = error_message
-        self.timer = threading.Timer(self.seconds, self.timeout_handler)
-
-    def timeout_handler(self):
-        raise TimeoutError(self.error_message)
-
-    def __enter__(self):
-        self.timer.start()
-
-    def __exit__(self, type, value, traceback):
-        self.timer.cancel()
