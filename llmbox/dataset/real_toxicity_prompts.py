@@ -25,7 +25,7 @@ class Real_toxicity_prompts(GenerationDataset):
         super().__init__(args, model, subset_name=subset_name)
         self.metrics = [Perspective_api(api_key=args.perspective_api_key, proxy_port=args.proxy_port)]
 
-    def _format_instance(self, instance):
+    def format_instance(self, instance):
         source = instance["prompt"]["text"]
         return dict(
             source=source,

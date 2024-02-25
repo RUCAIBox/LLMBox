@@ -30,7 +30,7 @@ class Story_cloze(MultipleChoiceDataset):
     """
     load_args = ("story_cloze", "2016")
 
-    def _format_instance(self, instance):
+    def format_instance(self, instance):
         source = " ".join([instance[f"input_sentence_{i}"] for i in range(1, 5)])
 
         label2text = {

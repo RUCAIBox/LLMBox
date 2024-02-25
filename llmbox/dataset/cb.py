@@ -17,7 +17,7 @@ class Cb(MultipleChoiceDataset):
     example_set = "train"
     load_args = ("super_glue", "cb")
 
-    def _format_instance(self, instance):
+    def format_instance(self, instance):
         source = instance["premise"] + "\nquestion: " + instance["hypothesis"] + ". true, false, or neither?"
 
         label2text = {
@@ -29,7 +29,6 @@ class Cb(MultipleChoiceDataset):
         options = [label2text[option] for option in [0, 1, 2]]
         return dict(
             source=source,
-            source_postfix="\nanswer:",
             target_idx=instance["label"],
             options=options,
         )

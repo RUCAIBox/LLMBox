@@ -22,7 +22,7 @@ class Lambada(GenerationDataset):
         super().__init__(args, model, subset_name=subset_name)
         self.metrics = [Word_Accuracy(self.tokenizer)]
 
-    def _format_instance(self, instance):
+    def format_instance(self, instance):
         """
 
         According to the README of the dataset, for dev and test set, the last word of the passage is the target, and the rest of the passage is the source.

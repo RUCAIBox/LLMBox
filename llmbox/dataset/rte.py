@@ -17,7 +17,7 @@ class Rte(MultipleChoiceDataset):
     example_set = "train"
     load_args = ("super_glue", "rte")
 
-    def _format_instance(self, instance):
+    def format_instance(self, instance):
         source = instance["premise"] + "\nquestion: " + instance["hypothesis"] + " True or False?"
         label2text = {
             0: " True",
@@ -27,7 +27,6 @@ class Rte(MultipleChoiceDataset):
         options = [label2text[option] for option in [0, 1]]
         return dict(
             source=source,
-            source_postfix="\nanswer:",
             target_idx=instance["label"],
             options=options,
         )

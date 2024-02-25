@@ -20,7 +20,7 @@ class Siqa(MultipleChoiceDataset):
     example_set = "train"
     load_args = ("lighteval/siqa",)
 
-    def _format_instance(self, instance):
+    def format_instance(self, instance):
         source = (instance["context"] + "\nQuestion: " + instance["question"] + "\n" + "Answer:")
 
         label2text = {

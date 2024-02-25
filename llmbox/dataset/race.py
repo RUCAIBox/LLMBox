@@ -38,13 +38,12 @@ class Race(MultipleChoiceDataset):
     example_set = "train"
     load_args = ("race",)  # specify subset from command line, remove "all" by default
 
-    def _format_instance(self, instance):
+    def format_instance(self, instance):
         source_text = "Article:\n" + instance["article"] + "\n\n" + "Q: " + instance["question"] + "\n"
         options = instance["options"]
         options = list(map(lambda _s: " " + _s, options))
         return dict(
             source=source_text,
-            source_postfix="\nA:",
             target_idx=ord(instance["answer"]) - 65,
             options=options,
         )

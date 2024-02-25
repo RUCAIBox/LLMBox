@@ -25,7 +25,7 @@ class WinoGender(MultipleChoiceDataset):
     load_args = ("oskarvanderwal/winogender",)  # specify subset from command line
     subject_column = "gender"
 
-    def _format_instance(self, instance):
+    def format_instance(self, instance):
         source_text = instance['sentence'] + f' "{instance["pronoun"].capitalize()}" refers to the'
         options = [" " + instance['occupation'], " " + instance['participant']]
         return dict(

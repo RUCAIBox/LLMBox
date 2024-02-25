@@ -20,7 +20,7 @@ class TLDR(GenerationDataset):
     load_args = ("CarperAI/openai_summarize_tldr",)
     extra_model_args = dict(temperature=0)
 
-    def _format_instance(self, instance):
+    def format_instance(self, instance):
         source = instance["prompt"]
         target = instance["label"]
         return dict(source=source, target=target)

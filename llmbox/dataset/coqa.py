@@ -81,7 +81,7 @@ class Coqa(GenerationDataset):
                 dataset.append((copy.deepcopy(converted_instance)))
         return dataset
 
-    def _format_instance(self, instance):
+    def format_instance(self, instance):
         source_text = instance["story"]
         questions = [question + "?" if question[-1] != "?" else question for question in instance["questions"]]
         answers = instance["answers"]

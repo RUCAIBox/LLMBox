@@ -22,12 +22,11 @@ class PIQA(MultipleChoiceDataset):
     example_set = "train"
     load_args = ("piqa",)
 
-    def _format_instance(self, instance):
+    def format_instance(self, instance):
         source_text = "Question: " + instance['goal']
         options = [' ' + instance[option] for option in ['sol1', 'sol2']]
         return dict(
             source=source_text,
-            source_postfix="\nAnswer:",
             target_idx=instance["label"],
             options=options,
         )

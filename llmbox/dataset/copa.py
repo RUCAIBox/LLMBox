@@ -19,7 +19,7 @@ class Copa(MultipleChoiceDataset):
     example_set = "train"
     load_args = ("super_glue", "copa")
 
-    def _format_instance(self, instance):
+    def format_instance(self, instance):
         source = instance["premise"][:-1]
         if instance["question"] == "cause":
             source += " because"

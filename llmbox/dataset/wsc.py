@@ -20,7 +20,7 @@ class Wsc(MultipleChoiceDataset):
     example_set = "train"
     load_args = ("super_glue", "wsc")
 
-    def _format_instance(self, instance):
+    def format_instance(self, instance):
 
         def mark_word(sentence, index, word):
             words = sentence.split()
@@ -38,7 +38,6 @@ class Wsc(MultipleChoiceDataset):
         options = [" No", " Yes"]
         return dict(
             source=source,
-            source_postfix="\nAnswer:",
             target_idx=instance["label"],
             options=options,
         )

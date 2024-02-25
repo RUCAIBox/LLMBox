@@ -30,7 +30,7 @@ class Arc(MultipleChoiceDataset):
     example_set = "train"
     load_args = ("allenai/ai2_arc",)
 
-    def _format_instance(self, instance):
+    def format_instance(self, instance):
         options = list(map(lambda _s: " " + _s, instance["choices"]["text"]))
         if instance["answerKey"].isdigit():
             instance["answerKey"] = ord(instance["answerKey"]) - 49
@@ -39,7 +39,6 @@ class Arc(MultipleChoiceDataset):
         return dict(
             source="Question: " + instance["question"],
             target_idx=instance["answerKey"],
-            source_postfix="\nAnswer:",
             options=options,
         )
 

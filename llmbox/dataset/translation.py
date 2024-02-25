@@ -25,7 +25,7 @@ class Translation(GenerationDataset):
         self.language = Language(subset_name[3:5]).language_name("en")
         super().__init__(args, model, subset_name)
 
-    def _format_instance(self, instance):
+    def format_instance(self, instance):
         instance = instance["translation"]
         source_text = f"Q: Translate to {self.language}. {instance[self.subset_name[:2]]}\nA:"
         target_text = " " + instance[self.subset_name[3:5]]

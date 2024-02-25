@@ -59,7 +59,7 @@ class Quac(GenerationDataset):
                 _evaluation_data.append(formatted_data)
         self.evaluation_data = _evaluation_data
 
-    def _format_instance(self, instance):
+    def format_instance(self, instance):
         source_text = (
             "TITLE: " + instance["title"] + "\nPARAGRAPH: " + instance["paragraph"] + "\n\nQ: " + instance["question"] +
             "\n\nA:"

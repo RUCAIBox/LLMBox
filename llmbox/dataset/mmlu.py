@@ -23,11 +23,10 @@ class Mmlu(MultipleChoiceDataset):
         self.instruction = self.instruction.format(subset_name)
         super().__init__(args, model, subset_name)
 
-    def _format_instance(self, instance):
+    def format_instance(self, instance):
         options = list(map(lambda op: " " + op, instance["choices"]))
         return dict(
             source="Question: " + instance["question"],
-            source_postfix="\nAnswer:",
             target_idx=instance["answer"],
             options=options,
         )

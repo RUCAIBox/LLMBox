@@ -22,7 +22,7 @@ class Wic(MultipleChoiceDataset):
     example_set = "train"
     load_args = ("super_glue", "wic")
 
-    def _format_instance(self, instance):
+    def format_instance(self, instance):
         source = (
             instance["sentence1"] + "\n" + instance["sentence2"] + "\n" +
             f"question: Is the word '{instance['word']}' used in the same way in the two sentences above?"
@@ -30,7 +30,6 @@ class Wic(MultipleChoiceDataset):
         options = [" no", " yes"]
         return dict(
             source=source,
-            source_postfix="\nanswer:",
             target_idx=instance["label"],
             options=options,
         )
