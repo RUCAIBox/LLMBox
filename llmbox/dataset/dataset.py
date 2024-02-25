@@ -186,9 +186,9 @@ class Dataset(torch.utils.data.Dataset):
         if not hasattr(self, "args"):
             raise ValueError("The `args` attribute is not found. Please call `__init__` first.")
         if self.evaluation_type == "ranking":
-            if self.args.ranking_type == "ppl_of_whole_option":
+            if self.args.ranking_type.startswith("ppl"):  # ppl or ppl_no_option
                 return "get_ppl"
-            elif self.args.ranking_type == "prob_of_just_option":
+            elif self.args.ranking_type == "prob":
                 assert self.args.ranking_with_options
                 return "get_prob"
         elif self.evaluation_type == "generation":
