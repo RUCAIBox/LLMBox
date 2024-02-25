@@ -11,6 +11,10 @@ python inference.py -m /home/tangtianyi/meta-llama/Llama-2-7b-hf -d drop --evalu
 python inference.py -m /home/tangtianyi/meta-llama/Llama-7b-hf -d winogender:gotcha --model_type base # 59.2, 56.3, 59.2, 58.2
 python inference.py -m /home/tangtianyi/meta-llama/Llama-7b-hf -d winogender:gotcha --model_type base # 87.9, 91.9, 90
 
+python inference.py -m /home/tangtianyi/meta-llama/Llama-7b-hf -d mmlu -b 20 --vllm False --model_type base --num_shots 5 --ranking_type ppl_of_whole_option # 42.56
+python inference.py -m /home/tangtianyi/meta-llama/Llama-7b-hf -d mmlu -b 20 --vllm False --model_type base --num_shots 5 --ranking_type prob_of_just_option --ranking_with_options # 34.82
+python inference.py -m /home/tangtianyi/meta-llama/Llama-7b-hf -d mmlu --vllm True --model_type base --num_shots 5 --ranking_type prob_of_just_option --ranking_with_options # 34.88
+
 
 python inference.py -m davinci-002 -d copa -b 20 # 88.0
 python inference.py -m davinci-002 -d copa -b 20 -shots 1 # 88.0
