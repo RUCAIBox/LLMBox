@@ -126,7 +126,9 @@ class Dataset(torch.utils.data.Dataset):
         self.ape = args.ape
         if self.args.num_shots:
             if self.ape or self.kate or self.globale:
-                self.formatted_example_data = [self._format_instance(data) for data in self.example_data]
+                self.formatted_example_data = [
+                    self._format_instance(data, format_example=True) for data in self.example_data
+                ]
             if len(self.example_data) < self.args.num_shots:
                 logger.warning(
                     f"The example data only has {len(self.example_data)} instances, but the few-shot number is set to {self.args.num_shots}. Setting the few-shot number to {len(self.example_data)}."
@@ -163,6 +165,11 @@ class Dataset(torch.utils.data.Dataset):
                 f'Ranking with options only supports evaluation using the ranking mode but receive "{self.model_evaluation_method}", automatically set ranking_with_options = False.'
             )
             self.args.ranking_with_options = False
+        if self.name == "winogrande" and self.args.ranking_with_options:
+            logger.warning(
+                f"Winogrande does not support ranking with options, automatically set ranking_with_options = False."
+            )
+            self.args.ranking_with_options = False
 
         if self.model_evaluation_method == "get_ppl":
             self.model.set_ppl_args(**self.extra_model_args)
@@ -179,9 +186,9 @@ class Dataset(torch.utils.data.Dataset):
         if not hasattr(self, "args"):
             raise ValueError("The `args` attribute is not found. Please call `__init__` first.")
         if self.evaluation_type == "ranking":
-            if self.args.ranking_type == "ppl_of_whole_option":
+            if self.args.ranking_type.startswith("ppl"):  # ppl or ppl_no_option
                 return "get_ppl"
-            elif self.args.ranking_type == "prob_of_just_option":
+            elif self.args.ranking_type == "prob":
                 assert self.args.ranking_with_options
                 return "get_prob"
         elif self.evaluation_type == "generation":
@@ -307,12 +314,18 @@ class Dataset(torch.utils.data.Dataset):
         if self.model_evaluation_method == "get_ppl":
             for formatted_instance in self.formatted_evaluation_data:
                 instance_with_examples = self.format_instruction_and_examples(formatted_instance)
-                options = [(instance_with_examples, option) for option in formatted_instance["options"]]
-                self.evaluation_instances.extend(options)
-                self.option_nums.append(len(options))
+                if "options" in formatted_instance:
+                    options = [(instance_with_examples, option) for option in formatted_instance["options"]]
+                    self.evaluation_instances.extend(options)
+                    self.option_nums.append(len(options))
+                else:
+                    # multiple contexts instead of options, cases like winogrande
+                    contexts = [(context, formatted_instance["target"]) for context in instance_with_examples]
+                    self.evaluation_instances.extend(contexts)
+                    self.option_nums.append(len(contexts))
             logger.info("Evaluation mode: calculate PPL of the optional text based on the source text")
             logger.info("Formatted example (source)\n" + pformat(self.evaluation_instances[0][0]))
-            logger.info("Formatted example (option)\n" + pformat(self.evaluation_instances[0][1]))
+            logger.info(f"Formatted example (option)\n" + pformat(self.evaluation_instances[0][1]))
             if len(self.evaluation_instances) > 1:
                 logger.debug("Next formatted example (source)\n" + pformat(self.evaluation_instances[1][0]))
                 logger.debug("Next formatted example (option)\n" + pformat(self.evaluation_instances[1][1]))
@@ -348,7 +361,14 @@ class Dataset(torch.utils.data.Dataset):
         self.evaluation_instances = self.evaluation_instances * self.args.sample_num
         self.option_nums = self.option_nums * self.args.sample_num
 
-    def _format_instance(self, instance, loose: bool = False):
+    def _format_instance(self, instance, loose: bool = False, format_example: bool = False):
+        """Format the dataset instance into task source text, target text, and options (for ranking).
+
+        Args:
+            `instance (Dict)`: an instance dict of multiple key-value pairs.
+            `loose (bool, optional)`: Whether to add extra newline characters. Defaults to False.
+            `format_example (bool, optional):` Whether to format the example. This will only effect datasets like winogrande by returning the correct source only. Defaults to False.
+        """
         # it is not recommended to modify instance, in case of multiple calls
         formatted_instance = self.format_instance(instance)
         loose = "\n" if loose else ""
@@ -374,6 +394,9 @@ class Dataset(torch.utils.data.Dataset):
         if not formatted_instance["target"].startswith(" "):
             formatted_instance["target"] = " " + formatted_instance["target"]
 
+        if format_example and "source_idx" in formatted_instance:
+            formatted_instance["source"] = formatted_instance["source"][formatted_instance.pop("source_idx")]
+
         return formatted_instance
 
     def format_instance(self, instance: dict) -> dict:
@@ -396,14 +419,14 @@ class Dataset(torch.utils.data.Dataset):
         """
         raise NotImplementedError(f"{self.name} dataset must implement the `format_instance` function.")
 
-    def format_instruction_and_examples(self, instance) -> str:
+    def format_instruction_and_examples(self, instance) -> Union[str, List[str]]:
         r"""Format one instance with the instruction and demonstration.
 
         Args:
             instance (dict): the pre-formatted source.
 
         Returns:
-            str: The final formatted instance.
+            Union[str, List[str]]: The final formatted instance. Return a list of formatted instances if the source is a list (in cases like winogrande).
         """
         if self.examples == "" or self.kate or self.globale:
             self.examples = self.construct_examples(instance)
@@ -414,11 +437,21 @@ class Dataset(torch.utils.data.Dataset):
                 " model type, which can be chosen from `base` and `instruction`."
             )
 
-        source = self.examples + self.args.instance_format.format(source=instance["source"], target="")
-        if self.model.type == "instruction":
-            source = self.instruction + "\n\n" + source
+        if isinstance(instance["source"], list):
+            # return a list of formatted instances if the source is a list (in cases like winogrande)
+            sources = [
+                self.examples + self.args.instance_format.format(source=s, target="") for s in instance["source"]
+            ]
+            if self.model.type == "instruction":
+                sources = [self.instruction + "\n\n" + s for s in sources]
 
-        return source
+            return sources
+        else:
+            source = self.examples + self.args.instance_format.format(source=instance["source"], target="")
+            if self.model.type == "instruction":
+                source = self.instruction + "\n\n" + source
+
+            return source
 
     def construct_examples(self, instance=None) -> str:
         r"""Format one instance with the instruction and demonstration.
@@ -437,9 +470,14 @@ class Dataset(torch.utils.data.Dataset):
             )
 
         if self.kate is True:
+            if isinstance(instance["source"], list):
+                instance_source = instance["source"][instance["source_idx"]]
+            else:
+                instance_source = instance["source"]
+
             # select demonstrations based on knn algorithm
             # TODO: Bugs in kate, order, filter
-            indice = knn_construct_examples(instance["source"], self.formatted_example_data, self.num_shots)
+            indice = knn_construct_examples(instance_source, self.formatted_example_data, self.num_shots)
         else:
             indice = self.random_indice
 
@@ -455,7 +493,7 @@ class Dataset(torch.utils.data.Dataset):
             if hasattr(self, "formatted_example_data"):
                 example = self.formatted_example_data[index]
             else:
-                example = self._format_instance(self.example_data[index])
+                example = self._format_instance(self.example_data[index], format_example=True)
             cur_example_text = self.args.instance_format.format_map(example) + "\n\n"
             cur_token_num = len(self.tokenizer.encode(cur_example_text))
             if cur_token_num + example_token_nums <= self.max_example_tokens:
@@ -620,9 +658,13 @@ class Dataset(torch.utils.data.Dataset):
                 "metric": transposed_score_lists,
             }
             try:
-                lines = pd.DataFrame(lines).groupby("index").apply(
-                    to_dict(merge=["index", "source", "reference", "metric"], merge_by_option=["option"])
-                )
+                if self.name == "winogrande":
+                    merge = ["index", "option", "reference", "metric"]
+                    merge_by_option = ["source"]
+                else:
+                    merge = ["index", "source", "reference", "metric"]
+                    merge_by_option = ["option"]
+                lines = pd.DataFrame(lines).groupby("index").apply(to_dict(merge, merge_by_option))
                 if _to_json:
                     lines.to_json(file, orient="records", indent=4, force_ascii=False)
                 return lines

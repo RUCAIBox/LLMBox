@@ -38,7 +38,7 @@ class vllmModel(Model):
         super().__init__(args)
         self.args = args
 
-        logger.info(f"Loading {args.model_name_or_path} using vllm...")
+        logger.info(f"Trying to load {args.model_name_or_path} using vllm...")
         self.type = args.model_type
         self.model = LLM(
             model=args.model_name_or_path,

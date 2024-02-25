@@ -230,13 +230,9 @@ class DatasetArguments:
         default=0,
         help="The few-shot number for demonstration",
     )
-    ranking_with_options: bool = HfArg(
-        default=False,
-        help="Whether to evaluate with all options for ranking task",
-    )
-    ranking_type: Literal["ppl_of_whole_option", "prob_of_just_option"] = HfArg(
-        default="ppl_of_whole_option",
-        help="The evaluation method for ranking task",
+    ranking_type: Literal["ppl", "prob", "ppl_no_option"] = HfArg(
+        default="ppl_no_option",
+        help="The evaluation and prompting method for ranking task",
     )
     max_example_tokens: int = HfArg(
         default=1024,
@@ -284,12 +280,7 @@ class DatasetArguments:
 
         # argparse encodes string with unicode_escape, decode it to normal string, e.g., "\\n" -> "\n"
         self.instance_format = self.instance_format.encode('utf-8').decode('unicode_escape')
-        if not self.ranking_with_options and self.ranking_type != "ppl_of_whole_option":
-            logger.warning(
-                "The `ranking_type` argument is only available for ranking task with options. "
-                "Automatically set `ranking_with_options` to True."
-            )
-            self.ranking_with_options = True
+        self.ranking_with_options = not self.ranking_type.endswith("no_option")
 
 
 @dataclass

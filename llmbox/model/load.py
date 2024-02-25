@@ -35,7 +35,7 @@ def load_model(args: "ModelArguments") -> "Model":
 
                 return vllmModel(args)
             except ValueError as e:
-                if "are not supported for now" in str(e):
+                if "are not supported for now" in str(e) or "divisible by tensor parallel size" in str(e):
                     args.vllm = False
                     logger.warning(f"vllm has not supported the architecture of {args.model_name_or_path} for now.")
                 elif "divisible by tensor parallel size" in str(e):

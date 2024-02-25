@@ -23,9 +23,9 @@ class Mmlu(MultipleChoiceDataset):
 
     def __init__(self, args, model, subset_name: str):
         self.instruction = self.instruction.format(self._format_subject(subset_name))
-        if args.ranking_type == "ppl_of_whole_option":
+        if args.ranking_type.startswith("ppl"):  # ppl or ppl_no_option
             self.source_prefix = "Question: "
-        elif args.ranking_type == "prob_of_just_option":
+        elif args.ranking_type == "prob":
             self.source_prefix = ""
         super().__init__(args, model, subset_name)
 
