@@ -1,27 +1,30 @@
 import itertools
 from typing import List, Union
 import numpy as np
+from tqdm import tqdm
 
 from .metric import Metric
 from ..dataset.gsm8k import Timeout
 
 IMPORT_HELPER = [
-        "import math",
-        "import re",
-        "import sys",
-        "import copy",
-        "import datetime",
-        "import itertools",
-        "import collections",
-        "import heapq",
-        "import functools",
-        "import hashlib",
-        "import numpy",
-        "import numpy as np",
-        "import string",
-        "from typing import *",
-        "from collections import *",
-    ]
+    "import math",
+    "import re",
+    "import sys",
+    "import copy",
+    "import datetime",
+    "import itertools",
+    "import collections",
+    "import heapq",
+    "import functools",
+    "import hashlib",
+    "import numpy",
+    "import numpy as np",
+    "import string",
+    "from typing import *",
+    "from collections import *",
+]
+
+
 class PassAtK(Metric):
     r""" Calculate the Pass@K score.
 
@@ -35,7 +38,7 @@ class PassAtK(Metric):
 
     def __call__(self, predictions, references):
         result = []
-        for samples, refer in zip(predictions, references):
+        for samples, refer in tqdm(zip(predictions, references), desc="Evaluating Pass@K", total=len(predictions)):
             sample_result = []
             for pred in samples:
                 code = "\n".join(IMPORT_HELPER) + '\n' + pred + "\n" + "\n".join(refer["test_list"])

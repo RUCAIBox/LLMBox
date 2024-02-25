@@ -21,6 +21,7 @@ class Mbpp(GenerationDataset):
     example_set = "train"
     evaluation_set = "test"
     load_args = ("mbpp","full")
+    metrics = ""
 
     def __init__(self, args, model, subset_name=None):
         super().__init__(args, model, subset_name=subset_name)
