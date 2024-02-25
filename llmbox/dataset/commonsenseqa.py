@@ -18,8 +18,7 @@ class Commonsenseqa(MultipleChoiceDataset):
     load_args = ("commonsense_qa",)
 
     def format_instance(self, instance):
-        source = "Question: " + instance["question"] + "\n"
-        source += "Answer:"
+        source = "Question: " + instance["question"]
         label2text = {
             "A": " " + instance["choices"]["text"][0],
             "B": " " + instance["choices"]["text"][1],
@@ -31,7 +30,8 @@ class Commonsenseqa(MultipleChoiceDataset):
         options = [label2text[option] for option in ["A", "B", "C", "D", "E"]]
         return dict(
             source=source,
-            target=label2text[instance["answerKey"]],
+            source_postfix="\nAnswer:",
+            target_idx=ord(instance["answerKey"]) - 65,
             options=options,
         )
 

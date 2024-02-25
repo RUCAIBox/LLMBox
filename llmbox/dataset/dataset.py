@@ -85,6 +85,7 @@ class Dataset(torch.utils.data.Dataset):
         "instruction",
         "metrics",
         "evaluation_type",
+        "model_evaluation_method",
         "evaluation_set",
         "example_set",
         "load_args",
@@ -124,7 +125,7 @@ class Dataset(torch.utils.data.Dataset):
         self.ape = args.ape
         if self.args.num_shots:
             if self.ape or self.kate or self.globale:
-                self.formatted_example_data = [self.format_instance(data) for data in self.example_data]
+                self.formatted_example_data = [self._format_instance(data) for data in self.example_data]
             if len(self.example_data) < self.args.num_shots:
                 logger.warning(
                     f"The example data only has {len(self.example_data)} instances, but the few-shot number is set to {self.args.num_shots}. Setting the few-shot number to {len(self.example_data)}."
@@ -134,12 +135,12 @@ class Dataset(torch.utils.data.Dataset):
                 self.random_indice = list(range(len(self.example_data)))
             else:
                 self.random_indice = np.random.choice(len(self.example_data), self.args.num_shots, replace=False)
-        self.formatted_evaluation_data = [self.format_instance(data) for data in self.evaluation_data]
+        self.formatted_evaluation_data = [self._format_instance(data) for data in self.evaluation_data]
         self.construct_instances()
 
     def _post_init_arguments(self):
         # sample num
-        if self.args.sample_num > 1 and self.evaluation_type == "ranking":
+        if self.args.sample_num > 1 and self.model_evaluation_method == "get_ppl":
             self.args.sample_num = 1
             logger.warning(
                 f"Self-consistency only supports evaluation using the generation mode, automatically set sample_num = 1."
@@ -148,19 +149,39 @@ class Dataset(torch.utils.data.Dataset):
         # temperature
         if "temperature" in self.extra_model_args and self.model.args.temperature is None:
             self.model.args.temperature = self.extra_model_args["temperature"]
-        if self.args.sample_num > 1 and self.evaluation_type == "generation" and self.model.args.temperature == 0:
+        if self.args.sample_num > 1 and self.model_evaluation_method == "generation" and self.model.args.temperature == 0:
             self.model.args.temperature = 1
             logger.warning(
                 f"Self-consistency only supports generation with temperature > 0, automatically set temperature = 1."
             )
 
-        if self.evaluation_type == "ranking":
+        # ranking with options
+        if self.model_evaluation_method != "get_ppl" and self.args.ranking_with_options:
+            self.args.ranking_with_options = False
+            logger.warning(
+                f"Ranking with options only supports evaluation using the ranking mode, automatically set ranking_with_options = False."
+            )
+
+        if self.model_evaluation_method == "get_ppl":
             self.model.set_ppl_args(**self.extra_model_args)
-        elif self.evaluation_type == "generation":
+        elif self.model_evaluation_method == "generation":
             self.model.set_generation_args(**self.extra_model_args)
 
         logger.info(self.model.args)
         logger.info(self.args)
+
+    @property
+    def model_evaluation_method(self) -> Literal['get_ppl', 'generation', 'user_defined']:
+        if self.evaluation_type == "ranking" and self.args.ranking_type == "ppl_of_whole_option":
+            return "get_ppl"
+        elif self.evaluation_type == "generation":
+            return "generation"
+        elif self.evaluation_type == "user_defined":
+            return "user_defined"
+        else:
+            raise ValueError(
+                f"We only support three evaluation types: `ranking`, `generation`, and `user_defined`, but got `{self.evaluation_type}`."
+            )
 
     def load_raw_dataset(
         self,
@@ -273,19 +294,18 @@ class Dataset(torch.utils.data.Dataset):
 
         self.evaluation_instances = []
         self.option_nums = []
-        for formatted_instance in self.formatted_evaluation_data:
-            if self.evaluation_type == "ranking":
+        if self.model_evaluation_method == "get_ppl":
+            for formatted_instance in self.formatted_evaluation_data:
                 instance_with_examples = self.format_instruction_and_examples(formatted_instance)
                 options = [(instance_with_examples, option) for option in formatted_instance["options"]]
                 self.evaluation_instances.extend(options)
                 self.option_nums.append(len(options))
-            elif self.evaluation_type == "generation":
-                self.evaluation_instances.append(self.format_instruction_and_examples(formatted_instance))
-        if self.evaluation_type == "ranking":
             logger.info("Evaluation mode: calculate PPL of the optional text based on the source text")
             logger.info("Formatted example (source)\n" + self.evaluation_instances[0][0])
             logger.info("Formatted example (option)\n" + self.evaluation_instances[0][1])
         else:
+            for formatted_instance in self.formatted_evaluation_data:
+                self.evaluation_instances.append(self.format_instruction_and_examples(formatted_instance))
             logger.info("Evaluation mode: generation based on the source text")
             logger.info("Formatted example (source)\n" + self.evaluation_instances[0])
 
@@ -293,7 +313,24 @@ class Dataset(torch.utils.data.Dataset):
         self.evaluation_instances = self.evaluation_instances * self.args.sample_num
         self.option_nums = self.option_nums * self.args.sample_num
 
-    def format_instance(self, instance):
+    def _format_instance(self, instance):
+        # it is not recommended to modify instance, in case of multiple calls
+        formatted_instance = self.format_instance(instance)
+
+        if self.evaluation_type == "ranking" and "target_idx" in formatted_instance:
+            if self.args.ranking_with_options:
+                for i, option in enumerate(formatted_instance["options"]):
+                    formatted_instance["options"][i] = chr(65 + i) + "." + option
+                formatted_instance["source"] += "\n\n" + "\n".join(formatted_instance["options"]) + "\n"
+
+            formatted_instance["target"] = formatted_instance["options"][formatted_instance.pop("target_idx")]
+
+        if "source_postfix" in formatted_instance:
+            formatted_instance["source"] += formatted_instance.pop("source_postfix")
+
+        return formatted_instance
+
+    def format_instance(self, instance: dict) -> dict:
         r"""Format the dataset instance into task source text, target text, and options (for ranking).
 
         Notes:
@@ -303,10 +340,13 @@ class Dataset(torch.utils.data.Dataset):
             instance (Dict): an instance dict of multiple key-value pairs.
 
         Returns:
-            Dict: A dictionary containing the formatted instance.
-                source (str): The source text.
-                target (str): The target text.
-                options (List[str], optional): The options for ranking.
+            `Dict`: A dictionary containing the formatted instance.
+                `source` (`Unino[str, List[str]]`): The source text. If this is a list, `source_idx` is required.
+                `source_idx` (`int`, optional): The index of the correct source (for multiple contexts ranking dataset like winogrande).
+                `source_postfix` (`str`, optional): The postfix of the source text. This will be appended to the source text after options when `ranking_with_options` is True.
+                `target` (`str`, optional): The target text. Either `target` or `target_idx` should be provided.
+                `target_idx` (`int`, optional): The index of the target in the options (for ranking). This will generate the `target` text in `_format_instance`.
+                `options` (`List[str]`, optional): The options for ranking.
         """
         raise NotImplementedError(f"{self.name} dataset must implement the `format_instance` function.")
 
@@ -321,18 +361,16 @@ class Dataset(torch.utils.data.Dataset):
         """
         if self.examples == "" or self.kate or self.globale:
             self.examples = self.construct_examples(instance)
-        if self.model.type == "base":
-            source = self.examples + self.args.instance_format.format(source=instance["source"], target="")
-        elif self.model.type == "instruction":
-            source = (
-                self.instruction + "\n\n" + self.examples +
-                self.args.instance_format.format(source=instance["source"], target="")
-            )
-        else:
+
+        if self.model.type not in ["base", "instruction"]:
             raise ValueError(
                 f"Invalid model type: {self.type}. Please use `--model_type` to specify the"
                 " model type, which can be chosen from `base` and `instruction`."
             )
+
+        source = self.examples + self.args.instance_format.format(source=instance["source"], target="")
+        if self.model.type == "instruction":
+            source = self.instruction + "\n\n" + source
 
         return source
 
@@ -371,7 +409,7 @@ class Dataset(torch.utils.data.Dataset):
             if hasattr(self, "formatted_example_data"):
                 example = self.formatted_example_data[index]
             else:
-                example = self.format_instance(self.example_data[index])
+                example = self._format_instance(self.example_data[index])
             cur_example_text = self.args.instance_format.format_map(example) + "\n\n"
             cur_token_num = len(self.tokenizer.encode(cur_example_text))
             if cur_token_num + example_token_nums <= self.max_example_tokens:
@@ -487,7 +525,7 @@ class Dataset(torch.utils.data.Dataset):
                 return lines
             return None
 
-        elif self.evaluation_type == "generation":
+        elif self.model_evaluation_method == "generation":
             # only generation tasks support self-consistency
             lines = {
                 "index": repeat_iter(range(len(self.references)), self.args.sample_num),
@@ -509,7 +547,7 @@ class Dataset(torch.utils.data.Dataset):
                 logger.warning(f"Failed to log_predictions: {e}\n{lines}")
                 return None
 
-        elif self.evaluation_type == "ranking":  # ranking
+        elif self.model_evaluation_method == "get_ppl":  # ranking
 
             def repeat_by_option(*arr):
 
@@ -549,7 +587,7 @@ class Dataset(torch.utils.data.Dataset):
 
         else:
             logger.debug(
-                f"Failed to log predictions: processed_predictions={processed_predictions}, evaluation_type{self.evaluation_type}"
+                f"Failed to log predictions: processed_predictions={processed_predictions}, model_evaluation_method={self.model_evaluation_method}"
             )
             return None
 
@@ -567,9 +605,9 @@ class Dataset(torch.utils.data.Dataset):
         """Provides a unified interface to retrieve the length of dataset`.
 
         - `len(dataset.reference)` or `len(dataset.evaluation_data)`: the length of raw evaluation data
-        - `len(dataset)` or `len(dataset.evaluation_instances)`: the length of `__iter__`, multiplied by `args.sample_num`, option_num (if `evaluation_type` is "ranking") and 2 (if `use_normalization` is True)
+        - `len(dataset)` or `len(dataset.evaluation_instances)`: the length of `__iter__`. Equal to length of raw data multiplied by `args.sample_num`, option_num (if `model_evaluation_method` is "get_ppl") and 2 (if `use_normalization` is True)
         """
-        # if `evaluation_type` is not "ranking", two branches of `option_num` should be equivalent
+        # if `model_evaluation_method` is not "get_ppl", two branches of `option_num` should be equivalent
         if option_num:
             length = len(self.evaluation_instances)
             if not sample_num and self.args.sample_num > 1:
@@ -585,6 +623,7 @@ class Dataset(torch.utils.data.Dataset):
         return length
 
     def update_tqdm(self, tqdm):
+        # do nothing
         pass
 
     def __repr__(self):
@@ -611,7 +650,7 @@ class DatasetCollection(torch.utils.data.Dataset):
 
     @property
     def option_nums(self) -> List[int]:
-        """If `evaluation_type` is "ranking", this returns the total number of options across all evaluation examples. Otherwise, this returns an empty list."""
+        """If `model_evaluation_method` is "get_ppl", this returns the total number of options across all evaluation examples. Otherwise, this returns an empty list."""
         return sum([d.option_nums for d in self._datasets], [])
 
     def len(self, sample_num: bool = True, option_num: bool = True, normalization: bool = True) -> int:
