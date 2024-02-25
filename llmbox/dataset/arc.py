@@ -1,4 +1,5 @@
 from logging import getLogger
+from typing import List, Tuple, Union
 
 import numpy as np
 
@@ -31,16 +32,15 @@ class Arc(MultipleChoiceDataset):
     load_args = ("allenai/ai2_arc",)
 
     def format_instance(self, instance):
-        source_text = "Question: " + instance["question"] + "\nAnswer:"
-        options = instance["choices"]["text"]
-        options = list(map(lambda _s: " " + _s, options))
+        options = list(map(lambda _s: " " + _s, instance["choices"]["text"]))
         if instance["answerKey"].isdigit():
             instance["answerKey"] = ord(instance["answerKey"]) - 49
         else:
             instance["answerKey"] = ord(instance["answerKey"]) - 65
         return dict(
-            source=source_text,
-            target=options[instance["answerKey"]],
+            source="Question: " + instance["question"],
+            source_postfix="\nAnswer:",
+            target_idx=instance["answerKey"],
             options=options,
         )
 
@@ -59,7 +59,7 @@ class Arc(MultipleChoiceDataset):
         logger.info("Formatted example (option)\n" + self.evaluation_instances[0][1])
         self.evaluation_instances = self.evaluation_instances * self.args.sample_num
 
-    def post_processing(self, predictions):
+    def post_processing(self, predictions: List[Tuple[float, int]]) -> List[int]:
         labels = []
         st = 0
         predictions = list(map(lambda _r: _r[0], predictions))

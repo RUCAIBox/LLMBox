@@ -18,8 +18,6 @@ class Boolq(MultipleChoiceDataset):
     load_args = ("super_glue", "boolq")
 
     def format_instance(self, instance):
-        source = instance["passage"] + "\nquestion: " + instance["question"] + "?\nanswer:"
-
         label2text = {
             0: " no",
             1: " yes",
@@ -27,8 +25,9 @@ class Boolq(MultipleChoiceDataset):
 
         options = [label2text[option] for option in [0, 1]]
         return dict(
-            source=source,
-            target=label2text[instance["label"]],
+            source=instance["passage"] + "\nquestion: " + instance["question"] + "?",
+            source_postfix="\nanswer:",
+            target_idx=instance["label"],
             options=options,
         )
 

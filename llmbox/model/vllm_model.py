@@ -1,10 +1,12 @@
 from logging import getLogger
-from typing import List
+from typing import TYPE_CHECKING, List, Optional, Tuple
 
 import torch
 
-from ..utils import ModelArguments
 from .model import Model
+
+if TYPE_CHECKING:
+    from ..utils import ModelArguments
 
 try:
     from vllm import LLM, SamplingParams
@@ -16,13 +18,27 @@ except ModuleNotFoundError:
 logger = getLogger(__name__)
 
 
+class LabelProcessor:
+
+    def __init__(self, candidate_ids: List[int]) -> List[int]:
+        self.candidate_ids = candidate_ids
+
+    def __call__(self, token_ids: List[int], logits_row: torch.Tensor) -> torch.Tensor:
+        if len(token_ids) != 0:
+            logger.warning("LabelProcessor shoule be used with max_tokens=1")
+        mask = torch.zeros_like(logits_row, dtype=torch.bool)
+        mask[self.candidate_ids] = True
+        logits_row[~mask] = float("-inf")
+        return logits_row
+
+
 class vllmModel(Model):
 
-    def __init__(self, args: ModelArguments):
+    def __init__(self, args: "ModelArguments"):
         super().__init__(args)
         self.args = args
 
-        logger.info(f"Loading {args.model_name_or_path} using vllm...")
+        logger.info(f"Trying to load {args.model_name_or_path} using vllm...")
         self.type = args.model_type
         self.model = LLM(
             model=args.model_name_or_path,
@@ -86,3 +102,41 @@ class vllmModel(Model):
     def generation(self, batched_inputs) -> List[str]:
         results = self.model.generate(batched_inputs, sampling_params=self.generation_kwargs)
         return [r.outputs[0].text for r in results]
+
+    def set_prob_args(self, **extra_model_args):
+        self.prob_kwargs = SamplingParams(max_tokens=1, temperature=0)
+        self.candidate_ids = extra_model_args.pop("candidate_ids", None)
+
+        if len(extra_model_args) > 0:
+            logger.warning(f"Unused generation arguments: {extra_model_args}")
+
+    def _set_candidate_ids(self, option_num: int):
+        labels = [chr(i + 65) for i in range(option_num)]
+        self.word_labels = [self.tokenizer.encode(l, add_special_tokens=False)[0] for l in labels]
+        self.token_labels = [self.tokenizer.convert_tokens_to_ids(l) for l in labels]
+        return self.word_labels + self.token_labels
+
+    def get_prob(self, batched_inputs: List[Tuple[str, int]]) -> List[List[float]]:
+        batched_prompts, batched_option_nums = map(list, zip(*batched_inputs))
+        if self.candidate_ids is None:
+            max_option_num = max(batched_option_nums)
+            candidate_ids = self._set_candidate_ids(max_option_num)
+        else:
+            candidate_ids = self.candidate_ids
+        self.prob_kwargs.logprobs = len(candidate_ids)
+        self.prob_kwargs.logits_processors = [LabelProcessor(candidate_ids)]
+
+        results = self.model.generate(
+            batched_prompts,
+            sampling_params=self.prob_kwargs,
+        )
+        answers = []
+        for result, option_num in zip(results, batched_option_nums):
+            if self.candidate_ids is None:
+                cur_candidate_ids = self.word_labels[:option_num] + self.token_labels[:option_num]
+            else:
+                cur_candidate_ids = self.candidate_ids
+            prob = torch.tensor([result.outputs[0].logprobs[0][idx] for idx in cur_candidate_ids])
+            prob = torch.softmax(prob, dim=0).tolist()
+            answers.append(prob)
+        return answers

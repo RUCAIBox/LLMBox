@@ -24,17 +24,15 @@ class Story_cloze(MultipleChoiceDataset):
     Because of the dataset policy, we can't download the dataset automatically, so we need to download it manually and load it from the local disk.
 
     Please follow the manual download instructions:
-    To use Story Cloze you have to download it manually. Please fill this google form (http://goo.gl/forms/aQz39sdDrO). Complete the form. Then you will receive a download link for the dataset. 
+    To use Story Cloze you have to download it manually. Please fill this google form (http://goo.gl/forms/aQz39sdDrO). Complete the form. Then you will receive a download link for the dataset.
     Download the file ``cloze_test_val__spring2016 - cloze_test_ALL_val.csv` and `cloze_test_test__spring2016 - cloze_test_ALL_test.csv` into `/path/dataset`.
     Then load it using: `--dataset_path /path/dataset`.
     """
     load_args = ("story_cloze", "2016")
 
     def format_instance(self, instance):
-        instance["answer_right_ending"] = instance["answer_right_ending"] - 1
-
         source = " ".join([instance[f"input_sentence_{i}"] for i in range(1, 5)])
-        
+
         label2text = {
             0: " " + instance["sentence_quiz1"],
             1: " " + instance["sentence_quiz2"],
@@ -43,10 +41,11 @@ class Story_cloze(MultipleChoiceDataset):
         options = [label2text[option] for option in (0, 1)]
         return dict(
             source=source,
-            target=label2text[instance["answer_right_ending"]],
+            source_postfix="\nAnswer:" if self.args.ranking_with_options else "",
+            target_idx=instance["answer_right_ending"] - 1,
             options=options,
         )
 
     @property
     def references(self):
-        return [instance["answer_right_ending"] for instance in self.evaluation_data]
+        return [instance["answer_right_ending"] - 1 for instance in self.evaluation_data]
