@@ -30,6 +30,7 @@ class Commonsenseqa(MultipleChoiceDataset):
         options = [label2text[option] for option in ["A", "B", "C", "D", "E"]]
         return dict(
             source=source,
+            source_postfix="\nAnswer:",
             target_idx=ord(instance["answerKey"]) - 65,
             options=options,
         )

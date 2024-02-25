@@ -38,6 +38,7 @@ class Wsc(MultipleChoiceDataset):
         options = [" No", " Yes"]
         return dict(
             source=source,
+            source_postfix="\nAnswer:",
             target_idx=instance["label"],
             options=options,
         )

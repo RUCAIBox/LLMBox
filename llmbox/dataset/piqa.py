@@ -27,6 +27,7 @@ class PIQA(MultipleChoiceDataset):
         options = [' ' + instance[option] for option in ['sol1', 'sol2']]
         return dict(
             source=source_text,
+            source_postfix="\nAnswer:",
             target_idx=instance["label"],
             options=options,
         )

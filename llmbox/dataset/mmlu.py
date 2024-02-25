@@ -27,6 +27,7 @@ class Mmlu(MultipleChoiceDataset):
         options = list(map(lambda op: " " + op, instance["choices"]))
         return dict(
             source="Question: " + instance["question"],
+            source_postfix="\nAnswer:",
             target_idx=instance["answer"],
             options=options,
         )

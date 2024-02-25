@@ -30,6 +30,7 @@ class Wic(MultipleChoiceDataset):
         options = [" no", " yes"]
         return dict(
             source=source,
+            source_postfix="\nanswer:",
             target_idx=instance["label"],
             options=options,
         )

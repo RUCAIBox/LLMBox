@@ -27,6 +27,7 @@ class Anli(MultipleChoiceDataset):
         options = [label2text[option] for option in [0, 1, 2]]
         return dict(
             source=source,
+            source_postfix="\nAnswer:",
             target_idx=instance["label"],
             options=options,
         )

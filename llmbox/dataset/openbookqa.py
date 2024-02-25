@@ -33,6 +33,7 @@ class OpenBookQA(MultipleChoiceDataset):
         options = list(map(lambda _s: " " + _s, options))
         return dict(
             source=source_text,
+            source_postfix="\nA:",
             target_idx=ord(instance["answerKey"]) - 65,
             options=options,
         )

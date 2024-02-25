@@ -26,6 +26,7 @@ class Boolq(MultipleChoiceDataset):
         options = [label2text[option] for option in [0, 1]]
         return dict(
             source=instance["passage"] + "\nquestion: " + instance["question"] + "?",
+            source_postfix="\nanswer:",
             target_idx=instance["label"],
             options=options,
         )

@@ -313,7 +313,7 @@ class Dataset(torch.utils.data.Dataset):
         self.evaluation_instances = self.evaluation_instances * self.args.sample_num
         self.option_nums = self.option_nums * self.args.sample_num
 
-    def _format_instance(self, instance, source_postfix="\nAnswer:"):
+    def _format_instance(self, instance):
         # it is not recommended to modify instance, in case of multiple calls
         formatted_instance = self.format_instance(instance)
 
@@ -326,7 +326,7 @@ class Dataset(torch.utils.data.Dataset):
             formatted_instance["target"] = formatted_instance["options"][formatted_instance.pop("target_idx")]
 
         if "source_postfix" in formatted_instance:
-            formatted_instance["source"] += formatted_instance.pop("source_postfix", source_postfix)
+            formatted_instance["source"] += formatted_instance.pop("source_postfix")
 
         return formatted_instance
 

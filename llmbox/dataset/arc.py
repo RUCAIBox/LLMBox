@@ -38,6 +38,7 @@ class Arc(MultipleChoiceDataset):
             instance["answerKey"] = ord(instance["answerKey"]) - 65
         return dict(
             source="Question: " + instance["question"],
+            source_postfix="\nAnswer:",
             target_idx=instance["answerKey"],
             options=options,
         )

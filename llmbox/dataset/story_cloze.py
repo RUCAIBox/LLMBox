@@ -41,6 +41,7 @@ class Story_cloze(MultipleChoiceDataset):
         options = [label2text[option] for option in (0, 1)]
         return dict(
             source=source,
+            source_postfix="\nAnswer:" if self.args.ranking_with_options else "",
             target_idx=instance["answer_right_ending"] - 1,
             options=options,
         )
