@@ -1,4 +1,5 @@
 from logging import getLogger
+from typing import List, Tuple, Union
 
 import numpy as np
 
@@ -58,7 +59,7 @@ class Arc(MultipleChoiceDataset):
         logger.info("Formatted example (option)\n" + self.evaluation_instances[0][1])
         self.evaluation_instances = self.evaluation_instances * self.args.sample_num
 
-    def post_processing(self, predictions):
+    def post_processing(self, predictions: List[Tuple[float, int]]) -> List[int]:
         labels = []
         st = 0
         predictions = list(map(lambda _r: _r[0], predictions))

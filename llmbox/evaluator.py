@@ -3,21 +3,13 @@ from statistics import mode
 from typing import Dict, Tuple
 
 from accelerate.utils import set_seed
-from prefetch_generator import BackgroundGenerator
 from torch.utils.data import DataLoader
-from tqdm import tqdm
 
 from .dataset import load_dataset
 from .model import load_model
 from .utils import DatasetArguments, EvaluationArguments, ModelArguments, catch_error, dynamic_stride_tqdm
 
 logger = getLogger(__name__)
-
-
-class DataLoaderX(DataLoader):
-
-    def __iter__(self):
-        return BackgroundGenerator(super().__iter__())
 
 
 class Evaluator:
@@ -72,11 +64,14 @@ class Evaluator:
         if self.evaluation_args.dry_run:
             self.model.get_ppl = lambda x: [(0, 1)] * len(x)
             self.model.generation = lambda x: [""] * len(x)
+            self.model.get_prob = lambda x: [[1 / p[1]] * p[1] for p in x]
 
         if self.dataset.model_evaluation_method == 'get_ppl':
             call_model = self.model.get_ppl
         elif self.dataset.model_evaluation_method == 'generation':
             call_model = self.model.generation
+        elif self.dataset.model_evaluation_method == 'get_prob':
+            call_model = self.model.get_prob
         elif self.dataset.model_evaluation_method == "user_defined":
             call_model = self.dataset.evaluation
 
@@ -92,7 +87,8 @@ class Evaluator:
                     strides=self.dataset.option_nums, stride_scale=stride_scale, **tqdm_kwargs
                 )
             else:
-                dataloader = tqdm(unit_scale=self.dataset_args.batch_size, **tqdm_kwargs)
+                stride_scale = self.dataset_args.batch_size
+                dataloader = dynamic_stride_tqdm(stride_scale=self.dataset_args.batch_size, total=self.dataset.len(option_num=False), **tqdm_kwargs)
 
         # call model
         raw_predictions = []
@@ -119,11 +115,11 @@ class Evaluator:
         # calculate metric
         metric_results, last_score_lists = self.dataset.calculate_metric(mode_predictions)
         self.dataset.log_predictions(raw_predictions, predictions, last_score_lists)
-        msg = f"Evaluation finished successfully:"
+        msg = f"Evaluation finished successfully:\nevaluation results: {self.dataset_args.evaluation_results_path}"
         for dataset_name, result in metric_results.items():
             msg += f"\n##### {dataset_name} #####"
             for key, value in result.items():
                 msg += "\n{}: {:.2f}".format(key, value)
 
-        logger.info(msg)
+        logger.info(msg + "\n")
         return metric_results

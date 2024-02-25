@@ -1,5 +1,4 @@
 import os
-import re
 import sys
 from builtins import bool
 from copy import copy
@@ -32,6 +31,10 @@ def filter_none_repr(self):
         if value is not None and not key.startswith("_"):
             kwargs[key] = value if key not in redact else get_redacted(value)
     return f"{self.__class__.__name__}({', '.join(f'{key}={value!r}' for key, value in kwargs.items())})"
+
+
+def passed_in_commandline(self, key):
+    return self.__dataclass_fields__[key].hash
 
 
 @dataclass
@@ -131,6 +134,8 @@ class ModelArguments:
 
     __repr__ = filter_none_repr
 
+    passed_in_commandline = passed_in_commandline
+
     # redact sensitive information when logging with `__repr__`
     _redact = {"openai_api_key", "anthropic_api_key"}
 
@@ -196,8 +201,8 @@ class DatasetArguments:
     """The name(s) of a/several subset(s) in a dataset, derived from `dataset_name` argument on initalization"""
     dataset_path: Optional[str] = HfArg(
         default=None,
-        help="The path of dataset if loading from local. Supports repository cloned from huggingface or "
-        "dataset saved by `save_to_disk`.",
+        help="The path of dataset if loading from local. Supports repository cloned from huggingface, "
+        "dataset saved by `save_to_disk`, or a template string e.g. 'mmlu/{split}/{subset}_{split}.csv'.",
     )
 
     evaluation_set: Optional[str] = HfArg(
@@ -229,7 +234,7 @@ class DatasetArguments:
         default=False,
         help="Whether to evaluate with all options for ranking task",
     )
-    ranking_type: Literal["ppl_of_whole_option"] = HfArg(
+    ranking_type: Literal["ppl_of_whole_option", "prob_of_just_option"] = HfArg(
         default="ppl_of_whole_option",
         help="The evaluation method for ranking task",
     )
@@ -270,6 +275,8 @@ class DatasetArguments:
 
     __repr__ = filter_none_repr
 
+    passed_in_commandline = passed_in_commandline
+
     def __post_init__(self):
         if ":" in self.dataset_name:
             self.dataset_name, subset_names = self.dataset_name.split(":")
@@ -278,10 +285,11 @@ class DatasetArguments:
         # argparse encodes string with unicode_escape, decode it to normal string, e.g., "\\n" -> "\n"
         self.instance_format = self.instance_format.encode('utf-8').decode('unicode_escape')
         if not self.ranking_with_options and self.ranking_type != "ppl_of_whole_option":
-            raise ValueError(
-                "The `ranking_type` argument is only available for ranking task with options, "
-                "which requires `ranking_with_options` to be True."
+            logger.warning(
+                "The `ranking_type` argument is only available for ranking task with options. "
+                "Automatically set `ranking_with_options` to True."
             )
+            self.ranking_with_options = True
 
 
 @dataclass
@@ -312,6 +320,8 @@ class EvaluationArguments:
 
     __repr__ = filter_none_repr
 
+    passed_in_commandline = passed_in_commandline
+
     def __post_init__(self):
         os.makedirs(self.logging_dir, exist_ok=True)
         os.makedirs(self.evaluation_results_dir, exist_ok=True)
@@ -341,6 +351,12 @@ def check_args(model_args: ModelArguments, dataset_args: DatasetArguments, evalu
         raise ValueError(
             "OpenAI API key is required for GPTEval metrics. Please set it by passing a `--openai_api_key` or through environment variable `OPENAI_API_KEY`."
         )
+
+    if not dataset_args.ranking_with_options and dataset_args.ranking_type != "ppl_of_whole_option":
+        logger.warning(
+            "The `ranking_type` argument is only available for ranking task with options. Automatically set `ranking_with_options` to True."
+        )
+        dataset_args.ranking_with_options = True
 
     args_ignored = set()
     for model_impl, args in model_args._model_specific_arguments.items():

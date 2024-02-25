@@ -1,5 +1,5 @@
 from logging import getLogger
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, List, Tuple, Union
 
 from tiktoken import Encoding
 from transformers import PreTrainedTokenizer, PreTrainedTokenizerFast
@@ -36,29 +36,45 @@ class Model:
         r"""Set the configurations for PPL score calculation. This is useful because different datasets may have different requirements for ppl calculation."""
         raise NotImplementedError(f"{self.name} model must implement the `set_ppl_args` function.")
 
-    def get_ppl(self, batched_inputs):
+    def get_ppl(self, batched_inputs: List[Tuple[str, str]]) -> List[Tuple[float, int]]:
         r"""Compute the PPL score of the option given the context for this batch.
 
         Args:
-            batched_inputs (List[Tuple(str, str)]): The batch of context and option pairs.
+            batched_inputs (List[Tuple[str, str]]): The batch of context and option pairs.
 
         Returns:
-            List(float): The list of PPL scores.
+            List[float]: The list of PPL scores.
         """
-        raise NotImplementedError(f"{self.name} model must implement the `get_ppl` function.")
+        raise NotImplementedError(f"{self.name} model does not support `get_ppl`.")
 
     def set_generation_args(self, **extra_model_args):
         r"""Set the configurations for open-ended generation. This is useful because different datasets may have different requirements for generation."""
 
         raise NotImplementedError(f"{self.name} model must implement the `set_generation_args` function.")
 
-    def generation(self, batched_inputs):
+    def generation(self, batched_inputs: List[str]) -> List[str]:
         r"""Generate the response of given question for this batch.
 
         Args:
             batched_inputs (List[str]): The batch of questions.
 
         Returns:
-            List(str): The list of generation results.
+            List[str]: The list of generation results.
         """
-        raise NotImplementedError(f"{self.name} model must implement the `generation` function.")
+        raise NotImplementedError(f"{self.name} model does not support `generation`.")
+
+    def set_prob_args(self, **extra_model_args):
+        r"""Set the configurations for generation. This is useful because different datasets may have different requirements for get_prob."""
+
+        raise NotImplementedError(f"{self.name} model must implement the `set_prob_args` function.")
+
+    def get_prob(self, batched_inputs: List[Tuple[str, int]]) -> List[int]:
+        r"""Calculates the probability of each option in a multiple-choice question being the correct continuation of a given text prompt.
+
+        Args:
+            batched_inputs (List[Tuple[str, int]]): The batch of questions and corresponding option nums.
+
+        Returns:
+            List[int]: The option index of maximal probabiltiy.
+        """
+        raise NotImplementedError(f"{self.name} model does not support `get_prob`.")
