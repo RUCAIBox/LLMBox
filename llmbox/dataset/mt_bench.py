@@ -28,7 +28,7 @@ class Mt_bench(GenerationDataset):
                 "question_1": instance["prompt"][0],
                 "question_2": instance["prompt"][1]
             }
-            if len(instance["reference"]) != 0:
+            if instance["reference"] is not None and len(instance["reference"]) != 0:
                 data_dict.update({
                     "ref_answer_1": instance["reference"][0],
                     "ref_answer_2": instance["reference"][1]
