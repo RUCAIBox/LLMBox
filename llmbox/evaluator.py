@@ -91,11 +91,12 @@ class Evaluator:
                 dataloader = dynamic_stride_tqdm(stride_scale=self.dataset_args.batch_size, total=self.dataset.len(option_num=False), **tqdm_kwargs)
 
         # call model
+        mt_flag = False
         if self.dataset_args.dataset_name == "mt_bench":
-            call_model = self.model.generation_mt
+            mt_flag = True
         raw_predictions = []
         for batch in dataloader:
-            raw_predictions.extend(call_model(batch))
+            raw_predictions.extend(call_model(batch, mt_flag))
             self.dataset.log_predictions(raw_predictions)
             self.dataset.update_tqdm(dataloader)
 

@@ -1,4 +1,4 @@
-from ..metric import GPTEvalMT
+from ..metric import GPTEval
 from .generation_dataset import GenerationDataset
 
 
@@ -18,24 +18,22 @@ class Mt_bench(GenerationDataset):
     example_set = ""
     evaluation_set = "train"
     load_args = ("HuggingFaceH4/mt_bench_prompts",)
-    metrics = [GPTEvalMT()]
+    metrics = [GPTEval(True)]
 
     def load_raw_dataset(self, dataset_path, subset_name, evaluation_set, example_set):
         super().load_raw_dataset(dataset_path, subset_name, evaluation_set, example_set)
         new_evaluation_data = []
         for instance in self.evaluation_data:
+            data_dict = {
+                "question_1": instance["prompt"][0],
+                "question_2": instance["prompt"][1]
+            }
             if len(instance["reference"]) != 0:
-                new_evaluation_data.append({
-                    "question_1": instance["prompt"][0],
-                    "question_2": instance["prompt"][1],
+                data_dict.update({
                     "ref_answer_1": instance["reference"][0],
                     "ref_answer_2": instance["reference"][1]
                 })
-            else:
-                new_evaluation_data.append({
-                    "question_1": instance["prompt"][0],
-                    "question_2": instance["prompt"][1]
-                })
+            new_evaluation_data.append(data_dict)
         self.evaluation_data = new_evaluation_data
 
 
