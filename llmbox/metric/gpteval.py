@@ -16,7 +16,7 @@ score_pattern_backup = re.compile("\[(\d+\.?\d*)\]")
 
 
 class GPTEval(Metric):
-    r""" using strong LLMs as judges to evaluate models.
+    r"""Using strong LLMs as judges to evaluate models. (Single Turn)
 
         Return:
             "GPT-Eval": float
@@ -24,7 +24,7 @@ class GPTEval(Metric):
 
     def __call__(self, predictions, references):
         model_args = ModelArguments(
-            model_name_or_path="gpt-3.5-turbo",
+            model_name_or_path="gpt-3.5-turbo", # use it to judge the model.
             max_tokens=2048,
             temperature=0,
         )

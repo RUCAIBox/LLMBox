@@ -83,6 +83,9 @@ class Openai(Model):
             answers.append(answer)
         return answers
 
+    def generation_mt(self, batched_inputs):
+        return self.request_mt(batched_inputs, self.generation_kwargs)
+
     def request(self, prompt, openai_kwargs):
         r"""Call the OpenAI API.
 
@@ -102,6 +105,43 @@ class Openai(Model):
                 else:
                     response = openai.Completion.create(model=self.name, prompt=prompt, **openai_kwargs)
                     return response["choices"]
+            except openai.error.RateLimitError:
+                logger.warning("Receive openai.error.RateLimitError, retrying...")
+                time.sleep(10)
+            except openai.error.AuthenticationError as e:
+                raise e
+            except openai.error.InvalidRequestError as e:
+                raise e
+            except Exception as e:
+                logger.warning(f"Receive {e.__class__.__name__}: {str(e)}")
+                logger.warning("retrying...")
+                time.sleep(1)
+        raise ConnectionError("OpenAI API error")
+
+    def request_mt(self, prompt, openai_kwargs):
+        r"""Call the OpenAI API. Support multi turns.
+
+        Args:
+            prompt (List[str]): The list of input prompts.
+            openai_kwargs (dict): The additional calling configurations.
+
+        Returns:
+            List[dict]: The responsed JSON results.
+        """
+        for _ in range(self.max_try_times):
+            try:
+                messages = []
+                results = ""
+                parts = prompt[0].split("\n")
+                for query in parts:
+                    if len(query) == 0:
+                        continue
+                    messages.append({"role": "user", "content": query})
+                    response = openai.ChatCompletion.create(model=self.name, messages=messages, **openai_kwargs)
+                    message = response["choices"][0]["message"]["content"]
+                    messages.append({"role": "assistant", "content": message})
+                    results += message + "__SEPARATOR__"
+                return [results]
             except openai.error.RateLimitError:
                 logger.warning("Receive openai.error.RateLimitError, retrying...")
                 time.sleep(10)
