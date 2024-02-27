@@ -4,7 +4,7 @@ from builtins import bool
 from copy import copy
 from dataclasses import MISSING, dataclass
 from logging import getLogger
-from typing import ClassVar, Dict, List, Optional, Set, Tuple, Union
+from typing import ClassVar, Dict, List, Literal, Optional, Set, Tuple, Union
 
 import openai
 from transformers.hf_argparser import HfArg, HfArgumentParser
@@ -15,7 +15,9 @@ from .logging import log_levels, set_logging
 logger = getLogger(__name__)
 
 
-def get_redacted(sensitive: str) -> str:
+def get_redacted(sensitive: Optional[str]) -> str:
+    if sensitive is None:
+        return ""
     middle = len(sensitive) - 12
     if middle <= 0:
         return "*" * len(sensitive)
@@ -29,6 +31,10 @@ def filter_none_repr(self):
         if value is not None and not key.startswith("_"):
             kwargs[key] = value if key not in redact else get_redacted(value)
     return f"{self.__class__.__name__}({', '.join(f'{key}={value!r}' for key, value in kwargs.items())})"
+
+
+def passed_in_commandline(self, key):
+    return self.__dataclass_fields__[key].hash
 
 
 @dataclass
@@ -63,7 +69,6 @@ class ModelArguments:
         default=None,
         help="The Anthropic API key",
     )
-    """The redacted API key for logging."""
 
     tokenizer_name_or_path: str = HfArg(
         default=None, aliases=["--tokenizer"], help="The tokenizer name or path, e.g., meta-llama/Llama-2-7b-hf"
@@ -129,6 +134,12 @@ class ModelArguments:
 
     __repr__ = filter_none_repr
 
+    passed_in_commandline = passed_in_commandline
+
+    # redact sensitive information when logging with `__repr__`
+    _redact = {"openai_api_key", "anthropic_api_key"}
+
+    # simplify logging with model-specific arguments
     _model_specific_arguments: ClassVar[Dict[str, Set[str]]] = {
         "openai": {"openai_api_key"},
         "anthropic": {"anthropic_api_key"},
@@ -153,17 +164,23 @@ class ModelArguments:
         else:
             self._model_impl = "huggingface"
 
-        if "OPENAI_API_KEY" not in os.environ and self.openai_api_key is None and openai.api_key is None:
-            raise ValueError(
-                "OpenAI API key is required. Please set it by passing a `--openai_api_key` or through environment variable `OPENAI_API_KEY`."
-            )
+        # set `self.openai_api_key` and `openai.api_key` from environment variables
         if "OPENAI_API_KEY" in os.environ and self.openai_api_key is None:
             self.openai_api_key = os.environ["OPENAI_API_KEY"]
         if self.openai_api_key is not None:
             openai.api_key = self.openai_api_key
+        if self.is_openai_model() and self.openai_api_key is None:
+            raise ValueError(
+                "OpenAI API key is required. Please set it by passing a `--openai_api_key` or through environment variable `OPENAI_API_KEY`."
+            )
 
+        # set `self.anthropic_api_key` from environment variables
         if "ANTHROPIC_API_KEY" in os.environ and self.anthropic_api_key is None:
             self.anthropic_api_key = os.environ["ANTHROPIC_API_KEY"]
+        if self.is_anthropic_model() and self.anthropic_api_key is None:
+            raise ValueError(
+                "Anthropic API key is required. Please set it by passing a `--anthropic_api_key` or through environment variable `ANTHROPIC_API_KEY`."
+            )
 
         if self.tokenizer_name_or_path is None:
             self.tokenizer_name_or_path = self.model_name_or_path
@@ -184,8 +201,8 @@ class DatasetArguments:
     """The name(s) of a/several subset(s) in a dataset, derived from `dataset_name` argument on initalization"""
     dataset_path: Optional[str] = HfArg(
         default=None,
-        help="The path of dataset if loading from local. Supports repository cloned from huggingface or "
-        "dataset saved by `save_to_disk`.",
+        help="The path of dataset if loading from local. Supports repository cloned from huggingface, "
+        "dataset saved by `save_to_disk`, or a template string e.g. 'mmlu/{split}/{subset}_{split}.csv'.",
     )
 
     evaluation_set: Optional[str] = HfArg(
@@ -212,6 +229,10 @@ class DatasetArguments:
         aliases=["-shots"],
         default=0,
         help="The few-shot number for demonstration",
+    )
+    ranking_type: Literal["ppl", "prob", "ppl_no_option"] = HfArg(
+        default="ppl_no_option",
+        help="The evaluation and prompting method for ranking task",
     )
     max_example_tokens: int = HfArg(
         default=1024,
@@ -250,10 +271,16 @@ class DatasetArguments:
 
     __repr__ = filter_none_repr
 
+    passed_in_commandline = passed_in_commandline
+
     def __post_init__(self):
         if ":" in self.dataset_name:
             self.dataset_name, subset_names = self.dataset_name.split(":")
             self.subset_names = set(subset_names.split(","))
+
+        # argparse encodes string with unicode_escape, decode it to normal string, e.g., "\\n" -> "\n"
+        self.instance_format = self.instance_format.encode('utf-8').decode('unicode_escape')
+        self.ranking_with_options = not self.ranking_type.endswith("no_option")
 
 
 @dataclass
@@ -284,6 +311,8 @@ class EvaluationArguments:
 
     __repr__ = filter_none_repr
 
+    passed_in_commandline = passed_in_commandline
+
     def __post_init__(self):
         os.makedirs(self.logging_dir, exist_ok=True)
         os.makedirs(self.evaluation_results_dir, exist_ok=True)
@@ -308,6 +337,17 @@ def check_args(model_args: ModelArguments, dataset_args: DatasetArguments, evalu
         logger.warning(
             f"Claude model {model_args.model_name_or_path} doesn't support batch_size > 1, automatically set batch_size to 1."
         )
+
+    if dataset_args.dataset_name == "vicuna_bench" and model_args.openai_api_key is None:
+        raise ValueError(
+            "OpenAI API key is required for GPTEval metrics. Please set it by passing a `--openai_api_key` or through environment variable `OPENAI_API_KEY`."
+        )
+
+    if not dataset_args.ranking_with_options and dataset_args.ranking_type != "ppl_of_whole_option":
+        logger.warning(
+            "The `ranking_type` argument is only available for ranking task with options. Automatically set `ranking_with_options` to True."
+        )
+        dataset_args.ranking_with_options = True
 
     args_ignored = set()
     for model_impl, args in model_args._model_specific_arguments.items():
@@ -342,7 +382,7 @@ def parse_argument(args=None) -> Tuple[ModelArguments, DatasetArguments, Evaluat
     check_args(model_args, dataset_args, evaluation_args)
 
     # log arguments and environment variables
-    redact_dict = {"--openai_api_key": model_args.openai_api_key}
+    redact_dict = {f"--{arg}": get_redacted(getattr(model_args, arg, "")) for arg in model_args._redact}
     for key, value in redact_dict.items():
         if key in args:
             args[args.index(key) + 1] = repr(value)

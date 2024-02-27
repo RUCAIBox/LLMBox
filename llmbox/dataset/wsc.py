@@ -34,17 +34,12 @@ class Wsc(MultipleChoiceDataset):
         else:
             modified_text = "When they had eventually calmed down a bit , and had gotten home, Mr. Farley put the magic pebble in an iron safe . Some day they might want to use *it* , but really for now, what more could they wish for"
         source += f"Passage: {modified_text}\n"
-        source += f'Question: In the passage above, does the pronoun "*{instance["span2_text"]}*" refer to "{instance["span1_text"]}"?\n'
-        source += "Answer:"
-        label2text = {
-            0: " No",
-            1: " Yes",
-        }
-
-        options = [label2text[option] for option in [0, 1]]
+        source += f'Question: In the passage above, does the pronoun "*{instance["span2_text"]}*" refer to "{instance["span1_text"]}"?'
+        options = [" No", " Yes"]
         return dict(
             source=source,
-            target=label2text[instance["label"]],
+            source_postfix="\nAnswer:",
+            target_idx=instance["label"],
             options=options,
         )
 

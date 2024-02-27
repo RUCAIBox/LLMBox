@@ -1,16 +1,19 @@
 from logging import getLogger
+from typing import TYPE_CHECKING
 
-from ..utils import ModelArguments
-from .model import Model
+if TYPE_CHECKING:
+    # solve the circular import
+    from ..utils import ModelArguments
+    from .model import Model
 
 logger = getLogger(__name__)
 
 
-def load_model(args: ModelArguments) -> Model:
+def load_model(args: "ModelArguments") -> "Model":
     r"""Load corresponding model class.
 
     Args:
-        args (Namespace): The global configurations.
+        args (ModelArguments): The global configurations.
 
     Returns:
         Model: Our class for model.
@@ -32,9 +35,11 @@ def load_model(args: ModelArguments) -> Model:
 
                 return vllmModel(args)
             except ValueError as e:
-                if "are not supported for now" in str(e):
+                if "are not supported for now" in str(e) or "divisible by tensor parallel size" in str(e):
                     args.vllm = False
                     logger.warning(f"vllm has not supported the architecture of {args.model_name_or_path} for now.")
+                elif "divisible by tensor parallel size" in str(e):
+                    raise ValueError(f"Set an appropriate tensor parallel size via CUDA_VISIBLE_DEVICES: {e}")
                 else:
                     raise e
         from .huggingface_model import HuggingFaceModel

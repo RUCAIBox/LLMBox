@@ -19,7 +19,7 @@ class Anli(MultipleChoiceDataset):
 
     def format_instance(self, instance):
         source = (
-            instance["premise"] + "\nQuestion: " + instance["hypothesis"] + " True, False, or Neither?\n" + "Answer:"
+            instance["premise"] + "\nQuestion: " + instance["hypothesis"] + " True, False, or Neither?"
         )
 
         label2text = {0: " True", 1: " Neither", 2: " False"}
@@ -27,7 +27,8 @@ class Anli(MultipleChoiceDataset):
         options = [label2text[option] for option in [0, 1, 2]]
         return dict(
             source=source,
-            target=label2text[instance["label"]],
+            source_postfix="\nAnswer:",
+            target_idx=instance["label"],
             options=options,
         )
 

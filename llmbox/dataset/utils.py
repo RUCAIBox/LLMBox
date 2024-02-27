@@ -4,30 +4,39 @@ import re
 from importlib.machinery import SourceFileLoader
 from logging import getLogger
 from os.path import abspath
-from typing import Callable, Optional, Tuple, Union
+from typing import Callable, List, Optional, Tuple, Union
 
 import datasets
 
 logger = getLogger(__name__)
 
-EXTENDED_SEARCH_PATHS = [
-    "/{subset}",
-    "/{split}",
-    "/{subset}/{split}",
-    "/{split}/{subset}",
-]
+
+def pjoin(pleft: Union[str, List[str]], pright: str) -> str:
+    """Join two prompts. Add/remove a white space between them if necessary."""
+    if isinstance(pleft, list):
+        return [pjoin(prompt, pright) for prompt in pleft]
+    else:
+        if not pleft.endswith((" ", "\n")) and not pright.startswith((" ", "\n")):
+            return f"{pleft} {pright}"
+        elif pleft.endswith((" ")) and pright.startswith((" ")):
+            return pleft + pright[1:]
+        else:
+            return pleft + pright
 
 
 def accepts_subset(
     load_args: Union[Tuple[str], Tuple[str, str], Tuple[()]],
     overwrite_subset: bool = True,
     subset: str = "",
+    disable_warning: bool = False,
 ) -> bool:
     if len(load_args) == 2 and isinstance(load_args[1], str):
-        if overwrite_subset or load_args[1] == subset:
-            logger.warning(
-                f"Dataset class already has a subset '{load_args[1]}' to load. Overwriting it with '{subset}'."
-            )
+        if overwrite_subset:
+            if not disable_warning:
+                logger.warning(
+                    f"Dataset class already has a subset '{load_args[1]}' to load. Overwriting it with '{subset}'.",
+                    stacklevel=2,
+                )
         else:
             return load_args[1] == subset
     # len(load_args) == 1 means accept subset and len(load_args) == 0 means special case like wmt
@@ -40,7 +49,11 @@ def get_raw_dataset_loader(
     subset_name: Optional[str],
     load_args: Optional[Union[Tuple[str], Tuple[str, str], Tuple[()]]],
     return_msg: bool = False,
-) -> Union[Callable[[Optional[str]], datasets.Dataset], Tuple[Callable[[str], datasets.Dataset], str],]:
+    use_etag: bool = False,
+) -> Union[
+    Callable[[Optional[str]], datasets.Dataset],
+    Tuple[Callable[[str], datasets.Dataset], str],
+]:
     """Get the function to load the raw dataset from huggingface (if `load_args` is not None) or local path (if `dataset_path` is not None).
 
     ```python
@@ -65,6 +78,8 @@ def get_raw_dataset_loader(
     msg = f"Loading raw dataset `{dataset_msg}`"
     load_fn = None
 
+    download_config = datasets.DownloadConfig(use_etag=use_etag)
+
     # if `dataset_path` is not None, load from local path
     if dataset_path is not None:
         dataset_path = abspath(dataset_path)
@@ -78,7 +93,13 @@ def get_raw_dataset_loader(
             if dataset_name in infos:
 
                 def load_fn(split):
-                    return datasets.load_dataset(dataset_path, dataset_name, split=split, trust_remote_code=True)
+                    return datasets.load_dataset(
+                        dataset_path,
+                        dataset_name,
+                        split=split,
+                        trust_remote_code=True,
+                        download_config=download_config
+                    )
 
             elif subset_name in infos:
 
@@ -88,6 +109,7 @@ def get_raw_dataset_loader(
                         subset_name,
                         split=split,
                         trust_remote_code=True,
+                        download_config=download_config,
                     )
 
             else:
@@ -116,29 +138,28 @@ def get_raw_dataset_loader(
                     split=split,
                     data_dir=dataset_path,
                     trust_remote_code=True,
+                    download_config=download_config,
                 )
 
         # load from a file
         else:
             subset_name = subset_name or ""
-            supported_formats = (".jsonl", ".json", ".csv", ".txt")
+            r_subset = re.compile(r"{subset}")
+            r_postfix = re.compile(r"\[.*\].*$")
+            r_split = re.compile(r"{split}")
 
             def load_fn(split):
-                search_paths = [""]
-                if not dataset_path.endswith(supported_formats):
-                    search_paths += EXTENDED_SEARCH_PATHS
-                for search_path in search_paths:
-                    dataset_file_path = os.path.join(dataset_path, search_path)
-                    dataset_file_path = re.sub(r"{subset}", subset_name, dataset_file_path)
-                    if split:
-                        dataset_file_path = re.sub(r"{split}", split, dataset_file_path)
+                dataset_file_path = r_subset.sub(subset_name, dataset_path)
+                if split:
+                    split = r_postfix.sub("", split)
+                    dataset_file_path = r_split.sub(split, dataset_file_path)
 
-                    logger.debug(f"Searching dataset file: {dataset_file_path}")
-                    if os.path.exists(dataset_file_path):
-                        data = load_raw_dataset_from_file(dataset_file_path)
-                        if not split:
-                            return data
-                        return data[split]
+                logger.debug(f"Searching dataset file: {dataset_file_path}")
+                if os.path.exists(dataset_file_path):
+                    data = load_raw_dataset_from_file(dataset_file_path)
+                    if not split or split not in data:
+                        return data
+                    return data[split]
 
                 raise ValueError(f"Cannot find raw dataset `{dataset_msg}` in `{dataset_path}`.")
 
@@ -148,7 +169,7 @@ def get_raw_dataset_loader(
         if len(load_args) == 0:
             load_args = (dataset_name,)
         # trying to load a subset if its not specified in `dataset.load_args` (e.g. `load_args=("mmlu",)`
-        if accepts_subset(load_args, subset=subset_name) and subset_name is not None:
+        if accepts_subset(load_args, subset=subset_name, disable_warning=True) and subset_name is not None:
             # ignore load_args[1], because if it is specified, it is equivalent to `subset_name`
             load_args = (load_args[0], subset_name)
         elif subset_name is not None:
@@ -163,7 +184,9 @@ def get_raw_dataset_loader(
         msg += f" from huggingface ({', '.join(load_args)})"
 
         def load_fn(split):
-            return datasets.load_dataset(*load_args, split=split, trust_remote_code=True)
+            return datasets.load_dataset(
+                *load_args, split=split, trust_remote_code=True, download_config=download_config
+            )
 
     if load_fn is None:
         raise ValueError(

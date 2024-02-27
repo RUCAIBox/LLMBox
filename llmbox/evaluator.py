@@ -3,21 +3,13 @@ from statistics import mode
 from typing import Dict, Tuple
 
 from accelerate.utils import set_seed
-from prefetch_generator import BackgroundGenerator
 from torch.utils.data import DataLoader
-from tqdm import tqdm
 
 from .dataset import load_dataset
 from .model import load_model
 from .utils import DatasetArguments, EvaluationArguments, ModelArguments, catch_error, dynamic_stride_tqdm
 
 logger = getLogger(__name__)
-
-
-class DataLoaderX(DataLoader):
-
-    def __iter__(self):
-        return BackgroundGenerator(super().__iter__())
 
 
 class Evaluator:
@@ -69,31 +61,24 @@ class Evaluator:
             pin_memory=True,
         )
 
-        if self.dataset.evaluation_type == 'ranking':
-            call_model = self.model.get_ppl
-        elif self.dataset.evaluation_type == 'generation':
-            call_model = self.model.generation
-        elif self.dataset.evaluation_type == "user_defined":
-            call_model = self.dataset.evaluation
-        else:
-            raise ValueError(
-                f"We only support three evaluation types: `ranking`, `generation`, and `user_defined`, but got `{self.dataset.evaluation_type}`."
-            )
-
         if self.evaluation_args.dry_run:
-            if self.dataset.evaluation_type == "ranking":
+            self.model.get_ppl = lambda x: [(0, 1)] * len(x)
+            self.model.generation = lambda x: [""] * len(x)
+            self.model.get_prob = lambda x: [[1 / p[1]] * p[1] for p in x]
 
-                def call_model(batch):
-                    return [(0, 1)] * len(batch)
-            else:
-
-                def call_model(batch):
-                    return [""] * len(batch)
+        if self.dataset.model_evaluation_method == 'get_ppl':
+            call_model = self.model.get_ppl
+        elif self.dataset.model_evaluation_method == 'generation':
+            call_model = self.model.generation
+        elif self.dataset.model_evaluation_method == 'get_prob':
+            call_model = self.model.get_prob
+        elif self.dataset.model_evaluation_method == "user_defined":
+            call_model = self.dataset.evaluation
 
         # use tqdm for non-vllm models
         if self.dataset_args.batch_size != -1:
             tqdm_kwargs = dict(iterable=dataloader, desc=self.dataset.name, dynamic_ncols=True, unit=" examples")
-            if self.dataset.evaluation_type == "ranking":
+            if self.dataset.model_evaluation_method == "get_ppl":
                 # dataloader is often sacled by batch size and option nums, comparing to evaluation data
                 stride_scale = self.dataset_args.batch_size
                 if self.dataset.use_normalization:
@@ -102,12 +87,14 @@ class Evaluator:
                     strides=self.dataset.option_nums, stride_scale=stride_scale, **tqdm_kwargs
                 )
             else:
-                dataloader = tqdm(unit_scale=self.dataset_args.batch_size, **tqdm_kwargs)
+                stride_scale = self.dataset_args.batch_size
+                dataloader = dynamic_stride_tqdm(stride_scale=self.dataset_args.batch_size, total=self.dataset.len(option_num=False), **tqdm_kwargs)
 
         # call model
+        multi_turn = True if self.dataset_args.dataset_name == "mt_bench" else False
         raw_predictions = []
         for batch in dataloader:
-            raw_predictions.extend(call_model(batch))
+            raw_predictions.extend(call_model(batch, multi_turn))
             self.dataset.log_predictions(raw_predictions)
             self.dataset.update_tqdm(dataloader)
 
@@ -129,11 +116,11 @@ class Evaluator:
         # calculate metric
         metric_results, last_score_lists = self.dataset.calculate_metric(mode_predictions)
         self.dataset.log_predictions(raw_predictions, predictions, last_score_lists)
-        msg = f"Evaluation finished successfully:"
+        msg = f"Evaluation finished successfully:\nevaluation results: {self.dataset_args.evaluation_results_path}"
         for dataset_name, result in metric_results.items():
             msg += f"\n##### {dataset_name} #####"
             for key, value in result.items():
                 msg += "\n{}: {:.2f}".format(key, value)
 
-        logger.info(msg)
+        logger.info(msg + "\n")
         return metric_results
