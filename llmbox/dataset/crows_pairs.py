@@ -21,7 +21,7 @@ class Crows_pairs(MultipleChoiceDataset):
         options = [" " + instance["sent_more"], " " + instance["sent_less"]]
         return dict(
             source="",
-            target=instance["stereo_antistereo"],
+            target_idx=instance["stereo_antistereo"],
             options=options,
         )
 

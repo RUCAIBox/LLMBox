@@ -32,6 +32,7 @@ python inference.py -m davinci-002 -d hellaswag --evaluation_set validation\[:50
 python inference.py -m davinci-002 -d hellaswag --evaluation_set validation -b 20 -shots 0 # 79.7
 python inference.py -m davinci-002 -d lambada -b 20 --evaluation_set test\[:500\] # 74.4
 python inference.py -m davinci-002 -d story_cloze:2016 --dataset_path /home/tangtianyi/data/story_cloze --evaluation_set test\[:500\] -b 20 # 83.4
+python inference.py -m davinci-002 -d crows_pairs --evaluation_set test\[:500\] -b 20 # 66.6
 
 python inference.py -m davinci-002 -d nq --evaluation_set validation\[:500\] -b 20 # 33 / 21
 python inference.py -m davinci-002 -d nq --evaluation_set validation\[:500\] -b 20 -shots 1 # 38 / 26
@@ -57,3 +58,5 @@ python inference.py -m gpt-3.5-turbo -d gsm8k --evaluation_set test\[:100\] -b 2
 python inference.py -m gpt-3.5-turbo -d gsm8k --evaluation_set test\[:100\] -b 20 -shots 8 --cot least_to_most # 72
 python inference.py -m gpt-3.5-turbo -d gsm8k --evaluation_set test\[:100\] -b 20 -shots 8 --cot pal # 77
 python inference.py -m gpt-3.5-turbo -d gsm8k --evaluation_set test\[:100\] -b 20 -shots 8 --temperature 0.7 --sample_num 5 # 76
+python inference.py -m gpt-3.5-turbo -d mt_bench # 8.62
+
