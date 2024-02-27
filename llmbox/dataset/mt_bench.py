@@ -18,7 +18,7 @@ class Mt_bench(GenerationDataset):
     example_set = ""
     evaluation_set = "train"
     load_args = ("HuggingFaceH4/mt_bench_prompts",)
-    metrics = [GPTEval(True)]
+    metrics = [GPTEval(multi_turn=True)]
 
     def load_raw_dataset(self, dataset_path, subset_name, evaluation_set, example_set):
         super().load_raw_dataset(dataset_path, subset_name, evaluation_set, example_set)
@@ -39,7 +39,7 @@ class Mt_bench(GenerationDataset):
 
     def format_instance(self, instance):
         return dict(
-            source=instance["question_1"] + "\n" + instance["question_2"],
+            source=instance["question_1"].strip() + "__SEPARATOR__" + instance["question_2"].strip(),
             target="",
         )
 
