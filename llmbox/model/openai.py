@@ -22,6 +22,9 @@ class Openai(Model):
     def __init__(self, args: ModelArguments):
         super().__init__(args)
 
+        if openai.__version__ != "0.28.1":
+            logger.warning(f"OpenAI version is {openai.__version__}, not 0.28.1. Please make sure the version is correct.")
+
         logger.info(f"Trying to load OpenAI model with api_base='{openai.api_base}'")
         self.api_key = openai.api_key  # the actual api key is used in icl
 

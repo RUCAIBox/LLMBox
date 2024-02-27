@@ -1,6 +1,7 @@
 from logging import getLogger
 
 from .multiple_choice_dataset import MultipleChoiceDataset
+from .enum import MMLU_SUBJECTS
 
 logger = getLogger(__name__)
 
@@ -20,6 +21,7 @@ class Mmlu(MultipleChoiceDataset):
     evaluation_set = "test"
     example_set = "dev"
     load_args = ("hails/mmlu_no_train",)  # remove "all" by default
+    categorized_subsets = MMLU_SUBJECTS
 
     def __init__(self, args, model, subset_name: str):
         self.instruction = self.instruction.format(self._format_subject(subset_name))

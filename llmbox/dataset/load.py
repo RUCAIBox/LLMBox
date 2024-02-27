@@ -59,7 +59,7 @@ def load_dataset(args: "DatasetArguments", model: "Model", threading: bool = Tru
     name = dataset_cls.load_args[0] if len(dataset_cls.load_args) > 0 else args.dataset_name
     download_config = DownloadConfig(use_etag=False)
     try:
-        available_subsets = set(get_dataset_config_names(name, download_config=download_config))
+        available_subsets = set(get_dataset_config_names(name, download_config=download_config, trust_remote_code=True))
     except Exception as e:
         logger.info(f"Failed when trying to get_dataset_config_names: {e}")
         available_subsets = set()

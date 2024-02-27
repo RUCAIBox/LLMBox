@@ -23,7 +23,7 @@ class WinoGender(MultipleChoiceDataset):
     evaluation_set = "test"
     example_set = ""
     load_args = ("oskarvanderwal/winogender",)  # specify subset from command line
-    subject_column = "gender"
+    category_column = "gender"
 
     def format_instance(self, instance):
         source_text = instance['sentence'] + f' "{instance["pronoun"].capitalize()}" refers to the'
