@@ -12,11 +12,7 @@ import torch
 import tqdm as tqdm_lib
 
 from .enum import MMLU_SUBJECTS
-from .icl_strategies import (
-    ape,
-    global_entropy_ordering_strategy,
-    knn_construct_examples,
-)
+from .icl_strategies import ape, global_entropy_ordering_strategy, knn_construct_examples
 from .utils import get_raw_dataset_loader, pjoin
 
 if typing.TYPE_CHECKING:
@@ -160,11 +156,6 @@ class Dataset(torch.utils.data.Dataset):
             )
 
         # ranking with options
-        if self.model_evaluation_method not in {"get_ppl", "get_prob"} and self.args.ranking_with_options:
-            logger.warning(
-                f'Ranking with options only supports evaluation using the ranking mode but receive "{self.model_evaluation_method}", automatically set ranking_with_options = False.'
-            )
-            self.args.ranking_with_options = False
         if self.name == "winogrande" and self.args.ranking_with_options:
             logger.warning(
                 f"Winogrande does not support ranking with options, automatically set ranking_with_options = False."
@@ -189,7 +180,6 @@ class Dataset(torch.utils.data.Dataset):
             if self.args.ranking_type.startswith("ppl"):  # ppl or ppl_no_option
                 return "get_ppl"
             elif self.args.ranking_type == "prob":
-                assert self.args.ranking_with_options
                 return "get_prob"
         elif self.evaluation_type == "generation":
             return "generation"
@@ -378,7 +368,7 @@ class Dataset(torch.utils.data.Dataset):
                 # update options with labels and then append options to source
                 for i, option in enumerate(formatted_instance["options"]):
                     formatted_instance["options"][i] = chr(65 + i) + ". " + option.lstrip()
-                formatted_instance["source"] += "\n" + loose + "\n".join(formatted_instance["options"]) + "\n" + loose
+                formatted_instance["source"] += "\n" + loose + "\n".join(formatted_instance["options"]) + loose
                 # loose: "[source]\n\n[options]\n[source_postfix]"
                 # not loose: "[source]\n[options]\n[source_postfix]"
 
