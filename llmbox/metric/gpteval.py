@@ -15,6 +15,7 @@ JUDGE_PROMPT_MATH_MT = "Please act as an impartial judge and evaluate the qualit
 
 score_pattern = re.compile("\[\[(\d+\.?\d*)\]\]")
 score_pattern_backup = re.compile("\[(\d+\.?\d*)\]")
+score_pattern_backup2 = re.compile("(\d+\.?\d*)")
 
 
 class GPTEval(Metric):
@@ -30,7 +31,7 @@ class GPTEval(Metric):
     def __call__(self, predictions, references):
         model_args = ModelArguments(
             model_name_or_path="gpt-3.5-turbo", # use it to judge the model.
-            max_tokens=2048,
+            max_tokens=1024,
             temperature=0,
         )
         model = load_model(model_args)
@@ -64,14 +65,21 @@ class GPTEval(Metric):
             match = re.search(score_pattern, response)
             if not match:
                 match = re.search(score_pattern_backup, response)
+                if not match:
+                    match = re.findall(score_pattern_backup2, response)
+                    if match:
+                        rating = eval(match[-1])
+                else:
+                    rating = eval(match.groups()[0])
+            else:
+                rating = eval(match.groups()[0])
 
             if match:
-                ratings.append(eval(match.groups()[0]))
+                ratings.append(min(max(rating, 1), 10))
             else:
-                ratings.append(-1)
+                ratings.append(1)
                 logger.warning(f"Failed to extract rating from response: {response}")
 
         score_list = np.array(ratings)
         self._last_score_lists = {'GPT-Eval': score_list}
-        filtered_arr = score_list[score_list != -1]
-        return {'GPT-Eval': np.mean(filtered_arr) if len(filtered_arr) > 0 else -1}
+        return {'GPT-Eval': np.mean(score_list)}
