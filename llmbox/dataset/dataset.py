@@ -12,11 +12,7 @@ import torch
 import tqdm as tqdm_lib
 
 from .enum import MMLU_SUBJECTS
-from .icl_strategies import (
-    ape,
-    global_entropy_ordering_strategy,
-    knn_construct_examples,
-)
+from .icl_strategies import ape, global_entropy_ordering_strategy, knn_construct_examples
 from .utils import get_raw_dataset_loader, pjoin
 
 if typing.TYPE_CHECKING:
@@ -79,6 +75,12 @@ class Dataset(torch.utils.data.Dataset):
 
     extra_model_args: Dict[str, typing.Any] = dict()
     """Arguments for the model generation or get_ppl. See `set_generation_args` or `set_ppl_args` for details."""
+
+    category_column: Optional[str] = None
+    """The column name of the categories, e.g., winogender. Used to calculate the metric for each category."""
+
+    category_subsets: Optional[Dict[str, List[str]]] = None
+    """The subsets of each category, e.g., mmlu. Used to calculate the metric for each category."""
 
     _repr = [
         "name",
@@ -160,11 +162,6 @@ class Dataset(torch.utils.data.Dataset):
             )
 
         # ranking with options
-        if self.model_evaluation_method not in {"get_ppl", "get_prob"} and self.args.ranking_with_options:
-            logger.warning(
-                f'Ranking with options only supports evaluation using the ranking mode but receive "{self.model_evaluation_method}", automatically set ranking_with_options = False.'
-            )
-            self.args.ranking_with_options = False
         if self.name == "winogrande" and self.args.ranking_with_options:
             logger.warning(
                 f"Winogrande does not support ranking with options, automatically set ranking_with_options = False."
@@ -189,7 +186,6 @@ class Dataset(torch.utils.data.Dataset):
             if self.args.ranking_type.startswith("ppl"):  # ppl or ppl_no_option
                 return "get_ppl"
             elif self.args.ranking_type == "prob":
-                assert self.args.ranking_with_options
                 return "get_prob"
         elif self.evaluation_type == "generation":
             return "generation"
@@ -378,7 +374,7 @@ class Dataset(torch.utils.data.Dataset):
                 # update options with labels and then append options to source
                 for i, option in enumerate(formatted_instance["options"]):
                     formatted_instance["options"][i] = chr(65 + i) + ". " + option.lstrip()
-                formatted_instance["source"] += "\n" + loose + "\n".join(formatted_instance["options"]) + "\n" + loose
+                formatted_instance["source"] += "\n" + loose + "\n".join(formatted_instance["options"]) + loose
                 # loose: "[source]\n\n[options]\n[source_postfix]"
                 # not loose: "[source]\n[options]\n[source_postfix]"
 
@@ -524,13 +520,12 @@ class Dataset(torch.utils.data.Dataset):
         for metric_func in self.metrics:
             score_lists.update(metric_func.last_score_lists())
 
-        sub_col = getattr(self, "subject_column", None)
         subject_results = {}
-        if sub_col is not None:
+        if self.category_column is not None:
             subject_results = pd.DataFrame({
                 "predictions": predictions,
                 "references": self.references,
-                "subject": map(lambda i: f"{self.name}:{i[sub_col]}", self.evaluation_data),
+                "subject": map(lambda i: f"{self.name}[{i[self.category_column]}]", self.evaluation_data),
             }).groupby("subject").apply(lambda df: _calculate_metric(df["predictions"], df["references"])).to_dict()
 
         metric_results = OrderedDict(**subject_results)
@@ -749,6 +744,7 @@ class DatasetCollection(torch.utils.data.Dataset):
         self._cur_idx = 0
         self.args = self._datasets[0].args
         self._repr = copy(self._datasets[0]._repr)
+        self.categorized_subsets = self._datasets[0].category_subsets
         for idx, prop in enumerate(self._repr):
             if prop == "subset_name":
                 self._repr[idx] = "subset_names"
@@ -815,7 +811,13 @@ class DatasetCollection(torch.utils.data.Dataset):
                     return
         else:
             for d, r, p, s in zip(self._datasets, raw, processed, score):
-                lines.append(d.log_predictions(r, p, s, file, False))
+
+                def set_subset(l):
+                    l["subset"] = d.subset_name
+
+                df = d.log_predictions(r, p, s, file, False)
+                df.apply(set_subset)
+                lines.append(df)
             file = file or self.args.evaluation_results_path
             try:
                 pd.concat(lines).to_json(file, orient="records", indent=4, force_ascii=False)
@@ -853,11 +855,11 @@ class DatasetCollection(torch.utils.data.Dataset):
 
         metric_entries = results[f"{self.name}:{self.subset_names[0]}"].keys()
 
-        # append mmlu subcategories
-        if self.name == "mmlu":
-            for cat, cat_subjects in MMLU_SUBJECTS.items():
-                cat_results = [results[f"mmlu:{subject}"] for subject in cat_subjects]
-                results[f"mmlu[{cat}]"] = {m: np.mean([r[m] for r in cat_results]) for m in metric_entries}
+        # append subcategories results if available
+        if self.categorized_subsets and len(self.subset_names) == sum(len(s) for s in self.categorized_subsets.values()):
+            for cat, cat_subjects in self.categorized_subsets.items():
+                cat_results = [results[f"{self.name}:{subject}"] for subject in cat_subjects]
+                results[f"{self.name}[{cat}]"] = {m: np.mean([r[m] for r in cat_results]) for m in metric_entries}
 
         results[self.name + "[Arithmetic Mean]"] = {
             m: np.mean([r[m] for k, r in results.items() if ":" in k])
