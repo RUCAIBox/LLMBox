@@ -22,7 +22,7 @@ class Openai(Model):
     def __init__(self, args: ModelArguments):
         super().__init__(args)
 
-        logger.info(f"Trying to load OpenAI model with api_key='{openai.api_key}' and base='{openai.api_base}'")
+        logger.info(f"Trying to load OpenAI model with api_base='{openai.api_base}'")
         self.api_key = openai.api_key  # the actual api key is used in icl
 
         self.args = args
@@ -35,6 +35,7 @@ class Openai(Model):
         r"""Set the configurations for PPL score calculation."""
         # TODO: GPT-3.5 series models don't support echo and logprobs
         self.ppl_kwargs = dict(echo=True, max_tokens=0, logprobs=0)
+        self.multi_turn = extra_model_args.pop("multi_turn", False)
 
     def set_generation_args(self, **extra_model_args):
         r"""Set the configurations for open-ended generation. This is useful because different datasets may have different requirements for generation."""
@@ -51,7 +52,7 @@ class Openai(Model):
             # ModelArguments > extra_model_args
             value = getattr(self.args, key, None)
             if value is None:
-                value = extra_model_args.get(key, None)
+                value = extra_model_args.pop(key, None)
 
             if key == "max_tokens" and value is None:
                 value = 1024
@@ -60,6 +61,7 @@ class Openai(Model):
         if generation_kwargs.get("temperature", 1) == 0:
             generation_kwargs["seed"] = self.args.seed
         self.generation_kwargs = generation_kwargs
+        self.multi_turn = extra_model_args.pop("multi_turn", False)
 
     def get_ppl(self, batched_inputs):
         prompt = [src + tgt for src, tgt in batched_inputs]
@@ -72,8 +74,8 @@ class Openai(Model):
             ppls.append((ppl, tgt_end - tgt_start))
         return ppls
 
-    def generation(self, batched_inputs, multi_turn=False):
-        results = self.request(batched_inputs, self.generation_kwargs, multi_turn)
+    def generation(self, batched_inputs):
+        results = self.request(batched_inputs, self.generation_kwargs, self.multi_turn)
         answers = []
         for result in results:
             if self.name in OPENAI_CHAT_MODELS:
@@ -81,7 +83,7 @@ class Openai(Model):
             else:
                 answer = result["text"]
             answers.append(answer)
-        return [tuple(answers)] if multi_turn else answers
+        return [tuple(answers)] if self.multi_turn else answers
 
     def request(self, prompt, openai_kwargs, multi_turn=False):
         r"""Call the OpenAI API.
