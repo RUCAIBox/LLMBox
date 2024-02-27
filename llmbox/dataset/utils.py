@@ -84,6 +84,8 @@ def get_raw_dataset_loader(
     if dataset_path is not None:
         dataset_path = abspath(dataset_path)
         msg += f" from local path `{dataset_path}`"
+        if subset_name is None and len(load_args) > 1 and load_args[1] is not None:
+            subset_name = load_args[1]
 
         # load from a cloned repository from huggingface
         if os.path.exists(os.path.join(dataset_path, "dataset_infos.json")):
