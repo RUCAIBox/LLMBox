@@ -72,8 +72,8 @@ class Openai(Model):
             ppls.append((ppl, tgt_end - tgt_start))
         return ppls
 
-    def generation(self, batched_inputs):
-        results = self.request(batched_inputs, self.generation_kwargs)
+    def generation(self, batched_inputs, mt_flag=False):
+        results = self.request(batched_inputs, self.generation_kwargs, mt_flag)
         answers = []
         for result in results:
             if self.name in OPENAI_CHAT_MODELS:
@@ -81,14 +81,15 @@ class Openai(Model):
             else:
                 answer = result["text"]
             answers.append(answer)
-        return answers
+        return [tuple(answers)] if mt_flag else answers
 
-    def request(self, prompt, openai_kwargs):
+    def request(self, prompt, openai_kwargs, mt_flag=False):
         r"""Call the OpenAI API.
 
         Args:
             prompt (List[str]): The list of input prompts.
             openai_kwargs (dict): The additional calling configurations.
+            mt_flag (bool): Default is False. Set to True if multi-turns needed.
 
         Returns:
             List[dict]: The responsed JSON results.
@@ -96,9 +97,18 @@ class Openai(Model):
         for _ in range(self.max_try_times):
             try:
                 if self.name in OPENAI_CHAT_MODELS:
-                    message = [{"role": "user", "content": prompt[0]}]
-                    response = openai.ChatCompletion.create(model=self.name, messages=message, **openai_kwargs)
-                    return [response["choices"]]
+                    messages = []
+                    results = []
+                    parts = prompt[0].split("\n") if mt_flag else prompt
+                    for query in parts:
+                        if len(query) == 0:
+                            continue
+                        messages.append({"role": "user", "content": query})
+                        response = openai.ChatCompletion.create(model=self.name, messages=messages, **openai_kwargs)
+                        message = response["choices"]
+                        results.append(message)
+                        messages.append({"role": "assistant", "content": message[0]["message"]["content"]})
+                    return results
                 else:
                     response = openai.Completion.create(model=self.name, prompt=prompt, **openai_kwargs)
                     return response["choices"]
