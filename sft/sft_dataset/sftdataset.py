@@ -2,7 +2,9 @@ from datasets import load_dataset,load_from_disk
 import json
 import torch
 from typing import Dict
+from itertools import chain
 import os
+
 class SFTDataset:
     """
     This is the base class for all SFT datasets.
@@ -26,11 +28,23 @@ class SFTDataset:
     
     def __init__(self, args, tokenizer):
         self.args = args
+        self.block_size = self.args.model_max_length
+        self.tokenizer = tokenizer
         data_path = args.data_path
         
         #! if not the same setting, e.g. tokenizer max length changes, we need to reprocess the data, so we don't load the saved pth directly here
         pth_file = data_path + f"_{tokenizer.model_max_length}.pth"
-        self.input_ids ,self.labels = self.process(tokenizer)
+
+        if not os.path.exists(pth_file):
+            self.input_ids, self.labels = self.process(self.tokenizer)
+            if self.args.packing:
+                self.input_ids = self.group_texts(self.input_ids)
+                self.labels = self.group_texts(self.labels)
+        else:
+            data_dict = torch.load(pth_file)
+            self.input_ids = data_dict['input_ids']
+            self.labels = data_dict['labels']
+
         if torch.distributed.get_rank() == 0:
             checkpoint = {'input_ids': self.input_ids, 'labels': self.labels}
             torch.save(checkpoint, pth_file)
@@ -48,6 +62,18 @@ class SFTDataset:
         label = input_id.clone()
         label[:len(source_id)] = self.IGNORE_INDEX
         return input_id, label
+    
+    def group_texts(self, examples):
+        """concatenate and pack the dataset"""
+        concatenated_examples = list(chain(*examples))
+        total_length = len(concatenated_examples)
+
+        if total_length >= self.block_size:
+            total_length = (total_length // self.block_size) * self.block_size
+
+        result = [ torch.stack(concatenated_examples[i : i + self.block_size]) for i in range(0, total_length, self.block_size) ]
+
+        return result
     
     def load_data(self):
         """Load data."""
@@ -70,6 +96,7 @@ class SFTDataset:
         input_ids = []
         labels = []
         list_data_dict = self.load_data()
+
         for example in list_data_dict:
             example['response'] = example.pop('output') # change the key name from 'output' to 'response'
             s = (self.format_template["prompt_input"].format_map(example) if 'input' in example.keys() else self.format_template["prompt_no_input"].format_map(example)).strip()

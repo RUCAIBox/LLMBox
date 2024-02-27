@@ -100,7 +100,6 @@ class DataCollatorForSupervisedDataset(object):
     """Collate examples for supervised fine-tuning."""
 
     tokenizer: transformers.PreTrainedTokenizer
-    packing: bool
 
     def __call__(self, instances: Sequence[Dict]) -> Dict[str, torch.Tensor]:
         input_ids, labels = tuple([instance[key] for instance in instances] for key in ("input_ids", "labels"))
@@ -167,7 +166,7 @@ def train():
         kwargs.update(
             dict(
                 train_dataset=AutoDataset(args, tokenizer),
-                data_collator=DataCollatorForSupervisedDataset(tokenizer, packing=args.packing),
+                data_collator=DataCollatorForSupervisedDataset(tokenizer),
             )
         )
 
@@ -176,7 +175,7 @@ def train():
         kwargs.update(
             dict(
                 train_dataset=PTDataset(args, tokenizer),
-                data_collator=DataCollatorForSupervisedDataset(tokenizer, packing=args.packing),
+                data_collator=DataCollatorForSupervisedDataset(tokenizer),
             )
         )
 
