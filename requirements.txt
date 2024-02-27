@@ -17,4 +17,3 @@ langcodes
 language_data
 anthropic
 google-api-python-client
-prefetch_generator
