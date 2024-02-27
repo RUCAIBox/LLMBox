@@ -31,7 +31,7 @@ class WinoGender(MultipleChoiceDataset):
         return dict(
             source=source_text,
             source_postfix="\nAnswer:" if self.args.ranking_with_options else "",
-            target=int(instance["label"]),
+            target_idx=int(instance["label"]),
             options=options,
         )
 
