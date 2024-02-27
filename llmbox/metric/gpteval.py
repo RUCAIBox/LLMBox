@@ -24,8 +24,8 @@ class GPTEval(Metric):
             "GPT-Eval": float
         """
 
-    def __init__(self, mt_flag=False):
-        self.mt_flag = mt_flag
+    def __init__(self, multi_turn=False):
+        self.multi_turn = multi_turn
 
     def __call__(self, predictions, references):
         model_args = ModelArguments(
@@ -43,7 +43,7 @@ class GPTEval(Metric):
                     answer_1=pred[0],
                     question_2=refer["question_2"],
                     answer_2=pred[1]
-                ) if self.mt_flag else JUDGE_PROMPT.format(
+                ) if self.multi_turn else JUDGE_PROMPT.format(
                     question=refer["turns"][0], answer=pred
                 )
             else:
@@ -54,7 +54,7 @@ class GPTEval(Metric):
                     question_2=refer["question_2"],
                     answer_2=pred[1],
                     ref_answer_2=refer["ref_answer_2"]
-                ) if self.mt_flag else JUDGE_PROMPT_MATH.format(
+                ) if self.multi_turn else JUDGE_PROMPT_MATH.format(
                     question=refer["turns"][0], ref_answer_1=refer["ref_answer_1"], answer=pred
                 )
             responses.extend(model.generation([user_prompt]))

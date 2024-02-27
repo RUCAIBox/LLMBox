@@ -72,8 +72,8 @@ class Openai(Model):
             ppls.append((ppl, tgt_end - tgt_start))
         return ppls
 
-    def generation(self, batched_inputs, mt_flag=False):
-        results = self.request(batched_inputs, self.generation_kwargs, mt_flag)
+    def generation(self, batched_inputs, multi_turn=False):
+        results = self.request(batched_inputs, self.generation_kwargs, multi_turn)
         answers = []
         for result in results:
             if self.name in OPENAI_CHAT_MODELS:
@@ -81,15 +81,15 @@ class Openai(Model):
             else:
                 answer = result["text"]
             answers.append(answer)
-        return [tuple(answers)] if mt_flag else answers
+        return [tuple(answers)] if multi_turn else answers
 
-    def request(self, prompt, openai_kwargs, mt_flag=False):
+    def request(self, prompt, openai_kwargs, multi_turn=False):
         r"""Call the OpenAI API.
 
         Args:
             prompt (List[str]): The list of input prompts.
             openai_kwargs (dict): The additional calling configurations.
-            mt_flag (bool): Default is False. Set to True if multi-turns needed.
+            multi_turn (bool): Default is False. Set to True if multi-turns needed.
 
         Returns:
             List[dict]: The responsed JSON results.
@@ -99,7 +99,7 @@ class Openai(Model):
                 if self.name in OPENAI_CHAT_MODELS:
                     messages = []
                     results = []
-                    parts = prompt[0].split("\n") if mt_flag else prompt
+                    parts = prompt[0].split("__SEPARATOR__") if multi_turn else prompt
                     for query in parts:
                         if len(query) == 0:
                             continue
