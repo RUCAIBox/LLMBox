@@ -105,21 +105,6 @@ class DataCollatorForSupervisedDataset(object):
     def __call__(self, instances: Sequence[Dict]) -> Dict[str, torch.Tensor]:
         input_ids, labels = tuple([instance[key] for instance in instances] for key in ("input_ids", "labels"))
 
-        if self.packing:
-            new_input_ids, new_labels = [torch.tensor([], dtype=input_ids[0].dtype)], [torch.tensor([], dtype=input_ids[0].dtype)]
-            lengths = [[]]
-            for input_id, label in zip(input_ids, labels):
-                if len(new_input_ids[-1]) + len(input_id) <= self.tokenizer.model_max_length:
-                    new_input_ids[-1] = torch.cat((new_input_ids[-1], input_id))
-                    new_labels[-1] = torch.cat((new_labels[-1], label))
-                    lengths[-1].append(len(input_id))
-                else:
-                    new_input_ids.append(input_id)
-                    new_labels.append(label)
-                    lengths.append([len(input_id)])
-
-            input_ids, labels = new_input_ids, new_labels
-
         input_ids = torch.nn.utils.rnn.pad_sequence(input_ids, batch_first=True, padding_value=self.tokenizer.pad_token_id)
         labels = torch.nn.utils.rnn.pad_sequence(labels, batch_first=True, padding_value=IGNORE_INDEX)
 
@@ -189,9 +174,7 @@ def train():
 
     elif args.mode == "pt":
         train_dataset = PTDataset(args, tokenizer)
-
         model.resize_token_embeddings(len(tokenizer))
-
         kwargs.update(
             dict(
                 train_dataset=train_dataset,
