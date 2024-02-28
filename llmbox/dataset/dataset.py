@@ -11,7 +11,6 @@ import pandas as pd
 import torch
 import tqdm as tqdm_lib
 
-from .enum import MMLU_SUBJECTS
 from .icl_strategies import ape, global_entropy_ordering_strategy, knn_construct_examples
 from .utils import get_raw_dataset_loader, pjoin
 
