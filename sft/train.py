@@ -181,7 +181,7 @@ def train():
         kwargs.update(
             dict(
                 train_dataset=PTDataset(args, tokenizer),
-                data_collator=DataCollatorForSupervisedDataset(tokenizer),
+                data_collator=DataCollatorForSupervisedDataset(args, tokenizer),
             )
         )
 
