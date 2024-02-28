@@ -112,7 +112,6 @@ class DataCollatorForSupervisedDataset(object):
             labels=labels,
         )
 
-
 def train():
     parser = HfArgumentParser(Arguments)
     args = parser.parse_args_into_dataclasses()[0]
