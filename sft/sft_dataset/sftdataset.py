@@ -7,8 +7,6 @@ class SFTDataset:
     """
     This is the base class for all SFT datasets.
     """
-
-    IGNORE_INDEX = -100
     instruction_template = "\n### Instruction:\n"
     response_template = "\n### Output:\n"
     format_template = {
@@ -28,9 +26,13 @@ class SFTDataset:
         self.args = args
         data_path = args.data_path
         
-        #! if not the same setting, e.g. tokenizer max length changes, we need to reprocess the data, so we don't load the saved pth directly here
         pth_file = data_path + f"_{tokenizer.model_max_length}.pth"
-        self.input_ids ,self.labels = self.process(tokenizer)
+        if os.path.exists(pth_file):
+            checkpoint = torch.load(pth_file)
+            self.input_ids = checkpoint['input_ids']
+            self.labels = checkpoint['labels']
+        else:
+            self.input_ids ,self.labels = self.process(tokenizer)
         if torch.distributed.get_rank() == 0:
             checkpoint = {'input_ids': self.input_ids, 'labels': self.labels}
             torch.save(checkpoint, pth_file)
@@ -46,7 +48,7 @@ class SFTDataset:
         source_id = tokenizer.encode(s, max_length=tokenizer.model_max_length, truncation=True)[:-1] # remove eos
         input_id = tokenizer.encode(s + t, max_length=tokenizer.model_max_length, truncation=True, return_tensors='pt')[0]
         label = input_id.clone()
-        label[:len(source_id)] = self.IGNORE_INDEX
+        label[:len(source_id)] = self.args.IGNORE_INDEX
         return input_id, label
     
     def load_data(self):

@@ -19,9 +19,6 @@ from typing import Dict, Optional, Sequence
 import torch
 import transformers
 
-
-IGNORE_INDEX = -100
-
 @dataclass
 class Arguments(TrainingArguments):
     model_name_or_path: str = HfArg(
@@ -43,6 +40,11 @@ class Arguments(TrainingArguments):
         default=2048,
         help="The maximum sequence length",
     )
+    
+    IGNORE_INDEX: int = HfArg(
+        default=-100,
+        help="The index to ignore in the loss function",
+    )
 
     mode: str = HfArg(
         default="sft",
@@ -50,12 +52,12 @@ class Arguments(TrainingArguments):
         metadata={"choices": ["sft", "pt"]},
     )
 
-    use_flash_attention: bool = HfArg(
+    save_only_model: bool = HfArg(
         default=True,
         help="When checkpointing, whether to only save the model, or also the optimizer, scheduler & rng state.",
     )
 
-    save_only_model: bool = HfArg(
+    use_flash_attention: bool = HfArg(
         default=True,
         help=
         "Whether to use flash attention for a faster and more efficient implementation of the standard attention mechanism.",
@@ -97,14 +99,13 @@ class Arguments(TrainingArguments):
 @dataclass
 class DataCollatorForSupervisedDataset(object):
     """Collate examples for supervised fine-tuning."""
-
+    args: Arguments
     tokenizer: transformers.PreTrainedTokenizer
-    packing: bool
 
     def __call__(self, instances: Sequence[Dict]) -> Dict[str, torch.Tensor]:
         input_ids, labels = tuple([instance[key] for instance in instances] for key in ("input_ids", "labels"))
 
-        if self.packing:
+        if self.args.packing:
             new_input_ids, new_labels = [torch.tensor([], dtype=input_ids[0].dtype)], [torch.tensor([], dtype=input_ids[0].dtype)]
             lengths = [[]]
             for input_id, label in zip(input_ids, labels):
@@ -120,7 +121,7 @@ class DataCollatorForSupervisedDataset(object):
             input_ids, labels = new_input_ids, new_labels
 
         input_ids = torch.nn.utils.rnn.pad_sequence(input_ids, batch_first=True, padding_value=self.tokenizer.pad_token_id)
-        labels = torch.nn.utils.rnn.pad_sequence(labels, batch_first=True, padding_value=IGNORE_INDEX)
+        labels = torch.nn.utils.rnn.pad_sequence(labels, batch_first=True, padding_value=self.args.IGNORE_INDEX)
 
         return dict(
             input_ids=input_ids,
@@ -140,7 +141,7 @@ def train():
         model_max_length=args.model_max_length,
         padding_side="right",
         add_eos_token=True,
-        use_fast=False,
+        # use_fast=False, # some tokenizer has only one implementation
         legacy=False,  # refer to the issue:https://github.com/huggingface/transformers/pull/24565
         use_cache=False,
     )
@@ -157,10 +158,15 @@ def train():
     else:
         config._attn_implementation = None
     config.use_cache=False
+    
     model = AutoModelForCausalLM.from_pretrained(
         args.model_name_or_path,
+        torch_dtype=torch.float16 if args.use_flash_attention else torch.float32,
         config=config
     )
+    
+    if args.gradient_checkpointing:
+        args.gradient_checkpointing_kwargs={'use_reentrant':False} # OR gradient_checkpointing_kwargs={'use_reentrant':True}, please refer to https://github.com/huggingface/transformers/issues/26969
 
     if args.lora:
         peft_config = LoraConfig(
@@ -181,7 +187,7 @@ def train():
         kwargs.update(
             dict(
                 train_dataset=AutoDataset(args, tokenizer),
-                data_collator=DataCollatorForSupervisedDataset(tokenizer, packing=args.packing),
+                data_collator=DataCollatorForSupervisedDataset(args, tokenizer),
             )
         )
 
