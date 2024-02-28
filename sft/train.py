@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Optional
 from accelerate.utils import set_seed
 from sft_dataset import AutoDataset
+from pt_dataset.pt_dataset import PTDataset
 from datasets import load_dataset
 from peft import LoraConfig, TaskType
 from transformers import (
@@ -37,7 +38,7 @@ class Arguments(TrainingArguments):
     )
 
     model_max_length: int = HfArg(
-        default=2048,
+        default=2048, 
         help="The maximum sequence length",
     )
     
@@ -105,21 +106,6 @@ class DataCollatorForSupervisedDataset(object):
     def __call__(self, instances: Sequence[Dict]) -> Dict[str, torch.Tensor]:
         input_ids, labels = tuple([instance[key] for instance in instances] for key in ("input_ids", "labels"))
 
-        if self.args.packing:
-            new_input_ids, new_labels = [torch.tensor([], dtype=input_ids[0].dtype)], [torch.tensor([], dtype=input_ids[0].dtype)]
-            lengths = [[]]
-            for input_id, label in zip(input_ids, labels):
-                if len(new_input_ids[-1]) + len(input_id) <= self.tokenizer.model_max_length:
-                    new_input_ids[-1] = torch.cat((new_input_ids[-1], input_id))
-                    new_labels[-1] = torch.cat((new_labels[-1], label))
-                    lengths[-1].append(len(input_id))
-                else:
-                    new_input_ids.append(input_id)
-                    new_labels.append(label)
-                    lengths.append([len(input_id)])
-
-            input_ids, labels = new_input_ids, new_labels
-
         input_ids = torch.nn.utils.rnn.pad_sequence(input_ids, batch_first=True, padding_value=self.tokenizer.pad_token_id)
         labels = torch.nn.utils.rnn.pad_sequence(labels, batch_first=True, padding_value=self.args.IGNORE_INDEX)
 
@@ -127,7 +113,6 @@ class DataCollatorForSupervisedDataset(object):
             input_ids=input_ids,
             labels=labels,
         )
-
 
 def train():
     parser = HfArgumentParser(Arguments)
@@ -192,9 +177,13 @@ def train():
         )
 
     elif args.mode == "pt":
-        dataset = load_dataset("text", data_files=args.data_path)["train"]
         model.resize_token_embeddings(len(tokenizer))
-        kwargs.update(dict(train_dataset=dataset, packing=True, dataset_text_field="text"))
+        kwargs.update(
+            dict(
+                train_dataset=PTDataset(args, tokenizer),
+                data_collator=DataCollatorForSupervisedDataset(tokenizer),
+            )
+        )
 
     trainer = Trainer(**kwargs)
     trainer.train()

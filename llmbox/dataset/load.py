@@ -17,8 +17,6 @@ if TYPE_CHECKING:
 
 logger = getLogger(__name__)
 
-_dataset_class = {}
-
 
 def import_dataset_class(dataset_name: str) -> Dataset:
     if "wmt" in dataset_name:
@@ -31,9 +29,6 @@ def import_dataset_class(dataset_name: str) -> Dataset:
 
         return Squad
 
-    if dataset_name in _dataset_class:
-        return _dataset_class[dataset_name]
-
     module_path = __package__ + "." + dataset_name
     module = importlib.import_module(module_path)
     clsmembers = inspect.getmembers(module, inspect.isclass)
@@ -41,7 +36,6 @@ def import_dataset_class(dataset_name: str) -> Dataset:
     for name, obj in clsmembers:
         if issubclass(obj, Dataset) and name.lower() == dataset_name.lower():
             logger.debug(f"Dataset class `{name}` imported from `{module_path}`.")
-            _dataset_class[dataset_name] = obj
             return obj
 
     raise ValueError(
@@ -65,14 +59,13 @@ def load_dataset(args: "DatasetArguments", model: "Model", threading: bool = Tru
     name = dataset_cls.load_args[0] if len(dataset_cls.load_args) > 0 else args.dataset_name
     download_config = DownloadConfig(use_etag=False)
     try:
-        available_subsets = set(get_dataset_config_names(name, download_config=download_config))
+        available_subsets = set(get_dataset_config_names(name, download_config=download_config, trust_remote_code=True))
     except Exception as e:
         logger.info(f"Failed when trying to get_dataset_config_names: {e}")
         available_subsets = set()
     # TODO catch connection warning
     if available_subsets == {"default"}:
         available_subsets = set()
-    logger.debug(f"{name} - available_subsets: {available_subsets}, load_args: {dataset_cls.load_args}")
 
     # for wmt, en-xx and xx-en are both supported
     if "wmt" in args.dataset_name:
@@ -91,6 +84,7 @@ def load_dataset(args: "DatasetArguments", model: "Model", threading: bool = Tru
 
     # use specified subset_names if available
     subset_names = args.subset_names or available_subsets
+    logger.debug(f"{name} - available_subsets: {available_subsets}, load_args: {dataset_cls.load_args}, final subset_names: {subset_names}")
 
     # GPTEval requires openai-gpt
     if any(isinstance(m, GPTEval) for m in dataset_cls.metrics) and model.args.openai_api_key is None:

@@ -84,6 +84,8 @@ def get_raw_dataset_loader(
     if dataset_path is not None:
         dataset_path = abspath(dataset_path)
         msg += f" from local path `{dataset_path}`"
+        if subset_name is None and len(load_args) > 1 and load_args[1] is not None:
+            subset_name = load_args[1]
 
         # load from a cloned repository from huggingface
         if os.path.exists(os.path.join(dataset_path, "dataset_infos.json")):
@@ -92,6 +94,7 @@ def get_raw_dataset_loader(
             # find the correct subset
             if dataset_name in infos:
 
+                logger.debug(f"Loading from a cloned repository: {dataset_path}, {dataset_name}")
                 def load_fn(split):
                     return datasets.load_dataset(
                         dataset_path,
@@ -103,6 +106,7 @@ def get_raw_dataset_loader(
 
             elif subset_name in infos:
 
+                logger.debug(f"Loading from a cloned repository: {dataset_path}, {subset_name}")
                 def load_fn(split):
                     return datasets.load_dataset(
                         dataset_path,
@@ -120,17 +124,22 @@ def get_raw_dataset_loader(
         # load from a local directory
         elif os.path.exists(os.path.join(dataset_path, "dataset_dict.json")):
 
+            logger.debug(f"Loading from a local directory: {dataset_path}")
             def load_fn(split):
                 return datasets.load_from_disk(dataset_path)[split]
 
+        # load from a local directory with subset
         elif subset_name is not None and os.path.exists(os.path.join(dataset_path, subset_name, "dataset_dict.json")):
 
+            new_dataset_path = os.path.join(dataset_path, subset_name)
+            logger.debug(f"Loading from a local directory with subset: {new_dataset_path}")
             def load_fn(split):
-                return datasets.load_from_disk(os.path.join(dataset_path, subset_name))[split]
+                return datasets.load_from_disk(new_dataset_path)[split]
 
         # for those datasets that is in huggingface but should be downloaded manually
         elif os.path.isdir(dataset_path):
 
+            logger.debug(f"Loading from a manually-downloaded dataset: {dataset_name}, {subset_name}")
             def load_fn(split):
                 return datasets.load_dataset(
                     dataset_name,
@@ -148,6 +157,7 @@ def get_raw_dataset_loader(
             r_postfix = re.compile(r"\[.*\].*$")
             r_split = re.compile(r"{split}")
 
+            logger.debug(f"Loading from a file: {dataset_path}")
             def load_fn(split):
                 dataset_file_path = r_subset.sub(subset_name, dataset_path)
                 if split:

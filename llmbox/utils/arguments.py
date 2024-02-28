@@ -273,6 +273,17 @@ class DatasetArguments:
 
     passed_in_commandline = passed_in_commandline
 
+    @property
+    def ranking_with_options(self):
+        return not self.ranking_type.endswith("no_option")
+
+    @ranking_with_options.setter
+    def ranking_with_options(self, value: bool):
+        if value:
+            self.ranking_type = self.ranking_type.rstrip("no_option")
+        else:
+            self.ranking_type = "ppl_no_option"
+
     def __post_init__(self):
         if ":" in self.dataset_name:
             self.dataset_name, subset_names = self.dataset_name.split(":")
@@ -280,7 +291,6 @@ class DatasetArguments:
 
         # argparse encodes string with unicode_escape, decode it to normal string, e.g., "\\n" -> "\n"
         self.instance_format = self.instance_format.encode('utf-8').decode('unicode_escape')
-        self.ranking_with_options = not self.ranking_type.endswith("no_option")
 
 
 @dataclass
@@ -342,12 +352,6 @@ def check_args(model_args: ModelArguments, dataset_args: DatasetArguments, evalu
         raise ValueError(
             "OpenAI API key is required for GPTEval metrics. Please set it by passing a `--openai_api_key` or through environment variable `OPENAI_API_KEY`."
         )
-
-    if not dataset_args.ranking_with_options and dataset_args.ranking_type != "ppl_of_whole_option":
-        logger.warning(
-            "The `ranking_type` argument is only available for ranking task with options. Automatically set `ranking_with_options` to True."
-        )
-        dataset_args.ranking_with_options = True
 
     args_ignored = set()
     for model_impl, args in model_args._model_specific_arguments.items():
