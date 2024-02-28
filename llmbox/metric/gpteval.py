@@ -1,12 +1,16 @@
-from .metric import Metric
-from logging import getLogger
 import re
+from logging import getLogger
+
 import numpy as np
+import openai
 from tqdm import tqdm
-from ..utils import ModelArguments
+
 from ..model import load_model
+from ..utils import ModelArguments
+from .metric import Metric
 
 logger = getLogger(__name__)
+
 
 JUDGE_PROMPT = "[Instruction]\nPlease act as an impartial judge and evaluate the quality of the response provided by an AI assistant to the user question displayed below. Your evaluation should consider factors such as the helpfulness, relevance, accuracy, depth, creativity, and level of detail of the response. Begin your evaluation by providing a short explanation. Be as objective as possible. After providing your explanation, you must rate the response on a scale of 1 to 10 by strictly following this format: \"[[rating]]\", for example: \"Rating: [[5]]\".\n\n[Question]\n{question}\n\n[The Start of Assistant's Answer]\n{answer}\n[The End of Assistant's Answer]"
 JUDGE_PROMPT_MATH = "[Instruction]\nPlease act as an impartial judge and evaluate the quality of the response provided by an AI assistant to the user question displayed below. Your evaluation should consider correctness and helpfulness. You will be given a reference answer and the assistant's answer. Begin your evaluation by comparing the assistant's answer with the reference answer. Identify and correct any mistakes. Be as objective as possible. After providing your explanation, you must rate the response on a scale of 1 to 10 by strictly following this format: \"[[rating]]\", for example: \"Rating: [[5]]\".\n\n[Question]\n{question}\n\n[The Start of Reference Answer]\n{ref_answer_1}\n[The End of Reference Answer]\n\n[The Start of Assistant's Answer]\n{answer}\n[The End of Assistant's Answer]"
@@ -15,6 +19,7 @@ JUDGE_PROMPT_MATH_MT = "Please act as an impartial judge and evaluate the qualit
 
 score_pattern = re.compile("\[\[(\d+\.?\d*)\]\]")
 score_pattern_backup = re.compile("\[(\d+\.?\d*)\]")
+score_pattern_backup2 = re.compile("(\d+\.?\d*)")
 
 
 class GPTEval(Metric):
@@ -30,8 +35,9 @@ class GPTEval(Metric):
     def __call__(self, predictions, references):
         model_args = ModelArguments(
             model_name_or_path="gpt-3.5-turbo", # use it to judge the model.
-            max_tokens=2048,
+            max_tokens=1024,
             temperature=0,
+            openai_api_key=openai.api_key
         )
         model = load_model(model_args)
         model.set_generation_args()
@@ -64,14 +70,21 @@ class GPTEval(Metric):
             match = re.search(score_pattern, response)
             if not match:
                 match = re.search(score_pattern_backup, response)
+                if not match:
+                    match = re.findall(score_pattern_backup2, response)
+                    if match:
+                        rating = eval(match[-1])
+                else:
+                    rating = eval(match.groups()[0])
+            else:
+                rating = eval(match.groups()[0])
 
             if match:
-                ratings.append(eval(match.groups()[0]))
+                ratings.append(min(max(rating, 1), 10))
             else:
-                ratings.append(-1)
+                ratings.append(1)
                 logger.warning(f"Failed to extract rating from response: {response}")
 
         score_list = np.array(ratings)
         self._last_score_lists = {'GPT-Eval': score_list}
-        filtered_arr = score_list[score_list != -1]
-        return {'GPT-Eval': np.mean(filtered_arr) if len(filtered_arr) > 0 else -1}
+        return {'GPT-Eval': np.mean(score_list)}

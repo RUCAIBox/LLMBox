@@ -19,6 +19,7 @@ class Mt_bench(GenerationDataset):
     evaluation_set = "train"
     load_args = ("HuggingFaceH4/mt_bench_prompts",)
     metrics = [GPTEval(multi_turn=True)]
+    extra_model_args = {"multi_turn": True}
 
     def load_raw_dataset(self, dataset_path, subset_name, evaluation_set, example_set):
         super().load_raw_dataset(dataset_path, subset_name, evaluation_set, example_set)
