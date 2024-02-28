@@ -265,6 +265,10 @@ class DatasetArguments:
         default=None,
         help="The port of the proxy",
     )
+    pass_at_k: int = HfArg(
+        default=None,
+        help="The k value for pass@k metric",
+    )
 
     # set in `set_logging` with format "{evaluation_results_dir}/{log_filename}.json"
     evaluation_results_path: ClassVar[str] = None

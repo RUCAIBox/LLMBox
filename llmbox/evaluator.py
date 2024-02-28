@@ -110,7 +110,10 @@ class Evaluator:
             )
 
         step = self.dataset.len(option_num=False, sample_num=False, normalization=False)
-        mode_predictions = [mode(predictions[i::step]) for i in range(step)]
+        if self.dataset_args.pass_at_k:
+            mode_predictions = [predictions[i::step] for i in range(step)]
+        else:
+            mode_predictions = [mode(predictions[i::step]) for i in range(step)]
 
         # calculate metric
         metric_results, last_score_lists = self.dataset.calculate_metric(mode_predictions)

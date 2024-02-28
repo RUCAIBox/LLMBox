@@ -20,6 +20,7 @@ class Real_toxicity_prompts(GenerationDataset):
     evaluation_set = "train"
     load_args = ("allenai/real-toxicity-prompts",)
     extra_model_args = dict(temperature=0, stop='\n\n')
+    metrics = ""
 
     def __init__(self, args, model, subset_name=None):
         super().__init__(args, model, subset_name=subset_name)
