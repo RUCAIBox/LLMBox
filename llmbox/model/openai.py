@@ -97,7 +97,7 @@ class Openai(Model):
             multi_turn (bool): Default is False. Set to True if multi-turns needed.
 
         Returns:
-            List[dict]: The responsed JSON results.
+            List[dict]: The responded JSON results.
         """
         for _ in range(self.max_try_times):
             try:

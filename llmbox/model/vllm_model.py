@@ -25,7 +25,7 @@ class LabelProcessor:
 
     def __call__(self, token_ids: List[int], logits_row: torch.Tensor) -> torch.Tensor:
         if len(token_ids) != 0:
-            logger.warning("LabelProcessor shoule be used with max_tokens=1")
+            logger.warning("LabelProcessor should be used with max_tokens=1")
         mask = torch.zeros_like(logits_row, dtype=torch.bool)
         mask[self.candidate_ids] = True
         logits_row[~mask] = float("-inf")

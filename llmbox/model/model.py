@@ -75,6 +75,6 @@ class Model:
             batched_inputs (List[Tuple[str, int]]): The batch of questions and corresponding option nums.
 
         Returns:
-            List[int]: The option index of maximal probabiltiy.
+            List[int]: The option index of maximal probability.
         """
         raise NotImplementedError(f"{self.name} model does not support `get_prob`.")

@@ -67,7 +67,7 @@ class Anthropic(Model):
             model_args (dict): The additional calling configurations.
 
         Returns:
-            List[dict]: The responsed JSON results.
+            List[dict]: The responded JSON results.
         """
         client = anthropic.Anthropic(api_key=self.api_key)
         for _ in range(self.max_try_times):

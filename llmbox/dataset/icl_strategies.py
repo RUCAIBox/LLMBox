@@ -52,7 +52,7 @@ def global_entropy_ordering_strategy(indices, labels, example_dataset, call_mode
     # get data permutation demonstration
     for perm in permutations(indices):
         data_perm[perm] = "\n\n".join([example_dataset[i]["source"] + example_dataset[i]["target"] for i in perm])
-    # get evalutation indices
+    # get evaluation indices
     eval_indices = np.random.choice(len(example_dataset), 50)
     perm_entropy = {}
     labels_num = len(labels)

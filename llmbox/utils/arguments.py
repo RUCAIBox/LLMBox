@@ -198,7 +198,7 @@ class DatasetArguments:
         " or 'dataset:subset(s)', e.g., copa, race, race:high, or wmt16:en-ro,en-fr",
     )
     subset_names: ClassVar[Set[str]] = set()
-    """The name(s) of a/several subset(s) in a dataset, derived from `dataset_name` argument on initalization"""
+    """The name(s) of a/several subset(s) in a dataset, derived from `dataset_name` argument on initialization"""
     dataset_path: Optional[str] = HfArg(
         default=None,
         help="The path of dataset if loading from local. Supports repository cloned from huggingface, "

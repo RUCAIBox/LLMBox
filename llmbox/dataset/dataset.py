@@ -69,7 +69,7 @@ class Dataset(torch.utils.data.Dataset):
     Supported formats:
         - `(dataset_name,)`: If the dataset only has one subset. E.g., `('race',)`. Or the dataset has more than one subset name. E.g., `("allenai/ai2_arc",)` accepts command line argument `--dataset arc:ARC-Easy,ARC-Challenge`.
         - `(dataset_name, subset_name)`: If the dataset is a subset of a dataset collection. E.g., `('super_glue', 'copa')`.
-        - `()`: Sepcial case like `wmt` dataset.
+        - `()`: Special case like `wmt` dataset.
     """
 
     extra_model_args: Dict[str, typing.Any] = dict()
@@ -362,7 +362,7 @@ class Dataset(torch.utils.data.Dataset):
         Args:
             `instance (Dict)`: an instance dict of multiple key-value pairs.
             `loose (bool, optional)`: Whether to add extra newline characters. Defaults to False.
-            `format_example (bool, optional):` Whether to format the example. This will only effect datasets like winogrande by returning the correct source only. Defaults to False.
+            `format_example (bool, optional):` Whether to format the example. This will only affect datasets like winogrande by returning the correct source only. Defaults to False.
         """
         # it is not recommended to modify instance, in case of multiple calls
         formatted_instance = self.format_instance(instance)
