@@ -3,6 +3,25 @@ import re
 from ..metric import PassAtK
 from .generation_dataset import GenerationDataset
 
+IMPORT_HELPER = [
+    "import math",
+    "import re",
+    "import sys",
+    "import copy",
+    "import datetime",
+    "import itertools",
+    "import collections",
+    "import heapq",
+    "import functools",
+    "import hashlib",
+    "import numpy",
+    "import numpy as np",
+    "import string",
+    "from typing import *",
+    "from collections import *",
+]
+
+
 class Mbpp(GenerationDataset):
     """The dataset of MBPP.
 
@@ -20,7 +39,7 @@ class Mbpp(GenerationDataset):
     instruction = ""
     example_set = "train"
     evaluation_set = "test"
-    load_args = ("mbpp","full")
+    load_args = ("mbpp", "full")
     metrics = ""
 
     def __init__(self, args, model, subset_name=None):
@@ -37,19 +56,62 @@ class Mbpp(GenerationDataset):
         code = instance["code"].replace("\r", "").replace("\t", "    ")
         source_prompt = f"You are an expert Python programmer, and here is your task: {prompt} Your code should pass these tests:\n\n{tests}\n"
         target_prompt = f"[BEGIN]\n{code}\n[DONE]\n"
-        return dict(
-            source=source_prompt,
-            target=target_prompt
-        )
+        return dict(source=source_prompt, target=target_prompt)
 
     def post_processing(self, predictions):
         answer_pattern = re.compile(r"\[BEGIN\](.*?)\[DONE\]", re.DOTALL)
-        return [re.search(answer_pattern, p).group(1).strip() if re.search(answer_pattern, p) else p for p in predictions]
+        return [
+            re.search(answer_pattern, p).group(1).strip() if re.search(answer_pattern, p) else p for p in predictions
+        ]
 
     @property
     def references(self):
-        return self.evaluation_data
+        return [
+            "\n".join(IMPORT_HELPER) + '\n' + "{pred}" + "\n" + "\n".join(instance["test_list"])
+            for instance in self.evaluation_data
+        ]
 
-EXAMPLARS = [{"text": "Write a function to find the similar elements from the given two tuple lists.", "code": "def similar_elements(test_tup1, test_tup2):\r\n  res = tuple(set(test_tup1) & set(test_tup2))\r\n  return (res) ", "task_id": 2, "test_setup_code": "", "test_list": ["assert similar_elements((3, 4, 5, 6),(5, 7, 4, 10)) == (4, 5)", "assert similar_elements((1, 2, 3, 4),(5, 4, 3, 7)) == (3, 4)", "assert similar_elements((11, 12, 14, 13),(17, 15, 14, 13)) == (13, 14)"], "challenge_test_list": []},
-             {"text": "Write a python function to identify non-prime numbers.", "code": "import math\r\ndef is_not_prime(n):\r\n    result = False\r\n    for i in range(2,int(math.sqrt(n)) + 1):\r\n        if n % i == 0:\r\n            result = True\r\n    return result", "task_id": 3, "test_setup_code": "", "test_list": ["assert is_not_prime(2) == False", "assert is_not_prime(10) == True", "assert is_not_prime(35) == True"], "challenge_test_list": []},
-             {"text": "Write a function to find the largest integers from a given list of numbers using heap queue algorithm.", "code": "import heapq as hq\r\ndef heap_queue_largest(nums,n):\r\n  largest_nums = hq.nlargest(n, nums)\r\n  return largest_nums", "task_id": 4, "test_setup_code": "", "test_list": ["assert heap_queue_largest( [25, 35, 22, 85, 14, 65, 75, 22, 58],3)==[85, 75, 65] ", "assert heap_queue_largest( [25, 35, 22, 85, 14, 65, 75, 22, 58],2)==[85, 75] ", "assert heap_queue_largest( [25, 35, 22, 85, 14, 65, 75, 22, 58],5)==[85, 75, 65, 58, 35]"], "challenge_test_list": []}]
+
+EXAMPLARS = [{
+    "text":
+    "Write a function to find the similar elements from the given two tuple lists.",
+    "code":
+    "def similar_elements(test_tup1, test_tup2):\r\n  res = tuple(set(test_tup1) & set(test_tup2))\r\n  return (res) ",
+    "task_id":
+    2,
+    "test_setup_code":
+    "",
+    "test_list": [
+        "assert similar_elements((3, 4, 5, 6),(5, 7, 4, 10)) == (4, 5)",
+        "assert similar_elements((1, 2, 3, 4),(5, 4, 3, 7)) == (3, 4)",
+        "assert similar_elements((11, 12, 14, 13),(17, 15, 14, 13)) == (13, 14)"
+    ],
+    "challenge_test_list": []
+}, {
+    "text":
+    "Write a python function to identify non-prime numbers.",
+    "code":
+    "import math\r\ndef is_not_prime(n):\r\n    result = False\r\n    for i in range(2,int(math.sqrt(n)) + 1):\r\n        if n % i == 0:\r\n            result = True\r\n    return result",
+    "task_id":
+    3,
+    "test_setup_code":
+    "",
+    "test_list":
+    ["assert is_not_prime(2) == False", "assert is_not_prime(10) == True", "assert is_not_prime(35) == True"],
+    "challenge_test_list": []
+}, {
+    "text":
+    "Write a function to find the largest integers from a given list of numbers using heap queue algorithm.",
+    "code":
+    "import heapq as hq\r\ndef heap_queue_largest(nums,n):\r\n  largest_nums = hq.nlargest(n, nums)\r\n  return largest_nums",
+    "task_id":
+    4,
+    "test_setup_code":
+    "",
+    "test_list": [
+        "assert heap_queue_largest( [25, 35, 22, 85, 14, 65, 75, 22, 58],3)==[85, 75, 65] ",
+        "assert heap_queue_largest( [25, 35, 22, 85, 14, 65, 75, 22, 58],2)==[85, 75] ",
+        "assert heap_queue_largest( [25, 35, 22, 85, 14, 65, 75, 22, 58],5)==[85, 75, 65, 58, 35]"
+    ],
+    "challenge_test_list": []
+}]
