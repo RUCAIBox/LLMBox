@@ -23,7 +23,6 @@ class PassAtK(Metric):
         for samples, refer in tqdm(zip(predictions, references), desc="Evaluating Pass@K", total=len(predictions)):
             sample_result = []
             for pred in samples:
-                # check_program = refer["prompt"] + pred + "\n" + refer["test"] + "\n" + f"check({refer['entry_point']})"
                 check_program = refer.replace("{pred}", pred)
                 with Timeout():
                     try:
