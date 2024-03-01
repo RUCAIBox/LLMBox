@@ -1,7 +1,7 @@
 from logging import getLogger
 
 from .generation_dataset import GenerationDataset
-from .enum import BBH_PROMPTS
+from .enum import BBH_PROMPTS, BBH_NO_CHOICE
 from ..metric import Em
 
 logger = getLogger(__name__)
@@ -9,20 +9,18 @@ logger = getLogger(__name__)
 import re
 
 class Bbh(GenerationDataset):
-    """The dataset of BBH. (Chain of Thought Version)
+    """The dataset of BBH.
 
     Challenging BIG-Bench Tasks and Whether Chain-of-Thought Can Solve Them by Suzgun, Mirac and Scales, Nathan and Sch{\"a}rli, Nathanael and Gehrmann, Sebastian and Tay, Yi and Chung, Hyung Won and Chowdhery, Aakanksha and Le, Quoc V and Chi, Ed H and Zhou, Denny and and Wei, Jason.
 
     Example 1 (dev):
         "input": "Question: Fidel tells the truth. Jerry says Fidel tells the truth. Vina says Jerry tells the truth. Millicent says Vina lies. Raymond says Millicent lies. Does Raymond tell the truth?",
-        "options": ["Yes", "No"],
         "answer": "Let's think step by step. (1) Fidel tells the truth. So, we know that Fidel tells the truth. (2) Jerry says Fidel tells the truth. Since we know from (1) that Fidel tells the truth, if Jerry says that Fidel tells the truth, then Jerry tells the truth. (3) Vina says Jerry tells the truth. Since we know from (2) that Jerry tells the truth, if Vina says Jerry tells the truth, then Vine tells the truth. (4) Millicent says Vina lies. Since we know from (3) that Vina tells the truth, if Millicent says Vina lies, then Millicent lies. (5) Raymond says Millicent lies. Since we know from (4) that Millicent lies, if Raymond says Millicent lies, then Raymond tells the truth. Now, the question asks: Does Raymond tell the truth? We know from (5) that Raymond tells the truth. So the answer is Yes.",
         "label": "Yes"
 
     Example 2 (test):
         "input": "Question: Sherrie tells the truth. Vernell says Sherrie tells the truth. Alexis says Vernell lies. Michaela says Alexis tells the truth. Elanor says Michaela tells the truth. Does Elanor tell the truth?",
-        "options": ["Yes", "No"],
-        "answer": null
+        "answer": null,
         "label": "No"
     """
 
@@ -34,10 +32,8 @@ class Bbh(GenerationDataset):
 
     def __init__(self, args, model, subset_name: str):
         self.instruction = self.instruction.format(BBH_PROMPTS[subset_name])
-        if args.ranking_type.startswith("ppl"):  # ppl or ppl_no_option
-            self.source_prefix = "Q: "
-        elif args.ranking_type == "prob":
-            self.source_prefix = ""
+        self.source_prefix = "Q: "
+        self.task = subset_name
         super().__init__(args, model, subset_name)
 
     def format_instance(self, instance):
@@ -46,14 +42,11 @@ class Bbh(GenerationDataset):
             target = instance["label"]
         return dict(
             source=self.source_prefix + instance["input"].strip(),
-            source_prefix="Q: ",
-            options=instance["options"],
-            source_postfix="\nA:" if self.args.ranking_type.startswith("ppl") else "",
+            source_postfix="\nA:",
             target=target
         )
 
-    @staticmethod
-    def post_processing(predictions):
+    def post_processing(self, predictions):
         new_predictions = []
         for pred in predictions:
             extracted_answer = re.search(r"[t|T]he answer is (.*?)\.", pred)
@@ -61,6 +54,8 @@ class Bbh(GenerationDataset):
                 new_pred = extracted_answer.group(1).strip()
             else:
                 new_pred = pred.strip()
+            if self.task not in BBH_NO_CHOICE:
+                new_pred = new_pred.split()[0]
             new_predictions.append(new_pred)
         return new_predictions
 

@@ -56,3 +56,10 @@ BBH_PROMPTS = {
     'web_of_lies': "Evaluate a random boolean function expressed as a word problem.",
     'word_sorting': "Sort a list of words."
 }
+
+BBH_NO_CHOICE = [
+    'dyck_languages',
+    'multistep_arithmetic_two',
+    'object_counting',
+    'word_sorting'
+]
