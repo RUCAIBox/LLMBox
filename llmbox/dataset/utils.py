@@ -11,19 +11,6 @@ import datasets
 logger = getLogger(__name__)
 
 
-def pjoin(pleft: Union[str, List[str]], pright: str) -> str:
-    """Join two prompts. Add/remove a white space between them if necessary."""
-    if isinstance(pleft, list):
-        return [pjoin(prompt, pright) for prompt in pleft]
-    else:
-        if not pleft.endswith((" ", "\n")) and not pright.startswith((" ", "\n")):
-            return f"{pleft} {pright}"
-        elif pleft.endswith((" ")) and pright.startswith((" ")):
-            return pleft + pright[1:]
-        else:
-            return pleft + pright
-
-
 def accepts_subset(
     load_args: Union[Tuple[str], Tuple[str, str], Tuple[()]],
     overwrite_subset: bool = True,
