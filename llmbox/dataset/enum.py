@@ -26,3 +26,33 @@ MMLU_SUBJECTS = {
     'social_sciences': SOCIAL_SCIENCES_SUBJECTS,
     'other': OTHER_SUBJECTS
 }
+
+BBH_PROMPTS = {
+    'boolean_expressions': "Evaluate the result of a random Boolean expression.",
+    'causal_judgement': "Answer questions about causal attribution.",
+    'date_understanding': "Infer the date from context.",
+    'disambiguation_qa': "Clarify the meaning of sentences with ambiguous pronouns.",
+    'dyck_languages': "Correctly close a Dyck-n word.",
+    'formal_fallacies': "Distinguish deductively valid arguments from formal fallacies.",
+    'geometric_shapes': "Name geometric shapes from their SVG paths.",
+    'hyperbaton': "Order adjectives correctly in English sentences.",
+    'logical_deduction_five_objects': "A logical deduction task which requires deducing the order of a sequence of objects.",
+    'logical_deduction_seven_objects': "A logical deduction task which requires deducing the order of a sequence of objects.",
+    'logical_deduction_three_objects': "A logical deduction task which requires deducing the order of a sequence of objects.",
+    'movie_recommendation': "Recommend movies similar to the given list of movies.",
+    'multistep_arithmetic_two': "Solve multi-step arithmetic problems.",
+    'navigate': "Given a series of navigation instructions, determine whether one would end up back at the starting point.",
+    'object_counting': "Questions that involve enumerating objects and asking the model to count them.",
+    'penguins_in_a_table': "Answer questions about a table of penguins and their attributes.",
+    'reasoning_about_colored_objects': "Answer extremely simple questions about the colors of objects on a surface.",
+    'ruin_names': "Select the humorous edit that 'ruins' the input movie or musical artist name.",
+    'salient_translation_error_detection': "Detect the type of error in an English translation of a German source sentence.",
+    'snarks': "Determine which of two sentences is sarcastic.",
+    'sports_understanding': "Determine whether an artificially constructed sentence relating to sports is plausible or not.",
+    'temporal_sequences': "Task description: Answer questions about which times certain events could have occurred.",
+    'tracking_shuffled_objects_five_objects': "A task requiring determining the final positions of a set of objects given their initial positions and a description of a sequence of swaps.",
+    'tracking_shuffled_objects_seven_objects': "A task requiring determining the final positions of a set of objects given their initial positions and a description of a sequence of swaps.",
+    'tracking_shuffled_objects_three_objects': "A task requiring determining the final positions of a set of objects given their initial positions and a description of a sequence of swaps.",
+    'web_of_lies': "Evaluate a random boolean function expressed as a word problem.",
+    'word_sorting': "Sort a list of words."
+}
