@@ -63,3 +63,23 @@ BBH_NO_CHOICE = [
     'object_counting',
     'word_sorting'
 ]
+
+BBH_LETTER_CHOICE = [
+    'date_understanding',
+    'disambiguation_qa',
+    'geometric_shapes',
+    'hyperbaton',
+    'logical_deduction_five_objects',
+    'logical_deduction_seven_objects',
+    'logical_deduction_three_objects',
+    'movie_recommendation',
+    'penguins_in_a_table',
+    'reasoning_about_colored_objects',
+    'ruin_names',
+    'salient_translation_error_detection',
+    'snarks',
+    'temporal_sequences',
+    'tracking_shuffled_objects_five_objects',
+    'tracking_shuffled_objects_seven_objects',
+    'tracking_shuffled_objects_three_objects'
+]

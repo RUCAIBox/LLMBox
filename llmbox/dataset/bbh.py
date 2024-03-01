@@ -1,7 +1,7 @@
 from logging import getLogger
 
 from .generation_dataset import GenerationDataset
-from .enum import BBH_PROMPTS, BBH_NO_CHOICE
+from .enum import BBH_PROMPTS, BBH_NO_CHOICE, BBH_LETTER_CHOICE
 from ..metric import Em
 
 logger = getLogger(__name__)
@@ -32,7 +32,6 @@ class Bbh(GenerationDataset):
 
     def __init__(self, args, model, subset_name: str):
         self.instruction = self.instruction.format(BBH_PROMPTS[subset_name])
-        self.source_prefix = "Q: "
         self.task = subset_name
         super().__init__(args, model, subset_name)
 
@@ -41,9 +40,8 @@ class Bbh(GenerationDataset):
         if target is None or self.args.cot == "none":
             target = instance["label"]
         return dict(
-            source=self.source_prefix + instance["input"].strip(),
-            source_postfix="\nA:",
-            target=target
+            source="Q: " + instance["input"].strip() + "\nA:",
+            target=" " + target
         )
 
     def post_processing(self, predictions):
@@ -56,9 +54,18 @@ class Bbh(GenerationDataset):
                 new_pred = pred.strip()
             if self.task not in BBH_NO_CHOICE:
                 new_pred = new_pred.split()[0]
+                if self.task in BBH_LETTER_CHOICE:
+                    pattern = r'.*([A-Z]).*'
+                    new_pred = re.sub(pattern, r'\1', new_pred)
             new_predictions.append(new_pred)
         return new_predictions
 
     @property
     def references(self):
-        return [[instance["label"]] for instance in self.evaluation_data]
+        references = []
+        for instance in self.evaluation_data:
+            label = instance["label"]
+            pattern = r'\(([A-Z])\)'
+            label = re.sub(pattern, r'\1', label)
+            references.append([label])
+        return references
