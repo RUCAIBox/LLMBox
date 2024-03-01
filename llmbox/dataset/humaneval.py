@@ -38,7 +38,6 @@ class Humaneval(GenerationDataset):
 
     @property
     def references(self):
-        # return self.evaluation_data
         return [
             instance["prompt"] + "{pred}" + "\n" + instance["test"] + "\n" + f"check({instance['entry_point']})"
             for instance in self.evaluation_data
