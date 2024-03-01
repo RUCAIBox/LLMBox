@@ -12,7 +12,7 @@ import torch
 import tqdm as tqdm_lib
 
 from .icl_strategies import ape, global_entropy_ordering_strategy, knn_construct_examples
-from .utils import get_raw_dataset_loader, pjoin
+from .utils import get_raw_dataset_loader
 
 if typing.TYPE_CHECKING:
     # solve the circular import
@@ -384,7 +384,7 @@ class Dataset(torch.utils.data.Dataset):
                 formatted_instance["target"] = chr(65 + target_idx)
 
         if "source_postfix" in formatted_instance:
-            formatted_instance["source"] = pjoin(formatted_instance["source"], formatted_instance.pop("source_postfix"))
+            formatted_instance["source"] += formatted_instance.pop("source_postfix")
 
         if not formatted_instance["target"].startswith(" "):
             formatted_instance["target"] = " " + formatted_instance["target"]
