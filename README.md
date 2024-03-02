@@ -88,9 +88,9 @@ This is default to run the OpenAI davinci-002 model on the Copa dataset in a zer
                         Whether to use GlobalE as an ICL strategy (default: False)
   --ape [APE], -ape [APE]
                         Whether to use APE as an ICL strategy (default: False)
-  --cot {base,least_to_most,pal}
-                        The method to prompt, eg. 'base', 'least_to_most', 'pal'. Only
-                        available for some specific datasets. (default: base)
+  --cot {none,base,least_to_most,pal}
+                        The method to prompt, eg. 'none', 'base', 'least_to_most', 'pal'. Only
+                        available for some specific datasets. (default: none)
   --seed SEED           The random seed (default: 2023)
   --logging_dir LOGGING_DIR
                         The logging directory (default: logs)
