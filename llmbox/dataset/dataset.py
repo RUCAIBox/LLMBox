@@ -110,6 +110,13 @@ class Dataset(torch.utils.data.Dataset):
         self.tokenizer = model.tokenizer
 
         self._post_init_arguments()
+        
+        self.num_shots = args.num_shots
+        self.max_example_tokens = args.max_example_tokens
+        self.examples = ""
+        self.kate = args.kate
+        self.globale = args.globale
+        self.ape = args.ape
 
         # load `self.evaluation_data` and `self.example_data`
         self.load_raw_dataset(
@@ -119,12 +126,6 @@ class Dataset(torch.utils.data.Dataset):
             example_set=args.example_set or self.example_set,
         )
 
-        self.num_shots = args.num_shots
-        self.max_example_tokens = args.max_example_tokens
-        self.examples = ""
-        self.kate = args.kate
-        self.globale = args.globale
-        self.ape = args.ape
         if self.num_shots:
             if self.ape or self.kate or self.globale:
                 self.formatted_example_data = [
