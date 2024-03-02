@@ -27,7 +27,7 @@ class Gsm8k(GenerationDataset):
 
     def load_raw_dataset(self, dataset_path, subset_name, evaluation_set, example_set):
         super().load_raw_dataset(dataset_path, subset_name, evaluation_set, example_set)
-        if self.args.cot == 'base':
+        if self.args.cot == 'base' or self.args.cot is None:
             self.example_data = BASE_EXAMPLARS
         elif self.args.cot == 'least_to_most':
             self.example_data = LEAST_TO_MOST_EXAMPLARS
