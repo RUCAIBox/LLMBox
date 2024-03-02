@@ -53,10 +53,11 @@ class Bbh(GenerationDataset):
             else:
                 new_pred = pred.strip()
             if self.task not in BBH_NO_CHOICE:
-                new_pred = new_pred.split()[0]
-                if self.task in BBH_LETTER_CHOICE:
-                    pattern = r'.*([A-Z]).*'
-                    new_pred = re.sub(pattern, r'\1', new_pred)
+                if len(new_pred) > 0:
+                    new_pred = new_pred.split()[0]
+                    if self.task in BBH_LETTER_CHOICE:
+                        pattern = r'.*([A-Z]).*'
+                        new_pred = re.sub(pattern, r'\1', new_pred)
             new_predictions.append(new_pred)
         return new_predictions
 
