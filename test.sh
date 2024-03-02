@@ -15,6 +15,7 @@ python inference.py -m /home/tangtianyi/meta-llama/Llama-7b-hf -d mmlu -b 20 --v
 python inference.py -m /home/tangtianyi/meta-llama/Llama-7b-hf -d mmlu -b 20 --vllm False --model_type base --num_shots 5 --ranking_type prob # 34.82
 python inference.py -m /home/tangtianyi/meta-llama/Llama-7b-hf -d mmlu --vllm True --model_type base --num_shots 5 --ranking_type prob # 34.88
 
+python inference.py -m /home/tangtianyi/Llama-2-7b-hf -d bbh --model_type base --num_shots 3 # 33.2
 
 python inference.py -m davinci-002 -d copa -b 20 # 88.0
 python inference.py -m davinci-002 -d copa -b 20 -shots 1 # 88.0
