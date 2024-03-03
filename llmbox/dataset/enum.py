@@ -84,34 +84,15 @@ BBH_LETTER_CHOICE = [
     'tracking_shuffled_objects_three_objects'
 ]
 
-AGIEVAL_CHINESE_TASK = [
-    'gaokao-biology',
-    'gaokao-chemistry',
-    'gaokao-chinese',
-    'gaokao-history',
-    'gaokao-geography',
-    'gaokao-physics',
-    'gaokao-mathqa',
-    'gaokao-mathcloze',
-    'logiqa-zh',
-    'jec-qa-kd',
-    'jec-qa-ca'
-]
-
-AGIEVAL_NO_LETTER_CHOICE = [
-    'math',
-    'gaokao-mathcloze'
-]
-
 AGIEVAL_WORDS = [
     ["问题：", "Q: "],
     ["选项：", "Answer Choices: "],
     ["答案：从A到{}, 我们应选择", "A: Among A through {}, the answer is"],
     ["从A到{}, 我们应选择什么？让我们逐步思考：", "Let's think step by step."],
-    ["问题的解析:   ", "Explanation for Problem:   "],
-    ["答案是 ", "The answer is therefore "],
-    ["问题.   ", "Problem.   "],
-    ["从以下选项中选择:    ", "Choose from the following options:    "],
+    ["问题的解析:", "Explanation for Problem:"],
+    ["答案是", "The answer is therefore"],
+    ["问题. ", "Problem. "],
+    ["从以下选项中选择: ", "Choose from the following options: "],
     ["答案：", "A: The answer is"],
     ["答案：让我们逐步思考：", "A: Let's think step by step."]
 ]
@@ -133,3 +114,7 @@ AGIEVAL_EN_CLOZE = ['math']
 AGIEVAL_ZH_CLOZE = ['gaokao-mathcloze']
 
 AGIEVAL_MULTI_CHOICE = ['jec-qa-kd', 'jec-qa-ca', 'gaokao-physics']
+
+AGIEVAL_CHINESE_TASK = AGIEVAL_ZH_CLOZE + AGIEVAL_ZH_QA
+
+AGIEVAL_NO_LETTER_CHOICE = AGIEVAL_EN_CLOZE + AGIEVAL_ZH_CLOZE
