@@ -32,58 +32,46 @@ class Agieval(GenerationDataset):
     def __init__(self, args, model, subset_name: str):
         self.task = subset_name
         self.shots = args.num_shots
-        #self.extra_model_args = dict(stop=["\n"]) if args.cot is None else dict()
+        self.extra_model_args = dict(stop=["\n"]) if args.cot is None else dict()
         super().__init__(args, model, subset_name)
 
     def format_instance(self, instance):
         WORDS = [_[0 if self.task in AGIEVAL_CHINESE_TASK else 1] for _ in AGIEVAL_WORDS]
         passage = "" if instance["passage"] is None else instance["passage"]
-        label = instance["label"]
+        target = instance["label"]
         if self.task not in AGIEVAL_NO_LETTER_CHOICE:
-            if self.shots==0:
+            if self.shots == 0:
+                source = passage + WORDS[0] + instance["question"] + " " + WORDS[1] + self._choice_to_str(instance["options"]) + "\n"
                 if self.args.cot is None:
-                    source = passage + WORDS[0] + instance["question"] + " " + WORDS[1] + self._choice_to_str(instance["options"]) + "\n" + WORDS[2].format(self._max_choice_letter(instance["options"]))
-                    target = label
+                    source += WORDS[2].format(self._max_choice_letter(instance["options"]))
                 else:
-                    source = passage + WORDS[0] + instance["question"] + " " + WORDS[1] + self._choice_to_str(instance["options"]) + "\n" + WORDS[3].format(self._max_choice_letter(instance["options"]))
-                    target = label
+                    source += WORDS[3].format(self._max_choice_letter(instance["options"]))
             else:
+                source = WORDS[6] + passage + " " + instance["question"] + "\n" + WORDS[7] + self._choice_to_str(instance["options"]) + "\n"
                 if self.args.cot is None:
-                    source = WORDS[6] + passage + " " + instance["question"] + "\n" + WORDS[7] + self._choice_to_str(instance["options"]) + "\n"
-                    if instance["explanation"] is not None:
-                        target = WORDS[5] + label
-                    else:
-                        target = label
+                    source += WORDS[5]
                 else:
-                    source = WORDS[6] + passage + " " + instance["question"] + "\n" + WORDS[7] + self._choice_to_str(instance["options"]) + "\n"
+                    source += WORDS[4]
                     if instance["explanation"] is not None:
-                        target = WORDS[4] + instance["explanation"] + "\n" + WORDS[5] + label
-                    else:
-                        target = label
+                        target = instance["explanation"] + "\n" + WORDS[5] + " " + instance["label"]
         else:
-            if self.shots==0:
+            if self.shots == 0:
+                source = passage + WORDS[0] + instance["question"] + "\n"
                 if self.args.cot is None:
-                    source = passage + WORDS[0] + instance["question"] + "\n" + WORDS[8]
-                    target = label
+                    source += WORDS[8]
                 else:
-                    source = passage + WORDS[0] + instance["question"] + "\n" + WORDS[9]
-                    target = label
+                    source += WORDS[9]
             else:
+                source = WORDS[6] + passage + " " + instance["question"] + "\n"
                 if self.args.cot is None:
-                    source = WORDS[6] + passage + " " + instance["question"] + "\n"
-                    if instance["explanation"] is not None:
-                        target = WORDS[5] + label
-                    else:
-                        target = label
+                    source += WORDS[5]
                 else:
-                    source = WORDS[6] + passage + " " + instance["question"] + "\n"
+                    source += WORDS[4]
                     if instance["explanation"] is not None:
-                        target = WORDS[4] + instance["explanation"] + "\n" + WORDS[5] + label
-                    else:
-                        target = label
+                        target = instance["explanation"] + "\n" + WORDS[5] + " " + instance["label"]
         return dict(
             source=source,
-            target=" " + target.__str__()
+            target=" " + target
         )
 
     def post_processing(self, predictions):
@@ -97,33 +85,6 @@ class Agieval(GenerationDataset):
             new_predictions.append(new_pred)
         return new_predictions
 
-    def _convert_zero_shot_noCoT(self, instance):
-        passage = instance["passage"] if instance["passage"] is not None else ""
-        if self.task in AGIEVAL_EN_QA:
-            options = "ABCDEFG"
-            count = len(instance["options"])
-            if count == 1:
-                count = 5
-            source = passage + "Q: " + instance["question"] + " " \
-                + "Answer Choices: " + " ".join(instance["options"]) + "\n"\
-                + "A: Among A through {}, the answer is".format(options[count - 1])
-        elif self.task in AGIEVAL_ZH_QA:
-            options = "ABCDEFG"
-            count = len(instance["options"])
-            if count == 1:
-                count = 4
-            source = passage + "问题：" + instance["question"] + " " \
-                + "选项：" + " ".join(instance["options"]) + "\n"\
-                + "答案：从A到{}, 我们应选择".format(options[count - 1])
-        elif self.task in AGIEVAL_EN_CLOZE:
-            source = passage + "Q: " + instance["question"] + "\n" \
-                + "A: The answer is"
-        elif self.task in AGIEVAL_ZH_CLOZE:
-            source = passage + "问题：" + instance["question"] + "\n" \
-                + "答案："
-        target = instance["target"].__str__()
-        return dict(source=source, target=target)
-
     @staticmethod
     def _find_choice(prediction):
         letter_set = {"A", "B", "C", "D", "E", "F"}
@@ -136,7 +97,7 @@ class Agieval(GenerationDataset):
     def _choice_to_str(choices):
         target_str = ""
         for option in choices:
-            target_str += option + " "
+            target_str += option.strip() + " "
         return target_str.strip()
 
     @staticmethod
@@ -150,6 +111,10 @@ class Agieval(GenerationDataset):
         else:
             return [[math_equiv._strip_string(instance["label"].__str__())] for instance in self.evaluation_data]
 
+    # The following code comes from https://github.com/ruixiangcui/AGIEval/tree/main/src
+    # Copyright (c) Microsoft Corporation.
+    # Licensed under the MIT license.
+
     def extract_last_line(self, string):
         lines = string.split('\n')
         for item in lines[::-1]:
@@ -157,7 +122,6 @@ class Agieval(GenerationDataset):
                 string = item
                 break
         return string
-
 
     def remove_few_shot_prefix(self, string:str):
         prefix_list = ["The answer is therefore", "答案是"]
@@ -169,7 +133,6 @@ class Agieval(GenerationDataset):
                 if index >= 0:
                     string = string[index + len(prefix):].strip()
         return string
-
 
     def try_parse_few_shot_qa_single_answer(self, string, language='en'):
         if self.shots > 0 and self.args.cot is not None:
@@ -184,7 +147,6 @@ class Agieval(GenerationDataset):
             return match.group(1)
         else:
             return None
-
 
     def try_parse_few_shot_pattern(self, string:str):
         if self.shots > 0 and self.args.cot is not None:
@@ -203,14 +165,12 @@ class Agieval(GenerationDataset):
             return match is not None
         return False
 
-
     def parse_few_shot_qa_single_answer(self, string, language='en'):
         answer = self.try_parse_few_shot_qa_single_answer(string, language)
         if answer is None:
             return self._find_choice(string)
         else:
             return answer
-
 
     def extract_answer_in_bracket(answer, prefix='【', suffix='】'):
         if prefix not in answer and suffix not in answer:
@@ -219,7 +179,6 @@ class Agieval(GenerationDataset):
         t = answer.index(suffix)
         ret = answer[s:t]
         return ret
-
 
     def parse_math_answer(self, raw_string):
         if self.shots > 0 and self.args.cot is not None:
@@ -298,16 +257,17 @@ class Agieval(GenerationDataset):
                 answer = get_answer_without_dollar_sign(raw_string)
         return answer
 
-
     def parse_qa_multiple_answer(self, string):
         if self.shots > 0 and self.args.cot is not None:
             string = self.extract_last_line(string)
         pattern = "\(*([A-F])\)*"
         match = re.findall(pattern, string)
         if match:
-            return sorted(match).__str__()
+            answers = sorted(set(match))
+            if self.task == "gaokao-physics" and len(answers) == 1:
+                return answers[0]
+            return answers.__str__()
         return ""
-
 
     def post_process(self, prediction):
         if self.task in AGIEVAL_NO_LETTER_CHOICE:
