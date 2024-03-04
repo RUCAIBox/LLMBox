@@ -6,24 +6,6 @@ from tqdm import tqdm
 from .metric import Metric
 from ..dataset.gsm8k import Timeout
 
-IMPORT_HELPER = [
-    "import math",
-    "import re",
-    "import sys",
-    "import copy",
-    "import datetime",
-    "import itertools",
-    "import collections",
-    "import heapq",
-    "import functools",
-    "import hashlib",
-    "import numpy",
-    "import numpy as np",
-    "import string",
-    "from typing import *",
-    "from collections import *",
-]
-
 
 class PassAtK(Metric):
     r""" Calculate the Pass@K score.
@@ -41,10 +23,10 @@ class PassAtK(Metric):
         for samples, refer in tqdm(zip(predictions, references), desc="Evaluating Pass@K", total=len(predictions)):
             sample_result = []
             for pred in samples:
-                code = "\n".join(IMPORT_HELPER) + '\n' + pred + "\n" + "\n".join(refer["test_list"])
+                check_program = refer.replace("{pred}", pred)
                 with Timeout():
                     try:
-                        exec(code)
+                        exec(check_program)
                         sample_result.append('passed')
                     except TimeoutError:
                         sample_result.append("timed out")
@@ -64,9 +46,7 @@ class PassAtK(Metric):
 
     @staticmethod
     def estimate_pass_at_k(
-            num_samples: Union[int, List[int], np.ndarray],
-            num_correct: Union[List[int], np.ndarray],
-            k: int
+        num_samples: Union[int, List[int], np.ndarray], num_correct: Union[List[int], np.ndarray], k: int
     ) -> np.ndarray:
         """
         Estimates pass@k of each problem and returns them in an array.
@@ -87,4 +67,3 @@ class PassAtK(Metric):
             num_samples_it = iter(num_samples)
 
         return np.array([estimator(int(n), int(c), k) for n, c in zip(num_samples_it, num_correct)])
-
