@@ -15,10 +15,13 @@ python inference.py -m /home/tangtianyi/meta-llama/Llama-7b-hf -d mmlu -b 20 --v
 python inference.py -m /home/tangtianyi/meta-llama/Llama-7b-hf -d mmlu -b 20 --vllm False --model_type base --num_shots 5 --ranking_type prob # 34.82
 python inference.py -m /home/tangtianyi/meta-llama/Llama-7b-hf -d mmlu --model_type base --num_shots 5 --ranking_type prob # 34.88
 python inference.py -m /home/tangtianyi/meta-llama/Llama-2-7b-hf -d mmlu --model_type base --num_shots 5 --ranking_type prob # 46.5
+python inference.py -m /home/tangtianyi/meta-llama/Llama-2-70b-hf -d mmlu --model_type base --num_shots 5 --ranking_type prob # 69.5
 
 
 python inference.py -m /home/tangtianyi/Llama-2-7b-hf -d bbh --model_type base --num_shots 3 # 33.2
 python inference.py -m /home/tangtianyi/Llama-2-7b-hf -d bbh --model_type base --num_shots 3 --cot base # 32.6
+python inference.py -m /mnt/tangtianyi/Llama-2-70b-hf -d bbh --model_type base --num_shots 3 # 43.5
+python inference.py -m /mnt/tangtianyi/Llama-2-70b-hf -d bbh --model_type base --num_shots 3 --cot base # 54.8
 
 python inference.py -m davinci-002 -d copa -b 20 # 88.0
 python inference.py -m davinci-002 -d copa -b 20 -shots 1 # 88.0
@@ -64,3 +67,38 @@ python inference.py -m gpt-3.5-turbo -d gsm8k --evaluation_set test\[:100\] -b 2
 python inference.py -m gpt-3.5-turbo -d gsm8k --evaluation_set test\[:100\] -b 20 -shots 8 --temperature 0.7 --sample_num 5 # 76
 python inference.py -m gpt-3.5-turbo -d mt_bench # 8.62
 
+
+
+python inference.py -m /home/tangtianyi/Llama-2-7b-hf -d gsm8k --model_type base --num_shots 8 # 14.6 ok
+python inference.py -m /home/tangtianyi/Llama-2-7b-hf -d math --model_type base --num_shots 4 # 1.5
+python inference.py -m /home/tangtianyi/Llama-2-7b-hf -d piqa --model_type base # 78.8 ok
+python inference.py -m /home/tangtianyi/Llama-2-7b-hf -d siqa --model_type base # 45.6
+python inference.py -m /home/tangtianyi/Llama-2-7b-hf -d hellaswag --model_type base # 75.0
+python inference.py -m /home/tangtianyi/Llama-2-7b-hf -d winogrande --model_type base # 69.4 ok
+python inference.py -m /home/tangtianyi/Llama-2-7b-hf -d openbookqa --model_type base # 54.2
+python inference.py -m /home/tangtianyi/Llama-2-7b-hf -d arc:ARC-Challenge --model_type base # 45.6
+python inference.py -m /home/tangtianyi/Llama-2-7b-hf -d arc:ARC-Easy --model_type base # 69.7
+python inference.py -m /home/tangtianyi/Llama-2-7b-hf -d commonsenseqa --model_type base # 45.7
+python inference.py -m /home/tangtianyi/Llama-2-7b-hf -d nq --model_type base -shots 5 # 35.7/26.7 ok
+python inference.py -m /home/tangtianyi/Llama-2-7b-hf -d triviaqa --model_type base -shots 5 # 74.8/70.1 
+python inference.py -m /home/tangtianyi/Llama-2-7b-hf -d quac --model_type base # 21.8/6.0
+python inference.py -m /home/tangtianyi/Llama-2-7b-hf -d boolq --model_type base # 78.4 ok
+python inference.py -m /home/tangtianyi/Llama-2-7b-hf -d squad --model_type base # 59.2/43.5
+python inference.py -m /home/tangtianyi/Llama-2-7b-hf -d squad --model_type base -shots 5 # 86.1/76.4
+
+python inference.py -m /mnt/tangtianyi/Llama-2-70b-hf -d gsm8k --model_type base --num_shots 8 # 56.6 ok
+python inference.py -m /mnt/tangtianyi/Llama-2-70b-hf -d math --model_type base --num_shots 4 # 6.04
+python inference.py -m /mnt/tangtianyi/Llama-2-70b-hf -d piqa --model_type base # 82.1
+python inference.py -m /mnt/tangtianyi/Llama-2-70b-hf -d siqa --model_type base # 46.6
+python inference.py -m /mnt/tangtianyi/Llama-2-70b-hf -d hellaswag --model_type base # 83.4
+python inference.py -m /mnt/tangtianyi/Llama-2-70b-hf -d winogrande --model_type base # 80.4 ok
+python inference.py -m /mnt/tangtianyi/Llama-2-70b-hf -d openbookqa --model_type base # 53.6
+python inference.py -m /mnt/tangtianyi/Llama-2-70b-hf -d arc:ARC-Challenge --model_type base # 60.1 ok
+python inference.py -m /mnt/tangtianyi/Llama-2-70b-hf -d arc:ARC-Easy --model_type base # 76.4
+python inference.py -m /mnt/tangtianyi/Llama-2-70b-hf -d commonsenseqa --model_type base # 47.9
+python inference.py -m /mnt/tangtianyi/Llama-2-70b-hf -d nq --model_type base -shots 5 # 50.0/39.6 ok
+python inference.py -m /mnt/tangtianyi/Llama-2-70b-hf -d triviaqa --model_type base -shots 5 # 89.4/85.2, /87.6
+python inference.py -m /mnt/tangtianyi/Llama-2-70b-hf -d quac --model_type base # 27.5/11.4
+python inference.py -m /mnt/tangtianyi/Llama-2-70b-hf -d boolq --model_type base # 85.6 ok
+python inference.py -m /mnt/tangtianyi/Llama-2-70b-hf -d squad --model_type base # 70.6/55.9
+python inference.py -m /mnt/tangtianyi/Llama-2-70b-hf -d squad --model_type base -shots 5 # 90.4/82.0
