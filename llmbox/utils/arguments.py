@@ -137,6 +137,16 @@ class ModelArguments:
         help="JSON string for BitsAndBytesConfig parameters."
     )
 
+    load_in_8bit:bool = HfArg(
+        default=False,
+        help="Whether to use bnb's 8-bit quantization to load the model.",
+    )
+
+    load_in_4bit:bool = HfArg(
+        default=False,
+        help="Whether to use bnb's 4-bit quantization to load the model.",
+    )
+
     gptq: bool = HfArg(
         default=False,
         help="Whether the model is a gptq quantized model.",

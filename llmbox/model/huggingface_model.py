@@ -20,6 +20,8 @@ def load_hf_model(args: ModelArguments) -> Tuple[PreTrainedModel, Union[PreTrain
     model_kwargs = dict(
         torch_dtype=torch.float16,
         device_map=args.device_map,
+        load_in_4bit=args.load_in_4bit,
+        load_in_8bit=args.load_in_8bit,
     )
 
     if args.flash_attention:
