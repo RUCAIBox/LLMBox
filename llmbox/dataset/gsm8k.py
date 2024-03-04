@@ -24,6 +24,11 @@ class Gsm8k(GenerationDataset):
 
     _decimal_separator = re.compile(r"(\d),(\d)")
     _extract_numbers = re.compile(r"[-+]?\d*\.\d+|\d+")
+    
+    def __init__(self, args, model, subset_name=None):
+        if model.type == 'base':
+            self.extra_model_args['stop'] = ['\n']
+        super().__init__(args, model, subset_name)
 
     def load_raw_dataset(self, dataset_path, subset_name, evaluation_set, example_set):
         super().load_raw_dataset(dataset_path, subset_name, evaluation_set, example_set)
@@ -34,9 +39,6 @@ class Gsm8k(GenerationDataset):
         elif self.args.cot == 'pal':
             self.example_data = PAL_EXAMPLARS
             self.instruction = "Let's use python to solve math problems. Here are some examples how to do it."
-
-        if self.model.type == 'base':
-            self.extra_model_args['stop'] = ['\n']
 
     def post_processing(self, predictions):
         new_predictions = []
