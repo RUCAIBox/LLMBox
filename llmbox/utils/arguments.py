@@ -265,9 +265,9 @@ class DatasetArguments:
     globale: bool = HfArg(default=False, aliases=["-globale"], help="Whether to use GlobalE as an ICL strategy")
     ape: bool = HfArg(default=False, aliases=["-ape"], help="Whether to use APE as an ICL strategy")
     cot: str = HfArg(
-        default="base",
-        help="The method to prompt, eg. 'base', 'least_to_most', 'pal'. Only available for some specific datasets.",
-        metadata={"choices": ["base", "least_to_most", "pal"]},
+        default=None,
+        help="The method to prompt, eg. 'none', 'base', 'least_to_most', 'pal'. Only available for some specific datasets.",
+        metadata={"choices": [None, "base", "least_to_most", "pal"]},
     )
     perspective_api_key: str = HfArg(
         default=None,
