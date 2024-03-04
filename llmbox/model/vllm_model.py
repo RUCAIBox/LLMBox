@@ -43,7 +43,8 @@ class vllmModel(Model):
         self.model = LLM(
             model=args.model_name_or_path,
             tokenizer=args.tokenizer_name_or_path,
-            tensor_parallel_size=torch.cuda.device_count()
+            tensor_parallel_size=torch.cuda.device_count(),
+            quantization="gptq" if args.gptq else None
         )
         self.tokenizer = self.model.get_tokenizer()
         self.tokenizer.truncation_side = "left"
