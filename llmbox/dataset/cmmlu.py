@@ -2,7 +2,7 @@ from logging import getLogger
 from typing import List, Tuple
 
 from .multiple_choice_dataset import MultipleChoiceDataset
-from .enum import MMLU_SUBJECTS, CMMLU_NAME_TRANS
+from .enum import CMMLU_NAME_TRANS
 
 logger = getLogger(__name__)
 
@@ -21,14 +21,13 @@ class Cmmlu(MultipleChoiceDataset):
         "Answer": "B"
     """
 
-    instruction = "以下是关于({})的单项选择题，{}。"
+    instruction = "以下是关于({})的单项选择题，请直接给出正确答案的选项。"
     evaluation_set = "test"
     example_set = "dev"
     load_args = ("haonan-li/cmmlu",)
 
     def __init__(self, args, model, subset_name: str):
-        prompt = "请直接给出正确答案的选项" if args.cot == None else "请分析并选出正确答案"
-        self.instruction = self.instruction.format(CMMLU_NAME_TRANS[subset_name], prompt)
+        self.instruction = self.instruction.format(CMMLU_NAME_TRANS[subset_name])
         if args.ranking_type.startswith("ppl"):  # ppl or ppl_no_option
             self.source_prefix = "题目："
         elif args.ranking_type == "prob":
@@ -39,7 +38,7 @@ class Cmmlu(MultipleChoiceDataset):
         options = list(map(lambda op: " " + op, [instance[chr(ord('A') + _)] for _ in range(4)]))
         return dict(
             source=self.source_prefix + instance["Question"].strip(),
-            source_postfix="\n答案是" if self.args.cot is None else "\n逐步分析并给出答案选项。",
+            source_postfix="\n答案是",
             target_idx=ord(instance["Answer"]) - ord('A'),
             options=options,
         )
