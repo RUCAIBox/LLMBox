@@ -101,14 +101,3 @@ Now please rank the models by the quality of their answers, so that the model wi
 
 Your response must be a valid Python dictionary and should contain nothing else because we will directly execute it in Python. Please provide the ranking that the majority of humans would give.
 <|im_end|>"""
-"""
-alpaca_eval_gpt4:
-  prompt_template: "alpaca_eval_gpt4/alpaca_eval.txt"
-  fn_completions: "openai_completions"
-  completions_kwargs:
-    model_name: "gpt-4"
-    max_tokens: 100
-    temperature: 0
-  fn_completion_parser: "ranking_parser"
-  batch_size: 1
-"""
