@@ -1,14 +1,11 @@
 from logging import getLogger
 
-from .generation_dataset import GenerationDataset
+from .multiple_choice_dataset import MultipleChoiceDataset
 from .enum import CEVAL_TRANS, CEVAL_SUBJECTS
-from ..metric import Em
 
 logger = getLogger(__name__)
 
-import re
-
-class Ceval(GenerationDataset):
+class Ceval(MultipleChoiceDataset):
     """The dataset of C-Eval.
 
     C-Eval: A Multi-Level Multi-Discipline Chinese Evaluation Suite for Foundation Models by Huang, Yuzhen and Bai, Yuzhuo and Zhu, Zhihao and Zhang, Junlei and Zhang, Jinghan and Su, Tangjun and Liu, Junteng and Lv, Chuancheng and Zhang, Yikai and Lei, Jiayi and Fu, Yao and Sun, Maosong and He, Junxian.
@@ -28,43 +25,25 @@ class Ceval(GenerationDataset):
     example_set = "dev"
     evaluation_set = "val"
     load_args = ("ceval/ceval-exam",)
-    metrics = [Em()]
     categorized_subsets = CEVAL_SUBJECTS
 
     def __init__(self, args, model, subset_name: str):
         self.instruction = self.instruction.format(CEVAL_TRANS[subset_name])
-        self.task = subset_name
-        self.extra_model_args = dict(stop=["\n"]) if args.cot is None else dict()
         super().__init__(args, model, subset_name)
 
     def format_instance(self, instance):
-        if instance["explanation"] is None or self.args.cot is None:
-            target = instance["answer"]
-        else:
-            target = instance["explanation"][3:] + "\n" + "所以答案是" + instance["answer"] + "。"
-        source = instance["question"].strip() + "\n"
-        for idx in range(4):
-            option = chr(ord('A') + idx)
-            source += option + ". " + instance[option].strip() + "\n"
-        source += "答案："
-        if self.args.cot is not None:
-            source += "让我们一步一步思考，\n1."
+        options = list(map(lambda op: " " + op, [instance[chr(ord('A') + _)] for _ in range(4)]))
         return dict(
-            source=source,
-            target=" " + target
+            source=instance["question"].strip(),
+            source_postfix="\n答案：",
+            target_idx=ord(instance["answer"]) - ord('A'),
+            options=options,
         )
 
-    def post_processing(self, predictions):
-        new_predictions = []
-        for pred in predictions:
-            extracted_answer = re.search(r"所以答案.([A-Z])", pred)
-            if extracted_answer:
-                new_pred = extracted_answer.group(1).strip()
-            else:
-                new_pred = pred.strip()
-            new_predictions.append(new_pred)
-        return new_predictions
+    def calculate_metric(self, predictions):
+        results, score_lists = super().calculate_metric(predictions)
+        return results, score_lists
 
     @property
     def references(self):
-        return [instance["answer"] for instance in self.evaluation_data]
+        return [ord(instance["answer"]) - ord('A') for instance in self.evaluation_data]
