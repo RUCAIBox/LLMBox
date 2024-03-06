@@ -1,5 +1,5 @@
 import re
-import threading
+import signal
 
 from ..metric import Accuracy
 from .generation_dataset import GenerationDataset
@@ -27,7 +27,7 @@ class Gsm8k(GenerationDataset):
 
     def load_raw_dataset(self, dataset_path, subset_name, evaluation_set, example_set):
         super().load_raw_dataset(dataset_path, subset_name, evaluation_set, example_set)
-        if self.args.cot == 'base':
+        if self.args.cot == 'base' or self.args.cot is None:
             self.example_data = BASE_EXAMPLARS
         elif self.args.cot == 'least_to_most':
             self.example_data = LEAST_TO_MOST_EXAMPLARS
@@ -85,20 +85,19 @@ class Gsm8k(GenerationDataset):
 
 
 class Timeout:
-
     def __init__(self, seconds=10, error_message='Timeout'):
         self.seconds = seconds
         self.error_message = error_message
-        self.timer = threading.Timer(self.seconds, self.timeout_handler)
 
-    def timeout_handler(self):
+    def timeout_handler(self, signum, frame):
         raise TimeoutError(self.error_message)
 
     def __enter__(self):
-        self.timer.start()
+        signal.signal(signal.SIGALRM, self.timeout_handler)
+        signal.alarm(self.seconds)
 
     def __exit__(self, type, value, traceback):
-        self.timer.cancel()
+        signal.alarm(0)
 
 
 BASE_EXAMPLARS = [{

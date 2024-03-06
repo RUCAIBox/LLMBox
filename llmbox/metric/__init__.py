@@ -5,3 +5,4 @@ from .rouge import Rouge
 from .gpteval import GPTEval
 from .perspective_api import Perspective_api
 from .word_accuracy import Word_Accuracy
+from .pass_at_k import PassAtK

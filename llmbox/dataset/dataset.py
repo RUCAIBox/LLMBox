@@ -11,9 +11,8 @@ import pandas as pd
 import torch
 import tqdm as tqdm_lib
 
-from .enum import MMLU_SUBJECTS
 from .icl_strategies import ape, global_entropy_ordering_strategy, knn_construct_examples
-from .utils import get_raw_dataset_loader, pjoin
+from .utils import get_raw_dataset_loader
 
 if typing.TYPE_CHECKING:
     # solve the circular import
@@ -111,6 +110,13 @@ class Dataset(torch.utils.data.Dataset):
         self.tokenizer = model.tokenizer
 
         self._post_init_arguments()
+        
+        self.num_shots = args.num_shots
+        self.max_example_tokens = args.max_example_tokens
+        self.examples = ""
+        self.kate = args.kate
+        self.globale = args.globale
+        self.ape = args.ape
 
         # load `self.evaluation_data` and `self.example_data`
         self.load_raw_dataset(
@@ -120,26 +126,20 @@ class Dataset(torch.utils.data.Dataset):
             example_set=args.example_set or self.example_set,
         )
 
-        self.num_shots = args.num_shots
-        self.max_example_tokens = args.max_example_tokens
-        self.examples = ""
-        self.kate = args.kate
-        self.globale = args.globale
-        self.ape = args.ape
-        if self.args.num_shots:
+        if self.num_shots:
             if self.ape or self.kate or self.globale:
                 self.formatted_example_data = [
                     self._format_instance(data, format_example=True) for data in self.example_data
                 ]
-            if len(self.example_data) < self.args.num_shots:
+            if len(self.example_data) < self.num_shots:
                 logger.warning(
-                    f"The example data only has {len(self.example_data)} instances, but the few-shot number is set to {self.args.num_shots}. Setting the few-shot number to {len(self.example_data)}."
+                    f"The example data only has {len(self.example_data)} instances, but the few-shot number is set to {self.num_shots}. Setting the few-shot number to {len(self.example_data)}."
                 )
-                self.args.num_shots = len(self.example_data)
-            if len(self.example_data) == self.args.num_shots:
+                self.num_shots = len(self.example_data)
+            if len(self.example_data) == self.num_shots:
                 self.random_indice = list(range(len(self.example_data)))
             else:
-                self.random_indice = np.random.choice(len(self.example_data), self.args.num_shots, replace=False)
+                self.random_indice = np.random.choice(len(self.example_data), self.num_shots, replace=False)
         self.formatted_evaluation_data = [self._format_instance(data) for data in self.evaluation_data]
         self.construct_instances()
         logger.debug(self)
@@ -271,7 +271,7 @@ class Dataset(torch.utils.data.Dataset):
         )
 
         self.evaluation_data = list(load_fn(evaluation_set))
-        if self.args.num_shots:
+        if self.num_shots:
             self.example_data = list(load_fn(example_set)) if example_set else []
 
         logger.info(f"Evaluation data with {len(self.evaluation_data)} instances")
@@ -385,7 +385,7 @@ class Dataset(torch.utils.data.Dataset):
                 formatted_instance["target"] = chr(65 + target_idx)
 
         if "source_postfix" in formatted_instance:
-            formatted_instance["source"] = pjoin(formatted_instance["source"], formatted_instance.pop("source_postfix"))
+            formatted_instance["source"] += formatted_instance.pop("source_postfix")
 
         if not formatted_instance["target"].startswith(" "):
             formatted_instance["target"] = " " + formatted_instance["target"]

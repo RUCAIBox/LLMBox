@@ -5,9 +5,11 @@ from copy import copy
 from dataclasses import MISSING, dataclass
 from logging import getLogger
 from typing import ClassVar, Dict, List, Literal, Optional, Set, Tuple, Union
+import json
 
 import openai
 from transformers.hf_argparser import HfArg, HfArgumentParser
+from transformers import BitsAndBytesConfig
 
 from ..model.enum import ANTHROPIC_MODELS, OPENAI_CHAT_MODELS, OPENAI_MODELS
 from .logging import log_levels, set_logging
@@ -128,6 +130,26 @@ class ModelArguments:
     early_stopping: Union[bool, str] = HfArg(
         default=None,
         help="Positive values encourage longer sequences, vice versa. Used in beam search.",
+    )
+
+    bnb_config: Optional[str] = HfArg(
+        default=None,
+        help="JSON string for BitsAndBytesConfig parameters."
+    )
+
+    load_in_8bit:bool = HfArg(
+        default=False,
+        help="Whether to use bnb's 8-bit quantization to load the model.",
+    )
+
+    load_in_4bit:bool = HfArg(
+        default=False,
+        help="Whether to use bnb's 4-bit quantization to load the model.",
+    )
+
+    gptq: bool = HfArg(
+        default=False,
+        help="Whether the model is a gptq quantized model.",
     )
 
     seed: ClassVar[int] = None  # use class variable to facilitate type hint inference
@@ -253,9 +275,9 @@ class DatasetArguments:
     globale: bool = HfArg(default=False, aliases=["-globale"], help="Whether to use GlobalE as an ICL strategy")
     ape: bool = HfArg(default=False, aliases=["-ape"], help="Whether to use APE as an ICL strategy")
     cot: str = HfArg(
-        default="base",
-        help="The method to prompt, eg. 'base', 'least_to_most', 'pal'. Only available for some specific datasets.",
-        metadata={"choices": ["base", "least_to_most", "pal"]},
+        default=None,
+        help="The method to prompt, eg. 'none', 'base', 'least_to_most', 'pal'. Only available for some specific datasets.",
+        metadata={"choices": [None, "base", "least_to_most", "pal"]},
     )
     perspective_api_key: str = HfArg(
         default=None,
@@ -264,6 +286,10 @@ class DatasetArguments:
     proxy_port: int = HfArg(
         default=None,
         help="The port of the proxy",
+    )
+    pass_at_k: int = HfArg(
+        default=None,
+        help="The k value for pass@k metric",
     )
 
     # set in `set_logging` with format "{evaluation_results_dir}/{log_filename}.json"
@@ -378,6 +404,11 @@ def parse_argument(args=None) -> Tuple[ModelArguments, DatasetArguments, Evaluat
         args = copy(sys.argv[1:])
     parser = HfArgumentParser((ModelArguments, DatasetArguments, EvaluationArguments), description="LLMBox description")
     model_args, dataset_args, evaluation_args = parser.parse_args_into_dataclasses(args)
+
+    if model_args.bnb_config:
+        bnb_config_dict = json.loads(model_args.bnb_config)
+        model_args.bnb_config = BitsAndBytesConfig(**bnb_config_dict)
+
     commandline_args = {arg.lstrip('-') for arg in args if arg.startswith("-")}
     for type_args in [model_args, dataset_args, evaluation_args]:
         for name, field in type_args.__dataclass_fields__.items():

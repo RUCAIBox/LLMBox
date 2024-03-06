@@ -25,7 +25,7 @@ class WinoGrande(MultipleChoiceDataset):
     example_set = "train"
     load_args = ("winogrande", "winogrande_debiased")  # specify subset from command line
 
-    def _format_instance(self, instance):
+    def format_instance(self, instance):
         question, completion = instance['sentence'].split('_')
         contexts = [question.strip() + ' ' + option for option in [instance['option1'], instance['option2']]]
         return dict(
