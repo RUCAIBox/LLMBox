@@ -3,6 +3,7 @@ from logging import getLogger
 
 import numpy as np
 import openai
+import time
 from tqdm import tqdm
 
 from ..model import load_model
@@ -16,7 +17,7 @@ SINGLE_JUDGE_PROMPT_MATH = "[Instruction]\nPlease act as an impartial judge and 
 SINGLE_JUDGE_PROMPT_MT = "Please act as an impartial judge and evaluate the quality of the response provided by an AI assistant to the user question displayed below. Your evaluation should consider factors such as the helpfulness, relevance, accuracy, depth, creativity, and level of detail of the response. You evaluation should focus on the assistant's answer to the second user question. Begin your evaluation by providing a short explanation. Be as objective as possible. After providing your explanation, you must rate the response on a scale of 1 to 10 by strictly following this format: \"[[rating]]\", for example: \"Rating: [[5]]\".\n\n<|The Start of Assistant A's Conversation with User|>\n\n### User:\n{question_1}\n\n### Assistant A:\n{answer_1}\n\n### User:\n{question_2}\n\n### Assistant A:\n{answer_2}\n\n<|The End of Assistant A's Conversation with User|>"
 SINGLE_JUDGE_PROMPT_MATH_MT = "Please act as an impartial judge and evaluate the quality of the response provided by an AI assistant to the user question. Your evaluation should consider correctness and helpfulness. You will be given a reference answer and the assistant's answer. You evaluation should focus on the assistant's answer to the second question. Begin your evaluation by comparing the assistant's answer with the reference answer. Identify and correct any mistakes. Be as objective as possible. After providing your explanation, you must rate the response on a scale of 1 to 10 by strictly following this format: \"[[rating]]\", for example: \"Rating: [[5]]\".\n\n<|The Start of Reference Answer|>\n\n### User:\n{question_1}\n\n### Reference answer:\n{ref_answer_1}\n\n### User:\n{question_2}\n\n### Reference answer:\n{ref_answer_2}\n\n<|The End of Reference Answer|>\n\n\n<|The Start of Assistant A's Conversation with User|>\n\n### User:\n{question_1}\n\n### Assistant A:\n{answer_1}\n\n### User:\n{question_2}\n\n### Assistant A:\n{answer_2}\n\n<|The End of Assistant A's Conversation with User|>"
 
-PAIRWISE_JUDGE_PROMPT = "[Instruction]\nPlease act as an impartial judge and evaluate the quality of the responses provided by two AI assistants to the user question displayed below. Your evaluation should consider factors such as the helpfulness, relevance, accuracy, depth, creativity, and level of detail of the response. After providing your explanation, output your final verdict by strictly following this format: \"[[A]]\" if assistant A is better, \"[[B]]\" if assistant B is better.\n\n[User Question]\n{question}\n\n[The Start of Assistant A's Answer]\n{answer_a}\n[The End of Assistant A's Answer]\n\n[The Start of Assistant B's Answer]\n{answer_b}\n[The End of Assistant B's Answer]"
+PAIRWISE_JUDGE_PROMPT = "Please act as an impartial judge and evaluate the quality of the responses provided by two AI assistants to the user question displayed below. You should choose the assistant that follows the user's instructions and answers the user's question better. Your evaluation should consider factors such as the helpfulness, relevance, accuracy, depth, creativity, and level of detail of their responses. Begin your evaluation by comparing the two responses and provide a short explanation. Avoid any position biases and ensure that the order in which the responses were presented does not influence your decision. Do not allow the length of the responses to influence your evaluation. Do not favor certain names of the assistants. Be as objective as possible. After providing your explanation, output your final verdict by strictly following this format: \"[[A]]\" if assistant A is better, \"[[B]]\" if assistant B is better, and \"[[C]]\" for a tie.\n\n[User Question]\n{question}\n\n[The Start of Assistant A's Answer]\n{answer_a}\n[The End of Assistant A's Answer]\n\n[The Start of Assistant B's Answer]\n{answer_b}\n[The End of Assistant B's Answer]"
 
 score_pattern = re.compile("\[\[(\d+\.?\d*)\]\]")
 score_pattern_backup = re.compile("\[(\d+\.?\d*)\]")
@@ -30,7 +31,7 @@ class GPTEval(Metric):
             "GPT-Eval": float
         """
 
-    def __init__(self, multi_turn=False, type="pairwise"):
+    def __init__(self, multi_turn=False, type="single"):
         self.multi_turn = multi_turn
         self.type = type
 
@@ -96,18 +97,14 @@ class GPTEval(Metric):
 
     def _get_pairwise_ratings(self, predictions, references, model):
         responses = []
-        n_occurences = ["question", "answer_a", "answer_b"]
         for pred, refer in tqdm(zip(predictions, references), desc="Judging", total=len(predictions)):
-            n_replaces = [refer["instruction"], refer["output"], pred]
-            format = {}
-            for occurence, replace in zip(n_occurences, n_replaces):
-                format[occurence] = replace
-            current_prompt = PAIRWISE_JUDGE_PROMPT.format_map(format)
+            current_prompt = PAIRWISE_JUDGE_PROMPT.format(question=refer["instruction"],answer_a=refer["output"],answer_b=pred)
             responses.extend(model.generation([current_prompt]))
+            time.sleep(5)
 
         ratings = []
         for response in responses:
-            match = pattern = r"\[\[(A|B)\]\]"
+            match = pattern = r"\[\[(A|B|C)\]\]"
             match = re.search(pattern, response)
             if match:
                 if match.group(1) == 'A':
@@ -120,3 +117,4 @@ class GPTEval(Metric):
                 logger.warning(f"Failed to extract rating from response: {response}")
                 ratings.append(0.5)
         return ratings
+
