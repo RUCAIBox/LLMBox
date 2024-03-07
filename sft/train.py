@@ -5,6 +5,7 @@ from typing import Optional
 from accelerate.utils import set_seed
 from sft_dataset import AutoDataset
 from pt_dataset.pt_dataset import PTDataset
+from hb_dataset.hb_dataset import HBDataset
 from datasets import load_dataset
 from peft import LoraConfig, TaskType
 from transformers import (
@@ -48,7 +49,7 @@ class Arguments(TrainingArguments):
     mode: str = HfArg(
         default="sft",
         help="The mode of the training programs, which must be chosen from either `sft` or `pt`.",
-        metadata={"choices": ["sft", "pt"]},
+        metadata={"choices": ["sft", "pt", "hb"]},
     )
 
     use_flash_attention: bool = HfArg(
@@ -70,6 +71,16 @@ class Arguments(TrainingArguments):
     rope_scaling_factor: int = HfArg(
         default = 4,
         help="Scaling factor of RoPE. The maximum context length will be expanded to the factor times the original maximum positional embedding length."
+    )
+
+    dataset_list: str = HfArg(
+        default = "",
+        help="Setting the names of data files for hybrid dataset training."
+    )
+
+    dataset_ratio: str = HfArg(
+        default = "",
+        help = "Setting the proportion of each data files listed in dataset_list."
     )
 
     bf16: bool = HfArg(
@@ -177,6 +188,16 @@ def train():
                 data_collator=DataCollatorForSupervisedDataset(tokenizer),
             )
         )
+
+    elif args.mode == "hb":
+        model.resize_token_embeddings(len(tokenizer))
+        kwargs.update(
+            dict(
+                train_dataset=HBDataset(args, tokenizer),
+                data_collator=DataCollatorForSupervisedDataset(tokenizer),
+            )
+        )
+
 
     trainer = Trainer(**kwargs)
     trainer.train()

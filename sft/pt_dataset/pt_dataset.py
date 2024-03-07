@@ -24,9 +24,9 @@ class PTDataset:
                 self.input_ids = self.group_texts(self.input_ids)
                 self.labels = self.input_ids.copy()
 
-            if torch.distributed.get_rank() == 0:
-                checkpoint = {'input_ids': self.input_ids, 'labels': self.labels}
-                torch.save(checkpoint, pth_file)
+            # if torch.distributed.get_rank() == 0:
+            #     checkpoint = {'input_ids': self.input_ids, 'labels': self.labels}
+            #     torch.save(checkpoint, pth_file)
         else:
             data_dict = torch.load(pth_file)
             self.input_ids = data_dict['input_ids']
