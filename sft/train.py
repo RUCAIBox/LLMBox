@@ -46,12 +46,6 @@ class Arguments(TrainingArguments):
         help="The maximum sequence length",
     )
 
-    mode: str = HfArg(
-        default="sft",
-        help="The mode of the training programs, which must be chosen from either `sft` or `pt`.",
-        metadata={"choices": ["sft", "pt", "hb"]},
-    )
-
     use_flash_attention: bool = HfArg(
         default=True,
         help="When checkpointing, whether to only save the model, or also the optimizer, scheduler & rng state.",
@@ -167,37 +161,16 @@ def train():
     else:
         peft_config = None
 
+    if model.get_output_embeddings().weight.size(0) != len(tokenzier):
+        model.resize_token_embeddings(len(tokenizer))
+
     kwargs = dict(
         model=model,
         args=args,
         tokenizer=tokenizer,
+        train_dataset=HBDataset(args, tokenizer),
+        data_collator=DataCollatorForSupervisedDataset(tokenizer),
     )
-    if args.mode == "sft":
-        kwargs.update(
-            dict(
-                train_dataset=AutoDataset(args, tokenizer),
-                data_collator=DataCollatorForSupervisedDataset(tokenizer),
-            )
-        )
-
-    elif args.mode == "pt":
-        model.resize_token_embeddings(len(tokenizer))
-        kwargs.update(
-            dict(
-                train_dataset=PTDataset(args, tokenizer),
-                data_collator=DataCollatorForSupervisedDataset(tokenizer),
-            )
-        )
-
-    elif args.mode == "hb":
-        model.resize_token_embeddings(len(tokenizer))
-        kwargs.update(
-            dict(
-                train_dataset=HBDataset(args, tokenizer),
-                data_collator=DataCollatorForSupervisedDataset(tokenizer),
-            )
-        )
-
 
     trainer = Trainer(**kwargs)
     trainer.train()

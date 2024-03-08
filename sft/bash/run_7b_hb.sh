@@ -15,7 +15,6 @@ torchrun --nproc_per_node=8 train.py \
     --lr_scheduler_type "constant" \
     --logging_steps 1 \
     --deepspeed configs/ds_z3_bf16.json \
-    --mode hb \
     --max_steps 100 \
     --dataset_list chinese.txt,alpaca_data_1k.json \
     --dataset_ratio [0.7,0.3] 

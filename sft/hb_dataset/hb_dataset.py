@@ -62,6 +62,8 @@ class HBDataset:
             training_dataset.append(dataset)
             total_dataset_samples += len(dataset)
 
+        print(self.args.world_size)
+        
         if hasattr(self.args, "max_steps"):
             total_training_samples = self.args.per_device_train_batch_size * self.args.gradient_accumulation_steps * self.args.world_size * math.ceil(self.args.max_steps / self.args.num_train_epochs)
             if total_training_samples > total_dataset_samples:

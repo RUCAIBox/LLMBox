@@ -12,7 +12,6 @@ python merge_tokenizer.py \
 export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
 export WANDB_MODE=disabled
 torchrun --nproc_per_node=8 train.py \
-    --mode pt \
     --model_name_or_path meta-llama/Llama-2-7b-hf \
     --data_path $TRAINING_DATA \
     --tokenizer_name_or_path $OUTPUT_DIR \
