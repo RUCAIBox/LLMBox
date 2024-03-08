@@ -16,14 +16,14 @@ class Alpaca_eval(GenerationDataset):
     example_set = "eval"
     metrics = [GPTEval(multi_turn=False, type="pairwise")]
     load_args = ("tatsu-lab/alpaca_eval", "alpaca_eval")
-    extra_model_args = dict(temperature=0, max_tokens=512)
+    extra_model_args = dict(temperature=0.7, max_tokens=1024)
 
     def format_instance(self, instance):
         return dict(source=instance["instruction"], target="")
 
     @staticmethod
     def post_processing(predictions):
-        return [prediction.lstrip("\n\n").strip() for prediction in predictions]
+        return [prediction.strip() for prediction in predictions]
 
     @property
     def references(self):
