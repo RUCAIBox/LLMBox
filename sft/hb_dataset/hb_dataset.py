@@ -90,8 +90,3 @@ class HBDataset:
                     labels.append(dataset[index]["labels"])
 
         return input_ids, labels
-
-
-
-            
-                
