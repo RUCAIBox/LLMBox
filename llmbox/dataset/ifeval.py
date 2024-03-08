@@ -1,4 +1,4 @@
-from ..metric import Test_instruction_following
+from ..metric import IFEval
 from .generation_dataset import GenerationDataset
 
 
@@ -41,7 +41,7 @@ class Ifeval(GenerationDataset):
     example_set = "train"
     evaluation_set = "train"
     load_args = ("HuggingFaceH4/ifeval",)
-    metrics = [Test_instruction_following(type="strict"), Test_instruction_following(type="loose")]
+    metrics = [IFEval(type="strict"), IFEval(type="loose")]
     extra_model_args = dict(max_tokens=1024, temperature=0)
 
     def format_instance(self, instance):
