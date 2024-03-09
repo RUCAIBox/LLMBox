@@ -1,7 +1,7 @@
 import logging
 import warnings
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Dict
 from accelerate.utils import set_seed
 from dataset.base_dataset import BaseDataset
 from datasets import load_dataset
@@ -66,13 +66,15 @@ class Arguments(TrainingArguments):
     )
 
     dataset_list: str = HfArg(
-        default = "",
-        help="Setting the names of data files for hybrid dataset training."
+        default="",
+        help="Setting the names of data files for hybrid dataset training.",
+        metadata=dict(nargs='*')
     )
 
-    dataset_ratio: str = HfArg(
-        default = "",
-        help = "Setting the proportion of each data files listed in dataset_list."
+    dataset_ratio: float = HfArg(
+        default=None,
+        help = "Setting the proportion of each data files listed in dataset_list.",
+        metadata=dict(nargs='*')
     )
 
     bf16: bool = HfArg(
@@ -140,8 +142,7 @@ def train():
             "factor" : args.rope_scaling_factor
         }
     if args.use_flash_attention:
-        config._attn_implementation = None
-        # config._attn_implementation = "flash_attention_2"
+        config._attn_implementation = "flash_attention_2"
     else:
         config._attn_implementation = None
     config.use_cache=False
