@@ -19,9 +19,14 @@ from transformers import (
     BitsAndBytesConfig,
 )
 from transformers.hf_argparser import HfArg
-from typing import Dict, Optional, Sequence
+from typing import Dict, Optional, Sequence, List
 import torch
 import transformers
+from transformers.integrations.deepspeed import (
+    is_deepspeed_zero3_enabled,
+    set_hf_deepspeed_config,
+    unset_hf_deepspeed_config,
+)
 
 @dataclass
 class Arguments(TrainingArguments):
@@ -97,6 +102,10 @@ class Arguments(TrainingArguments):
 
     lora_dropout: Optional[float] = HfArg(default=0.05, help="The dropout probability for Lora layers.")
     
+    lora_target_modules: Optional[str] = HfArg(default=None, help="The target modules for LoRA training. e.g. `q_proj,k_proj`.")
+    
+    lora_merge: Optional[bool] = HfArg(default=True, help="Whether to merge the LoRA model after training.")
+    
     qlora: Optional[bool] = HfArg(default=False, help="whether to train with QLoRA. This will enable LoRA automatically.")
     
     packing: Optional[bool] = HfArg(default=False, help="Whether to pack the input sequences to the maximum length of the model.")
@@ -157,7 +166,7 @@ def train():
     
     tokenizer.pad_token = tokenizer.unk_token  # for llama-1
     
-    load_type =  torch.float32 # default
+    load_type =  torch.bfloat16 if args.bf16 else torch.float32
     load_type = torch.bfloat16 if config._attn_implementation == "flash_attention_2" else load_type
     load_type = torch.bfloat16 if args.qlora else load_type
     
@@ -179,6 +188,7 @@ def train():
             r=args.lora_r,
             lora_alpha=args.lora_alpha,
             lora_dropout=args.lora_dropout,
+            target_modules=args.lora_target_modules.split(",") if args.lora_target_modules else None,
         )
         model = get_peft_model(model, peft_config)
     
@@ -209,8 +219,9 @@ def train():
     trainer.save_model(args.output_dir+"/checkpoint-final")
     trainer.save_state()
     
-    # merge adapter and base model manully, however deepspeed is not compatiable with lora in this case currently.
-    if args.lora and getattr(args,'deepspeed',None) is None:
+    if args.lora and args.lora_merge:
+        if is_deepspeed_zero3_enabled():
+            unset_hf_deepspeed_config()
         subdir_list = os.listdir(args.output_dir)
         for subdir in subdir_list:
             if subdir.startswith("checkpoint"):
