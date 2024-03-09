@@ -3,7 +3,7 @@ import warnings
 from dataclasses import dataclass
 from typing import Optional
 from accelerate.utils import set_seed
-from hb_dataset.hb_dataset import HBDataset
+from dataset.base_dataset import BaseDataset
 from datasets import load_dataset
 from peft import LoraConfig, TaskType
 from transformers import (
@@ -140,7 +140,8 @@ def train():
             "factor" : args.rope_scaling_factor
         }
     if args.use_flash_attention:
-        config._attn_implementation = "flash_attention_2"
+        config._attn_implementation = None
+        # config._attn_implementation = "flash_attention_2"
     else:
         config._attn_implementation = None
     config.use_cache=False
@@ -159,14 +160,14 @@ def train():
     else:
         peft_config = None
 
-    if model.get_output_embeddings().weight.size(0) != len(tokenzier):
+    if model.get_output_embeddings().weight.size(0) != len(tokenizer):
         model.resize_token_embeddings(len(tokenizer))
 
     kwargs = dict(
         model=model,
         args=args,
         tokenizer=tokenizer,
-        train_dataset=HBDataset(args, tokenizer),
+        train_dataset=BaseDataset(args, tokenizer),
         data_collator=DataCollatorForSupervisedDataset(tokenizer),
     )
 
