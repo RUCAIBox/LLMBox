@@ -9,7 +9,7 @@ class SFTDataset:
     """
     This is the base class for all SFT datasets.
     """
-
+    
     IGNORE_INDEX = -100
     instruction_template = "\n### Instruction:\n"
     response_template = "\n### Output:\n"
@@ -32,7 +32,6 @@ class SFTDataset:
         self.tokenizer = tokenizer
         data_path = args.data_path
         
-        #! if not the same setting, e.g. tokenizer max length changes, we need to reprocess the data, so we don't load the saved pth directly here
         pth_file = data_path + f"_{tokenizer.model_max_length}.pth"
 
         if not os.path.exists(pth_file):

@@ -1,5 +1,5 @@
 from collections import OrderedDict
-
+import torch
 from .alpaca import AlpacaDataset
 from .belle import BelleDataset
 from .dolly import DollyDataset
@@ -31,8 +31,8 @@ class AutoDataset:
         for datasetname, datasetclass in DATASETNAMEMAP.items():
             # if the datasetname is in the datapath, then we select this dataset
             if datasetname in datapath:
-                import warnings
-                warnings.warn(f"Dataset: {datasetname} is selected", stacklevel=2)
+                if torch.distributed.get_rank() == 0:
+                    print(f"Using {datasetname} dataset class")
                 return datasetclass(args, tokenizer)
 
         # failed to find the dataset
