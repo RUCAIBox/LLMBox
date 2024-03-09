@@ -55,7 +55,7 @@ class SFTDataset:
         source_id = tokenizer.encode(s, max_length=tokenizer.model_max_length, truncation=True)[:-1] # remove eos
         input_id = tokenizer.encode(s + t, max_length=tokenizer.model_max_length, truncation=True, return_tensors='pt')[0]
         label = input_id.clone()
-        label[:len(source_id)] = self.args.IGNORE_INDEX
+        label[:len(source_id)] = -100
         return input_id, label
     
     def packed_sft_examples(self, input_ids, labels):

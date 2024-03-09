@@ -6,9 +6,7 @@ from typing import Optional
 from accelerate.utils import set_seed
 from sft_dataset import AutoDataset
 from pt_dataset.pt_dataset import PTDataset
-from datasets import load_dataset
-import deepspeed
-from peft import LoraConfig, TaskType, get_peft_model, LoraModel, LoraConfig, AutoPeftModelForCausalLM, prepare_model_for_kbit_training
+from peft import LoraConfig, TaskType, get_peft_model, LoraConfig, AutoPeftModelForCausalLM, prepare_model_for_kbit_training
 from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
@@ -19,15 +17,14 @@ from transformers import (
     BitsAndBytesConfig,
 )
 from transformers.hf_argparser import HfArg
-from typing import Dict, Optional, Sequence, List
+from typing import Dict, Optional, Sequence
 import torch
 import transformers
 from transformers.integrations.deepspeed import (
     is_deepspeed_zero3_enabled,
-    set_hf_deepspeed_config,
     unset_hf_deepspeed_config,
 )
-
+IGNORE_INDEX = -100
 @dataclass
 class Arguments(TrainingArguments):
     model_name_or_path: str = HfArg(
@@ -48,11 +45,6 @@ class Arguments(TrainingArguments):
     model_max_length: int = HfArg(
         default=2048, 
         help="The maximum sequence length",
-    )
-    
-    IGNORE_INDEX: int = HfArg(
-        default=-100,
-        help="The index to ignore in the loss function",
     )
 
     mode: str = HfArg(
@@ -121,7 +113,7 @@ class DataCollatorForSupervisedDataset(object):
         input_ids, labels = tuple([instance[key] for instance in instances] for key in ("input_ids", "labels"))
 
         input_ids = torch.nn.utils.rnn.pad_sequence(input_ids, batch_first=True, padding_value=self.tokenizer.pad_token_id)
-        labels = torch.nn.utils.rnn.pad_sequence(labels, batch_first=True, padding_value=self.args.IGNORE_INDEX)
+        labels = torch.nn.utils.rnn.pad_sequence(labels, batch_first=True, padding_value=IGNORE_INDEX)
 
         return dict(
             input_ids=input_ids,
@@ -166,11 +158,12 @@ def train():
     
     tokenizer.pad_token = tokenizer.unk_token  # for llama-1
     
-    load_type =  torch.bfloat16 if args.bf16 else torch.float32
-    load_type = torch.bfloat16 if config._attn_implementation == "flash_attention_2" else load_type
-    load_type = torch.bfloat16 if args.qlora else load_type
+    if config._attn_implementation == "flash_attention_2" or args.qlora or args.bf16:
+        load_type =  torch.bfloat16 
+    else:
+        load_type = torch.float32
     
-    model : transformers.PreTrainedModel = AutoModelForCausalLM.from_pretrained(
+    model = AutoModelForCausalLM.from_pretrained(
         args.model_name_or_path,
         torch_dtype=load_type,
         config=config,
