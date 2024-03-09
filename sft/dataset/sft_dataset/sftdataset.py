@@ -4,12 +4,13 @@ import torch
 from typing import Dict
 from itertools import chain
 import os
+import random
 
 class SFTDataset:
     """
     This is the base class for all SFT datasets.
     """
-    
+
     IGNORE_INDEX = -100
     instruction_template = "\n### Instruction:\n"
     response_template = "\n### Output:\n"
@@ -32,6 +33,7 @@ class SFTDataset:
         self.tokenizer = tokenizer
         data_path = args.data_path
         
+        #! if not the same setting, e.g. tokenizer max length changes, we need to reprocess the data, so we don't load the saved pth directly here
         pth_file = data_path + f"_{tokenizer.model_max_length}.pth"
 
         if not os.path.exists(pth_file):
@@ -47,11 +49,14 @@ class SFTDataset:
             self.input_ids = data_dict['input_ids']
             self.labels = data_dict['labels']
 
+        self.shuffle_index = random.sample(range(len(self.input_ids)), len(self.input_ids))
+
     def __len__(self):
         return len(self.input_ids)
 
     def __getitem__(self, i) -> Dict[str, torch.Tensor]:
-        return dict(input_ids=self.input_ids[i], labels=self.labels[i])
+        index = self.shuffle_index[i]
+        return dict(input_ids=self.input_ids[index], labels=self.labels[index])
     
     def encode_src_tgt(self, s, t, tokenizer):
         source_id = tokenizer.encode(s, max_length=tokenizer.model_max_length, truncation=True)[:-1] # remove eos
