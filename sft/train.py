@@ -6,7 +6,7 @@ from typing import Optional
 from accelerate.utils import set_seed
 from sft_dataset import AutoDataset
 from pt_dataset.pt_dataset import PTDataset
-from peft import LoraConfig, TaskType, get_peft_model, LoraConfig, AutoPeftModelForCausalLM, prepare_model_for_kbit_training
+from peft import LoraConfig, TaskType, AutoPeftModelForCausalLM, get_peft_model, prepare_model_for_kbit_training
 from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
@@ -106,7 +106,6 @@ class Arguments(TrainingArguments):
 @dataclass
 class DataCollatorForSupervisedDataset(object):
     """Collate examples for supervised fine-tuning."""
-    args: Arguments
     tokenizer: transformers.PreTrainedTokenizer
 
     def __call__(self, instances: Sequence[Dict]) -> Dict[str, torch.Tensor]:
@@ -194,7 +193,7 @@ def train():
         kwargs.update(
             dict(
                 train_dataset=AutoDataset(args, tokenizer),
-                data_collator=DataCollatorForSupervisedDataset(args, tokenizer),
+                data_collator=DataCollatorForSupervisedDataset(tokenizer),
             )
         )
 
@@ -203,7 +202,7 @@ def train():
         kwargs.update(
             dict(
                 train_dataset=PTDataset(args, tokenizer),
-                data_collator=DataCollatorForSupervisedDataset(args, tokenizer),
+                data_collator=DataCollatorForSupervisedDataset(tokenizer),
             )
         )
 

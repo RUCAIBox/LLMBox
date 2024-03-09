@@ -9,6 +9,8 @@ class SFTDataset:
     """
     This is the base class for all SFT datasets.
     """
+    
+    IGNORE_INDEX = -100
     instruction_template = "\n### Instruction:\n"
     response_template = "\n### Output:\n"
     format_template = {
@@ -55,7 +57,7 @@ class SFTDataset:
         source_id = tokenizer.encode(s, max_length=tokenizer.model_max_length, truncation=True)[:-1] # remove eos
         input_id = tokenizer.encode(s + t, max_length=tokenizer.model_max_length, truncation=True, return_tensors='pt')[0]
         label = input_id.clone()
-        label[:len(source_id)] = -100
+        label[:len(source_id)] = self.IGNORE_INDEX
         return input_id, label
     
     def packed_sft_examples(self, input_ids, labels):
