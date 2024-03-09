@@ -12,9 +12,8 @@ python merge_tokenizer.py \
 export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
 export WANDB_MODE=disabled
 torchrun --nproc_per_node=8 train.py \
-    --mode pt \
     --model_name_or_path meta-llama/Llama-2-7b-hf \
-    --data_path $TRAINING_DATA \
+    --data_path data/ \
     --tokenizer_name_or_path $OUTPUT_DIR \
     --output_dir $OUTPUT_DIR \
     --num_train_epochs 2 \
@@ -27,3 +26,6 @@ torchrun --nproc_per_node=8 train.py \
     --lr_scheduler_type "constant" \
     --logging_steps 1 \
     --deepspeed configs/ds_z3_bf16.json \
+    --dataset_list chinese.txt alpaca_data_1k.json\
+    --max_steps 400 \
+    --dataset_ratio 0.7 0.3 \

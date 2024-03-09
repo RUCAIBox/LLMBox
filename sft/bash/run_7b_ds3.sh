@@ -3,7 +3,7 @@ export WANDB_MODE=disabled
 OUTPUT_DIR=./output/alpaca-7b
 torchrun --nproc_per_node=8 train.py \
     --model_name_or_path meta-llama/Llama-2-7b-hf \
-    --data_path data/alpaca_data_1k.json \
+    --data_path data/ \
     --output_dir $OUTPUT_DIR \
     --num_train_epochs 2 \
     --per_device_train_batch_size 8 \
@@ -15,3 +15,4 @@ torchrun --nproc_per_node=8 train.py \
     --lr_scheduler_type "constant" \
     --logging_steps 1 \
     --deepspeed configs/ds_z3_bf16.json \
+    --dataset_list alpaca_data_1k.json \
