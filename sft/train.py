@@ -1,3 +1,4 @@
+import os
 import logging
 import warnings
 from dataclasses import dataclass
@@ -6,7 +7,8 @@ from accelerate.utils import set_seed
 from sft_dataset import AutoDataset
 from pt_dataset.pt_dataset import PTDataset
 from datasets import load_dataset
-from peft import LoraConfig, TaskType
+import deepspeed
+from peft import LoraConfig, TaskType, get_peft_model, LoraModel, LoraConfig, AutoPeftModelForCausalLM, prepare_model_for_kbit_training
 from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
@@ -14,6 +16,7 @@ from transformers import (
     HfArgumentParser,
     TrainingArguments,
     Trainer,
+    BitsAndBytesConfig,
 )
 from transformers.hf_argparser import HfArg
 from typing import Dict, Optional, Sequence
@@ -94,6 +97,8 @@ class Arguments(TrainingArguments):
 
     lora_dropout: Optional[float] = HfArg(default=0.05, help="The dropout probability for Lora layers.")
     
+    qlora: Optional[bool] = HfArg(default=False, help="whether to train with QLoRA. This will enable LoRA automatically.")
+    
     packing: Optional[bool] = HfArg(default=False, help="Whether to pack the input sequences to the maximum length of the model.")
 
 
@@ -120,7 +125,26 @@ def train():
 
     if args.tokenizer_name_or_path is None:
         args.tokenizer_name_or_path = args.model_name_or_path
+    
+    if args.gradient_checkpointing:
+        args.gradient_checkpointing_kwargs={'use_reentrant':False} # OR gradient_checkpointing_kwargs={'use_reentrant':True}, please refer to https://github.com/huggingface/transformers/issues/26969
 
+    if args.qlora:
+        args.lora = True
+
+    config = AutoConfig.from_pretrained(args.model_name_or_path)
+    if args.rope_scaling_type != "none":
+        config.rope_scaling = {
+            "type" : args.rope_scaling_type,
+            "factor" : args.rope_scaling_factor
+        }
+        
+    if args.use_flash_attention:
+        config._attn_implementation = "flash_attention_2"
+    else:
+        config._attn_implementation = None
+    config.use_cache=False
+    
     tokenizer = AutoTokenizer.from_pretrained(
         args.tokenizer_name_or_path,
         model_max_length=args.model_max_length,
@@ -130,39 +154,34 @@ def train():
         legacy=False,  # refer to the issue:https://github.com/huggingface/transformers/pull/24565
         use_cache=False,
     )
+    
     tokenizer.pad_token = tokenizer.unk_token  # for llama-1
-
-    config = AutoConfig.from_pretrained(args.model_name_or_path)
-    if args.rope_scaling_type != "none":
-        config.rope_scaling = {
-            "type" : args.rope_scaling_type,
-            "factor" : args.rope_scaling_factor
-        }
-    if args.use_flash_attention:
-        config._attn_implementation = "flash_attention_2"
-    else:
-        config._attn_implementation = None
-    config.use_cache=False
     
-    model = AutoModelForCausalLM.from_pretrained(
+    load_type =  torch.float32 # default
+    load_type = torch.bfloat16 if config._attn_implementation == "flash_attention_2" else load_type
+    load_type = torch.bfloat16 if args.qlora else load_type
+    
+    model : transformers.PreTrainedModel = AutoModelForCausalLM.from_pretrained(
         args.model_name_or_path,
-        torch_dtype=torch.float16 if args.use_flash_attention else torch.float32,
-        config=config
-    )
-    
-    if args.gradient_checkpointing:
-        args.gradient_checkpointing_kwargs={'use_reentrant':False} # OR gradient_checkpointing_kwargs={'use_reentrant':True}, please refer to https://github.com/huggingface/transformers/issues/26969
-
+        torch_dtype=load_type,
+        config=config,
+        quantization_config=BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_compute_dtype=torch.bfloat16,
+            bnb_4bit_quant_type="nf4",
+        ) if args.qlora else None
+    ) 
     if args.lora:
+        if args.qlora:
+            model = prepare_model_for_kbit_training(model, args.lora_r)
         peft_config = LoraConfig(
             task_type=TaskType.CAUSAL_LM,
             r=args.lora_r,
             lora_alpha=args.lora_alpha,
             lora_dropout=args.lora_dropout,
         )
-    else:
-        peft_config = None
-
+        model = get_peft_model(model, peft_config)
+    
     kwargs = dict(
         model=model,
         args=args,
@@ -187,7 +206,20 @@ def train():
 
     trainer = Trainer(**kwargs)
     trainer.train()
+    trainer.save_model(args.output_dir+"/checkpoint-final")
     trainer.save_state()
+    
+    # merge adapter and base model manully, however deepspeed is not compatiable with lora in this case currently.
+    if args.lora and getattr(args,'deepspeed',None) is None:
+        subdir_list = os.listdir(args.output_dir)
+        for subdir in subdir_list:
+            if subdir.startswith("checkpoint"):
+                print("Merging model in ", args.output_dir+"/"+subdir)
+                peft_model = AutoPeftModelForCausalLM.from_pretrained(args.output_dir+"/"+subdir)
+                merged_model = peft_model.merge_and_unload()
+                save_path = args.output_dir+"/"+subdir+"-merged"
+                merged_model.save_pretrained(save_path)
+                tokenizer.save_pretrained(save_path)
 
 
 def init():
