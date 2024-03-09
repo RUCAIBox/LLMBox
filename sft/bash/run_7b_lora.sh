@@ -1,7 +1,7 @@
-export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
+export CUDA_VISIBLE_DEVICES=0
 export WANDB_MODE=disabled
 OUTPUT_DIR=./output/alpaca-7b
-torchrun --nproc_per_node=8 train.py \
+torchrun --nproc_per_node=1 train.py \
     --model_name_or_path meta-llama/Llama-2-7b-hf \
     --data_path data/alpaca_data_1k.json \
     --output_dir $OUTPUT_DIR \
@@ -14,5 +14,4 @@ torchrun --nproc_per_node=8 train.py \
     --learning_rate 1e-5 \
     --lr_scheduler_type "constant" \
     --logging_steps 1 \
-    --deepspeed configs/ds_z3_bf16.json \
     --lora True \
