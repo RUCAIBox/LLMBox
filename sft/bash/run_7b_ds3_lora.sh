@@ -15,7 +15,4 @@ torchrun --nproc_per_node=8 train.py \
     --lr_scheduler_type "constant" \
     --logging_steps 1 \
     --deepspeed configs/ds_z3_bf16.json \
-    --lora \
-    --lora_r 16 \
-    --lora_alpha 16 \
-    --lora_dropout 0.05 \
+    --lora True\
