@@ -42,14 +42,8 @@ class Arguments(TrainingArguments):
     )
 
     model_max_length: int = HfArg(
-        default=1024, 
+        default=2048, 
         help="The maximum sequence length",
-    )
-
-    mode: str = HfArg(
-        default="sft",
-        help="The mode of the training programs, which must be chosen from either `sft` or `pt`.",
-        metadata={"choices": ["sft", "pt"]},
     )
 
     save_only_model: bool = HfArg(
