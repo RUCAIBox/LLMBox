@@ -4,8 +4,7 @@ import warnings
 from dataclasses import dataclass
 from typing import Optional
 from accelerate.utils import set_seed
-from sft_dataset import AutoDataset
-from pt_dataset.pt_dataset import PTDataset
+from dataset.base_dataset import BaseDataset
 from peft import LoraConfig, TaskType, AutoPeftModelForCausalLM, get_peft_model, prepare_model_for_kbit_training
 from transformers import (
     AutoModelForCausalLM,
@@ -43,7 +42,7 @@ class Arguments(TrainingArguments):
     )
 
     model_max_length: int = HfArg(
-        default=2048, 
+        default=1024, 
         help="The maximum sequence length",
     )
 
@@ -72,6 +71,18 @@ class Arguments(TrainingArguments):
     rope_scaling_factor: int = HfArg(
         default = 4,
         help="Scaling factor of RoPE. The maximum context length will be expanded to the factor times the original maximum positional embedding length."
+    )
+
+    dataset: str = HfArg(
+        default="",
+        help="Setting the names of data files for hybrid dataset training.",
+        metadata=dict(nargs='*')
+    )
+
+    dataset_ratio: float = HfArg(
+        default=None,
+        help = "Setting the proportion of each data files listed in dataset.",
+        metadata=dict(nargs='*')
     )
 
     bf16: bool = HfArg(
@@ -184,27 +195,16 @@ def train():
         )
         model = get_peft_model(model, peft_config)
     
+    if model.get_output_embeddings().weight.size(0) != len(tokenizer):
+        model.resize_token_embeddings(len(tokenizer))
+
     kwargs = dict(
         model=model,
         args=args,
         tokenizer=tokenizer,
+        train_dataset=BaseDataset(args, tokenizer),
+        data_collator=DataCollatorForSupervisedDataset(tokenizer),
     )
-    if args.mode == "sft":
-        kwargs.update(
-            dict(
-                train_dataset=AutoDataset(args, tokenizer),
-                data_collator=DataCollatorForSupervisedDataset(tokenizer),
-            )
-        )
-
-    elif args.mode == "pt":
-        model.resize_token_embeddings(len(tokenizer))
-        kwargs.update(
-            dict(
-                train_dataset=PTDataset(args, tokenizer),
-                data_collator=DataCollatorForSupervisedDataset(tokenizer),
-            )
-        )
 
     trainer = Trainer(**kwargs)
     trainer.train()
