@@ -1,5 +1,5 @@
 from collections import OrderedDict
-
+import torch
 from .alpaca import AlpacaDataset
 from .belle import BelleDataset
 from .dolly import DollyDataset
@@ -23,18 +23,17 @@ DATASETNAMEMAP = OrderedDict({
     "flan": FlanDataset,
 })
 
-
-class Dataset:
-
-    def __new__(self, args):
+class SFTDataset:
+    def __new__(self, args, tokenizer):
         datapath = args.data_path
         for datasetname, datasetclass in DATASETNAMEMAP.items():
             # if the datasetname is in the datapath, then we select this dataset
             if datasetname in datapath:
-                print(f"Dataset: {datasetname} is selected")
-                return datasetclass(args)
+                if torch.distributed.get_rank() == 0:
+                    print(f"Using {datasetname} dataset class")
+                return datasetclass(args, tokenizer)
 
         # failed to find the dataset
         raise ValueError(
-            f"Your {datapath} should contain names like these: {DATASETNAMEMAP.keys()}, so that it can find our sftdataset class. Or you can add your own dataset class in sftdatasets package."
+            f"Your {datapath} should contain names like these: {DATASETNAMEMAP.keys()}, so that it can find our sftdataset class. Or you can add your own dataset class."
         )
