@@ -225,6 +225,7 @@ def train():
 
         rewards = []
         for q, r in zip(batch["query"], batch["response"]):
+            q = q.split("\n\nAnswer: ")[0].split("Question: ")[1] #You need to get the individual question according to the previous template
             inputs = rank_tokenizer(q, r, return_tensors='pt')
             score = rank_model(**inputs).logits[0].cpu().detach() - args.reward_baseline
             rewards.append(score)
