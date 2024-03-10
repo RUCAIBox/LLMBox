@@ -85,17 +85,17 @@ python inference.py -m /media/public/models/huggingface/EleutherAI/pythia-12b -d
 # copa ppl unsupported
 python inference.py -m /media/public/models/huggingface/EleutherAI/pythia-12b -d gsm8k --model_type base --num_shots 8 # 4.55
 
-python inference.py -m /mnt/wangjiapeng/mpt-7b -d mmlu --model_type base --num_shots 5 --ranking_type prob # 25.86
+python inference.py -m /mnt/wangjiapeng/mpt-7b -d mmlu --model_type base --num_shots 5 --ranking_type prob --no_flash_attention # 25.86
 # copa ppl unsupported
-python inference.py -m /mnt/wangjiapeng/mpt-7b -d gsm8k --model_type base --num_shots 8 # 9.55
+python inference.py -m /mnt/wangjiapeng/mpt-7b -d gsm8k --model_type base --num_shots --no_flash_attention 8 # 9.55
 
 python inference.py -m /media/public/models/huggingface/EleutherAI/gpt-j-6b -d copa --model_type base # 77
 python inference.py -m /mnt/wangjiapeng/mpt-7b -d mmlu --model_type base --ranking_type prob --num_shots 5 # 25.19
 python inference.py -m /media/public/models/huggingface/EleutherAI/gpt-j-6b -d gsm8k --model_type base --num_shots 8 # 4.78
 
-python inference.py -m /media/public/models/huggingface/EleutherAI/gpt-neo-2.7B -d copa --model_type base # 73
-python inference.py -m /media/public/models/huggingface/EleutherAI/gpt-neo-2.7B -d mmlu --model_type base --ranking_type prob --num_shots 5 # 24.33
-python inference.py -m /media/public/models/huggingface/EleutherAI/gpt-neo-2.7B -d gsm8k --model_type base --num_shots 8 # 0.76
+python inference.py -m /media/public/models/huggingface/EleutherAI/gpt-neo-2.7B -d copa --model_type base --no_vllm # 73
+python inference.py -m /media/public/models/huggingface/EleutherAI/gpt-neo-2.7B -d mmlu --model_type base --ranking_type prob --num_shots 5 --no_vllm # 24.33
+python inference.py -m /media/public/models/huggingface/EleutherAI/gpt-neo-2.7B -d gsm8k --model_type base --num_shots 8 --no_vllm # 0.76
 
 python inference.py -m /media/public/models/huggingface/gpt2 -d copa --model_type base # 66
 # mmlu 超长报错
@@ -117,9 +117,9 @@ python inference.py -m /mnt/wangjiapeng/open_llama_7b_v2 -d copa --model_type ba
 python inference.py -m /mnt/wangjiapeng/open_llama_7b_v2 -d mmlu --model_type base --ranking_type prob --num_shots 5 # 40.81
 python inference.py -m /mnt/wangjiapeng/open_llama_7b_v2 -d gsm8k --model_type base --num_shots 8 # 7.88
 
-python inference.py -m /media/public/models/huggingface/bigscience/bloom-7b1 -d copa --model_type base # 26.01
-python inference.py -m /media/public/models/huggingface/bigscience/bloom-7b1 -d mmlu --model_type base --ranking_type prob --num_shots 5 # 66.0
-python inference.py -m /media/public/models/huggingface/bigscience/bloom-7b1 -d gsm8k --model_type base--num_shots 8  # 4.17
+python inference.py -m /media/public/models/huggingface/bigscience/bloom-7b1 -d copa --model_type base --no_flash_attention # 26.01
+python inference.py -m /media/public/models/huggingface/bigscience/bloom-7b1 -d mmlu --model_type base --ranking_type prob --num_shots 5 --no_flash_attention # 66.0
+python inference.py -m /media/public/models/huggingface/bigscience/bloom-7b1 -d gsm8k --model_type base--num_shots 8 --no_flash_attention  # 4.17
 
 python inference.py -m /mnt/wangjiapeng/gemma-7b -d copa --model_type base # 83
 python inference.py -m /mnt/wangjiapeng/gemma-7b -d mmlu --model_type base --ranking_type prob --num_shots 5 # 65.33
