@@ -20,7 +20,7 @@ class Gsm8k(GenerationDataset):
     example_set = ""
     load_args = ("gsm8k", "main")
     metrics = [Accuracy()]
-    extra_model_args = dict(temperature=0)
+    extra_model_args = dict(temperature=0, stop=['\n'])
 
     _decimal_separator = re.compile(r"(\d),(\d)")
     _extract_numbers = re.compile(r"[-+]?\d*\.\d+|\d+")
