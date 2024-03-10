@@ -4,6 +4,7 @@ import torch
 from typing import Dict
 from itertools import chain
 import os
+import random
 
 class SFTDataset:
     """
@@ -48,11 +49,15 @@ class SFTDataset:
             self.input_ids = data_dict['input_ids']
             self.labels = data_dict['labels']
 
+        self.shuffle_index = list(range(len(self.input_ids)))
+        random.shuffle(self.shuffle_index)
+
     def __len__(self):
         return len(self.input_ids)
 
     def __getitem__(self, i) -> Dict[str, torch.Tensor]:
-        return dict(input_ids=self.input_ids[i], labels=self.labels[i])
+        index = self.shuffle_index[i]
+        return dict(input_ids=self.input_ids[index], labels=self.labels[index])
     
     def encode_src_tgt(self, s, t, tokenizer):
         source_id = tokenizer.encode(s, max_length=tokenizer.model_max_length, truncation=True)[:-1] # remove eos

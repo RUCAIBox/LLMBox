@@ -15,5 +15,5 @@ torchrun --nproc_per_node=8 train.py \
     --learning_rate 1e-5 \
     --lr_scheduler_type "constant" \
     --logging_steps 1 \
-    --deepspeed configs/ds_z3_bf16.json \
-    --lora True\
+    --deepspeed configs/ds_z2_bf16.json \
+    --qlora True\
