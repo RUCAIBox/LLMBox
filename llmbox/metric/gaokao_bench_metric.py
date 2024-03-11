@@ -15,7 +15,7 @@ class Gaokao_bench_metric(Metric):
     r""" Calculate the Gaokao-Bench score.
 
     Return:
-        "Gaokao_bench_score": float
+        "Scoring rate": float
     """
 
     def __init__(self, multiref_strategy="none"):
@@ -27,6 +27,8 @@ class Gaokao_bench_metric(Metric):
         refs = reference["answer"]
         task = reference["task"]
         score = reference["score"]
+        if len(answer) == 0:
+            return 0
         if task == "multi_question_choice" or task == "five_out_of_seven":
             get_score = 0
             total_score = 0
@@ -38,8 +40,6 @@ class Gaokao_bench_metric(Metric):
             return 1 if answer[0] == refs[0] else 0
         else:
             target = [_ for _ in refs[0]]
-            if len(answer) == 0:
-                return 0
             pred = answer[0]
             correct_count = 0
             for _ in pred:
@@ -56,4 +56,3 @@ class Gaokao_bench_metric(Metric):
             score_list.append(multi_ref_aggregation(scores, self.multiref_strategy))
         self._last_score_lists = {'Scoring rate': score_list}
         return {'Scoring rate': np.mean(score_list) * 100}
-        #return {'Gaokao_bench_score': np.mean(score_list) * 100}
