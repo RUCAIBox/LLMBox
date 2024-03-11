@@ -17,3 +17,5 @@ langcodes
 language_data
 anthropic
 google-api-python-client
+immutabledict
+langdetect
