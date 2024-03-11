@@ -30,14 +30,12 @@ class Gaokao_bench_metric(Metric):
         if len(answer) == 0:
             return 0
         if task == "multi_question_choice" or task == "five_out_of_seven":
-            get_score = 0
             total_score = 0
             for idx in range(len(answer)):
-                get_score += score if answer[idx] == refs[idx] else 0
-                total_score += score
-            return get_score / total_score
+                total_score += score if answer[idx] == refs[idx] else 0
+            return total_score
         elif task == "single_choice":
-            return 1 if answer[0] == refs[0] else 0
+            return score if answer[0] == refs[0] else 0
         else:
             target = [_ for _ in refs[0]]
             pred = answer[0]
@@ -47,12 +45,14 @@ class Gaokao_bench_metric(Metric):
                     correct_count += 1
                 else:
                     return 0
-            return 1 if correct_count == len(target) else 0.5
+            return score if correct_count == len(target) else score / 2
 
     def __call__(self, predictions: List[tuple], references: List[List[dict]]):
         score_list = []
+        total_score = 0
         for prediction, reference in zip(predictions, references):
+            total_score += reference[0]["score"] * len(reference[0]["answer"])
             scores = [self._calculate_score(ref, prediction) for ref in reference]
             score_list.append(multi_ref_aggregation(scores, self.multiref_strategy))
         self._last_score_lists = {'Scoring rate': score_list}
-        return {'Scoring rate': np.mean(score_list) * 100}
+        return {'Scoring rate': np.sum(score_list) / total_score * 100}
