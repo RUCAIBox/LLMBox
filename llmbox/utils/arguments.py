@@ -163,7 +163,7 @@ class ModelArguments:
 
     # simplify logging with model-specific arguments
     _model_specific_arguments: ClassVar[Dict[str, Set[str]]] = {
-        "openai": {"openai_api_key"},
+        "openai": {},  # openai model is used for gpt-eval metrics, not specific arguments
         "anthropic": {"anthropic_api_key"},
         "huggingface": {"device_map", "vllm", "flash_attention", "tokenizer_name_or_path"},
     }
