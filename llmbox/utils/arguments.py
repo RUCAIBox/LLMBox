@@ -1,3 +1,4 @@
+import json
 import os
 import sys
 from builtins import bool
@@ -5,11 +6,10 @@ from copy import copy
 from dataclasses import MISSING, dataclass
 from logging import getLogger
 from typing import ClassVar, Dict, List, Literal, Optional, Set, Tuple, Union
-import json
 
 import openai
-from transformers.hf_argparser import HfArg, HfArgumentParser
 from transformers import BitsAndBytesConfig
+from transformers.hf_argparser import HfArg, HfArgumentParser
 
 from ..model.enum import ANTHROPIC_MODELS, OPENAI_CHAT_MODELS, OPENAI_MODELS
 from .logging import log_levels, set_logging
@@ -132,17 +132,14 @@ class ModelArguments:
         help="Positive values encourage longer sequences, vice versa. Used in beam search.",
     )
 
-    bnb_config: Optional[str] = HfArg(
-        default=None,
-        help="JSON string for BitsAndBytesConfig parameters."
-    )
+    bnb_config: Optional[str] = HfArg(default=None, help="JSON string for BitsAndBytesConfig parameters.")
 
-    load_in_8bit:bool = HfArg(
+    load_in_8bit: bool = HfArg(
         default=False,
         help="Whether to use bnb's 8-bit quantization to load the model.",
     )
 
-    load_in_4bit:bool = HfArg(
+    load_in_4bit: bool = HfArg(
         default=False,
         help="Whether to use bnb's 4-bit quantization to load the model.",
     )
@@ -163,7 +160,7 @@ class ModelArguments:
 
     # simplify logging with model-specific arguments
     _model_specific_arguments: ClassVar[Dict[str, Set[str]]] = {
-        "openai": {},  # openai model is used for gpt-eval metrics, not specific arguments
+        # openai model is used for gpt-eval metrics, not specific arguments
         "anthropic": {"anthropic_api_key"},
         "huggingface": {"device_map", "vllm", "flash_attention", "tokenizer_name_or_path"},
     }
@@ -276,7 +273,8 @@ class DatasetArguments:
     ape: bool = HfArg(default=False, aliases=["-ape"], help="Whether to use APE as an ICL strategy")
     cot: str = HfArg(
         default=None,
-        help="The method to prompt, eg. 'none', 'base', 'least_to_most', 'pal'. Only available for some specific datasets.",
+        help=
+        "The method to prompt, eg. 'none', 'base', 'least_to_most', 'pal'. Only available for some specific datasets.",
         metadata={"choices": [None, "base", "least_to_most", "pal"]},
     )
     perspective_api_key: str = HfArg(
@@ -384,7 +382,7 @@ def check_args(model_args: ModelArguments, dataset_args: DatasetArguments, evalu
         if model_impl != model_args._model_impl:
             args_ignored.update(args)
     # some arguments might be shared by multiple model implementations
-    args_ignored -= model_args._model_specific_arguments[model_args._model_impl]
+    args_ignored -= model_args._model_specific_arguments.get(model_args._model_impl, set())
 
     for arg in args_ignored:
         if hasattr(model_args, arg):
