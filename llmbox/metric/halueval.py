@@ -33,5 +33,5 @@ class HaluEval(Metric):
             else:
                 score_list.append(0)
         score_list = np.array(score_list)
-        self._last_score_lists = {f'Accuracy{self.type}': score_list}
-        return {f'Accuracy{self.type}': np.mean(score_list) * 100}
+        self._last_score_lists = {f'Accuracy({self.type})': score_list}
+        return {f'Accuracy({self.type})': np.mean(score_list) * 100}
