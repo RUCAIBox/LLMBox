@@ -5,6 +5,7 @@ from copy import copy
 from logging import getLogger
 from pprint import pformat
 from typing import Dict, Iterator, List, Literal, Optional, Tuple, Union
+from .enum import GAOKAO_CHINESE_TASKS, GAOKAO_ENGLISH_TASKS
 
 import numpy as np
 import pandas as pd
@@ -110,7 +111,7 @@ class Dataset(torch.utils.data.Dataset):
         self.tokenizer = model.tokenizer
 
         self._post_init_arguments()
-        
+
         self.num_shots = args.num_shots
         self.max_example_tokens = args.max_example_tokens
         self.examples = ""
@@ -860,6 +861,20 @@ class DatasetCollection(torch.utils.data.Dataset):
             for cat, cat_subjects in self.categorized_subsets.items():
                 cat_results = [results[f"{self.name}:{subject}"] for subject in cat_subjects]
                 results[f"{self.name}[{cat}]"] = {m: np.mean([r[m] for r in cat_results]) for m in metric_entries}
+
+        if self.name == "gaokao":
+            results[self.name + "[Chinese Mean]"] = {
+                m: np.sum([
+                    r[m] * GAOKAO_CHINESE_TASKS[k[7:]]
+                    for k, r in results.items() if k[7:] in GAOKAO_CHINESE_TASKS
+                ]) / GAOKAO_CHINESE_TASKS["all"] for m in metric_entries
+            }
+            results[self.name + "[English Mean]"] = {
+                m: np.sum([
+                    r[m] * GAOKAO_ENGLISH_TASKS[k[7:]]
+                    for k, r in results.items() if k[7:] in GAOKAO_ENGLISH_TASKS
+                ]) / GAOKAO_ENGLISH_TASKS["all"] for m in metric_entries
+            }
 
         results[self.name + "[Arithmetic Mean]"] = {
             m: np.mean([r[m] for k, r in results.items() if ":" in k])

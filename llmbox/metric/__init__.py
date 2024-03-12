@@ -7,3 +7,4 @@ from .perspective_api import Perspective_api
 from .word_accuracy import Word_Accuracy
 from .pass_at_k import PassAtK
 from .ifeval import IFEval
+from .gaokao_bench_metric import Gaokao_bench_metric
