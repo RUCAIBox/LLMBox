@@ -111,7 +111,6 @@ class Dataset(torch.utils.data.Dataset):
         self.tokenizer = model.tokenizer
 
         self._post_init_arguments()
-
         self.num_shots = args.num_shots
         self.max_example_tokens = args.max_example_tokens
         self.examples = ""
