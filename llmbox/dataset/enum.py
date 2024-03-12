@@ -306,3 +306,17 @@ GAOKAO_TASKS = {
     "2010-2022_English_Reading_Comp": "multi_question_choice",
     "2010-2022_Chinese_Lang_and_Usage_MCQs": "multi_question_choice"
 }
+
+GAOKAO_CHINESE_TASKS = {
+    "2010-2022_Chinese_Modern_Lit": 261,
+    "2010-2022_Chinese_Lang_and_Usage_MCQs": 240,
+    "all": 501
+}
+
+GAOKAO_ENGLISH_TASKS = {
+    "2010-2022_English_Reading_Comp": 940,
+    "2010-2022_English_Fill_in_Blanks": 900,
+    "2012-2022_English_Cloze_Test": 260,
+    "2010-2013_English_MCQs": 105,
+    "all": 2205
+}
