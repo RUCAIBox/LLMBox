@@ -64,19 +64,19 @@ class Gaokao(GenerationDataset):
         """
         if question_type == 'single_choice':
             model_answer = []
-            temp = re.findall(r'[A-D]', model_output[::-1])
+            temp = re.findall(r'[A-D](?!})', model_output[::-1])
             if len(temp) != 0:
                 model_answer.append(temp[0])
 
         elif question_type == 'multi_question_choice':
             model_answer = []
-            temp = re.findall(r"【答案】\s*[:：]*\s*[A-Z]", model_output)
+            temp = re.findall(r"【答案】\s*[:：]*\s*[A-Z](?!})", model_output)
 
             if len(temp) == answer_lenth:
                 for t in temp:
-                    model_answer.append(re.findall(r'[A-Z]', t)[0])
+                    model_answer.append(re.findall(r'[A-Z](?!})', t)[0])
             else:
-                temp = re.findall(r"[A-Z]", model_output)
+                temp = re.findall(r"[A-Z](?!})", model_output)
                 if len(temp) > 0:
                     for k in range(min(len(temp), answer_lenth)):
                         model_answer.append(temp[k])
@@ -88,20 +88,20 @@ class Gaokao(GenerationDataset):
             answer_index = content.find('【答案】')
             if answer_index > 0:
                 temp = content[answer_index:]
-                if len(re.findall(r'[A-D]', temp)) > 0:
-                    for t in re.findall(r'[A-D]', temp):
+                if len(re.findall(r'[A-D](?!})', temp)) > 0:
+                    for t in re.findall(r'[A-D](?!})', temp):
                         answer += t
             else:
                 temp = content[-10:]
-                if len(re.findall(r'[A-D]', temp)) > 0:
-                    for t in re.findall(r'[A-D]', temp):
+                if len(re.findall(r'[A-D](?!})', temp)) > 0:
+                    for t in re.findall(r'[A-D](?!})', temp):
                         answer += t
             if len(answer) != 0:
                 model_answer.append(answer)
 
         elif question_type == 'five_out_of_seven':
             model_answer = []
-            temp = re.findall(r'[A-G]', model_output)
+            temp = re.findall(r'[A-G](?!})', model_output)
             if len(temp) > 0:
                 for k in range(min(5, len(temp))):
                     model_answer.append(temp[k])
