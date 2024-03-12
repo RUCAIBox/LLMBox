@@ -32,6 +32,9 @@ class Gaokao(GenerationDataset):
     def __init__(self, args, model, subset_name: str):
         self.instruction = self.instruction.format(GAOKAO_PROMPTS[subset_name])
         self.task = subset_name
+        self.extra_model_args = dict(temperature=0.3, max_tokens=4096)
+        # According to https://github.com/OpenLMLab/GAOKAO-Bench/blob/main/Models/openai_gpt4.py
+        # We use temperature=0.3 and max_tokens=4096
         super().__init__(args, model, subset_name)
 
     def format_instance(self, instance):
