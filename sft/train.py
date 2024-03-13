@@ -154,7 +154,7 @@ def train():
         args.tokenizer_name_or_path,
         model_max_length=args.model_max_length,
         padding_side="right",
-        add_eos_token=True,
+        add_eos_token=False,
         # use_fast=False, # some tokenizer has only one implementation
         legacy=False,  # refer to the issue:https://github.com/huggingface/transformers/pull/24565
         use_cache=False,

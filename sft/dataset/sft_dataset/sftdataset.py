@@ -60,8 +60,10 @@ class SFTDataset:
         return dict(input_ids=self.input_ids[index], labels=self.labels[index])
     
     def encode_src_tgt(self, s, t, tokenizer):
-        source_id = tokenizer.encode(s, max_length=tokenizer.model_max_length, truncation=True)[:-1] # remove eos
+        source_id = tokenizer.encode(s, max_length=tokenizer.model_max_length, truncation=True)
+        tokenizer.add_eos_token = True
         input_id = tokenizer.encode(s + t, max_length=tokenizer.model_max_length, truncation=True, return_tensors='pt')[0]
+        tokenizer.add_eos_token = False
         label = input_id.clone()
         label[:len(source_id)] = self.IGNORE_INDEX
         return input_id, label
