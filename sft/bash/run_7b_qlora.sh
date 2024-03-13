@@ -16,3 +16,4 @@ torchrun --nproc_per_node=1 train.py \
     --lr_scheduler_type "constant" \
     --logging_steps 1 \
     --qlora True \
+    --ddp_find_unused_parameters False
