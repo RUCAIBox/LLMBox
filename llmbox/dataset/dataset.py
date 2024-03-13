@@ -599,9 +599,12 @@ class Dataset(torch.utils.data.Dataset):
                     "reference": reference,
                 }
                 if _to_json:
-                    with open(file, "a") as f:
-                        json.dump(lines, f, ensure_ascii=False)
-                        f.write("\n")
+                    try:
+                        with open(file, "a") as f:
+                            json.dump(lines, f, ensure_ascii=False)
+                            f.write("\n")
+                    except Exception as e:
+                        logger.warning(f"Failed to log_predictions: {e}\n{lines}")
                 return lines
             return None
 

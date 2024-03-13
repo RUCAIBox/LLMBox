@@ -54,16 +54,24 @@ def load_dataset(args: "DatasetArguments", model: "Model", threading: bool = Tru
     Returns:
         Dataset: Our class for dataset.
     """
-    dataset_cls = import_dataset_class(args.dataset_name)
+    try:
+        dataset_cls = import_dataset_class(args.dataset_name)
+    except ModuleNotFoundError:
+        dataset_cls = import_dataset_class(next(iter(args.subset_names)))
 
     name = dataset_cls.load_args[0] if len(dataset_cls.load_args) > 0 else args.dataset_name
     download_config = DownloadConfig(use_etag=False)
-    try:
-        available_subsets = set(get_dataset_config_names(name, download_config=download_config, trust_remote_code=True))
-    except Exception as e:
-        logger.info(f"Failed when trying to get_dataset_config_names: {e}")
+    if args.dataset_path is None:
+        try:
+            available_subsets = set(
+                get_dataset_config_names(name, download_config=download_config, trust_remote_code=True)
+            )
+        except Exception as e:
+            logger.info(f"Failed when trying to get_dataset_config_names: {e}")
+            available_subsets = set()
+    else:
         available_subsets = set()
-    # TODO catch connection warning
+
     if available_subsets == {"default"}:
         available_subsets = set()
 
@@ -84,7 +92,9 @@ def load_dataset(args: "DatasetArguments", model: "Model", threading: bool = Tru
 
     # use specified subset_names if available
     subset_names = args.subset_names or available_subsets
-    logger.debug(f"{name} - available_subsets: {available_subsets}, load_args: {dataset_cls.load_args}, final subset_names: {subset_names}")
+    logger.debug(
+        f"{name} - available_subsets: {available_subsets}, load_args: {dataset_cls.load_args}, final subset_names: {subset_names}"
+    )
 
     # GPTEval requires openai-gpt
     if any(isinstance(m, GPTEval) for m in dataset_cls.metrics) and model.args.openai_api_key is None:

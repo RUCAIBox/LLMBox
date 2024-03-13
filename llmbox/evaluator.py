@@ -42,6 +42,8 @@ class Evaluator:
                     "Setting batch_size to -1, since vllm can automatically planning the optimal batch and order."
                 )
         self.dataset = load_dataset(self.dataset_args, self.model)
+        if self.dataset.model_evaluation_method == "get_prob":
+            self.model.constant_option_num = all(n == self.dataset.option_nums[0] for n in self.dataset.option_nums)
 
     @catch_error
     def evaluate(self) -> Dict[str, float]:
