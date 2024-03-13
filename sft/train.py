@@ -179,7 +179,7 @@ def train():
     ) 
     if args.lora:
         if args.qlora:
-            model = prepare_model_for_kbit_training(model, args.lora_r)
+            model = prepare_model_for_kbit_training(model)
         peft_config = LoraConfig(
             task_type=TaskType.CAUSAL_LM,
             r=args.lora_r,
