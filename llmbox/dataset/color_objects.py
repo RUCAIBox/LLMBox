@@ -4,7 +4,7 @@ from ..metric import Accuracy
 from .generation_dataset import GenerationDataset
 
 
-class Reasoning_about_color_objects(GenerationDataset):
+class Color_objects(GenerationDataset):
     """The dataset of BIG-Bench Reasoning_about_color_objects dataset.
 
     BIG-Bench but it doesn't require the hellish dependencies (tensorflow, pypi-bigbench, protobuf) of the official version.
@@ -40,7 +40,8 @@ class Reasoning_about_color_objects(GenerationDataset):
             refer = np.array(instance["multiple_choice_targets"])
             idx = np.array(instance["multiple_choice_scores"])
             refer = refer[np.where(idx == 1)[0]]
-            new_predictions.append(True) if pred in refer else new_predictions.append(False)
+            print(pred,refer,pred in refer)
+            new_predictions.append(True if pred in refer else False)
         return new_predictions
 
     @property
