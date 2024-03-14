@@ -10,6 +10,9 @@ import datasets
 
 logger = getLogger(__name__)
 
+split_regex = re.compile(r"(\w+)(\[\d*:\d*\])?")
+slice_regex = re.compile(r"\[(\d*):(\d*)\]")
+
 
 def accepts_subset(
     load_args: Union[Tuple[str], Tuple[str, str], Tuple[()]],
@@ -19,7 +22,7 @@ def accepts_subset(
 ) -> bool:
     if len(load_args) == 2 and isinstance(load_args[1], str):
         if overwrite_subset:
-            if not disable_warning:
+            if not disable_warning and load_args[1] != subset:
                 logger.warning(
                     f"Dataset class already has a subset '{load_args[1]}' to load. Overwriting it with '{subset}'.",
                     stacklevel=2,
@@ -28,6 +31,15 @@ def accepts_subset(
             return load_args[1] == subset
     # len(load_args) == 1 means accept subset and len(load_args) == 0 means special case like wmt
     return True
+
+
+def _get_split_data(data, split):
+    split, split_slice = split_regex.match(split).groups()
+    if split_slice is not None:
+        idx = [int(x) for x in slice_regex.match(split_slice).groups() if x]
+        return data[split].select(range(*idx))
+    else:
+        return data[split]
 
 
 def get_raw_dataset_loader(
@@ -81,7 +93,8 @@ def get_raw_dataset_loader(
             # find the correct subset
             if dataset_name in infos:
 
-                logger.debug(f"Loading from a cloned repository: {dataset_path}, {dataset_name}")
+                logger.debug(f"Loading from a cloned or cached repository: {dataset_path}, {dataset_name}")
+
                 def load_fn(split):
                     return datasets.load_dataset(
                         dataset_path,
@@ -93,7 +106,8 @@ def get_raw_dataset_loader(
 
             elif subset_name in infos:
 
-                logger.debug(f"Loading from a cloned repository: {dataset_path}, {subset_name}")
+                logger.debug(f"Loading from a cloned or cached repository: {dataset_path}, {subset_name}")
+
                 def load_fn(split):
                     return datasets.load_dataset(
                         dataset_path,
@@ -108,34 +122,64 @@ def get_raw_dataset_loader(
                     f"Cannot find `{subset_name}` subset of `{dataset_name}` dataset in `{dataset_path}`. Available subsets: {infos.keys()}"
                 )
 
+        elif os.path.exists(os.path.join(dataset_path, "dataset_info.json")):
+            # example: "$HOME/.cache/huggingface/modules/datasets_modules/datasets/super_glue/bb...ed/super_glue/copa/1.0.3/bb...ed"
+            logger.debug(f"Loading from a cloned or cached repository: {dataset_path}, {subset_name}")
+
+            def load_fn(split):
+                return datasets.load_dataset(
+                    dataset_path,
+                    "default",
+                    split=split,
+                    trust_remote_code=True,
+                    download_config=download_config,
+                )
+
         # load from a local directory
         elif os.path.exists(os.path.join(dataset_path, "dataset_dict.json")):
 
             logger.debug(f"Loading from a local directory: {dataset_path}")
+
             def load_fn(split):
-                return datasets.load_from_disk(dataset_path)[split]
+                data = datasets.load_from_disk(dataset_path)
+                return _get_split_data(data, split)
 
         # load from a local directory with subset
         elif subset_name is not None and os.path.exists(os.path.join(dataset_path, subset_name, "dataset_dict.json")):
 
             new_dataset_path = os.path.join(dataset_path, subset_name)
             logger.debug(f"Loading from a local directory with subset: {new_dataset_path}")
+
             def load_fn(split):
-                return datasets.load_from_disk(new_dataset_path)[split]
+                data = datasets.load_from_disk(new_dataset_path)
+                return _get_split_data(data, split)
 
         # for those datasets that is in huggingface but should be downloaded manually
         elif os.path.isdir(dataset_path):
 
             logger.debug(f"Loading from a manually-downloaded dataset: {dataset_name}, {subset_name}")
-            def load_fn(split):
-                return datasets.load_dataset(
-                    dataset_name,
-                    subset_name,
-                    split=split,
-                    data_dir=dataset_path,
-                    trust_remote_code=True,
-                    download_config=download_config,
-                )
+
+            if ".cache" in dataset_path:
+
+                def load_fn(split):
+                    return datasets.load_dataset(
+                        dataset_name,
+                        subset_name,
+                        split=split,
+                        cache_dir=dataset_path,
+                        trust_remote_code=True,
+                        download_config=download_config,
+                    )
+            else:
+
+                def load_fn(split):
+                    return datasets.load_dataset(
+                        dataset_name,
+                        subset_name,
+                        split=split,
+                        data_dir=dataset_path,
+                        download_config=download_config,
+                    )
 
         # load from a file
         else:
@@ -145,6 +189,7 @@ def get_raw_dataset_loader(
             r_split = re.compile(r"{split}")
 
             logger.debug(f"Loading from a file: {dataset_path}")
+
             def load_fn(split):
                 dataset_file_path = r_subset.sub(subset_name, dataset_path)
                 if split:
