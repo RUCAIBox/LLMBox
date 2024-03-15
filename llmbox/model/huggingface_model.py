@@ -22,6 +22,7 @@ def load_hf_model(args: ModelArguments) -> Tuple[PreTrainedModel, Union[PreTrain
         device_map=args.device_map,
         load_in_4bit=args.load_in_4bit,
         load_in_8bit=args.load_in_8bit,
+        trust_remote_code=True
     )
 
     if args.flash_attention:
