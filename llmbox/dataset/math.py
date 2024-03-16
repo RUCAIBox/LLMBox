@@ -36,7 +36,7 @@ class Math(GenerationDataset):
 
     def __init__(self, args, model, subset_name=None):
         if model.type == 'base':
-            self.extra_model_args['stop'] = ['\n']
+            self.extra_model_args['stop'] = ['\n\n']
         super().__init__(args, model, subset_name)
 
     @staticmethod
@@ -95,7 +95,7 @@ class Math(GenerationDataset):
         new_predictions = []
         pattern = r'\$(.*?)\$'
         for pred in predictions:
-            if ('The answer is ' in pred):
+            if ('final answer' in pred):
                 pred = pred.split('The answer is ')[-1].strip()
             final_answer = re.findall(pattern, pred)
             if final_answer:
