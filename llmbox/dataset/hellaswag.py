@@ -32,7 +32,7 @@ class Hellaswag(MultipleChoiceDataset):
         text = text.replace(" [title]", ". ")
         text = re.sub("\\[.*?\\]", "", text)
         text = text.replace("  ", " ")
-        return text
+        return text.strip()
 
     def format_instance(self, instance):
         source = self.preprocess(
