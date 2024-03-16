@@ -137,7 +137,6 @@ class Dataset(torch.utils.data.Dataset):
                     f"The example data only has {len(self.example_data)} instances, but the few-shot number is set to {self.num_shots}. Setting the few-shot number to {len(self.example_data)}."
                 )
                 self.num_shots = len(self.example_data)
-            np.random.seed(self.args.seed)
             if len(self.example_data) == self.num_shots:
                 self.random_indice = list(range(len(self.example_data)))
             else:
