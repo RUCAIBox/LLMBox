@@ -84,7 +84,7 @@ class vllmModel(Model):
                 src_prompt, truncation=True, return_attention_mask=False
             )
             for src_input_ids, input_ids in zip(src_batched_encodings.input_ids, batched_encodings.input_ids):
-                tgt_st_eds.append((src_input_ids.size(0), input_ids.size(0)))
+                tgt_st_eds.append((len(src_input_ids), len(input_ids)))
                 
         for result, (tgt_start, tgt_end) in zip(results, tgt_st_eds):
             ppl = [next(iter(r.values())) if r else None for r in result.prompt_logprobs]
