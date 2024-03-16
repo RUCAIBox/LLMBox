@@ -7,6 +7,8 @@ from transformers.modeling_utils import PreTrainedModel
 from transformers.models.auto import AutoModelForCausalLM, AutoTokenizer
 from transformers.tokenization_utils import PreTrainedTokenizer
 from transformers.tokenization_utils_fast import PreTrainedTokenizerFast
+from bisect import bisect_left
+
 
 from ..utils import ModelArguments
 from .model import Model
@@ -107,12 +109,12 @@ class HuggingFaceModel(Model):
 
     def get_ppl(self, batched_inputs: List[Tuple[str, str]]) -> List[float]:
         prompt = [src + tgt for src, tgt in batched_inputs]
-
+        return_offsets_mapping = True if isinstance(self.tokenizer, PreTrainedTokenizerFast) else False
         batched_encodings = self.tokenizer(
             prompt,
             padding=True,
             truncation=True,
-            return_offsets_mapping=True,
+            return_offsets_mapping=return_offsets_mapping,
             return_attention_mask=True,
             return_tensors="pt",
         ).to(self.device)
@@ -128,16 +130,28 @@ class HuggingFaceModel(Model):
                                   shift_labels.view(-1)).view(shift_labels.size(0), -1).cpu()
 
         ppls = []
-        for prob, (src, _), offset, attention_mask in zip(
-            probs, batched_inputs, batched_encodings.offset_mapping, batched_encodings.attention_mask
-        ):
+        tgt_st_eds = []
+        if return_offsets_mapping:
+            for (src, _), offset, attention_mask in zip(
+                batched_inputs, batched_encodings.offset_mapping, batched_encodings.attention_mask
+            ):
+                offset = [offset[i][0] if i == 0 or offset[i][0] == offset[i-1][1] else offset[i][0] - 1 for i in range(len(offset))]
+                tgt_start = max(
+                    bisect_left(offset, len(src)),
+                    attention_mask.nonzero()[0][0].item() + 1
+                )  # designed for src!='' and src=''
+                tgt_end = len(offset)
+                tgt_st_eds.append((tgt_start, tgt_end))
+        else:
+            src_prompt = [src for src, _ in batched_inputs]
+            src_batched_encodings = self.tokenizer(
+                src_prompt, truncation=True, return_attention_mask=False
+            )
+            for src_input_ids, input_ids in zip(src_batched_encodings.input_ids, batched_encodings.input_ids):
+                tgt_st_eds.append((src_input_ids.size(0), input_ids.size(0)))
+        
+        for prob, (tgt_start, tgt_end) in zip(probs, tgt_st_eds):
             ppl = [None] + prob.tolist()
-            offset = [st for st, ed in offset]
-            tgt_start = max(
-                offset.index(len(src)),
-                attention_mask.nonzero()[0][0].item() + 1
-            )  # designed for src!='' and src=''
-            tgt_end = len(offset)
             ppl = sum(ppl[tgt_start:])
             ppls.append((ppl, tgt_end - tgt_start))
         return ppls

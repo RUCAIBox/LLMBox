@@ -148,6 +148,11 @@ class ModelArguments:
         default=False,
         help="Whether the model is a gptq quantized model.",
     )
+    
+    vllm_gpu_memory_utilization: float = HfArg(
+        default=0.9,
+        help="The maximum gpu memory utilization of vllm.",
+    )
 
     seed: ClassVar[int] = None  # use class variable to facilitate type hint inference
 
