@@ -1,5 +1,6 @@
+from bisect import bisect_left
 from logging import getLogger
-from typing import Iterator, List, Optional, Tuple, Union
+from typing import Any, Iterator, List, Optional, Tuple, Union
 
 import torch
 from torch.nn import CrossEntropyLoss
@@ -7,11 +8,10 @@ from transformers.modeling_utils import PreTrainedModel
 from transformers.models.auto import AutoModelForCausalLM, AutoTokenizer
 from transformers.tokenization_utils import PreTrainedTokenizer
 from transformers.tokenization_utils_fast import PreTrainedTokenizerFast
-from bisect import bisect_left
-
 
 from ..utils import ModelArguments
 from .model import Model
+from .model_utils import KeyWordsCriteria
 
 logger = getLogger(__name__)
 
@@ -47,7 +47,12 @@ def load_hf_model(args: ModelArguments) -> Tuple[PreTrainedModel, Union[PreTrain
             raise e
 
     tokenizer = AutoTokenizer.from_pretrained(
-        args.tokenizer_name_or_path, use_fast=True, padding_side="left", truncation_side="left", add_eos_token=False, trust_remote_code=True
+        args.tokenizer_name_or_path,
+        use_fast=True,
+        padding_side="left",
+        truncation_side="left",
+        add_eos_token=False,
+        trust_remote_code=True
     )
 
     # TODO: [Important]!!! check for each tokenizer
@@ -135,7 +140,10 @@ class HuggingFaceModel(Model):
             for (src, _), offset, attention_mask in zip(
                 batched_inputs, batched_encodings.offset_mapping, batched_encodings.attention_mask
             ):
-                offset = [offset[i][0] if i == 0 or offset[i][0] == offset[i-1][1] else offset[i][0] - 1 for i in range(len(offset))]
+                offset = [
+                    offset[i][0] if i == 0 or offset[i][0] == offset[i - 1][1] else offset[i][0] - 1
+                    for i in range(len(offset))
+                ]
                 tgt_start = max(
                     bisect_left(offset, len(src)),
                     attention_mask.nonzero()[0][0].item() + 1
@@ -144,9 +152,7 @@ class HuggingFaceModel(Model):
                 tgt_st_eds.append((tgt_start, tgt_end))
         else:
             src_prompt = [src for src, _ in batched_inputs]
-            src_batched_encodings = self.tokenizer(
-                src_prompt, truncation=True, return_attention_mask=False
-            )
+            src_batched_encodings = self.tokenizer(src_prompt, truncation=True, return_attention_mask=False)
             for src_input_ids, input_ids in zip(src_batched_encodings.input_ids, batched_encodings.input_ids):
                 tgt_st_eds.append((len(src_input_ids), len(input_ids)))
 
@@ -155,6 +161,73 @@ class HuggingFaceModel(Model):
             ppl = sum(ppl[tgt_start:])
             ppls.append((ppl, tgt_end - tgt_start))
         return ppls
+
+    def _tokenize_postfix(
+        self,
+        batched_inputs: List[str],
+        prefix_cache: Optional[Any] = None,
+        device: Optional[str] = None,
+        add_dummy_prefix: bool = False,
+        dummy_prefix: str = "text ",
+        padding: bool = True,
+    ) -> List[List[int]]:
+        """Tokenize the inputs as postfix. If `prefix_cache` is provided, the attention_mask of the prefix will be concatenated with the input attention_mask and the position_ids of the input will be calculated based on the length of the prefix.
+
+        Args:
+            batched_inputs (`List[str]`): Batched inputs to be tokenized as postfix.
+            prefix_cache (`Optional[SequenceCache]`, optional): The SequenceCache of prefix. Defaults to None.
+            device (`Optional[str]`, optional): Target device of returned tensors. Defaults to None.
+            add_prefix (`bool`, optional): If no `prefix_cache` is provided, use this to add a dummy prefix and remove it after tokenization. Defaults to False.
+            padding (`bool`, optional): Whether to pad the sequence (to right) and return in tensor. Defaults to True.
+
+        Returns:
+            - If `padding` is True:
+                `_PostfixEncoding`: Encoding of postfix with padding.
+            - If `padding` is False:
+                `List[List[int]]`: A list of tokenized inputs without padding.
+        """
+
+        batch_size = len(batched_inputs)
+        _to = dict(dtype=torch.long, device=self.device)
+        if device is not None:
+            _to["device"] = torch.device(device)
+
+        # tokenize the postfix like a postfix. this is useful to handle tokenizers like llama
+        if prefix_cache is not None and len(prefix_cache.last_tokens) == batch_size:
+            batched_inputs = [l + p for l, p in zip(prefix_cache.last_tokens, batched_inputs)]
+        elif add_dummy_prefix:
+            batched_inputs = [dummy_prefix + p for p in batched_inputs]
+
+        # use the same tokenizer, but different padding strategy
+        batched_encodings = self.tokenizer(batched_inputs)
+
+        if self.tokenizer.is_fast:
+
+            def char_to_token(i, char_index):
+                return batched_encodings.char_to_token(i, char_index)
+        else:
+
+            def char_to_token(i, char_index):
+                return len(self.tokenizer(batched_inputs[i][:char_index]).input_ids)
+
+        # remove the prefix from the input_ids and get the batched_ids for postfix
+        if prefix_cache is not None and prefix_cache.last_tokens is not None:
+            ids_slice = [
+                slice(char_to_token(i, len(l)), self.tokenizer.model_max_length)
+                for i, l in enumerate(prefix_cache.last_tokens)
+            ]
+        elif add_dummy_prefix:
+            char_index = len(dummy_prefix)
+            ids_slice = [
+                slice(char_to_token(i, char_index), self.tokenizer.model_max_length) for i in range(batch_size)
+            ]
+        else:
+            ids_slice = [slice(0, self.tokenizer.model_max_length)] * batch_size
+        batched_ids = [i[slc] for i, slc in zip(batched_encodings["input_ids"], ids_slice)]
+        input_lengths = [len(seq) for seq in batched_ids]
+        max_input_len = max(input_lengths)
+        if not padding:
+            return batched_ids
 
     def set_generation_args(self, **extra_model_args):
         generation_kwargs = {}
@@ -168,6 +241,7 @@ class HuggingFaceModel(Model):
             "length_penalty",
             "early_stopping",
             "no_repeat_ngram_size",
+            "stop",
         ]:
             # ModelArguments > extra_model_args
             value = getattr(self.args, key, None)
@@ -186,8 +260,13 @@ class HuggingFaceModel(Model):
                         generation_kwargs["do_sample"] = True
                     else:
                         generation_kwargs["do_sample"] = False
+                elif key == "stop":
+                    self.stop_id_sequences = self._tokenize_postfix(value, add_dummy_prefix=True, padding=False)
+                    generation_kwargs["stopping_criteria"] = [KeyWordsCriteria(self.stop_id_sequences)]
                 else:
                     generation_kwargs[key] = value
+
+        print(generation_kwargs, self.stop_id_sequences)
 
         generation_kwargs["pad_token_id"] = self.tokenizer.pad_token_id
         generation_kwargs["eos_token_id"] = self.tokenizer.eos_token_id
