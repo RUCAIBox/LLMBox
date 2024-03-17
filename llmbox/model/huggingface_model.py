@@ -47,7 +47,7 @@ def load_hf_model(args: ModelArguments) -> Tuple[PreTrainedModel, Union[PreTrain
             raise e
 
     tokenizer = AutoTokenizer.from_pretrained(
-        args.tokenizer_name_or_path, use_fast=True, padding_side="left", truncation_side="left", add_eos_token=False
+        args.tokenizer_name_or_path, use_fast=True, padding_side="left", truncation_side="left", add_eos_token=False, trust_remote_code=True
     )
 
     # TODO: [Important]!!! check for each tokenizer
@@ -148,8 +148,8 @@ class HuggingFaceModel(Model):
                 src_prompt, truncation=True, return_attention_mask=False
             )
             for src_input_ids, input_ids in zip(src_batched_encodings.input_ids, batched_encodings.input_ids):
-                tgt_st_eds.append((src_input_ids.size(0), input_ids.size(0)))
-        
+                tgt_st_eds.append((len(src_input_ids), len(input_ids)))
+
         for prob, (tgt_start, tgt_end) in zip(probs, tgt_st_eds):
             ppl = [None] + prob.tolist()
             ppl = sum(ppl[tgt_start:])
