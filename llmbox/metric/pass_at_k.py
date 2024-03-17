@@ -44,8 +44,6 @@ class PassAtK(Metric):
         for sample_result in results:
             total.append(len(sample_result))
             correct.append(sample_result.count('passed'))
-            print(sample_result)
-        print(correct)
         pass_at_k = self.estimate_pass_at_k(total, correct, self.k)
         self._last_score_lists = {f"pass@{self.k}": pass_at_k}
         return {f"pass@{self.k}": np.mean(pass_at_k)}
