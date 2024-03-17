@@ -1,6 +1,23 @@
 from ..metric import PassAtK
 from .generation_dataset import GenerationDataset
 
+IMPORT_HELPER = [
+    "import math",
+    "import re",
+    "import sys",
+    "import copy",
+    "import datetime",
+    "import itertools",
+    "import collections",
+    "import heapq",
+    "import functools",
+    "import hashlib",
+    "import numpy",
+    "import numpy as np",
+    "import string",
+    "from typing import *",
+    "from collections import *",
+]
 
 class Humaneval(GenerationDataset):
     """The dataset of HumanEval.
@@ -19,7 +36,7 @@ class Humaneval(GenerationDataset):
     example_set = "test"
     evaluation_set = "test"
     load_args = ("openai_humaneval",)
-    extra_model_args = dict(max_tokens=64, temperature=0.1)
+    extra_model_args = dict(max_tokens=512, temperature=0.1)
     metrics = ""
 
     def __init__(self, args, model, subset_name=None):
@@ -27,18 +44,26 @@ class Humaneval(GenerationDataset):
         self.metrics = [PassAtK(k=args.pass_at_k)]
 
     def format_instance(self, instance):
-        source_text = "Complete the following python function. Please only output the code for the completed function.\n\n\n" + instance[
-            "prompt"]
+        source_text = instance["prompt"].strip()
         target_text = instance["canonical_solution"]
         return dict(source=source_text, target=target_text)
 
     @staticmethod
     def post_processing(predictions):
-        return [prediction.lstrip("\n").split("\n\n")[0] for prediction in predictions]
+
+        stop_words = ["\ndef", "\nclass", "\nif", "\n#", "\nprint"]
+        def _truncate_code_at_stopwords(code, stop_words):
+            min_stop_idx = len(code)
+            for stop_word in stop_words:
+                stop_index = code.find(stop_word)
+                if 0 <= stop_index < min_stop_idx:
+                    min_stop_idx = stop_index
+            return code[:min_stop_idx]
+        return [_truncate_code_at_stopwords(prediction, stop_words) for prediction in predictions]
 
     @property
     def references(self):
         return [
-            instance["prompt"] + "{pred}" + "\n" + instance["test"] + "\n" + f"check({instance['entry_point']})"
+            "\n".join(IMPORT_HELPER) + '\n' +  instance["prompt"] + "{pred}" + "\n" + instance["test"] + "\n" + f"check({instance['entry_point']})"
             for instance in self.evaluation_data
         ]

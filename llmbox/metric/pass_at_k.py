@@ -2,9 +2,11 @@ import itertools
 from typing import List, Union
 import numpy as np
 from tqdm import tqdm
+from multiprocessing import Process, Manager
+import concurrent.futures
+import os
 
 from .metric import Metric
-from ..dataset.gsm8k import Timeout
 
 
 class PassAtK(Metric):
@@ -19,30 +21,58 @@ class PassAtK(Metric):
         self.k = k
 
     def __call__(self, predictions, references):
-        result = []
-        for samples, refer in tqdm(zip(predictions, references), desc="Evaluating Pass@K", total=len(predictions)):
+        os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
+        def task_func(sample_tuple, _self):
+            samples, refer = sample_tuple
             sample_result = []
             for pred in samples:
                 check_program = refer.replace("{pred}", pred)
-                with Timeout():
-                    try:
-                        exec(check_program)
-                        sample_result.append('passed')
-                    except TimeoutError:
-                        sample_result.append("timed out")
-                    except AssertionError:
-                        sample_result.append(f"failed: AssertionError")
-                    except BaseException as e:
-                        sample_result.append(f"failed: {e}")
-            result.append(sample_result)
+                res = _self.run_code_with_timeout(check_program)
+                sample_result.append(res)
+            return sample_result
+
+        results = []
+
+        with tqdm(total=len(predictions), desc="Evaluating Pass@K") as pbar:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=32) as executor:
+                for result in executor.map(task_func, zip(predictions, references), itertools.repeat(self)):
+                    results.append(result)
+                    pbar.update()
 
         total, correct = [], []
-        for sample_result in result:
+        for sample_result in results:
             total.append(len(sample_result))
             correct.append(sample_result.count('passed'))
+            print(sample_result)
+        print(correct)
         pass_at_k = self.estimate_pass_at_k(total, correct, self.k)
         self._last_score_lists = {f"pass@{self.k}": pass_at_k}
         return {f"pass@{self.k}": np.mean(pass_at_k)}
+
+    def run_code_with_timeout(self, code_string, timeout=1):
+        with Manager() as manager:
+            result_dict = manager.dict()
+            process = Process(target=self.exec_code, args=(code_string, result_dict))
+            process.start()
+            process.join(timeout=timeout)
+            if process.is_alive():
+                process.kill()
+                return "timeout"
+            else:
+                return result_dict['result']
+
+    @staticmethod
+    def exec_code(code, result_dict):
+        result_dict['result'] = 'Not executed'
+        try:
+            exec_globals = {}
+            exec(code, exec_globals)
+            result_dict['result'] = 'passed'
+        except AssertionError:
+            result_dict['result'] = 'Assertion Error'
+        except Exception as e:
+            result_dict['result'] = f'Error: {str(e)}'
 
     @staticmethod
     def estimate_pass_at_k(
