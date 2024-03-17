@@ -1,5 +1,7 @@
-import numpy as np
 import re
+
+import numpy as np
+
 from ..metric import Accuracy
 from .generation_dataset import GenerationDataset
 
@@ -40,7 +42,6 @@ class Color_objects(GenerationDataset):
             refer = np.array(instance["multiple_choice_targets"])
             idx = np.array(instance["multiple_choice_scores"])
             refer = refer[np.where(idx == 1)[0]]
-            print(pred,refer,pred in refer)
             new_predictions.append(True if pred in refer else False)
         return new_predictions
 

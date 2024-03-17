@@ -266,8 +266,6 @@ class HuggingFaceModel(Model):
                 else:
                     generation_kwargs[key] = value
 
-        print(generation_kwargs, self.stop_id_sequences)
-
         generation_kwargs["pad_token_id"] = self.tokenizer.pad_token_id
         generation_kwargs["eos_token_id"] = self.tokenizer.eos_token_id
         self.generation_kwargs = generation_kwargs
