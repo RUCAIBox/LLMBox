@@ -71,7 +71,7 @@ class Dashscope(Model):
         return answers
 
     def request(self, prompt, kwargs):
-        r"""Call the Anthropic API.
+        r"""Call the DashScope API.
 
         Args:
             prompt (List[str]): The list of input prompts.
