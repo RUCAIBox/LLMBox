@@ -5,13 +5,13 @@ from copy import copy
 from logging import getLogger
 from pprint import pformat
 from typing import Dict, Iterator, List, Literal, Optional, Tuple, Union
-from .enum import GAOKAO_CHINESE_TASKS, GAOKAO_ENGLISH_TASKS
 
 import numpy as np
 import pandas as pd
 import torch
 import tqdm as tqdm_lib
 
+from .enum import GAOKAO_CHINESE_TASKS, GAOKAO_ENGLISH_TASKS
 from .icl_strategies import ape, global_entropy_ordering_strategy, knn_construct_examples
 from .utils import get_raw_dataset_loader
 
@@ -146,6 +146,9 @@ class Dataset(torch.utils.data.Dataset):
         logger.debug(self)
 
     def _post_init_arguments(self):
+
+        extra_model_args = copy(self.extra_model_args)
+
         # sample num
         if self.args.sample_num > 1 and self.model_evaluation_method in {"get_ppl", "get_prob"}:
             self.args.sample_num = 1
@@ -169,12 +172,22 @@ class Dataset(torch.utils.data.Dataset):
             )
             self.args.ranking_with_options = False
 
+        # add stop for generatino
+        if isinstance(self.model.args.stop, str) and len(self.model.args.stop) > 0:
+            cmd_stop = [self.model.args.stop]
+        elif isinstance(self.model.args.stop, list) and len(self.model.args.stop) > 0:
+            cmd_stop = self.model.args.stop
+        else:
+            cmd_stop = []
+        if len(cmd_stop) > 0:
+            extra_model_args["stop"] = extra_model_args.get("stop", []) + cmd_stop
+
         if self.model_evaluation_method == "get_ppl":
-            self.model.set_ppl_args(**self.extra_model_args)
+            self.model.set_ppl_args(**extra_model_args)
         elif self.model_evaluation_method == "generation":
-            self.model.set_generation_args(**self.extra_model_args)
+            self.model.set_generation_args(**extra_model_args)
         elif self.model_evaluation_method == "get_prob":
-            self.model.set_prob_args(**self.extra_model_args)
+            self.model.set_prob_args(**extra_model_args)
 
         logger.info(self.model.args)
         logger.info(self.args)
@@ -868,15 +881,15 @@ class DatasetCollection(torch.utils.data.Dataset):
         if self.name == "gaokao":
             results[self.name + "[Chinese Mean]"] = {
                 m: np.sum([
-                    r[m] * GAOKAO_CHINESE_TASKS[k[7:]]
-                    for k, r in results.items() if k[7:] in GAOKAO_CHINESE_TASKS
-                ]) / GAOKAO_CHINESE_TASKS["all"] for m in metric_entries
+                    r[m] * GAOKAO_CHINESE_TASKS[k[7:]] for k, r in results.items() if k[7:] in GAOKAO_CHINESE_TASKS
+                ]) / GAOKAO_CHINESE_TASKS["all"]
+                for m in metric_entries
             }
             results[self.name + "[English Mean]"] = {
                 m: np.sum([
-                    r[m] * GAOKAO_ENGLISH_TASKS[k[7:]]
-                    for k, r in results.items() if k[7:] in GAOKAO_ENGLISH_TASKS
-                ]) / GAOKAO_ENGLISH_TASKS["all"] for m in metric_entries
+                    r[m] * GAOKAO_ENGLISH_TASKS[k[7:]] for k, r in results.items() if k[7:] in GAOKAO_ENGLISH_TASKS
+                ]) / GAOKAO_ENGLISH_TASKS["all"]
+                for m in metric_entries
             }
 
         results[self.name + "[Arithmetic Mean]"] = {

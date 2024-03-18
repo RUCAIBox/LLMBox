@@ -1,10 +1,9 @@
+from bisect import bisect_left
 from logging import getLogger
 from typing import TYPE_CHECKING, List, Optional, Tuple
-from transformers.tokenization_utils_fast import PreTrainedTokenizerFast
-
 
 import torch
-from bisect import bisect_left
+from transformers.tokenization_utils_fast import PreTrainedTokenizerFast
 
 from .model import Model
 
@@ -14,9 +13,8 @@ if TYPE_CHECKING:
 try:
     from vllm import LLM, SamplingParams
 except ModuleNotFoundError:
-    raise ModuleNotFoundError(
-        "Please install vllm by `pip install vllm` to use vllm model. Or you can use huggingface model by `--vllm False`."
-    )
+    LLM = None
+    SamplingParams = None
 
 logger = getLogger(__name__)
 
@@ -68,24 +66,25 @@ class vllmModel(Model):
             prompt, truncation=True, return_offsets_mapping=return_offsets_mapping, return_attention_mask=False
         )
         results = self.model.generate(prompt_token_ids=batched_encodings.input_ids, sampling_params=self.ppl_kwargs)
-        
+
         ppls = []
         tgt_st_eds = []
         if return_offsets_mapping:
             for (src, _), offset in zip(batched_inputs, batched_encodings.offset_mapping):
                 # for GPT-NeoX, Pythia, and MPT, their offset of "I am" is (0, 1), (2, 4) rather than (0, 1), (1, 4)
-                offset = [offset[i][0] if i == 0 or offset[i][0] == offset[i-1][1] else offset[i][0] - 1 for i in range(len(offset))]
+                offset = [
+                    offset[i][0] if i == 0 or offset[i][0] == offset[i - 1][1] else offset[i][0] - 1
+                    for i in range(len(offset))
+                ]
                 tgt_start = max(bisect_left(offset, len(src)), 1)  # designed for src=''
                 tgt_end = len(offset)
                 tgt_st_eds.append((tgt_start, tgt_end))
         else:
             src_prompt = [src for src, _ in batched_inputs]
-            src_batched_encodings = self.tokenizer(
-                src_prompt, truncation=True, return_attention_mask=False
-            )
+            src_batched_encodings = self.tokenizer(src_prompt, truncation=True, return_attention_mask=False)
             for src_input_ids, input_ids in zip(src_batched_encodings.input_ids, batched_encodings.input_ids):
                 tgt_st_eds.append((len(src_input_ids), len(input_ids)))
-                
+
         for result, (tgt_start, tgt_end) in zip(results, tgt_st_eds):
             ppl = [next(iter(r.values())) if r else None for r in result.prompt_logprobs]
             ppl = -sum(ppl[tgt_start:])

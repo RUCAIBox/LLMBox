@@ -31,9 +31,14 @@ def load_model(args: "ModelArguments") -> "Model":
     else:
         if args.vllm:
             try:
+                import vllm
+
                 from .vllm_model import vllmModel
 
                 return vllmModel(args)
+            except ModuleNotFoundError:
+                args.vllm = False
+                logger.warning(f"vllm has not been installed, falling back to huggingface.")
             except ValueError as e:
                 if "are not supported for now" in str(e):
                     args.vllm = False
