@@ -28,6 +28,11 @@ def load_model(args: "ModelArguments") -> "Model":
         from .anthropic import Anthropic
 
         return Anthropic(args)
+    elif args.is_dashscope_model():
+        logger.info(f"Loading Dashscope (Aliyun) API model `{args.model_name_or_path.lower()}`.")
+        from .dashscope import Dashscope
+
+        return Dashscope(args)
     else:
         if args.vllm:
             try:
