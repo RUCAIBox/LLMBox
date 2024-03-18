@@ -285,14 +285,31 @@ class HuggingFaceModel(Model):
             truncation=True,
             return_attention_mask=True,
             return_tensors="pt",
+            return_token_type_ids=False,
         ).to(self.device)
 
-        if 'token_type_ids' in batched_encodings:
-            del batched_encodings['token_type_ids']
-
         batch_outputs = self.model.generate(**batched_encodings, **self.generation_kwargs)
+        for criteria in self.generation_kwargs.get("stopping_criteria", []):
+            if isinstance(criteria, KeyWordsCriteria):
+                criteria.step()
+
         max_input_length = batched_encodings["input_ids"].size(1)
-        batch_outputs = batch_outputs[:, max_input_length:]
+        answers = self._process_generation_results(batch_outputs[:, max_input_length:])
+        return answers
+
+    def _process_generation_results(self, batch_outputs: torch.Tensor) -> List[str]:
+        """Remove the sequences after the `stop_id_sequences` and decode to strings."""
+        max_output_length = batch_outputs.size(1)
+        if getattr(self, "stop_id_sequences", None) is not None:
+            for seq_idx in range(batch_outputs.size(0)):
+                for token_idx in range(max_output_length):
+                    if any(
+                        batch_outputs[seq_idx, token_idx:token_idx + len(s)].tolist() == s
+                        for s in self.stop_id_sequences
+                    ):
+                        batch_outputs[seq_idx, token_idx:] = self.tokenizer.pad_token_id
+                        break
+
         answers = self.tokenizer.batch_decode(
             batch_outputs, skip_special_tokens=True, clean_up_tokenization_spaces=False
         )
