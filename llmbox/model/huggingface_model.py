@@ -287,6 +287,9 @@ class HuggingFaceModel(Model):
             return_tensors="pt",
         ).to(self.device)
 
+        if 'token_type_ids' in batched_encodings:
+            del batched_encodings['token_type_ids']
+
         batch_outputs = self.model.generate(**batched_encodings, **self.generation_kwargs)
         max_input_length = batched_encodings["input_ids"].size(1)
         batch_outputs = batch_outputs[:, max_input_length:]
