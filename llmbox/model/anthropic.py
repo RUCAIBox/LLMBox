@@ -49,6 +49,9 @@ class Anthropic(Model):
                 key = "stop_sequences"
             if value is not None:
                 generation_kwargs[key] = value
+        if "stop_sequences" in generation_kwargs:
+            if generation_kwargs["stop_sequences"] == ['\n']:
+                del generation_kwargs["stop_sequences"]
         self.generation_kwargs = generation_kwargs
 
     def generation(self, batched_inputs):
