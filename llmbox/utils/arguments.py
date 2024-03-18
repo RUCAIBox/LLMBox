@@ -47,7 +47,7 @@ class ModelArguments:
         help="The model name or path, e.g., davinci-002, meta-llama/Llama-2-7b-hf, ./mymodel",
     )
     model_type: str = HfArg(
-        default=None,
+        default="base",
         help="The type of the model, which can be chosen from `base` or `instruction`.",
         metadata={"choices": ["base", "instruction"]},
     )
@@ -56,7 +56,7 @@ class ModelArguments:
         help="The device map for model and data",
     )
     vllm: bool = HfArg(
-        default=True,
+        default=False,
         help="Whether to use vllm",
     )
     flash_attention: bool = HfArg(
@@ -148,7 +148,7 @@ class ModelArguments:
         default=False,
         help="Whether the model is a gptq quantized model.",
     )
-    
+
     vllm_gpu_memory_utilization: float = HfArg(
         default=0.9,
         help="The maximum gpu memory utilization of vllm.",
