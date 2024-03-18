@@ -5,6 +5,8 @@ from tqdm import tqdm
 from multiprocessing import Process, Manager
 import concurrent.futures
 import os
+import contextlib
+import io
 
 from .metric import Metric
 
@@ -32,7 +34,7 @@ class PassAtK(Metric):
                 sample_result.append(res)
             return sample_result
 
-        results = []
+        results = []  # 用于储存结果
 
         with tqdm(total=len(predictions), desc="Evaluating Pass@K") as pbar:
             with concurrent.futures.ThreadPoolExecutor(max_workers=32) as executor:
@@ -65,7 +67,8 @@ class PassAtK(Metric):
         result_dict['result'] = 'Not executed'
         try:
             exec_globals = {}
-            exec(code, exec_globals)
+            with swallow_io():
+                exec(code, exec_globals)
             result_dict['result'] = 'passed'
         except AssertionError:
             result_dict['result'] = 'Assertion Error'
@@ -95,3 +98,30 @@ class PassAtK(Metric):
             num_samples_it = iter(num_samples)
 
         return np.array([estimator(int(n), int(c), k) for n, c in zip(num_samples_it, num_correct)])
+
+class WriteOnlyStringIO(io.StringIO):
+    """ StringIO that throws an exception when it's read from """
+
+    def read(self, *args, **kwargs):
+        raise IOError
+
+    def readline(self, *args, **kwargs):
+        raise IOError
+
+    def readlines(self, *args, **kwargs):
+        raise IOError
+
+    def readable(self, *args, **kwargs):
+        """ Returns True if the IO object can be read. """
+        return False
+
+class redirect_stdin(contextlib._RedirectStream):  # type: ignore
+    _stream = 'stdin'
+
+@contextlib.contextmanager
+def swallow_io():
+    stream = WriteOnlyStringIO()
+    with contextlib.redirect_stdout(stream):
+        with contextlib.redirect_stderr(stream):
+            with redirect_stdin(stream):
+                yield

@@ -47,7 +47,8 @@ class vllmModel(Model):
             tensor_parallel_size=torch.cuda.device_count(),
             gpu_memory_utilization=args.vllm_gpu_memory_utilization,
             quantization="gptq" if args.gptq else None,
-            trust_remote_code=True
+            trust_remote_code=True,
+            seed=args.seed,
         )
         self.tokenizer = self.model.get_tokenizer()
         self.tokenizer.truncation_side = "left"
