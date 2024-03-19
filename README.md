@@ -1,13 +1,28 @@
 # LLMBox
 
+<img style="display: block; margin: 0 auto;" src="assets/llmbox.svg" alt="" />
+
+
+
 ## Key Features
 
 Training
 
--
+- **Diverse training strategies.** We support multiple training strategies of Large Language Models, including Supervised Fine-tuning(SFT), Pre-training, PPO(Proximal Policy Optimization) and DPO(Direct Preference Optimization).
+
+- **Comprehensive supervised fine-tuning datasets.** We support various existing SFT datasets as the inputs for training, including `Alpaca`, `Belle`, `Dolly`, `FLANv2`,`OpenAssistant`, `ShareGPT`,`LIMA`,`Self-Instrct` and `Evol-Instrct`.
+
+- **Merging tokenizer.** We support the tokenizer merging function to expand the vocabulary based on the corpora you provided before pre-training.
+
+- **Dataset merging and Data construction strategies.** Self-instruct and Evol-instruct are supported in LLMBox to process the dataset. Users can also merge multiple datasets together according to a defined ratio for Supervised Fine-tuning or Pre-training.
+
+- **Parameter efficient fine-tuning.** We support LoRA and QLoRA in LLMBox for parameter efficient fine-tuning. Simply setting lora or qlora in arguments enables the parameter efficient fine-tuning through the process of SFT or PT.
+
+- **High efficiency in the training of Large Language Models** We deploy Flash attention and Deepspeed to provide model training with high efficiency and unprecedented cost reduction at all scales.
 
 Utilization
 
+- **Comprehensive Evaluation**:
 - **In-Context Learning**: We support various ICL strategies, including `KATE`, `GlobalE`, and `APE`.
 - **Chain-of-Thought**: For some datasets, we support three types of CoT evaluation: `base`, `least-to-most`, and `pal`.
 - **Ranking Types**: We currently support three ranking types for MultipleChoiceDataset.
@@ -74,7 +89,7 @@ For more details, view the [training](./training/README.md) documentation.
 
 ## Utilization
 
-We provide a broad support on Huggingface models, OpenAI and Anthropic models for further utilization. Currently a total of 51 commonly used datasets are supported. For a full list of supported models and datasets, view the [llmbox](./llmbox/README.md) documentation.
+We provide a broad support on Huggingface models, OpenAI and other commonly used API models for further utilization. Currently a total of 51 commonly used datasets are supported. For a full list of supported models and datasets, view the [llmbox](./llmbox/README.md) documentation.
 
 ```python
 ```
