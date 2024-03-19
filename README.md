@@ -1,105 +1,262 @@
 # LLMBox
 
-## Quick start
+LLMBox is a comprehensive library for implementing LLMs, including **a unified training pipeline** and **comprehensive model evaluation**. LLMBox is designed to be a one-stop solution for training and utilizing LLMs. Through a pratical library design, we achieve a high-level of **flexibility** and **efficiency** in both training and utilization stages.
+
+<img style="display: block; margin: 25 auto;" src="assets/llmbox.svg" alt="" />
+
+
+## Key Features
+
+Training
+
+- **Diverse training strategies:** We support multiple training strategies, including Supervised Fine-tuning (`SFT`), Pre-training (`PT`), `PPO` and `DPO`.
+- **Comprehensive SFT datasets:** We support 9 SFT datasets as the inputs for training.
+- **Tokenizer Vocabulary Merging:** We support the tokenizer merging function to expand the vocabulary.
+- **Data Construction Strategies:** We currently support merging multiple datasets for training. `Self-Instruct` and `Evol-Instruct` are also available to process the dataset.
+- **Parameter Efficient Fine-Tuning:** `LoRA` and `QLoRA` are supported in SFT or PT.
+- **Efficient Training:** We support [`Flash Attention`](https://github.com/Dao-AILab/flash-attention) and `Deepspeed` for efficient training.
+
+Utilization
+
+- **Comprehensive Evaluation:** We support 51 commonly used datasets.
+- **In-Context Learning:** We support various ICL strategies, including `KATE`, `GlobalE`, and `APE`.
+- **Chain-of-Thought:** For some datasets, we support three types of CoT evaluation: `base`, `least-to-most`, and `pal`.
+- **Evaluation Methods:** We currently support three evaluation methods for multiple choice questions or generation questions.
+- **Prefix Caching:** By caching the `past_key_value` of prefix, we can speed up local inference by up to 6x.
+- **vLLM and Flash Attention Support:** We also support [`vLLM`](https://github.com/vllm-project/vllm) and [`Flash Attention`](https://github.com/Dao-AILab/flash-attention) for efficient inference.
+- **Quantization:** BitsAndBytes and GPTQ quantization are supported.
+
+
+## Quick Start
+
+### Install
+
 ```python
-python inference.py -m davinci-002 -d copa
+git clone https://github.com/RUCAIBox/LLMBox.git && cd LLMBox
+pip install -r requirements.txt
 ```
-This is default to run the OpenAI davinci-002 model on the Copa dataset in a zero-shot manner.
+
+### Quick Start with Training
+
+You can start with training a SFT model based on LLaMA-2 (7B) with deepspeed3:
+
+```bash
+cd training
+bash download.sh
+bash bash/run_7b_ds3.sh
+```
+
+### Quick Start with Utilization
+
+To utilize your model, or evaluate an existing model, you can run the following command:
+
+```python
+python inference.py -m gpt-3.5-turbo -d copa  # --num_shot 0 --model_type instruction
+```
+
+This is default to run the OpenAI GPT 3.5 turbo model on the CoPA dataset in a zero-shot manner.
+
+
+## Training
+
+LLMBox Training supports various training strategies and dataset construction strategies, along with some efficiency-improving modules. You can train your model with the following command:
+
+```bash
+python train.py \
+    --model_name_or_path meta-llama/Llama-2-7b-hf \
+    --data_path data/ \
+    --dataset alpaca_data_1k.json \
+    --output_dir $OUTPUT_DIR \
+    --num_train_epochs 2 \
+    --per_device_train_batch_size 8 \
+    --gradient_accumulation_steps 2 \
+    --save_strategy "epoch" \
+    --save_steps 2 \
+    --save_total_limit 2 \
+    --learning_rate 1e-5 \
+    --lr_scheduler_type "constant"
+```
+
+Alternatively, you can use the following preset bash scripts to train your model:
+
+### Merging Tokenizer
+
+If you want to pre-train your models on corpora with languages or tokens not well-supported in original language mdoels(e.g., LLaMA), we provide the tokenizer merging function to expand the vocabulary based on the corpora by using [sentencepiece](https://github.com/google/sentencepiece). You can check [merge_tokenizer.py](training/merge_tokenizer.py) for detailed information. Please follow the guide in [Pre-train](training/README.md##2-continual-pre-training-with-your-own-corpora).
+
+```bash
+bash bash/run_7b_pt.sh
+```
+
+### Merging Datasets
+
+If you want to train your models with a mix of multiple datasets, you can pass a list of dataset files or names to LLMBox. LLMBox will transfer each file or name into a PTDataset or SFTDataset, and merge them together to construct a combined dataset. You can also set the merging ratio of each dataset by passing a list of floats to LLMBox. Please follow the guide in [Merge Dataset](training/README.md##3-merging-different-datasets-with-designated-ratios-for-training).
+
+```bash
+bash bash/run_7b_hybrid.sh
+```
+
+### Self-Instruct and Evol-Instruct
+
+Since manually creating instruction data of high qualities to train the model is very time-consuming and labor-intensive, Self-Instruct and Evol-Instruct are proposed to create large amounts of instruction data with varying levels of complexity using LLM instead of humans. LLMBox support both Self-Instruct and Evol-Instruct to augment or enhance the input data files. Please follow the guide in [Self-Insturct and Evol-Instruct](training/README.md#8-self-instruct-and-evol-instruct-for-generation-instructions)
+
+```bash
+python self_instruct/self_instruct.py --seed_tasks_path=seed_tasks.jsonl
+```
+
+For more details, view the [training](./training/README.md) documentation.
+
+## Utilization
+
+We provide a broad support on Huggingface models, OpenAI, Anthropic, QWen and  models for further utilization. Currently a total of 51 commonly used datasets are supported, including: `HellaSwag`, `MMLU`, `GSM8K`, `AGIEval`, `CEval`, and `CMMLU`. For a full list of supported models and datasets, view the [utilization](./utilization/README.md) documentation.
+
+<table>
+    <tr>
+        <td colspan=4 align="center"><b>Performance</b></td>
+    </tr>
+    <tr>
+        <td rowspan=2><b>Model</b></td>
+        <td><code>get_ppl</code></td>
+        <td><code>get_prob</code></td>
+        <td><code>generation</code></td>
+    </tr>
+    <tr>
+        <td><b>Hellaswag (0-shot)</b></td>
+        <td><b>MMLU (5-shot)</b></td>
+        <td><b>GSM (8-shot)</b></td>
+    </tr>
+    <tr>
+        <td><b>GPT-4</b></td>
+        <td>76.01</td>
+        <td>45.97</td>
+        <td>14.56</td>
+    </tr>
+    <tr>
+        <td><b>LLaMA-2 (7B)</b></td>
+        <td>76</td>
+        <td>45.95</td>
+        <td>14.63</td>
+    </tr>
+</table>
+
+### Efficient Evaluation
+
+We by default enable prefix caching for efficient evaluation. vLLM is also supported.
+
+<table>
+    <tr>
+        <td colspan=6 align="center"><b>Time</b></td>
+    </tr>
+    <tr>
+        <td rowspan=2><b>Model</b></td>
+        <td rowspan=2><b>Efficient Method</b></td>
+        <td><code>get_ppl</code></td>
+        <td><code>get_prob</code></td>
+        <td><code>generation</code></td>
+    </tr>
+    <tr>
+        <td><b>Hellaswag (0-shot)</b></td>
+        <td><b>MMLU (5-shot)</b></td>
+        <td><b>GSM (8-shot)</b></td>
+    </tr>
+    <tr>
+        <td rowspan=3><b>LLaMA-2 (7B)</b></td>
+        <td><b>Vanilla</b></td>
+        <td>0:05:32</td>
+        <td>0:18:30</td>
+        <td>2:10:27</td>
+    </tr>
+    <tr>
+        <td><b>vLLM</b></td>
+        <td>0:06:37</td>
+        <td>0:14:55</td>
+        <td>0:03:36</td>
+    </tr>
+    <tr>
+        <td><b>Prefix Caching</b></td>
+        <td>0:06:04</td>
+        <td>0:06:02</td>
+        <td>0:23:17</td>
+    </tr>
+</table>
+
+You can also use the following command to use vllm:
+
+
+```python
+python inference.py -m ../Llama-2-7b-hf -d mmlu:abstract_algebra,anatomy --vllm True  # --prefix_caching False --flash_attention False
+```
+
+To evaluate with quantization, you can use the following command:
+
+```python
+python inference.py -m model -d dataset --load_in_4bits  # --load_in_8_bits or --gptq
+```
+
+### Evaluation Method
+
+Various types of evaluation methods are supported:
+
+<table>
+    <tr>
+        <td><b>Dataset</b></td>
+        <td><b>Evaluation Method</b></td>
+        <td><b>Variants (Ranking Type)</b></td>
+    </tr>
+    <tr>
+        <td><b>GenerationDataset</b></td>
+        <td><code>generation</code></td>
+        <td></td>
+    </tr>
+    <tr>
+        <td rowspan=2><b>MultipleChoiceDataset</b></td>
+        <td><code>get_ppl</code></td>
+        <td><code>ppl_no_option</code>, <code>ppl</code></td>
+    </tr>
+    <tr>
+        <td><code>get_prob</code></td>
+        <td><code>prob</code></td>
+    </tr>
+</table>
+
+By default, we use the `get_ppl` method with `ppl_no_option` ranking type for `MultipleChoiceDataset` and the `generation` method for `GenerationDataset`. You can also use the following command to use the `get_prob` method or `ppl` variant of `get_ppl` for MultipleChoiceDataset:
+
+```python
+python inference.py -m model -d dataset --ranking_type prob  # or ppl
+```
+
+We also support In-Context Learning and Chain-of-Thought evaluation for some datasets:
+
+```python
+python inference.py -m model -d dataset --kate  # --globale or --ape
+python inference.py -m model -d dataset --cot least_to_most  # --base or --pal
+```
+
+For a more detailed instruction on model utilization, view the [utilization](./utilization/README.md) documentation.
+
+<!-- For a full list of evaluation results, view our paper. -->
+
+## Contributing
+
+Please let us know if you encounter a bug or have any suggestions by [filing an issue](https://github.com/RUCAIBox/LLMBox/issues).
+
+We welcome all contributions from bug fixes to new features and extensions.
+
+We expect all contributions discussed in the issue tracker and going through PRs.
+
+Make sure to format your code with `yapf --style style.cfg` and `isort` before submitting a PR.
+
+
+## The Team
+
+LLMBox is developed and maintained by [AI Box](http://aibox.ruc.edu.cn/).
+
+## License
+
+LLMBox uses [MIT License](./LICENSE).
+
+## Reference
+
+If you find LLMBox useful for your research or development, please cite the following papers:
 
 ```
-  --model_name_or_path MODEL_NAME_OR_PATH, --model MODEL_NAME_OR_PATH, -m MODEL_NAME_OR_PATH
-                        The model name or path, e.g., davinci-002, meta-llama/Llama-2-7b-hf,
-                        ./mymodel (default: None)
-  --model_type {base,instruction,None}
-                        The type of the model, which can be chosen from `base` or
-                        `instruction`. (default: None)
-  --device_map DEVICE_MAP
-                        The device map for model and data (default: auto)
-  --vllm [VLLM]         Whether to use vllm (default: True)
-  --no_vllm             Whether to use vllm (default: False)
-  --flash_attention [FLASH_ATTENTION]
-                        Whether to use flash attention (default: True)
-  --no_flash_attention  Whether to use flash attention (default: False)
-  --openai_api_key OPENAI_API_KEY
-                        The OpenAI API key (default: None)
-  --tokenizer_name_or_path TOKENIZER_NAME_OR_PATH, --tokenizer TOKENIZER_NAME_OR_PATH
-                        The tokenizer name or path, e.g., meta-llama/Llama-2-7b-hf (default:
-                        None)
-  --max_tokens MAX_TOKENS
-                        The maximum number of tokens for output generation (default: None)
-  --max_length MAX_LENGTH
-                        The maximum number of tokens of model input sequence (default: None)
-  --temperature TEMPERATURE
-                        The temperature for models (default: None)
-  --top_p TOP_P         The model considers the results of the tokens with top_p probability
-                        mass. (default: None)
-  --top_k TOP_K         The model considers the token with top_k probability. (default: None)
-  --frequency_penalty FREQUENCY_PENALTY
-                        Positive values penalize new tokens based on their existing frequency
-                        in the generated text, vice versa. (default: None)
-  --repetition_penalty REPETITION_PENALTY
-                        Values>1 penalize new tokens based on their existing frequency in the
-                        prompt and generated text, vice versa. (default: None)
-  --presence_penalty PRESENCE_PENALTY
-                        Positive values penalize new tokens based on whether they appear in
-                        the generated text, vice versa. (default: None)
-  --stop STOP [STOP ...]
-                        List of strings that stop the generation when they are generated.
-                        (default: None)
-  --no_repeat_ngram_size NO_REPEAT_NGRAM_SIZE
-                        All ngrams of that size can only occur once. (default: None)
-  --best_of BEST_OF, --num_beams BEST_OF
-                        The beam size for beam search (default: None)
-  --length_penalty LENGTH_PENALTY
-                        Positive values encourage longer sequences, vice versa. Used in beam
-                        search. (default: None)
-  --early_stopping [EARLY_STOPPING]
-                        Positive values encourage longer sequences, vice versa. Used in beam
-                        search. (default: None)
-  --dataset_name DATASET_NAME, -d DATASET_NAME, --dataset DATASET_NAME
-                        The name of a dataset or the name(s) of a/several subset(s) in a
-                        dataset. Format: 'dataset' or 'dataset:subset(s)', e.g., copa, race,
-                        race:high, or wmt16:en-ro,en-fr (default: None)
-  --dataset_path DATASET_PATH
-                        The path of dataset if loading from local. Supports repository cloned
-                        from huggingface or dataset saved by `save_to_disk`. (default: None)
-  --evaluation_set EVALUATION_SET
-                        The set name for evaluation, supporting slice, e.g., validation,
-                        test, validation[:10] (default: None)
-  --example_set EXAMPLE_SET
-                        The set name for demonstration, supporting slice, e.g., train, dev,
-                        train[:10] (default: None)
-  --system_prompt SYSTEM_PROMPT, -sys SYSTEM_PROMPT
-                        The system prompt of the model (default: )
-  --instance_format INSTANCE_FORMAT, -fmt INSTANCE_FORMAT
-                        The format to format the `source` and `target` for each instance
-                        (default: {source}{target})
-  --num_shots NUM_SHOTS, -shots NUM_SHOTS
-                        The few-shot number for demonstration (default: 0)
-  --max_example_tokens MAX_EXAMPLE_TOKENS
-                        The maximum token number of demonstration (default: 1024)
-  --batch_size BATCH_SIZE, -bsz BATCH_SIZE, -b BATCH_SIZE
-                        The evaluation batch size (default: 1)
-  --sample_num SAMPLE_NUM, --majority SAMPLE_NUM, --consistency SAMPLE_NUM
-                        The sampling number for self-consistency (default: 1)
-  --kate [KATE], -kate [KATE]
-                        Whether to use KATE as an ICL strategy (default: False)
-  --globale [GLOBALE], -globale [GLOBALE]
-                        Whether to use GlobalE as an ICL strategy (default: False)
-  --ape [APE], -ape [APE]
-                        Whether to use APE as an ICL strategy (default: False)
-  --cot {none,base,least_to_most,pal}
-                        The method to prompt, eg. 'none', 'base', 'least_to_most', 'pal'. Only
-                        available for some specific datasets. (default: none)
-  --seed SEED           The random seed (default: 2023)
-  --logging_dir LOGGING_DIR
-                        The logging directory (default: logs)
-  --log_level {debug,info,warning,error,critical}
-                        Logger level to use on the main node. Possible choices are the log
-                        levels as strings: 'debug', 'info', 'warning', 'error' and 'critical'
-                        (default: info)
-  --evaluation_results_dir EVALUATION_RESULTS_DIR
-                        The directory to save evaluation results, which includes source and
-                        target texts, generated texts, and the references. (default:
-                        evaluation_results)
 ```
