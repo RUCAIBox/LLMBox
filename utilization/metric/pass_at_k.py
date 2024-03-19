@@ -34,7 +34,7 @@ class PassAtK(Metric):
                 sample_result.append(res)
             return sample_result
 
-        results = []  # 用于储存结果
+        results = []
 
         with tqdm(total=len(predictions), desc="Evaluating Pass@K") as pbar:
             with concurrent.futures.ThreadPoolExecutor(max_workers=32) as executor:
