@@ -19,3 +19,5 @@ anthropic
 google-api-python-client
 immutabledict
 langdetect
+dashscope
+qianfan

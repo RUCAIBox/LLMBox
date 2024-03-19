@@ -11,7 +11,7 @@ import openai
 from transformers import BitsAndBytesConfig
 from transformers.hf_argparser import HfArg, HfArgumentParser
 
-from ..model.enum import ANTHROPIC_MODELS, OPENAI_CHAT_MODELS, OPENAI_MODELS
+from ..model.enum import ANTHROPIC_MODELS, OPENAI_CHAT_MODELS, OPENAI_MODELS, DASHSCOPE_MODELS, QIANFAN_MODELS
 from .logging import log_levels, set_logging
 
 logger = getLogger(__name__)
@@ -47,7 +47,7 @@ class ModelArguments:
         help="The model name or path, e.g., davinci-002, meta-llama/Llama-2-7b-hf, ./mymodel",
     )
     model_type: str = HfArg(
-        default=None,
+        default="base",
         help="The type of the model, which can be chosen from `base` or `instruction`.",
         metadata={"choices": ["base", "instruction"]},
     )
@@ -56,7 +56,7 @@ class ModelArguments:
         help="The device map for model and data",
     )
     vllm: bool = HfArg(
-        default=True,
+        default=False,
         help="Whether to use vllm",
     )
     flash_attention: bool = HfArg(
@@ -70,6 +70,18 @@ class ModelArguments:
     anthropic_api_key: str = HfArg(
         default=None,
         help="The Anthropic API key",
+    )
+    dashscope_api_key: str = HfArg(
+        default=None,
+        help="The Dashscope API key",
+    )
+    qianfan_access_key: str = HfArg(
+        default=None,
+        help="The Qianfan access key",
+    )
+    qianfan_secret_key: str = HfArg(
+        default=None,
+        help="The Qianfan secret key",
     )
 
     tokenizer_name_or_path: str = HfArg(
@@ -148,7 +160,7 @@ class ModelArguments:
         default=False,
         help="Whether the model is a gptq quantized model.",
     )
-    
+
     vllm_gpu_memory_utilization: float = HfArg(
         default=0.9,
         help="The maximum gpu memory utilization of vllm.",
@@ -161,12 +173,14 @@ class ModelArguments:
     passed_in_commandline = passed_in_commandline
 
     # redact sensitive information when logging with `__repr__`
-    _redact = {"openai_api_key", "anthropic_api_key"}
+    _redact = {"openai_api_key", "anthropic_api_key", "dashscope_api_key", "qianfan_access_key", "qianfan_secret_key"}
 
     # simplify logging with model-specific arguments
     _model_specific_arguments: ClassVar[Dict[str, Set[str]]] = {
         # openai model is used for gpt-eval metrics, not specific arguments
         "anthropic": {"anthropic_api_key"},
+        "dashscope": {"dashscope_api_key"},
+        "qianfan": {"qianfan_access_key", "qianfan_secret_key"},
         "huggingface": {"device_map", "vllm", "flash_attention", "tokenizer_name_or_path"},
     }
 
@@ -175,6 +189,12 @@ class ModelArguments:
 
     def is_anthropic_model(self) -> bool:
         return self._model_impl == "anthropic"
+
+    def is_dashscope_model(self) -> bool:
+        return self._model_impl == "dashscope"
+
+    def is_qianfan_model(self) -> bool:
+        return self._model_impl == "qianfan"
 
     def is_huggingface_model(self) -> bool:
         return self._model_impl == "huggingface"
@@ -185,6 +205,10 @@ class ModelArguments:
             self._model_impl = "openai"
         elif self.model_name_or_path.lower() in ANTHROPIC_MODELS:
             self._model_impl = "anthropic"
+        elif self.model_name_or_path.lower() in DASHSCOPE_MODELS:
+            self._model_impl = "dashscope"
+        elif self.model_name_or_path.lower() in QIANFAN_MODELS:
+            self._model_impl = "qianfan"
         else:
             self._model_impl = "huggingface"
 
@@ -206,10 +230,29 @@ class ModelArguments:
                 "Anthropic API key is required. Please set it by passing a `--anthropic_api_key` or through environment variable `ANTHROPIC_API_KEY`."
             )
 
+        # set `self.dashscope_api_key` from environment variables
+        if "DASHSCOPE_API_KEY" in os.environ and self.dashscope_api_key is None:
+            self.dashscope_api_key = os.environ["DASHSCOPE_API_KEY"]
+        if self.is_dashscope_model() and self.dashscope_api_key is None:
+            raise ValueError(
+                "Dashscope API key is required. Please set it by passing a `--dashscope_api_key` or through environment variable `DASHSCOPE_API_KEY`."
+            )
+
+        # set `self.qianfan_access_key` and `self.qianfan_secret_key` from environment variables
+        if "QIANFAN_ACCESS_KEY" in os.environ and self.qianfan_access_key is None:
+            self.qianfan_access_key = os.environ["QIANFAN_ACCESS_KEY"]
+        if "QIANFAN_SECRET_KEY" in os.environ and self.qianfan_secret_key is None:
+            self.qianfan_secret_key = os.environ["QIANFAN_SECRET_KEY"]
+        if self.is_qianfan_model():
+            if self.qianfan_access_key is None or self.qianfan_secret_key is None:
+                raise ValueError(
+                    "Qianfan API access key and secret key is required. Please set it by passing `--qianfan_access_key` and `--qianfan_secret_key` or through environment variable `QIANFAN_ACCESS_KEY` and `QIANFAN_SECRET_KEY`."
+                )
+
         if self.tokenizer_name_or_path is None:
             self.tokenizer_name_or_path = self.model_name_or_path
 
-        if self.is_openai_model() or self.is_anthropic_model():
+        if self.is_openai_model() or self.is_anthropic_model() or self.is_dashscope_model() or self.is_qianfan_model():
             self.vllm = False
 
 
@@ -375,6 +418,16 @@ def check_args(model_args: ModelArguments, dataset_args: DatasetArguments, evalu
         dataset_args.batch_size = 1
         logger.warning(
             f"Claude model {model_args.model_name_or_path} doesn't support batch_size > 1, automatically set batch_size to 1."
+        )
+    if model_args.model_name_or_path.lower() in DASHSCOPE_MODELS and dataset_args.batch_size > 1:
+        dataset_args.batch_size = 1
+        logger.warning(
+            f"Dashscope model {model_args.model_name_or_path} doesn't support batch_size > 1, automatically set batch_size to 1."
+        )
+    if model_args.model_name_or_path.lower() in QIANFAN_MODELS and dataset_args.batch_size > 1:
+        dataset_args.batch_size = 1
+        logger.warning(
+            f"Qianfan model {model_args.model_name_or_path} doesn't support batch_size > 1, automatically set batch_size to 1."
         )
 
     if dataset_args.dataset_name == "vicuna_bench" and model_args.openai_api_key is None:
