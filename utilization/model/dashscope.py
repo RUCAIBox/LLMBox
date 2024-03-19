@@ -34,7 +34,7 @@ class Dashscope(Model):
         self.name = args.model_name_or_path
         self.type = "instruction"
         self.tokenizer = dashscope.get_tokenizer(self.name)
-        self.max_try_times = 5
+        self.max_try_times = 10
 
     def set_generation_args(self, **extra_model_args):
         """Set the configurations for open-ended generation. This is useful because different datasets may have different requirements for generation."""
