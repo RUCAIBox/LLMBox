@@ -5,8 +5,8 @@ import string
 
 from tqdm import tqdm
 
-from llmbox.model.openai import Openai
-from llmbox.utils import ModelArguments
+from utilization.model.openai import Openai
+from utilization.utils import ModelArguments
 
 base_instruction_breath = "I want you act as a Prompt Creator.\r\n\
 Your goal is to draw inspiration from the #Given Prompt# to create a brand new prompt.\r\n\

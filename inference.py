@@ -1,4 +1,4 @@
-from llmbox import Evaluator, parse_argument
+from utilization import Evaluator, parse_argument
 
 
 def main():
