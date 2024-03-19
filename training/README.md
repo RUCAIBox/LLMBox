@@ -12,12 +12,10 @@ LLMBox-Training is developed based on Python and PyTorch for developing a unifie
 
 + **Parameter efficient fine-tuning.** We support LoRA and QLoRA in LLMBox for parameter efficient fine-tuning. Simply setting lora or qlora in arguments enables the parameter efficient fine-tuning through the process of SFT or PT.
 
-+ **High efficiency in the training of Large Language Models** We deploy Flash attention and Deepspeed to provide model training with high efficiency and unprecedented cost reduction at all scales
++ **High efficiency in the training of Large Language Models** We deploy FlashAttention and DeepSpeed to provide model training with high efficiency and unprecedented cost reduction at all scales
 
 
 ## Overview
-![alt text](image.png)
-
 The Training section of LLMBox consists of three main parts, including Dataset, Model and Trainer.
 In Datset section, LLMBox generates datasets in unified-templates for each training strategies, while provide extra modules for users‘ demands, involving tokenizer merging, dataset merging and data processing strategies(Self-instruct and Evol-instruct).
 In Model section, LLMBox covers various efficient training strategies for large language models. Users can set parameters in bash files to enable or disable the functions, involving LoRA, QLoRA, GPTQ and Flash_attention.
@@ -78,18 +76,17 @@ You can download the dataset from huggingface or you can directly set the `datas
 You can also modify the DPO Dataset code to fit your own datasets. Please follow the guide in [DPO training](#5-training-with-dpodirect-preference-optimization).
 
 ## Dataset Construction Strategies
-+ **Merging Tokenizer**
-If you want to pre-train your models on corporas with languages or tokens not well-supported in original language mdoels(e.g., LLaMA), we provide the tokenizer merging function to expand the vocabulary based on the corpora you provided by using [sentencepiece](https://github.com/google/sentencepiece). Please check [merge_tokenizer.py](https://github.com/RUCAIBox/LLMBox/blob/main/sft/merge_tokenizer.py) for detailed information. Please follow the guide in [Pre-train](#2-continual-pre-training-with-your-own-corpora).
++ **Merging Tokenizer.**
+If you want to pre-train your models on corpora with languages or tokens not well-supported in original language mdoels(e.g., LLaMA), we provide the tokenizer merging function to expand the vocabulary based on the corpora by using [sentencepiece](https://github.com/google/sentencepiece). You can check [merge_tokenizer.py](https://github.com/RUCAIBox/LLMBox/blob/main/sft/merge_tokenizer.py) for detailed information. Please follow the guide in [Pre-train](#2-continual-pre-training-with-your-own-corpora).
 
-+ **Merging Datasets**
-If you want to train your models with a mix of multiple datasets, you can pass a list of dataset files or names to LLMBox. LLMBox will transfer each file or name into a PTDataset or SFTDataset, and merge them together to construct a combined dataset. You can also set the merging ratio of each dataset by passing a list of float to LLMBox. Please follow the guide in [Merge Dataset](#3-merging-different-datasets-with-designated-ratios-for-training).
++ **Merging Datasets.**
+If you want to train your models with a mix of multiple datasets, you can pass a list of dataset files or names to LLMBox. LLMBox will transfer each file or name into a PTDataset or SFTDataset, and merge them together to construct a combined dataset. You can also set the merging ratio of each dataset by passing a list of floats to LLMBox. Please follow the guide in [Merge Dataset](#3-merging-different-datasets-with-designated-ratios-for-training).
 
-+ **Self-Instruct and Evol-Instruct**
-Since manually creating instruction data of high qualities to train the model is very time-consuming and labor-intensive, Self-Instruct and Evol-Instruct are proposed to create large amounts of instruction data with varying levels of complexity using LLM instead of humans. LLMBox support both Self-Instruct and Evol-Instruct to augment or enhance the input data files. Please follow the guide in [Self-Insturct and Evol-Instruct](#8-self-instruct-and-evol-instruct-for-generation-instructions)
-
++ **Self-Instruct and Evol-Instruct.**
+Since manually creating instruction data of high qualities to train the model is very time-consuming and labor-intensive, Self-Instruct and Evol-Instruct are proposed to create large amounts of instruction data with varying levels of complexity using LLM instead of humans. LLMBox support both Self-Instruct and Evol-Instruct to augment or enhance the input data files. Please follow the guide in [Self-Insturct and Evol-Instruct](#8-self-instruct-and-evol-instruct-for-generation-instructions).
 
 ## Guide
-With the source code, you can use multiple functions with following steps.
+LLMBox Training supports various training strategies and dataset construction strategies, along with some efficiency-improving modules. With the source code, you can use multiple functions with the following guidelines.
 
 ### 1. Supervised fine-tuning (instruction tuning)
 #### Downloading the SFT dataset
