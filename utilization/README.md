@@ -1,14 +1,18 @@
 # Utilization
 
-## Table of contents
-
 - [Utilization](#utilization)
-  - [Table of contents](#table-of-contents)
   - [Usage](#usage)
+    - [Model Arguments](#model-arguments)
+    - [DatasetArguments](#datasetarguments)
+    - [Evaluation Arguments](#evaluation-arguments)
   - [Supported Models](#supported-models)
+  - [Customize Model](#customize-model)
   - [Supported Datasets](#supported-datasets)
+  - [Customize Dataset](#customize-dataset)
 
 ## Usage
+
+### Model Arguments
 
 ```text
   --model_name_or_path MODEL_NAME_OR_PATH, --model MODEL_NAME_OR_PATH, -m MODEL_NAME_OR_PATH
@@ -66,6 +70,11 @@
   --load_in_4bit [LOAD_IN_4BIT]
                         Whether to use bnb's 4-bit quantization to load the model. (default: False)
   --gptq [GPTQ]         Whether the model is a gptq quantized model. (default: False)
+```
+
+### DatasetArguments
+
+```text
   --dataset_name DATASET_NAME, -d DATASET_NAME, --dataset DATASET_NAME
                         The name of a dataset or the name(s) of a/several subset(s) in a dataset. Format: 'dataset'
                         or 'dataset:subset(s)', e.g., copa, race, race:high, or wmt16:en-ro,en-fr (default: None)
@@ -109,6 +118,11 @@
                         The port of the proxy (default: None)
   --pass_at_k PASS_AT_K
                         The k value for pass@k metric (default: None)
+```
+
+### Evaluation Arguments
+
+```text
   --seed SEED           The random seed (default: 2023)
   --logging_dir LOGGING_DIR
                         The logging directory (default: logs)
@@ -126,41 +140,85 @@
 <table>
     <tr>
         <td><b>Provider</b></td>
-        <td><b>Model</b></td>
+        <td><b>Entrypoint</b></td>
+        <td><b>Example Model</b></td>
         <td><b>Supported Methods</b></td>
     </tr>
     <tr>
         <td>Huggingface</td>
         <td>AutoModelForCasualLM</td>
+        <td><code>Llama-2-7b-hf</code></td>
         <td><code>generation</code>, <code>get_ppl</code>, <code>get_prob</code></td>
     </tr>
     <tr>
         <td rowspan=2>OpenAI</td>
         <td>Chat Completion Models</td>
+        <td><code>gpt-4-0125-preview</code>, <code>gpt-3.5-turbo</code></td>
         <td><code>generation</code>, <code>get_prob</code> (adapted by generation)</td>
     </tr>
     <tr>
         <td>Completion Models (Legacy)</td>
+        <td><code>davinci-002</code></td>
         <td><code>generation</code>, <code>get_ppl</code>, <code>get_prob</code></td>
+    </tr>
+    <tr>
+        <td>Qianfan</td>
+        <td>Chat Completion Models</td>
+        <td><code>ernie-speed-8k</code></td>
+        <td><code>generation</code>, <code>get_prob</code> (adapted by generation)</td>
+    </tr>
+    <tr>
+        <td>Dashscope</td>
+        <td>Generation</td>
+        <td><code>qwen-turbo</code></td>
+        <td><code>generation</code>, <code>get_prob</code> (adapted by generation)</td>
     </tr>
     <tr>
         <td>Anthropic</td>
         <td>Chat Completion Models</td>
+        <td><code>claude-3-haiku-20240307</code></td>
         <td><code>generation</code>, <code>get_prob</code> (adapted by generation)</td>
     </tr>
     <tr>
         <td>vLLM</td>
         <td>LLM</td>
+        <td><code>Llama-2-7b-hf</code></td>
         <td><code>generation</code>, <code>get_ppl</code>, <code>get_prob</code></td>
     </tr>
 </table>
 
 
+## Customize Model
+
+By inheriting the [`Model`](model/model.py) class, you can customize support for more models. You can implement `generation`, `get_ppl`, and `get_prob` methods to support different models. For example, you can implement the `generation` method for a new model as follows:
+
+```python
+class NewModel(Model):
+
+    def call_model(self, batched_inputs: List[str]) -> List[Any]:
+        return ...  # call to model, e.g., self.model.generate(...)
+
+    def to_text(self, result: Any) -> str:
+        return ...  # convert result to text, e.g., result['text']
+
+    def generation(self, batched_inputs: List[str]) -> List[str]:
+        results = self.call_model(batched_inputs)
+        results = [to_text(result) for result in results]
+        return results
+```
+
+And then, you should register your model in the [`load`](model/load.py) file.
+
+
+
 ## Supported Datasets
+
+We currently support 51 commonly used datasets for LLMs. Each dataset may includes multiple subsets, or is a subset of a collection.
+
 <table>
     <tr>
         <td><b>Dataset</b></td>
-        <td><b>Subsets</b></td>
+        <td><b>Subsets / Collections</b></td>
         <td><b>Evaluation Type</b></td>
         <td><b>CoT</b></td>
         <td><b>Additional Processor</b></td>
@@ -168,14 +226,14 @@
     </tr>
     <tr>
         <td rowspan=2>agieval</td>
-        <td>English: sat-en,sat-math,lsat-ar,lsat-lr,lsat-rc,logiqa-en,aqua-rat,math</td>
+        <td><b>English</b>: sat-en,sat-math,lsat-ar,lsat-lr,lsat-rc,logiqa-en,aqua-rat,math</td>
         <td rowspan=2>Generation</td>
         <td></td>
         <td></td>
         <td></td>
     </tr>
     <tr>
-        <td>Chinese: gaokao-chinese, gaokao-geography, gaokao-history, gaokao-biology, gaokao-chemistry, gaokao-physics, gaokao-mathqa</td>
+        <td><b>Chinese</b>: gaokao-chinese, gaokao-geography, gaokao-history, gaokao-biology, gaokao-chemistry, gaokao-physics, gaokao-mathqa</td>
         <td></td>
         <td></td>
         <td></td>
@@ -200,7 +258,7 @@
         <td>arc</td>
         <td>ARC-Easy, ARC-Challenge</td>
         <td>MultipleChoice</td>
-        <td>No</td>
+        <td></td>
         <td>Normalization</td>
         <td></td>
     </tr>
@@ -214,7 +272,7 @@
     </tr>
     <tr>
         <td>boolq</td>
-        <td></td>
+        <td>super_glue</td>
         <td>MultipleChoice</td>
         <td></td>
         <td></td>
@@ -574,3 +632,23 @@
     </tr>
 
 </table>
+
+
+## Customize Dataset
+
+We provide three types of datasets: [`GenerationDataset`](dataset/generation_dataset.py), [`MultipleChoiceDataset`](dataset/multiple_choice_dataset.py), and [`Dataset`](dataset/dataset.py). You can customize support for more datasets by inheriting the [`Dataset`](dataset/dataset.py) class. You can implement `generation`, `multiple_choice`, and `ranking` methods to support different datasets. For example, you can implement the `generation` method for a new dataset as follows:
+
+```python
+def NewDataset(GenerationDataset):
+
+    def load_dataset(self):
+        self.exam_data = load(self.dataset, "exam")
+        self.eval_data = load(self.dataset, "eval")
+
+    def format_instance(self, instance):
+        src, tgt = func(instance, self.exam_data)
+        return dict(source=src, target=tgt)
+
+    def reference(self):
+        return [i["answer"] for i in self.eval_data]
+```

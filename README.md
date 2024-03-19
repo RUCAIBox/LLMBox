@@ -1,24 +1,27 @@
 # LLMBox
 
-<img style="display: block; margin: 0 auto;" src="assets/llmbox.svg" alt="" />
+LLMBox is a comprehensive library for implementing LLMs, including **a unified training pipeline** and **comprehensive model evaluation**.
 
+<img style="display: block; margin: 25 auto;" src="assets/llmbox.svg" alt="" />
 
 
 ## Key Features
 
 Training
 
-- **Diverse training strategies.** We support multiple training strategies of Large Language Models, including Supervised Fine-tuning(SFT), Pre-training, PPO(Proximal Policy Optimization) and DPO(Direct Preference Optimization).
+- **Diverse training strategies:** We support multiple training strategies, including Supervised Fine-tuning(SFT), Pre-training(PT), PPO and DPO.
 
-- **Comprehensive supervised fine-tuning datasets.** We support various existing SFT datasets as the inputs for training, including `Alpaca`, `Belle`, `Dolly`, `FLANv2`,`OpenAssistant`, `ShareGPT`,`LIMA`,`Self-Instrct` and `Evol-Instrct`.
+- **Comprehensive supervised fine-tuning datasets:** We support 9 SFT datasets as the inputs for training.
 
-- **Merging tokenizer.** We support the tokenizer merging function to expand the vocabulary based on the corpora you provided before pre-training.
+- **Tokenizer merging:** We support the tokenizer merging function to expand the vocabulary.
 
-- **Dataset merging and Data construction strategies.** Self-instruct and Evol-instruct are supported in LLMBox to process the dataset. Users can also merge multiple datasets together according to a defined ratio for Supervised Fine-tuning or Pre-training.
+- **Dataset merging and Data construction strategies:** We currently support merging multiple datasets for training. `Self-Instruct` and `Evol-Instruct` are also available to process the dataset.
 
-- **Parameter efficient fine-tuning.** We support LoRA and QLoRA in LLMBox for parameter efficient fine-tuning. Simply setting lora or qlora in arguments enables the parameter efficient fine-tuning through the process of SFT or PT.
+- **Parameter efficient fine-tuning:** `LoRA` and `QLoRA` are supported in SFT or PT.
 
-- **High efficiency in the training of Large Language Models** We deploy Flash attention and Deepspeed to provide model training with high efficiency and unprecedented cost reduction at all scales.
+- **High efficiency in the training of Large Language Models:** We support `FlashAttention` and `Deepspeed` for efficient training.
+
+- **Quantization:** BitsAndBytes and GPTQ quantization are supported.
 
 Utilization
 
@@ -67,7 +70,16 @@ python inference.py -m gpt-3.5-turbo -d copa  # --num_shot 0 --model_type instru
 
 ## Training
 
+LLMBox Training supports various training strategies and dataset construction strategies, along with some efficiency-improving modules. With the source code, you can use multiple functions with the following guidelines.
 
+- **Merging Tokenizer**:
+If you want to pre-train your models on corpora with languages or tokens not well-supported in original language mdoels(e.g., LLaMA), we provide the tokenizer merging function to expand the vocabulary based on the corpora by using [sentencepiece](https://github.com/google/sentencepiece). You can check [merge_tokenizer.py](training/merge_tokenizer.py) for detailed information. Please follow the guide in [Pre-train](training/README.md##2-continual-pre-training-with-your-own-corpora).
+
+- **Merging Datasets**:
+If you want to train your models with a mix of multiple datasets, you can pass a list of dataset files or names to LLMBox. LLMBox will transfer each file or name into a PTDataset or SFTDataset, and merge them together to construct a combined dataset. You can also set the merging ratio of each dataset by passing a list of floats to LLMBox. Please follow the guide in [Merge Dataset](training/README.md##3-merging-different-datasets-with-designated-ratios-for-training).
+
+- **Self-Instruct and Evol-Instruct**:
+Since manually creating instruction data of high qualities to train the model is very time-consuming and labor-intensive, Self-Instruct and Evol-Instruct are proposed to create large amounts of instruction data with varying levels of complexity using LLM instead of humans. LLMBox support both Self-Instruct and Evol-Instruct to augment or enhance the input data files. Please follow the guide in [Self-Insturct and Evol-Instruct](training/README.md#8-self-instruct-and-evol-instruct-for-generation-instructions)
 
 ```python
 python train.py \
@@ -89,16 +101,7 @@ For more details, view the [training](./training/README.md) documentation.
 
 ## Utilization
 
-We provide a broad support on Huggingface models, OpenAI and other commonly used API models for further utilization. Currently a total of 51 commonly used datasets are supported. For a full list of supported models and datasets, view the [llmbox](./llmbox/README.md) documentation.
-
-```python
-```
-
-We enable efficient evaluation methods by default. Because of the reproducibility problems of vllm, you can use the following command to toggle vllm and prefix caching:
-
-```python
-python inference.py -m model_path_or_name -d dataset_name --vllm False --prefix_caching True --flash_attention True
-```
+We provide a broad support on Huggingface models, OpenAI and other commonly used API models for further utilization. Currently a total of 51 commonly used datasets are supported. For a full list of supported models and datasets, view the [utilization](./utilization/README.md) documentation.
 
 <table>
     <tr>
@@ -128,6 +131,43 @@ python inference.py -m model_path_or_name -d dataset_name --vllm False --prefix_
         <td>14.63</td>
     </tr>
 </table>
+
+We enable efficient evaluation methods including prefix caching and flash attention by default. You can also use the following command to use vllm:
+
+```python
+python inference.py -m ../Llama-2-7b-hf -d mmlu:abstract_algebra,anatomy --vllm True  # --prefix_caching False --flash_attention False
+```
+
+Various types of evaluation methods are supported:
+
+<table>
+    <tr>
+        <td><b>Dataset</b></td>
+        <td><b>Evaluation Method</b></td>
+        <td><b>Variants (Ranking Type)</b></td>
+    </tr>
+    <tr>
+        <td><b>GenerationDataset</b></td>
+        <td><code>generation</code></td>
+        <td></td>
+    </tr>
+    <tr>
+        <td rowspan=2><b>MultipleChoiceDataset</b></td>
+        <td><code>get_ppl</code></td>
+        <td><code>ppl_no_option</code>, <code>ppl</code></td>
+    </tr>
+    <tr>
+        <td><code>get_prob</code></td>
+        <td><code>prob</code></td>
+    </tr>
+</table>
+
+By default, we use the `get_ppl` method with `ppl_no_option` ranking type for `MultipleChoiceDataset` and the `generation` method for `GenerationDataset`. You can also use the following command to use the `get_prob` method or `ppl` variant of `get_ppl` for MultipleChoiceDataset:
+
+```python
+python inference.py -m model -d dataset --ranking_type prob  # or ppl
+```
+
 
 <!-- For a full list of evaluation results, view our paper. -->
 
