@@ -11,7 +11,7 @@ import openai
 from transformers import BitsAndBytesConfig
 from transformers.hf_argparser import HfArg, HfArgumentParser
 
-from ..model.enum import ANTHROPIC_MODELS, OPENAI_CHAT_MODELS, OPENAI_MODELS
+from ..model.enum import ANTHROPIC_MODELS, OPENAI_CHAT_MODELS, OPENAI_MODELS, DASHSCOPE_MODELS
 from .logging import log_levels, set_logging
 
 logger = getLogger(__name__)
@@ -70,6 +70,10 @@ class ModelArguments:
     anthropic_api_key: str = HfArg(
         default=None,
         help="The Anthropic API key",
+    )
+    dashscope_api_key: str = HfArg(
+        default=None,
+        help="The Dashscope API key",
     )
 
     tokenizer_name_or_path: str = HfArg(
@@ -161,12 +165,13 @@ class ModelArguments:
     passed_in_commandline = passed_in_commandline
 
     # redact sensitive information when logging with `__repr__`
-    _redact = {"openai_api_key", "anthropic_api_key"}
+    _redact = {"openai_api_key", "anthropic_api_key", "dashscope_api_key"}
 
     # simplify logging with model-specific arguments
     _model_specific_arguments: ClassVar[Dict[str, Set[str]]] = {
         # openai model is used for gpt-eval metrics, not specific arguments
         "anthropic": {"anthropic_api_key"},
+        "dashscope": {"dashscope_api_key"},
         "huggingface": {"device_map", "vllm", "flash_attention", "tokenizer_name_or_path"},
     }
 
@@ -175,6 +180,9 @@ class ModelArguments:
 
     def is_anthropic_model(self) -> bool:
         return self._model_impl == "anthropic"
+
+    def is_dashscope_model(self) -> bool:
+        return self._model_impl == "dashscope"
 
     def is_huggingface_model(self) -> bool:
         return self._model_impl == "huggingface"
@@ -185,6 +193,8 @@ class ModelArguments:
             self._model_impl = "openai"
         elif self.model_name_or_path.lower() in ANTHROPIC_MODELS:
             self._model_impl = "anthropic"
+        elif self.model_name_or_path.lower() in DASHSCOPE_MODELS:
+            self._model_impl = "dashscope"
         else:
             self._model_impl = "huggingface"
 
@@ -206,10 +216,18 @@ class ModelArguments:
                 "Anthropic API key is required. Please set it by passing a `--anthropic_api_key` or through environment variable `ANTHROPIC_API_KEY`."
             )
 
+        # set `self.dashscope_api_key` from environment variables
+        if "DASHSCOPE_API_KEY" in os.environ and self.dashscope_api_key is None:
+            self.dashscope_api_key = os.environ["DASHSCOPE_API_KEY"]
+        if self.is_dashscope_model() and self.dashscope_api_key is None:
+            raise ValueError(
+                "Dashscope API key is required. Please set it by passing a `--dashscope_api_key` or through environment variable `DASHSCOPE_API_KEY`."
+            )
+
         if self.tokenizer_name_or_path is None:
             self.tokenizer_name_or_path = self.model_name_or_path
 
-        if self.is_openai_model() or self.is_anthropic_model():
+        if self.is_openai_model() or self.is_anthropic_model() or self.is_dashscope_model():
             self.vllm = False
 
 
@@ -375,6 +393,11 @@ def check_args(model_args: ModelArguments, dataset_args: DatasetArguments, evalu
         dataset_args.batch_size = 1
         logger.warning(
             f"Claude model {model_args.model_name_or_path} doesn't support batch_size > 1, automatically set batch_size to 1."
+        )
+    if model_args.model_name_or_path.lower() in DASHSCOPE_MODELS and dataset_args.batch_size > 1:
+        dataset_args.batch_size = 1
+        logger.warning(
+            f"Dashscope model {model_args.model_name_or_path} doesn't support batch_size > 1, automatically set batch_size to 1."
         )
 
     if dataset_args.dataset_name == "vicuna_bench" and model_args.openai_api_key is None:
