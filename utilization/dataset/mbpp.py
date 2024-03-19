@@ -40,6 +40,7 @@ class Mbpp(GenerationDataset):
     example_set = "train"
     evaluation_set = "test"
     load_args = ("mbpp", "full")
+    extra_model_args = dict(stop=['\n[DONE]'], temperature=0.1)
     metrics = ""
 
     def __init__(self, args, model, subset_name=None):
@@ -59,10 +60,11 @@ class Mbpp(GenerationDataset):
         return dict(source=source_prompt, target=target_prompt)
 
     def post_processing(self, predictions):
-        answer_pattern = re.compile(r"\[BEGIN\](.*?)\[DONE\]", re.DOTALL)
-        return [
-            re.search(answer_pattern, p).group(1).strip() if re.search(answer_pattern, p) else p for p in predictions
-        ]
+        # answer_pattern = re.compile(r"\[BEGIN\](.*?)\[DONE\]", re.DOTALL)
+        # return [
+        #     re.search(answer_pattern, p).group(1).strip() if re.search(answer_pattern, p) else p for p in predictions
+        # ]
+        return [p.split("[DONE]")[0].split("[BEGIN]\n")[-1] for p in predictions]
 
     @property
     def references(self):
