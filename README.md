@@ -105,10 +105,10 @@ We provide a broad support on Huggingface models, OpenAI and other commonly used
 
 <table>
     <tr>
-        <td colspan=4 align="center"><b>Utilization</b></td>
+        <td colspan=4 align="center"><b>Performance</b></td>
     </tr>
     <tr>
-        <td rowspan=2><b>Dataset</b></td>
+        <td rowspan=2><b>Model</b></td>
         <td><code>get_ppl</code></td>
         <td><code>get_prob</code></td>
         <td><code>generation</code></td>
@@ -132,11 +132,63 @@ We provide a broad support on Huggingface models, OpenAI and other commonly used
     </tr>
 </table>
 
-We enable efficient evaluation methods including prefix caching and flash attention by default. You can also use the following command to use vllm:
+### Efficient Evaluation
+
+<table>
+    <tr>
+        <td colspan=6 align="center"><b>Time</b></td>
+    </tr>
+    <tr>
+        <td rowspan=2><b>Model</b></td>
+        <td><code>get_ppl</code></td>
+        <td><code>get_prob</code></td>
+        <td><code>generation</code></td>
+        <td rowspan=2><b>Prefix Caching</b></td>
+        <td rowspan=2><b>vLLM</b></td>
+    </tr>
+    <tr>
+        <td><b>Hellaswag (0-shot)</b></td>
+        <td><b>MMLU (5-shot)</b></td>
+        <td><b>GSM (8-shot)</b></td>
+    </tr>
+    <tr>
+        <td rowspan=3><b>LLaMA-2 (7B)</b></td>
+        <td>0:06:04</td>
+        <td>0:06:02</td>
+        <td>14.56</td>
+        <td><b></b></td>
+        <td><b></b></td>
+    </tr>
+    <tr>
+        <td>0:06:04</td>
+        <td>0:06:02</td>
+        <td>14.56</td>
+        <td><b>✅</b></td>
+        <td><b></b></td>
+    </tr>
+    <tr>
+        <td>0:06:37</td>
+        <td>0:14:55</td>
+        <td>0:03:36</td>
+        <td><b></b></td>
+        <td><b>✅</b></td>
+    </tr>
+</table>
+
+We enable efficient evaluation methods by default, including prefix caching and flash attention. You can also use the following command to use vllm:
+
 
 ```python
 python inference.py -m ../Llama-2-7b-hf -d mmlu:abstract_algebra,anatomy --vllm True  # --prefix_caching False --flash_attention False
 ```
+
+To evaluate with quantization, you can use the following command:
+
+```python
+python inference.py -m model -d dataset --load_in_4bits  # --load_in_8_bits or --gptq
+```
+
+### Evaluation Method
 
 Various types of evaluation methods are supported:
 
@@ -167,7 +219,7 @@ By default, we use the `get_ppl` method with `ppl_no_option` ranking type for `M
 ```python
 python inference.py -m model -d dataset --ranking_type prob  # or ppl
 ```
-
+For a more detailed instruction on model utilization, view the [utilization](./utilization/README.md) documentation.
 
 <!-- For a full list of evaluation results, view our paper. -->
 
