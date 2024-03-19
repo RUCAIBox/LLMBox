@@ -1,12 +1,12 @@
 <!-- ## Supervised Fine-tuning and Continual Pre-training -->
 # LLMBox-Training
 
-LLMBox-Training is developed based on Python and PyTorch for developing a unified and efficient framework for training language models. The library is built on top of the [`transformers`](https://github.com/huggingface/transformers) library by  🤗 Hugging Face. 
+LLMBox-Training is developed based on Python and PyTorch for developing a unified and efficient framework for training language models. The library is built on top of the [`transformers`](https://github.com/huggingface/transformers) library by  🤗 Hugging Face.
 
 
 ## Feature
 
-+ **Diverse training strategies.** LLMBox incorporates multiple training strategies of Large Language Models, including Supervised Fine-tuning(SFT), Pre-training, PPO(Proximal Policy Optimization), DPO(Direct Preference Optimization) and GPTQ(Generative Pre-trained Transformer for Querying Tables). 
++ **Diverse training strategies.** LLMBox incorporates multiple training strategies of Large Language Models, including Supervised Fine-tuning(SFT), Pre-training, PPO(Proximal Policy Optimization), DPO(Direct Preference Optimization) and GPTQ(Generative Pre-trained Transformer for Querying Tables).
 
 + **Comprehensive datasets and data construction strategies .** We enable users to use various existing datasets (e.g. alpaca) as the inputs for training. Self-instruct and Evol-instruct are also available to process the dataset. Users can also merge multiple datasets together according to a defined ratio for Supervised Fine-tuning or Pre-training.
 
@@ -18,10 +18,10 @@ LLMBox-Training is developed based on Python and PyTorch for developing a unifie
 ## Overview
 ![alt text](image.png)
 
-The Training section of LLMBox consists of three main parts, including Dataset, Model and Trainer. 
-In Datset section, LLMBox generates datasets in unified-templates for each training strategies, while provide extra modules for users‘ demands, involving tokenizer merging, dataset merging and data processing strategies(Self-instruct and Evol-instruct). 
+The Training section of LLMBox consists of three main parts, including Dataset, Model and Trainer.
+In Datset section, LLMBox generates datasets in unified-templates for each training strategies, while provide extra modules for users‘ demands, involving tokenizer merging, dataset merging and data processing strategies(Self-instruct and Evol-instruct).
 In Model section, LLMBox covers various efficient training strategies for large language models. Users can set parameters in bash files to enable or disable the functions, involving LoRA, QLoRA, GPTQ and Flash_attention.
-In Trainer section, LLMBox offers three pipelines for model training, including Trainer(for SFT and PT), PPO-Trainer(for PPO) and DPO-Trainer(for DPO). All of training pipelines can be sped up by deepspeed, and we provide corresponding config files for deepspeed in `configs`. 
+In Trainer section, LLMBox offers three pipelines for model training, including Trainer(for SFT and PT), PPO-Trainer(for PPO) and DPO-Trainer(for DPO). All of training pipelines can be sped up by deepspeed, and we provide corresponding config files for deepspeed in `configs`.
 
 ## Dataset
 #### Supervised Fine-tuning Dataset(SFTDataset)
@@ -119,7 +119,7 @@ It will first merge the vocabulary of your corpora and the original vocabulary a
 
 #### User-defined symbols
 
-If you want to add user-defined symbols when merging new tokenizers, you can rewrite the `user_defined_symbols.json`. 
+If you want to add user-defined symbols when merging new tokenizers, you can rewrite the `user_defined_symbols.json`.
 
 ```json
 {
@@ -138,9 +138,10 @@ LLMBox supports merging different datas together to train the model. Just change
 
 If you want to merge different datas with designated ratios, you can change `dataset_ratio` to a list of floats separated by white space, and `max_steps` is required when setting `dataset_ratio`. LLMBox will merge the dataset with the ratio you set. After changing the parameters, you can run the following script:
 
-```shell
+```bash
 bash bash/run_7b_hybrid.sh
 ```
+
 The default behaviour is to train the LLaMA-2-7b model on the merged dataset.
 
 ### 4. Training with PPO(Proximal Policy Optimization)
@@ -175,23 +176,27 @@ LLMBox supports PEFT(Parameter Efficient Fine-tuning) strategies, including LoRA
 --qlora True
 ```
 You can also simply run the following script:
-```shell
+
+```bash
 bash bash/run_7b_lora.sh
 ```
-```shell
+
+```bash
 bash bash/run_7b_qlora.sh
 ```
+
 The default behaviour is to train the LLaMA-2-7b model on the subset of the alpaca dataset with LoRA or QLoRA.
 
 ### 8. Self-Instruct and Evol-Instruct for generation instructions
-LLMBox supports Self-Instruct and Evol-Instruct to generate instructions. 
+LLMBox supports Self-Instruct and Evol-Instruct to generate instructions.
 For Self-Instruct, we provide json files with seed tasks in English and Chinese. You can set `seed_tasks_path` to one of them or your own instruction data and run the following script:
-```shell
+
+```bash
 python self_instruct/self_instruct.py --seed_tasks_path=seed_tasks.jsonl
 ```
+
 For Evol-Instruct, we provide the program for generating instructions on `alpaca_data_cleaned.json`. You can first download this data from the [link](https://github.com/gururise/AlpacaDataCleaned/blob/main/alpaca_data_cleaned.json) and then run the following script:
-```shell
+
+```bash
 python evol_instruct.py --seed_tasks_path=alpaca_data_cleaned.json
 ```
-
-
