@@ -58,11 +58,11 @@ class Qianfan(Model):
             if key == "max_tokens":
                 key = "max_output_tokens"
                 value = 1024 if value is None else value
-            if key == "temperature":
-                value = 0.0001 if value is None else value
             if value is not None:
                 generation_kwargs[key] = value
 
+        if "temperture" not in generation_kwargs:
+            generation_kwargs["temperature"] = 0.0001
         self.generation_kwargs = generation_kwargs
         self.multi_turn = extra_model_args.pop("multi_turn", False)
 
@@ -89,6 +89,7 @@ class Qianfan(Model):
         qianfan.SecretKey(self.qianfan_secret_key)
         chat_comp = qianfan.ChatCompletion()
         for _ in range(self.max_try_times):
+            error_msg = "EMPTY_ERROR_MSG"
             try:
                 messages = []
                 results = []
@@ -102,12 +103,14 @@ class Qianfan(Model):
                         messages=messages,
                         **kwargs
                     )
+                    if "error_code" in msg:
+                        error_msg = msg.error_msg
                     assert("error_code" not in msg)
                     results.append(msg.body)
                     messages.append({"role": "assistant", "content": msg.body["result"]})
                 return results
             except Exception as e:
-                logger.warning("Receive error: {}".format(msg.error_msg))
+                logger.warning("Receive error: {}".format(error_msg))
                 logger.warning("retrying...")
                 time.sleep(1)
         raise ConnectionError("Qianfan API error")

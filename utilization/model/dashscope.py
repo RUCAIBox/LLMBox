@@ -83,6 +83,7 @@ class Dashscope(Model):
             List[dict]: The responsed JSON results.
         """
         for _ in range(self.max_try_times):
+            error_msg = "EMPTY_ERROR_MSG"
             try:
                 messages = []
                 results = []
@@ -97,12 +98,14 @@ class Dashscope(Model):
                         result_format="message",
                         **kwargs
                     )
+                    if (msg.status_code != HTTPStatus.OK):
+                        error_msg = msg.message
                     assert(msg.status_code == HTTPStatus.OK)
                     results.append(msg.output.choices[0].message)
                     messages.append({"role": "assistant", "content": msg.output.choices[0].message.content})
                 return results
             except Exception as e:
-                logger.warning("Receive error: {}".format(msg.message))
+                logger.warning("Receive error: {}".format(error_msg))
                 logger.warning("retrying...")
                 time.sleep(1)
         raise ConnectionError("Dashscope API error")
