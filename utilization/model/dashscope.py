@@ -61,37 +61,48 @@ class Dashscope(Model):
         if generation_kwargs.get("temperature", 1) == 0:
             generation_kwargs["seed"] = self.args.seed
         self.generation_kwargs = generation_kwargs
+        self.multi_turn = extra_model_args.pop("multi_turn", False)
 
     def generation(self, batched_inputs):
-        results = self.request(batched_inputs, self.generation_kwargs)
+        results = self.request(batched_inputs, self.generation_kwargs, multi_turn=self.multi_turn)
         answers = []
         for result in results:
-            answer = result[0].content
+            answer = result.content
             answers.append(answer)
-        return answers
+        return [tuple(answers)] if self.multi_turn else answers
 
-    def request(self, prompt, kwargs):
+    def request(self, prompt, kwargs, multi_turn=False):
         r"""Call the DashScope API.
 
         Args:
             prompt (List[str]): The list of input prompts.
             model_args (dict): The additional calling configurations.
+            multi_turn (bool): Default is False. Set to True if multi-turns needed.
 
         Returns:
             List[dict]: The responsed JSON results.
         """
         for _ in range(self.max_try_times):
-            message = [{"role": "user", "content": prompt[0]}]
-            response = dashscope.Generation.call(
-                model=self.name,
-                messages=message,
-                result_format="message",
-                **kwargs
-            )
-            if response.status_code == HTTPStatus.OK:
-                return [[response.output.choices[0].message]]
-            else:
-                logger.warning(response.message)
+            try:
+                messages = []
+                results = []
+                parts = prompt[0].split("__SEPARATOR__") if multi_turn else prompt
+                for query in parts:
+                    if len(query) == 0:
+                        continue
+                    messages.append({"role": "user", "content": query})
+                    msg = dashscope.Generation.call(
+                        model=self.name,
+                        messages=messages,
+                        result_format="message",
+                        **kwargs
+                    )
+                    assert(msg.status_code == HTTPStatus.OK)
+                    results.append(msg.output.choices[0].message)
+                    messages.append({"role": "assistant", "content": msg.output.choices[0].message.content})
+                return results
+            except Exception as e:
+                logger.warning("Receive error: {}".format(msg.message))
                 logger.warning("retrying...")
                 time.sleep(1)
         raise ConnectionError("Dashscope API error")
