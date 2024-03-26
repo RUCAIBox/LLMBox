@@ -53,21 +53,23 @@ class Anthropic(Model):
             if generation_kwargs["stop_sequences"] == ['\n']:
                 del generation_kwargs["stop_sequences"]
         self.generation_kwargs = generation_kwargs
+        self.multi_turn = extra_model_args.pop("multi_turn", False)
 
     def generation(self, batched_inputs):
-        results = self.request(batched_inputs, self.generation_kwargs)
+        results = self.request(batched_inputs, self.generation_kwargs, multi_turn=self.multi_turn)
         answers = []
         for result in results:
-            answer = result[0].content[0].text
+            answer = result.content[0].text
             answers.append(answer)
-        return answers
+        return [tuple(answers)] if self.multi_turn else answers
 
-    def request(self, prompt, kwargs):
+    def request(self, prompt, kwargs, multi_turn=False):
         r"""Call the Anthropic API.
 
         Args:
             prompt (List[str]): The list of input prompts.
             model_args (dict): The additional calling configurations.
+            multi_turn (bool): Default is False. Set to True if multi-turns needed.
 
         Returns:
             List[dict]: The responsed JSON results.
@@ -75,9 +77,17 @@ class Anthropic(Model):
         client = anthropic.Anthropic(api_key=self.api_key)
         for _ in range(self.max_try_times):
             try:
-                message = [{"role": "user", "content": prompt[0]}]
-                response = client.beta.messages.create(model=self.name, messages=message, **kwargs)
-                return [[response]]
+                messages = []
+                results = []
+                parts = prompt[0].split("__SEPARATOR__") if multi_turn else prompt
+                for query in parts:
+                    if len(query) == 0:
+                        continue
+                    messages.append({"role": "user", "content": query})
+                    msg = client.beta.messages.create(model=self.name, messages=messages, **kwargs)
+                    results.append(msg)
+                    messages.append({"role": "assistant", "content": msg.content[0].text})
+                return results
             except anthropic.RateLimitError:
                 logger.warning("Receive anthropic.RateLimitError, retrying...")
                 time.sleep(10)
