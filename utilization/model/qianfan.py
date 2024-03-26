@@ -59,26 +59,28 @@ class Qianfan(Model):
                 key = "max_output_tokens"
                 value = 1024 if value is None else value
             if key == "temperature":
-                value = max(0.0001, value)
+                value = 0.0001 if value is None else value
             if value is not None:
                 generation_kwargs[key] = value
 
         self.generation_kwargs = generation_kwargs
+        self.multi_turn = extra_model_args.pop("multi_turn", False)
 
     def generation(self, batched_inputs):
-        results = self.request(batched_inputs, self.generation_kwargs)
+        results = self.request(batched_inputs, self.generation_kwargs, multi_turn=self.multi_turn)
         answers = []
         for result in results:
-            answer = result[0]["result"]
+            answer = result["result"]
             answers.append(answer)
-        return answers
+        return [tuple(answers)] if self.multi_turn else answers
 
-    def request(self, prompt, kwargs):
+    def request(self, prompt, kwargs, multi_turn=False):
         r"""Call the Qianfan API.
 
         Args:
             prompt (List[str]): The list of input prompts.
             model_args (dict): The additional calling configurations.
+            multi_turn (bool): Default is False. Set to True if multi-turns needed.
 
         Returns:
             List[dict]: The responsed JSON results.
@@ -87,16 +89,25 @@ class Qianfan(Model):
         qianfan.SecretKey(self.qianfan_secret_key)
         chat_comp = qianfan.ChatCompletion()
         for _ in range(self.max_try_times):
-            message = [{"role": "user", "content": prompt[0]}]
-            response = chat_comp.do(
-                model=self.name,
-                messages=message,
-                **kwargs
-            )
-            if "error_code" in response:
-                logger.warning(response.error_msg)
+            try:
+                messages = []
+                results = []
+                parts = prompt[0].split("__SEPARATOR__") if multi_turn else prompt
+                for query in parts:
+                    if len(query) == 0:
+                        continue
+                    messages.append({"role": "user", "content": query})
+                    msg = chat_comp.do(
+                        model=self.name,
+                        messages=messages,
+                        **kwargs
+                    )
+                    assert("error_code" not in msg)
+                    results.append(msg.body)
+                    messages.append({"role": "assistant", "content": msg.body["result"]})
+                return results
+            except Exception as e:
+                logger.warning("Receive error: {}".format(msg.error_msg))
                 logger.warning("retrying...")
                 time.sleep(1)
-            else:
-                return [[response.body]]
         raise ConnectionError("Qianfan API error")
