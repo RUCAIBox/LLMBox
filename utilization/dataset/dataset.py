@@ -12,6 +12,7 @@ import torch
 import tqdm as tqdm_lib
 
 from .enum import GAOKAO_CHINESE_TASKS, GAOKAO_ENGLISH_TASKS
+from .enum import AGIEVAL_ENGLISH_TASK, AGIEVAL_CHINESE_TASK, AGIEVAL_GAOKAO_TASK
 from .icl_strategies import ape, global_entropy_ordering_strategy, knn_construct_examples
 from .utils import get_raw_dataset_loader
 
@@ -889,6 +890,26 @@ class DatasetCollection(torch.utils.data.Dataset):
                 m: np.sum([
                     r[m] * GAOKAO_ENGLISH_TASKS[k[7:]] for k, r in results.items() if k[7:] in GAOKAO_ENGLISH_TASKS
                 ]) / GAOKAO_ENGLISH_TASKS["all"]
+                for m in metric_entries
+            }
+
+        if self.name == "agieval":
+            results[self.name + "[Chinese Mean]"] = {
+                m: np.average([
+                    r[m] for k, r in results.items() if k[8:] in AGIEVAL_CHINESE_TASK
+                ])
+                for m in metric_entries
+            }
+            results[self.name + "[English Mean]"] = {
+                m: np.average([
+                    r[m] for k, r in results.items() if k[8:] in AGIEVAL_ENGLISH_TASK
+                ])
+                for m in metric_entries
+            }
+            results[self.name + "[Gaokao Mean]"] = {
+                m: np.average([
+                    r[m] for k, r in results.items() if k[8:] in AGIEVAL_GAOKAO_TASK
+                ])
                 for m in metric_entries
             }
 
