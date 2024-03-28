@@ -169,7 +169,7 @@
     </tr>
     <tr>
         <td>Dashscope</td>
-        <td>Generation</td>
+        <td>Chat Completion Models</td>
         <td><code>qwen-turbo</code></td>
         <td><code>generation</code>, <code>get_prob</code> (adapted by generation)</td>
     </tr>

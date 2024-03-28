@@ -51,7 +51,7 @@ bash bash/run_7b_ds3.sh
 To utilize your model, or evaluate an existing model, you can run the following command:
 
 ```python
-python inference.py -m gpt-3.5-turbo -d copa  # --num_shot 0 --model_type instruction
+python inference.py -m gpt-3.5-turbo -d copa --ranking_type prob # --num_shot 0 --model_type instruction
 ```
 
 This is default to run the OpenAI GPT 3.5 turbo model on the CoPA dataset in a zero-shot manner.
