@@ -33,6 +33,8 @@ class Agieval(GenerationDataset):
         self.task = subset_name
         self.shots = args.num_shots
         self.extra_model_args = dict(stop=["\n"]) if args.cot is None else dict()
+        if self.task not in AGIEVAL_NO_LETTER_CHOICE and self.task not in AGIEVAL_MULTI_CHOICE:
+            self.instruction = "该问题为单选题，所有选项中必有一个正确答案，且只有一个正确答案。"
         super().__init__(args, model, subset_name)
 
     def format_instance(self, instance):
