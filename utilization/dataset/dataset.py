@@ -913,6 +913,26 @@ class DatasetCollection(torch.utils.data.Dataset):
                 for m in metric_entries
             }
 
+        if self.name == "agieval_single_choice":
+            results[self.name + "[Chinese Mean]"] = {
+                m: np.average([
+                    r[m] for k, r in results.items() if k[8:] in AGIEVAL_CHINESE_TASK
+                ])
+                for m in metric_entries
+            }
+            results[self.name + "[English Mean]"] = {
+                m: np.average([
+                    r[m] for k, r in results.items() if k[8:] in AGIEVAL_ENGLISH_TASK
+                ])
+                for m in metric_entries
+            }
+            results[self.name + "[Gaokao Mean]"] = {
+                m: np.average([
+                    r[m] for k, r in results.items() if k[8:] in AGIEVAL_GAOKAO_TASK
+                ])
+                for m in metric_entries
+            }
+
         results[self.name + "[Arithmetic Mean]"] = {
             m: np.mean([r[m] for k, r in results.items() if ":" in k])
             for m in metric_entries
