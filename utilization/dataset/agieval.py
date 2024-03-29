@@ -77,11 +77,15 @@ class Agieval(GenerationDataset):
     def post_processing(self, predictions):
         new_predictions = []
         for pred in predictions:
+            if pred is None:
+                new_predictions.append(pred)
+                continue
             new_pred = self.post_process(pred)
-            while new_pred.endswith("."):
-                new_pred = new_pred[:len(new_pred) - 1]
-            if self.task in AGIEVAL_NO_LETTER_CHOICE:
-                new_pred = math_equiv._strip_string(new_pred)
+            if new_pred is not None:
+                while new_pred.endswith("."):
+                    new_pred = new_pred[:len(new_pred) - 1]
+                if self.task in AGIEVAL_NO_LETTER_CHOICE:
+                    new_pred = math_equiv._strip_string(new_pred)
             new_predictions.append(new_pred)
         return new_predictions
 
