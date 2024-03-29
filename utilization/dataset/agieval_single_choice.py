@@ -39,7 +39,7 @@ class Agieval_single_choice(MultipleChoiceDataset):
         options = list(map(lambda op: " " + op[3:], instance["options"]))
         return dict(
             source=source,
-            target_idx=ord(instance["label"]) - ord('A'),
+            target_idx=ord(instance["label"].strip()) - ord('A'),
             options=options
         )
 
@@ -49,4 +49,4 @@ class Agieval_single_choice(MultipleChoiceDataset):
 
     @property
     def references(self):
-        return [ord(instance["label"]) - ord('A') for instance in self.evaluation_data]
+        return [ord(instance["label"].strip()) - ord('A') for instance in self.evaluation_data]
