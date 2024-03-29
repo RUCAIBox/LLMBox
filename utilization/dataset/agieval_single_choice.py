@@ -36,12 +36,17 @@ class Agieval_single_choice(MultipleChoiceDataset):
             source = passage + WORDS[0] + instance["question"] + "\n" + WORDS[2].format(self._max_choice_letter(instance["options"]))
         else:
             source = WORDS[6] + passage + " " + instance["question"] + "\n" + WORDS[7]
-        options = list(map(lambda op: " " + op[3:], instance["options"]))
+        options = list(map(lambda op: " " + op.strip()[3:], instance["options"]))
+        print(source, int(ord(instance["label"].strip()) - ord('A')), options)
         return dict(
             source=source,
-            target_idx=ord(instance["label"].strip()) - ord('A'),
+            target_idx=int(ord(instance["label"].strip()) - ord('A')),
             options=options
         )
+
+    def calculate_metric(self, predictions):
+        results, score_lists = super().calculate_metric(predictions)
+        return results, score_lists
 
     @staticmethod
     def _max_choice_letter(choices):
