@@ -37,7 +37,6 @@ class Agieval_single_choice(MultipleChoiceDataset):
         else:
             source = WORDS[6] + passage + " " + instance["question"] + "\n" + WORDS[7]
         options = list(map(lambda op: " " + op.strip()[3:], instance["options"]))
-        print(source, int(ord(instance["label"].strip()) - ord('A')), options)
         return dict(
             source=source,
             target_idx=int(ord(instance["label"].strip()) - ord('A')),
