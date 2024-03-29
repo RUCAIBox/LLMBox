@@ -78,7 +78,7 @@ class Agieval(GenerationDataset):
         new_predictions = []
         for pred in predictions:
             if pred is None:
-                new_predictions.append(pred)
+                new_predictions.append("")
                 continue
             new_pred = self.post_process(pred)
             if new_pred is not None:
@@ -86,7 +86,10 @@ class Agieval(GenerationDataset):
                     new_pred = new_pred[:len(new_pred) - 1]
                 if self.task in AGIEVAL_NO_LETTER_CHOICE:
                     new_pred = math_equiv._strip_string(new_pred)
+            else:
+                new_pred = ""
             new_predictions.append(new_pred)
+
         return new_predictions
 
     @staticmethod
