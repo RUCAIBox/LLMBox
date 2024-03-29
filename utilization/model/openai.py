@@ -152,7 +152,7 @@ class Openai(Model):
         else:
             labels = [self._get_label_ids(b) for b in batched_option_nums]
             label_texts = [l[1] for l in labels]
-            logit_bias = [dict.fromkeys(l, 100)[0] for l in labels]
+            logit_bias = [dict.fromkeys(l[0], 100) for l in labels]
 
         kwargs = copy(self.prob_kwargs)
         if self.is_chat_model:
