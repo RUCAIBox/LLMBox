@@ -127,6 +127,21 @@ AGIEVAL_GAOKAO_TASK = [
 
 AGIEVAL_NO_LETTER_CHOICE = AGIEVAL_EN_CLOZE + AGIEVAL_ZH_CLOZE
 
+AGIEVAL_MULTIPLE_CHOICE_TASK = [
+    'lsat-ar', 'lsat-lr', 'lsat-rc',
+    'logiqa-en', 'sat-math', 'sat-en',
+    'aqua-rat', 'sat-en-without-passage', 'gaokao-english',
+    'logiqa-zh', 'gaokao-chinese', 'gaokao-chemistry',
+    'gaokao-geography', 'gaokao-history', 'gaokao-biology',
+    # 'gaokao-mathqa',    # due to the bugs in agieval dataset, we now treat gaokao-mathqa as generation.
+]
+
+AGIEVAL_GENERTION_TASK = [
+    'jec-qa-kd', 'jec-qa-ca', 'gaokao-physics',
+    'math', 'gaokao-mathcloze',
+    'gaokao-mathqa'    # due to the bugs in agieval dataset, we now treat gaokao-mathqa as generation.
+]
+
 CMMLU_NAME_TRANS = {
     "agronomy": "农学",
     "anatomy": "解剖学",
