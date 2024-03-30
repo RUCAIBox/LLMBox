@@ -117,6 +117,14 @@ AGIEVAL_MULTI_CHOICE = ['jec-qa-kd', 'jec-qa-ca', 'gaokao-physics']
 
 AGIEVAL_CHINESE_TASK = AGIEVAL_ZH_CLOZE + AGIEVAL_ZH_QA
 
+AGIEVAL_ENGLISH_TASK = AGIEVAL_EN_CLOZE + AGIEVAL_EN_QA
+
+AGIEVAL_GAOKAO_TASK = [
+    'gaokao-chinese', 'gaokao-geography', 'gaokao-history',
+    'gaokao-biology', 'gaokao-chemistry', 'gaokao-physics',
+    'gaokao-mathqa', 'gaokao-mathcloze', 'gaokao-english'
+]
+
 AGIEVAL_NO_LETTER_CHOICE = AGIEVAL_EN_CLOZE + AGIEVAL_ZH_CLOZE
 
 CMMLU_NAME_TRANS = {
