@@ -9,8 +9,9 @@ logger = getLogger(__name__)
 
 import re
 
-class Agieval(GenerationDataset):
-    """The dataset of AGIEval.
+class Agieval_cot(GenerationDataset):
+    """The dataset of AGIEval, as a generation dataset.
+    We support zero shot no CoT, few shot no CoT, few shot with CoT in this dataset.
 
     AGIEval: A Human-Centric Benchmark for Evaluating Foundation Models by Wanjun Zhong and Ruixiang Cui and Yiduo Guo and Yaobo Liang and Shuai Lu and Yanlin Wang and Amin Saied and Weizhu Chen and Nan Duan.
 
