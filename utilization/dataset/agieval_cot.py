@@ -9,8 +9,9 @@ logger = getLogger(__name__)
 
 import re
 
-class Agieval(GenerationDataset):
-    """The dataset of AGIEval.
+class Agieval_cot(GenerationDataset):
+    """The dataset of AGIEval, as a generation dataset.
+    We support zero shot no CoT, few shot no CoT, few shot with CoT in this dataset.
 
     AGIEval: A Human-Centric Benchmark for Evaluating Foundation Models by Wanjun Zhong and Ruixiang Cui and Yiduo Guo and Yaobo Liang and Shuai Lu and Yanlin Wang and Amin Saied and Weizhu Chen and Nan Duan.
 
@@ -77,12 +78,19 @@ class Agieval(GenerationDataset):
     def post_processing(self, predictions):
         new_predictions = []
         for pred in predictions:
+            if pred is None:
+                new_predictions.append("")
+                continue
             new_pred = self.post_process(pred)
-            while new_pred.endswith("."):
-                new_pred = new_pred[:len(new_pred) - 1]
-            if self.task in AGIEVAL_NO_LETTER_CHOICE:
-                new_pred = math_equiv._strip_string(new_pred)
+            if new_pred is not None:
+                while new_pred.endswith("."):
+                    new_pred = new_pred[:len(new_pred) - 1]
+                if self.task in AGIEVAL_NO_LETTER_CHOICE:
+                    new_pred = math_equiv._strip_string(new_pred)
+            else:
+                new_pred = ""
             new_predictions.append(new_pred)
+
         return new_predictions
 
     @staticmethod
