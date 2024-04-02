@@ -1,13 +1,17 @@
 from logging import getLogger
 
-from .generation_dataset import GenerationDataset
-from .enum import AGIEVAL_WORDS, AGIEVAL_EN_QA, AGIEVAL_ZH_QA, AGIEVAL_EN_CLOZE, AGIEVAL_ZH_CLOZE, AGIEVAL_MULTI_CHOICE, AGIEVAL_CHINESE_TASK, AGIEVAL_NO_LETTER_CHOICE
-from ..utils import math_equiv
 from ..metric import Em
+from ..utils import math_equiv
+from .enum import (
+    AGIEVAL_CHINESE_TASK, AGIEVAL_EN_CLOZE, AGIEVAL_EN_QA, AGIEVAL_ENGLISH_TASK, AGIEVAL_GAOKAO_TASK,
+    AGIEVAL_MULTI_CHOICE, AGIEVAL_NO_LETTER_CHOICE, AGIEVAL_WORDS, AGIEVAL_ZH_CLOZE, AGIEVAL_ZH_QA
+)
+from .generation_dataset import GenerationDataset
 
 logger = getLogger(__name__)
 
 import re
+
 
 class Agieval_cot(GenerationDataset):
     """The dataset of AGIEval, as a generation dataset.
@@ -29,12 +33,17 @@ class Agieval_cot(GenerationDataset):
     evaluation_set = "test"
     load_args = ("RUCAIBox/agieval",)
     metrics = [Em()]
+    categorized_subsets = {
+        "Chinese": AGIEVAL_CHINESE_TASK,
+        "English": AGIEVAL_ENGLISH_TASK,
+        "Gaokao": AGIEVAL_GAOKAO_TASK
+    }
 
-    def __init__(self, args, model, subset_name: str):
+    def __init__(self, dataset_name, args, model, subset_name: str):
         self.task = subset_name
         self.shots = args.num_shots
         self.extra_model_args = dict(stop=["\n"]) if args.cot is None else dict()
-        super().__init__(args, model, subset_name)
+        super().__init__(dataset_name, args, model, subset_name)
 
     def format_instance(self, instance):
         WORDS = [_[0 if self.task in AGIEVAL_CHINESE_TASK else 1] for _ in AGIEVAL_WORDS]
@@ -42,13 +51,17 @@ class Agieval_cot(GenerationDataset):
         target = instance["label"]
         if self.task not in AGIEVAL_NO_LETTER_CHOICE:
             if self.shots == 0:
-                source = passage + WORDS[0] + instance["question"] + " " + WORDS[1] + self._choice_to_str(instance["options"]) + "\n"
+                source = passage + WORDS[0] + instance["question"] + " " + WORDS[1] + self._choice_to_str(
+                    instance["options"]
+                ) + "\n"
                 if self.args.cot is None:
                     source += WORDS[2].format(self._max_choice_letter(instance["options"]))
                 else:
                     source += WORDS[3].format(self._max_choice_letter(instance["options"]))
             else:
-                source = WORDS[6] + passage + " " + instance["question"] + "\n" + WORDS[7] + self._choice_to_str(instance["options"]) + "\n"
+                source = WORDS[6] + passage + " " + instance["question"] + "\n" + WORDS[7] + self._choice_to_str(
+                    instance["options"]
+                ) + "\n"
                 if self.args.cot is None:
                     source += WORDS[5]
                 else:
@@ -70,10 +83,7 @@ class Agieval_cot(GenerationDataset):
                     source += WORDS[4]
                     if instance["explanation"] is not None:
                         target = instance["explanation"] + "\n" + WORDS[5] + " " + instance["label"]
-        return dict(
-            source=source,
-            target=" " + target
-        )
+        return dict(source=source, target=" " + target)
 
     def post_processing(self, predictions):
         new_predictions = []
@@ -131,7 +141,7 @@ class Agieval_cot(GenerationDataset):
                 break
         return string
 
-    def remove_few_shot_prefix(self, string:str):
+    def remove_few_shot_prefix(self, string: str):
         prefix_list = ["The answer is therefore", "答案是"]
         for prefix in prefix_list:
             if string.startswith(prefix):
@@ -156,7 +166,7 @@ class Agieval_cot(GenerationDataset):
         else:
             return None
 
-    def try_parse_few_shot_pattern(self, string:str):
+    def try_parse_few_shot_pattern(self, string: str):
         if self.shots > 0 and self.args.cot is not None:
             string = self.extract_last_line(string)
         if self.task in AGIEVAL_ZH_CLOZE:

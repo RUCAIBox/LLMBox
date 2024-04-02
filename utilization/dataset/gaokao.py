@@ -1,12 +1,13 @@
 from logging import getLogger
 
-from .generation_dataset import GenerationDataset
-from .enum import GAOKAO_PROMPTS, GAOKAO_TASKS
 from ..metric import Gaokao_bench_metric
+from .enum import GAOKAO_CHINESE_TASKS_SCORE, GAOKAO_ENGLISH_TASKS_SCORE, GAOKAO_PROMPTS, GAOKAO_TASKS
+from .generation_dataset import GenerationDataset
 
 logger = getLogger(__name__)
 
 import re
+
 
 class Gaokao(GenerationDataset):
     """The dataset of GAOKAO-Bench.
@@ -28,21 +29,19 @@ class Gaokao(GenerationDataset):
     evaluation_set = "test"
     load_args = ("RUCAIBox/gaokao-bench",)
     metrics = [Gaokao_bench_metric()]
+    categorized_subsets = None  # weighted average score
 
-    def __init__(self, args, model, subset_name: str):
+    def __init__(self, dataset_name, args, model, subset_name: str):
         self.instruction = self.instruction.format(GAOKAO_PROMPTS[subset_name])
         self.task = subset_name
         self.extra_model_args = dict(temperature=0.3, max_tokens=4096)
         # According to https://github.com/OpenLMLab/GAOKAO-Bench/blob/main/Models/openai_gpt4.py
         # We use temperature=0.3 and max_tokens=4096
-        super().__init__(args, model, subset_name)
+        super().__init__(dataset_name, args, model, subset_name)
 
     def format_instance(self, instance):
         target = instance["answer"].__str__()
-        return dict(
-            source=instance["question"].strip(),
-            target=" " + target
-        )
+        return dict(source=instance["question"].strip(), target=" " + target)
 
     def post_processing(self, predictions):
         new_predictions = []

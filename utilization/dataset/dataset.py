@@ -1,6 +1,6 @@
 import json
 import typing
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 from copy import copy
 from logging import getLogger
 from pprint import pformat
@@ -11,8 +11,12 @@ import pandas as pd
 import torch
 import tqdm as tqdm_lib
 
-from .enum import GAOKAO_CHINESE_TASKS, GAOKAO_ENGLISH_TASKS
-from .enum import AGIEVAL_ENGLISH_TASK, AGIEVAL_CHINESE_TASK, AGIEVAL_GAOKAO_TASK
+from utilization.metric.utils import avg_metrics
+
+from .enum import (
+    AGIEVAL_CHINESE_TASK, AGIEVAL_ENGLISH_TASK, AGIEVAL_GAOKAO_TASK, GAOKAO_CHINESE_TASKS_SCORE,
+    GAOKAO_ENGLISH_TASKS_SCORE, GAOKAO_TASKS, GAOKAO_TASKS_SCORE
+)
 from .icl_strategies import ape, global_entropy_ordering_strategy, knn_construct_examples
 from .utils import get_raw_dataset_loader
 
@@ -80,8 +84,10 @@ class Dataset(torch.utils.data.Dataset):
     category_column: Optional[str] = None
     """The column name of the categories, e.g., winogender. Used to calculate the metric for each category."""
 
-    category_subsets: Optional[Dict[str, List[str]]] = None
+    categorized_subsets: Optional[Dict[str, List[str]]] = None
     """The subsets of each category, e.g., mmlu. Used to calculate the metric for each category."""
+
+    average_method: Literal["macro", "micro", "weighted"] = "macro"
 
     _repr = [
         "name",
@@ -92,11 +98,13 @@ class Dataset(torch.utils.data.Dataset):
         "model_evaluation_method",
         "evaluation_set",
         "example_set",
+        "real_num_shots",
+        "real_example_tokens",
         "load_args",
         "extra_model_args",
     ]
 
-    def __init__(self, args: "DatasetArguments", model: "Model", subset_name: Optional[str] = None):
+    def __init__(self, dataset_name: str, args: "DatasetArguments", model: "Model", subset_name: Optional[str] = None):
         r"""This should be called by the subclass.
 
         Args:
@@ -106,15 +114,17 @@ class Dataset(torch.utils.data.Dataset):
         """
         super().__init__()
         self.args = args
-        self.name = args.dataset_name
+        self.name = dataset_name
         self.subset_name = subset_name
         self.model = model
         self.tokenizer = model.tokenizer
 
         self._post_init_arguments()
 
-        self.num_shots = args.num_shots
+        self.max_num_shots = args.num_shots
         self.max_example_tokens = args.max_example_tokens
+        self.real_num_shots = None  # the real number of shots. It is set after constructing examples
+        self.real_example_tokens = None
         self.examples = ""
         self.kate = args.kate
         self.globale = args.globale
@@ -128,27 +138,27 @@ class Dataset(torch.utils.data.Dataset):
             example_set=args.example_set or self.example_set,
         )
 
-        if self.num_shots:
+        if self.max_num_shots:
             if self.ape or self.kate or self.globale:
                 self.formatted_example_data = [
                     self._format_instance(data, format_example=True) for data in self.example_data
                 ]
-            if len(self.example_data) < self.num_shots:
+            if len(self.example_data) < self.max_num_shots:
                 logger.warning(
-                    f"The example data only has {len(self.example_data)} instances, but the few-shot number is set to {self.num_shots}. Setting the few-shot number to {len(self.example_data)}."
+                    f"The example data only has {len(self.example_data)} instances, but the few-shot number is set to {self.max_num_shots}. Setting the few-shot number to {len(self.example_data)}."
                 )
-                self.num_shots = len(self.example_data)
-            if len(self.example_data) == self.num_shots:
+                self.max_num_shots = len(self.example_data)
+            if len(self.example_data) == self.max_num_shots:
                 self.random_indice = list(range(len(self.example_data)))
             else:
-                self.random_indice = np.random.choice(len(self.example_data), self.num_shots, replace=False)
+                self.random_indice = np.random.choice(len(self.example_data), self.max_num_shots, replace=False)
         self.formatted_evaluation_data = [self._format_instance(data) for data in self.evaluation_data]
         self.construct_instances()
         logger.debug(self)
 
     def _post_init_arguments(self):
 
-        extra_model_args = copy(self.extra_model_args)
+        self._extra_model_args = copy(self.extra_model_args)
 
         # sample num
         if self.args.sample_num > 1 and self.model_evaluation_method in {"get_ppl", "get_prob"}:
@@ -158,8 +168,8 @@ class Dataset(torch.utils.data.Dataset):
             )
 
         # temperature
-        if "temperature" in self.extra_model_args and self.model.args.temperature is None:
-            self.model.args.temperature = self.extra_model_args["temperature"]
+        if "temperature" in self._extra_model_args and self.model.args.temperature is None:
+            self.model.args.temperature = self._extra_model_args["temperature"]
         if self.args.sample_num > 1 and self.model_evaluation_method == "generation" and self.model.args.temperature == 0:
             self.model.args.temperature = 1
             logger.warning(
@@ -181,17 +191,24 @@ class Dataset(torch.utils.data.Dataset):
         else:
             cmd_stop = []
         if len(cmd_stop) > 0:
-            extra_model_args["stop"] = extra_model_args.get("stop", []) + cmd_stop
+            self._extra_model_args["stop"] = self._extra_model_args.get("stop", []) + cmd_stop
+
+        logger.info(self.args)
+
+    def _before_iter_init(self):
+        """Call this function manuanlly before iterating the dataset, or wrap Dataset with a DatasetCollection."""
+        if getattr(self, "is_iter_initialized", False):
+            return
+        self.is_iter_initialized = True
 
         if self.model_evaluation_method == "get_ppl":
-            self.model.set_ppl_args(**extra_model_args)
+            self.model.set_ppl_args(**self._extra_model_args)
         elif self.model_evaluation_method == "generation":
-            self.model.set_generation_args(**extra_model_args)
+            self.model.set_generation_args(**self._extra_model_args)
         elif self.model_evaluation_method == "get_prob":
-            self.model.set_prob_args(**extra_model_args)
+            self.model.set_prob_args(**self._extra_model_args)
 
-        logger.info(self.model.args)
-        logger.info(self.args)
+        logger.info(self)
 
     @property
     def model_evaluation_method(self) -> Literal['get_ppl', 'get_prob', 'generation', 'user_defined']:
@@ -286,7 +303,7 @@ class Dataset(torch.utils.data.Dataset):
         )
 
         self.evaluation_data = list(load_fn(evaluation_set))
-        if self.num_shots:
+        if self.max_num_shots:
             self.example_data = list(load_fn(example_set)) if example_set else []
 
         logger.info(f"Evaluation data with {len(self.evaluation_data)} instances")
@@ -296,6 +313,7 @@ class Dataset(torch.utils.data.Dataset):
         return len(self.evaluation_instances)
 
     def __getitem__(self, idx):
+        self._before_iter_init()
         return self.evaluation_instances[idx]
 
     @property
@@ -344,6 +362,7 @@ class Dataset(torch.utils.data.Dataset):
         elif self.model_evaluation_method == "generation":
             for formatted_instance in self.formatted_evaluation_data:
                 self.evaluation_instances.append(self.format_instruction_and_examples(formatted_instance))
+                self.option_nums.append(1)
             logger.info("Evaluation mode: generation based on the source text")
             logger.info("Formatted example (source)\n" + self.evaluation_instances[0])
             if len(self.evaluation_instances) > 1:
@@ -473,11 +492,13 @@ class Dataset(torch.utils.data.Dataset):
         Returns:
             str: The constructed demonstration text.
         """
-        if self.num_shots == 0:
+        if self.max_num_shots == 0:
+            self.real_num_shots = 0
+            self.real_example_tokens = 0
             return ""
         elif len(self.example_data) == 0:
             raise ValueError(
-                f"Receive num_shots={self.num_shots}, but cannot construct examples for dataset {self.name} without example data."
+                f"Receive num_shots={self.max_num_shots}, but cannot construct examples for dataset {self.name} without example data."
             )
 
         if self.kate is True:
@@ -488,7 +509,7 @@ class Dataset(torch.utils.data.Dataset):
 
             # select demonstrations based on knn algorithm
             # TODO: Bugs in kate, order, filter
-            indice = knn_construct_examples(instance_source, self.formatted_example_data, self.num_shots)
+            indice = knn_construct_examples(instance_source, self.formatted_example_data, self.max_num_shots)
         else:
             indice = self.random_indice
 
@@ -500,6 +521,7 @@ class Dataset(torch.utils.data.Dataset):
         # construct few-shot examples
         example_text = ""
         example_token_nums = 0
+        self.real_num_shots = 0
         for index in indice:
             if hasattr(self, "formatted_example_data"):
                 example = self.formatted_example_data[index]
@@ -510,7 +532,9 @@ class Dataset(torch.utils.data.Dataset):
             if cur_token_num + example_token_nums <= self.max_example_tokens:
                 example_text += cur_example_text
                 example_token_nums += cur_token_num
+                self.real_num_shots += 1
 
+        self.real_example_tokens = example_token_nums
         return example_text
 
     def calculate_metric(self, predictions) -> Tuple[Dict[str, Dict[str, float]], Dict[str, List[float]]]:
@@ -520,8 +544,8 @@ class Dataset(torch.utils.data.Dataset):
             predictions (List[Union[int, str]]): The predicted answers.
 
         Returns:
-            Dict[str, Dict[str, float]]: The metric results in the format `{"Dataset Name": {"Metric": Score}}`.
-            Dict[str, List[float]]: The score lists.
+            Dict[str, Dict[str, float]]: The metric results in the format `{"Dataset": {"Metric": Score}}` or `{"Dataset:Subset": {"Metric": Score}}`.
+            Dict[str, List[float]]: The score lists. This is useful for logging result for each instance.
         """
 
         def _calculate_metric(predictions, references):
@@ -538,9 +562,12 @@ class Dataset(torch.utils.data.Dataset):
         subject_results = {}
         if self.category_column is not None:
             subject_results = pd.DataFrame({
-                "predictions": predictions,
-                "references": self.references,
-                "subject": map(lambda i: f"{self.name}[{i[self.category_column]}]", self.evaluation_data),
+                "predictions":
+                predictions,
+                "references":
+                self.references,
+                "subject":
+                map(lambda i: f"{self.name}[{i[self.category_column]}]", self.evaluation_data),
             }).groupby("subject").apply(lambda df: _calculate_metric(df["predictions"], df["references"])).to_dict()
 
         metric_results = OrderedDict(**subject_results)
@@ -749,7 +776,8 @@ class Dataset(torch.utils.data.Dataset):
 
     def __repr__(self):
         reprs = [f"{p}={getattr(self, p)!r}" for p in self._repr]
-        reprs.append(f"len={len(self)}")
+        reprs.append(f"len={self.len()}")
+        reprs.append(f"num_instances={self.len(sample_num=False, option_num=False, normalization=False)}")
         return "Dataset(" + ", ".join(reprs) + ")"
 
 
@@ -757,25 +785,41 @@ class DatasetCollection(torch.utils.data.Dataset):
 
     def __init__(self, datasets: Dict[str, Dataset]):
         super().__init__()
-        self.subset_names = list(datasets.keys())
+        self.dataset_names = list(datasets.keys())
         self._datasets = list(datasets.values())
+        self._datasets_mapping = datasets
         self._cur_idx = 0
         self.args = self._datasets[0].args
         self._repr = copy(self._datasets[0]._repr)
-        self.categorized_subsets = self._datasets[0].category_subsets
+        self.categorized_subsets = {}
+        for d in self._datasets:
+            if d.categorized_subsets:
+                self.categorized_subsets[d.name] = d.categorized_subsets
         for idx, prop in enumerate(self._repr):
             if prop == "subset_name":
-                self._repr[idx] = "subset_names"
+                self._repr[idx] = "dataset_names"
                 break
 
     @property
     def name(self) -> str:
-        return self._datasets[0].name
+        return self._datasets[self._cur_idx].name
 
     @property
     def option_nums(self) -> List[int]:
         """If `model_evaluation_method` is "get_ppl", this returns the total number of options across all evaluation examples. Otherwise, this returns an empty list."""
         return sum([d.option_nums for d in self._datasets], [])
+
+    @property
+    def strides(self) -> List[int]:
+        """If `model_evaluation_method` is "get_ppl", this returns the total number of options across all evaluation examples. Otherwise, this returns an empty list."""
+        option_nums = []
+        for d in self._datasets:
+            if d.use_normalization:
+                o = [i * 2 for i in d.option_nums]
+            else:
+                o = d.option_nums
+            option_nums.extend(o)
+        return option_nums
 
     def len(self, sample_num: bool = True, option_num: bool = True, normalization: bool = True) -> int:
         return sum(d.len(sample_num, option_num, normalization) for d in self._datasets)
@@ -804,6 +848,8 @@ class DatasetCollection(torch.utils.data.Dataset):
                 yield obj[st:st + dlen]
                 st += dlen
         elif isinstance(obj, dict):
+            print(obj.items())
+            print(self.len(sample_num, option_num, normalization))
             assert all(len(v) == self.len(sample_num, option_num, normalization) for v in obj.values())
             for d in self._datasets:
                 dlen = d.len(sample_num, option_num, normalization)
@@ -814,21 +860,20 @@ class DatasetCollection(torch.utils.data.Dataset):
         self,
         raw_predictions: List[str],
         processed_predictions: Optional[List[Union[str, float]]] = None,
-        score_lists: Optional[Dict[str, List[float]]] = None,
+        score_lists: Optional[List[Dict[str, List[float]]]] = None,
         file: Optional[str] = None
     ):
         lines = []
         raw = self._split_by_subset(raw_predictions, strict=processed_predictions is not None)
         processed = self._split_by_subset(processed_predictions, option_num=False, normalization=False)
-        score = self._split_by_subset(score_lists, sample_num=False, option_num=False, normalization=False)
 
         if processed_predictions is None:
-            for d, r, p, s in zip(self._datasets, raw, processed, score):
-                results = d.log_predictions(r, p, s, file, True)
+            for d, r in zip(self._datasets, raw):
+                results = d.log_predictions(r, None, None, file, True)
                 if results is not None:
                     return
         else:
-            for d, r, p, s in zip(self._datasets, raw, processed, score):
+            for d, r, p, s in zip(self._datasets, raw, processed, score_lists):
 
                 def set_subset(l):
                     l["subset"] = d.subset_name
@@ -861,90 +906,49 @@ class DatasetCollection(torch.utils.data.Dataset):
     def __getattr__(self, attr):
         return getattr(self._datasets[self._cur_idx], attr)
 
-    def calculate_metric(self, predictions) -> Tuple[Dict[str, Dict[str, float]], Dict[str, List[float]]]:
+    def calculate_metric(self, predictions) -> Tuple[Dict[str, Dict[str, float]], List[Dict[str, List[float]]]]:
         results = OrderedDict()
-        score_lists = dict()
+        score_lists = []
         splitted = self._split_by_subset(predictions, option_num=False, normalization=False)
-        for d, p in zip(self._datasets, splitted):
+        grouped_dataset_names = defaultdict(list)  # group by dataset
+        for n, d, p in zip(self.dataset_names, self._datasets, splitted):
             subset_results, score_list = d.calculate_metric(p)
             results.update(subset_results)
-            for k, v in score_list.items():
-                score_lists.setdefault(k, []).extend(v)
+            score_lists.append(score_list)
+            grouped_dataset_names[d.name].append(n)
 
-        metric_entries = results[f"{self.name}:{self.subset_names[0]}"].keys()
+        # calculate the mean of each category
+        for name, dataset_names in grouped_dataset_names.items():
+            if self.categorized_subsets.get(name, None):
+                for cat, cat_subsets in self.categorized_subsets[name].items():
+                    c = set(f"{name}:{s}" for s in cat_subsets)
+                    if len(c.intersection(set(dataset_names))) != len(c):
+                        # skip if not all subsets of a category are available
+                        continue
+                    fstr = f"{name}[{cat.capitalize().replace('_', '')} Macro Average]"
+                    results[fstr] = avg_metrics([results[n] for n in c])
 
-        # append subcategories results if available
-        if self.categorized_subsets and len(self.subset_names) == sum(len(s) for s in self.categorized_subsets.values()):
-            for cat, cat_subjects in self.categorized_subsets.items():
-                cat_results = [results[f"{self.name}:{subject}"] for subject in cat_subjects]
-                results[f"{self.name}[{cat}]"] = {m: np.mean([r[m] for r in cat_results]) for m in metric_entries}
+            if name == "gaokao":
+                r, f = zip(*[(results[name + ":" + n], f) for n, f in GAOKAO_CHINESE_TASKS_SCORE.items()])
+                results[name + "[Chinese Weighted Average]"] = avg_metrics(r, f, average_method="weighted")
+                r, f = zip(*[(results[name + ":" + n], f) for n, f in GAOKAO_ENGLISH_TASKS_SCORE.items()])
+                results[name + "[English Weighted Average]"] = avg_metrics(r, f, average_method="weighted")
+                r, f = zip(*[(results[name + ":" + n], f) for n, f in GAOKAO_TASKS_SCORE.items()])
+                results[name + "[Weighted Average]"] = avg_metrics(r, f, average_method="weighted")
 
-        if self.name == "gaokao":
-            results[self.name + "[Chinese Mean]"] = {
-                m: np.sum([
-                    r[m] * GAOKAO_CHINESE_TASKS[k[7:]] for k, r in results.items() if k[7:] in GAOKAO_CHINESE_TASKS
-                ]) / GAOKAO_CHINESE_TASKS["all"]
-                for m in metric_entries
-            }
-            results[self.name + "[English Mean]"] = {
-                m: np.sum([
-                    r[m] * GAOKAO_ENGLISH_TASKS[k[7:]] for k, r in results.items() if k[7:] in GAOKAO_ENGLISH_TASKS
-                ]) / GAOKAO_ENGLISH_TASKS["all"]
-                for m in metric_entries
-            }
-
-        if self.name == "agieval":
-            results[self.name + "[Chinese Mean]"] = {
-                m: np.average([
-                    r[m] for k, r in results.items() if k[8:] in AGIEVAL_CHINESE_TASK
-                ])
-                for m in metric_entries
-            }
-            results[self.name + "[English Mean]"] = {
-                m: np.average([
-                    r[m] for k, r in results.items() if k[8:] in AGIEVAL_ENGLISH_TASK
-                ])
-                for m in metric_entries
-            }
-            results[self.name + "[Gaokao Mean]"] = {
-                m: np.average([
-                    r[m] for k, r in results.items() if k[8:] in AGIEVAL_GAOKAO_TASK
-                ])
-                for m in metric_entries
-            }
-
-        if self.name == "agieval_single_choice":
-            results[self.name + "[Chinese Mean]"] = {
-                m: np.average([
-                    r[m] for k, r in results.items() if k[22:] in AGIEVAL_CHINESE_TASK
-                ])
-                for m in metric_entries
-            }
-            results[self.name + "[English Mean]"] = {
-                m: np.average([
-                    r[m] for k, r in results.items() if k[22:] in AGIEVAL_ENGLISH_TASK
-                ])
-                for m in metric_entries
-            }
-            results[self.name + "[Gaokao Mean]"] = {
-                m: np.average([
-                    r[m] for k, r in results.items() if k[22:] in AGIEVAL_GAOKAO_TASK
-                ])
-                for m in metric_entries
-            }
-
-        results[self.name + "[Arithmetic Mean]"] = {
-            m: np.mean([r[m] for k, r in results.items() if ":" in k])
-            for m in metric_entries
-        }
+            results[name + "[Marco Average]"] = avg_metrics([r for k, r in results.items() if k.startswith(name + ":")])
 
         return results, score_lists
 
+    def get_batch_sampler(self):
+        pass
+
     def update_tqdm(self, tqdm):
         if isinstance(tqdm, tqdm_lib.tqdm):
-            tqdm.set_description(self.name + ":" + self.subset_names[self._cur_idx])
+            tqdm.set_description(self.dataset_names[self._cur_idx])
 
     def __repr__(self):
         reprs = [f"{p}={getattr(self, p)!r}" for p in self._repr]
-        reprs.append(f"len={len(self)}")
+        reprs.append(f"len={self.len()}")
+        reprs.append(f"num_instances={self.len(sample_num=False, option_num=False, normalization=False)}")
         return "DatasetCollection(" + ", ".join(reprs) + ")"

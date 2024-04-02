@@ -5,7 +5,7 @@ from typing import Dict, Tuple
 from accelerate.utils import set_seed
 from torch.utils.data import DataLoader
 
-from .dataset import load_dataset
+from .dataset import load_datasets
 from .model import load_model
 from .utils import DatasetArguments, EvaluationArguments, ModelArguments, catch_error, dynamic_stride_tqdm
 
@@ -41,7 +41,7 @@ class Evaluator:
                 logger.info(
                     "Setting batch_size to -1, since vllm can automatically planning the optimal batch and order."
                 )
-        self.dataset = load_dataset(self.dataset_args, self.model)
+        self.dataset = load_datasets(self.dataset_args, self.model)
         if self.dataset.model_evaluation_method == "get_prob":
             self.model.constant_option_num = all(n == self.dataset.option_nums[0] for n in self.dataset.option_nums)
 
@@ -61,6 +61,7 @@ class Evaluator:
             collate_fn=lambda x: x,
             shuffle=False,
             pin_memory=True,
+            batch_sampler=self.dataset.get_batch_sampler(),
         )
 
         if self.evaluation_args.dry_run:
@@ -68,34 +69,22 @@ class Evaluator:
             self.model.generation = lambda x: [""] * len(x)
             self.model.get_prob = lambda x: [[1 / p[1]] * p[1] for p in x]
 
-        if self.dataset.model_evaluation_method == 'get_ppl':
-            call_model = self.model.get_ppl
-        elif self.dataset.model_evaluation_method == 'generation':
-            call_model = self.model.generation
-        elif self.dataset.model_evaluation_method == 'get_prob':
-            call_model = self.model.get_prob
-        elif self.dataset.model_evaluation_method == "user_defined":
-            call_model = self.dataset.evaluation
-
         # use tqdm for non-vllm models
         if self.dataset_args.batch_size != -1:
-            tqdm_kwargs = dict(iterable=dataloader, desc=self.dataset.name, dynamic_ncols=True, unit=" examples")
-            if self.dataset.model_evaluation_method == "get_ppl":
-                # dataloader is often sacled by batch size and option nums, comparing to evaluation data
-                stride_scale = self.dataset_args.batch_size
-                if self.dataset.use_normalization:
-                    stride_scale /= 2
-                dataloader = dynamic_stride_tqdm(
-                    strides=self.dataset.option_nums, stride_scale=stride_scale, **tqdm_kwargs
-                )
-            else:
-                stride_scale = self.dataset_args.batch_size
-                dataloader = dynamic_stride_tqdm(stride_scale=self.dataset_args.batch_size, total=self.dataset.len(option_num=False), **tqdm_kwargs)
+            # dataloader is often sacled by batch size and option nums, comparing to evaluation data
+            dataloader = dynamic_stride_tqdm(
+                dataloader,
+                strides=self.dataset.strides,
+                stride_scale=self.dataset_args.batch_size,
+                desc=self.dataset.name,
+                dynamic_ncols=True,
+                unit=" examples",
+            )
 
         # call model
         raw_predictions = []
         for batch in dataloader:
-            raw_predictions.extend(call_model(batch))
+            raw_predictions.extend(getattr(self.model, self.dataset.model_evaluation_method)(batch))
             self.dataset.log_predictions(raw_predictions)
             self.dataset.update_tqdm(dataloader)
 

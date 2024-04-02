@@ -11,7 +11,7 @@ import openai
 from transformers import BitsAndBytesConfig
 from transformers.hf_argparser import HfArg, HfArgumentParser
 
-from ..model.enum import ANTHROPIC_MODELS, OPENAI_CHAT_MODELS, OPENAI_MODELS, DASHSCOPE_MODELS, QIANFAN_MODELS
+from ..model.enum import ANTHROPIC_MODELS, DASHSCOPE_MODELS, OPENAI_CHAT_MODELS, OPENAI_MODELS, QIANFAN_MODELS
 from .logging import log_levels, set_logging
 
 logger = getLogger(__name__)
@@ -258,14 +258,14 @@ class ModelArguments:
 
 @dataclass
 class DatasetArguments:
-    dataset_name: str = HfArg(
+    dataset_names: List[str] = HfArg(
         default=MISSING,
         aliases=["-d", "--dataset"],
         help="The name of a dataset or the name(s) of a/several subset(s) in a dataset. Format: 'dataset'"
         " or 'dataset:subset(s)', e.g., copa, race, race:high, or wmt16:en-ro,en-fr",
     )
     subset_names: ClassVar[Set[str]] = set()
-    """The name(s) of a/several subset(s) in a dataset, derived from `dataset_name` argument on initalization"""
+    """The name(s) of a/several subset(s) in a dataset, derived from `dataset_names` argument on initalization"""
     dataset_path: Optional[str] = HfArg(
         default=None,
         help="The path of dataset if loading from local. Supports repository cloned from huggingface, "
@@ -357,9 +357,12 @@ class DatasetArguments:
             self.ranking_type = "ppl_no_option"
 
     def __post_init__(self):
-        if ":" in self.dataset_name:
-            self.dataset_name, subset_names = self.dataset_name.split(":")
-            self.subset_names = set(subset_names.split(","))
+        for d in self.dataset_names:
+            if ":" in d:
+                if len(self.dataset_names) > 1:
+                    raise ValueError("Only one dataset can be specified when using subset names.")
+                self.dataset_names[0], subset_names = d.split(":")
+                self.subset_names = set(subset_names.split(","))
 
         # argparse encodes string with unicode_escape, decode it to normal string, e.g., "\\n" -> "\n"
         self.instance_format = self.instance_format.encode('utf-8').decode('unicode_escape')
@@ -430,7 +433,7 @@ def check_args(model_args: ModelArguments, dataset_args: DatasetArguments, evalu
             f"Qianfan model {model_args.model_name_or_path} doesn't support batch_size > 1, automatically set batch_size to 1."
         )
 
-    if dataset_args.dataset_name == "vicuna_bench" and model_args.openai_api_key is None:
+    if "vicuna_bench" in dataset_args.dataset_names and model_args.openai_api_key is None:
         raise ValueError(
             "OpenAI API key is required for GPTEval metrics. Please set it by passing a `--openai_api_key` or through environment variable `OPENAI_API_KEY`."
         )

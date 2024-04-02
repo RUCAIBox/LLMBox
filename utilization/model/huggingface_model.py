@@ -243,10 +243,12 @@ class HuggingFaceModel(Model):
             "no_repeat_ngram_size",
             "stop",
         ]:
-            # ModelArguments > extra_model_args
-            value = getattr(self.args, key, None)
-            if value is None:
+            # ModelArguments (cmd) > extra_model_args > ModelArguments (default)
+            if not self.args.passed_in_commandline(key):
                 value = extra_model_args.pop(key, None)
+            if value is None:
+                value = getattr(self.args, key, None)
+
             if key == "max_tokens" and value is None:
                 value = 1024
             if value is not None:

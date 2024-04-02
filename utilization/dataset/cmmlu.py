@@ -1,8 +1,8 @@
 from logging import getLogger
 from typing import List, Tuple
 
-from .multiple_choice_dataset import MultipleChoiceDataset
 from .enum import CMMLU_NAME_TRANS
+from .multiple_choice_dataset import MultipleChoiceDataset
 
 logger = getLogger(__name__)
 
@@ -26,13 +26,13 @@ class Cmmlu(MultipleChoiceDataset):
     example_set = "dev"
     load_args = ("haonan-li/cmmlu",)
 
-    def __init__(self, args, model, subset_name: str):
+    def __init__(self, dataset_name, args, model, subset_name: str):
         self.instruction = self.instruction.format(CMMLU_NAME_TRANS[subset_name])
         if args.ranking_type.startswith("ppl"):  # ppl or ppl_no_option
             self.source_prefix = "题目："
         elif args.ranking_type == "prob":
             self.source_prefix = ""
-        super().__init__(args, model, subset_name)
+        super().__init__(dataset_name, args, model, subset_name)
 
     def format_instance(self, instance):
         options = list(map(lambda op: " " + op, [instance[chr(ord('A') + _)] for _ in range(4)]))

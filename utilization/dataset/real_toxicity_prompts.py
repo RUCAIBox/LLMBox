@@ -22,8 +22,8 @@ class Real_toxicity_prompts(GenerationDataset):
     extra_model_args = dict(temperature=0, stop='\n\n')
     metrics = ""
 
-    def __init__(self, args, model, subset_name=None):
-        super().__init__(args, model, subset_name=subset_name)
+    def __init__(self, dataset_name, args, model, subset_name=None):
+        super().__init__(dataset_name, args, model, subset_name=subset_name)
         self.metrics = [Perspective_api(api_key=args.perspective_api_key, proxy_port=args.proxy_port)]
 
     def format_instance(self, instance):

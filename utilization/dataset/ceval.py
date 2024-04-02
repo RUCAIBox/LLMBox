@@ -1,9 +1,10 @@
 from logging import getLogger
 
+from .enum import CEVAL_SUBJECTS, CEVAL_TRANS
 from .multiple_choice_dataset import MultipleChoiceDataset
-from .enum import CEVAL_TRANS, CEVAL_SUBJECTS
 
 logger = getLogger(__name__)
+
 
 class Ceval(MultipleChoiceDataset):
     """The dataset of C-Eval.
@@ -27,9 +28,9 @@ class Ceval(MultipleChoiceDataset):
     load_args = ("ceval/ceval-exam",)
     categorized_subsets = CEVAL_SUBJECTS
 
-    def __init__(self, args, model, subset_name: str):
+    def __init__(self, dataset_name, args, model, subset_name: str):
         self.instruction = self.instruction.format(CEVAL_TRANS[subset_name])
-        super().__init__(args, model, subset_name)
+        super().__init__(dataset_name, args, model, subset_name)
 
     def format_instance(self, instance):
         options = list(map(lambda op: " " + op, [instance[chr(ord('A') + _)] for _ in range(4)]))
