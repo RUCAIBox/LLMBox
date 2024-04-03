@@ -442,7 +442,7 @@ class Dataset(torch.utils.data.Dataset):
         if self.examples == "" or self.kate or self.globale:
             self.examples = self.construct_examples(instance)
 
-        if self.model.type not in ["base", "instruction"]:
+        if self.model.type not in ["base", "instruction", "chat"]:
             raise ValueError(
                 f"Invalid model type: {self.model.type}. Please use `--model_type` to specify the"
                 " model type, which can be chosen from `base` and `instruction`."
