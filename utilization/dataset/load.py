@@ -152,7 +152,7 @@ def load_dataset(dataset_name: str,
         if len(subset_names) > 1 and accepts_subset(dataset_cls.load_args, overwrite_subset=len(cmd_subset_names) > 0):
             # race:middle,high (several subsets) , super_glue (all the subsets)
             logger.debug(f"Loading subsets of dataset `{dataset_name}`: " + ", ".join(subset_names))
-            if threading and len(subset_names) >= 2:
+            if threading and len(subset_names) > 2:
                 first_dataset = subset_names.pop()
                 first_dataset = (
                     dataset_name + ":" + first_dataset, dataset_cls(dataset_name, args, model, first_dataset)
@@ -191,10 +191,10 @@ def load_dataset(dataset_name: str,
             yield {dataset_name: dataset_cls(dataset_name, args, model)}
 
 
-def load_datasets(args: "DatasetArguments", model: "Model", threading: bool = True) -> DatasetCollection:
+def load_datasets(args: "DatasetArguments", model: "Model") -> DatasetCollection:
     datasets = []
     for d in args.dataset_names:
-        datasets.extend(load_dataset(d, args, model, threading))
+        datasets.extend(load_dataset(d, args, model, args.dataset_threading))
     datasets = {k: v for d in datasets for k, v in d.items()}
     dataset_collection = DatasetCollection(datasets)
     logger.info(f"Evaluation datasets: {dataset_collection}")

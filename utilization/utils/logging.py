@@ -6,6 +6,8 @@ from typing import TYPE_CHECKING, List, Optional, Set
 
 import coloredlogs
 
+from ..dataset.enum import DATASET_ALIASES
+
 if TYPE_CHECKING:
     # solve the circular import
     from .arguments import DatasetArguments, EvaluationArguments, ModelArguments
@@ -26,6 +28,16 @@ log_levels = {
     "error": logging.ERROR,
     "critical": logging.CRITICAL,
 }
+
+BUILTIN_DATASET = {"__init__", "enum", "dataset", "utils", "multiple_choice_dataset", "generation_dataset", "load"}
+
+
+def list_datasets() -> List[str]:
+    results = os.listdir(os.path.join(os.path.dirname(__file__), "../dataset"))
+    results = [f[:-3] for f in results if f.endswith(".py")]
+    results = [f for f in results if f not in BUILTIN_DATASET]
+    results.extend(DATASET_ALIASES.keys())
+    return sorted(results)
 
 
 def get_git_revision(base_path) -> str:

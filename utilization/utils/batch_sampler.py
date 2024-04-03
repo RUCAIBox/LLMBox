@@ -18,7 +18,7 @@ def info_dataset_group(dataset_group: List["Dataset"], group_length: int):
         instances += d.len(False, False, False)
         logger.debug(d)
     logger.info(
-        f"{d.model_evaluation_method} on {d.name}{subset_names} (model_args={d._extra_model_args}, len={group_length}, num_instances={instances})"
+        f"Evaluating {d.model_evaluation_method} on {d.name}{subset_names} (model_args={d._extra_model_args}, len={group_length}, num_instances={instances})"
     )
 
 
