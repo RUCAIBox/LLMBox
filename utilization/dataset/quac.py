@@ -81,16 +81,16 @@ class Quac(GenerationDataset):
         Returns:
             str: The constructed demonstration text.
         """
-        if self.num_shots == 0:
+        if self.max_num_shots == 0:
             return ""
         elif len(self.example_data) == 0:
             raise ValueError(
-                f"Receive num_shots={self.num_shots}, but cannot construct examples for dataset {self.name} without example data."
+                f"Receive num_shots={self.max_num_shots}, but cannot construct examples for dataset {self.name} without example data."
             )
 
         example_text = ""
         example_token_nums = 0
-        randoms_indices = np.random.choice(len(self.example_data), self.num_shots)
+        randoms_indices = np.random.choice(len(self.example_data), self.max_num_shots)
         for index in randoms_indices:
             instance = self.example_data[index]
             source_text = "TITLE: " + instance["section_title"] + "\n\nPARAGRAPH: " + instance["background"]

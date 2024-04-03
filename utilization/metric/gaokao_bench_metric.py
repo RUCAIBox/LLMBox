@@ -1,8 +1,9 @@
-from typing import List
+from typing import Any, Dict, Iterable, List, Tuple
 
 import numpy as np
 
 from .metric import Metric
+
 
 def multi_ref_aggregation(scores, multiref_strategy):
     if len(scores) > 1 and multiref_strategy == "leave_one_out":
@@ -10,6 +11,7 @@ def multi_ref_aggregation(scores, multiref_strategy):
     else:
         func = max
     return func(scores)
+
 
 class Gaokao_bench_metric(Metric):
     r""" Calculate the Gaokao-Bench score.
@@ -22,19 +24,19 @@ class Gaokao_bench_metric(Metric):
         self.multiref_strategy = multiref_strategy
 
     @staticmethod
-    def _calculate_score(reference, prediction):
+    def _calculate_score(prediction, reference):
         answer = list(prediction)
         refs = reference["answer"]
         task = reference["task"]
         score = reference["score"]
         if len(answer) == 0:
             return 0
-        if task == "multi_question_choice" or task == "five_out_of_seven":
+        if task == "multi_mcqs" or task == "seven_option":
             total_score = 0
             for idx in range(len(answer)):
                 total_score += score if answer[idx] == refs[idx] else 0
             return total_score
-        elif task == "single_choice":
+        elif task == "single_answer_mcq":
             return score if answer[0] == refs[0] else 0
         else:
             target = [_ for _ in refs[0]]
@@ -52,7 +54,7 @@ class Gaokao_bench_metric(Metric):
         total_score = 0
         for prediction, reference in zip(predictions, references):
             total_score += reference[0]["score"] * len(reference[0]["answer"])
-            scores = [self._calculate_score(ref, prediction) for ref in reference]
+            scores = [self._calculate_score(prediction, ref) for ref in reference]
             score_list.append(multi_ref_aggregation(scores, self.multiref_strategy))
         self._last_score_lists = {'Scoring rate': score_list}
         return {'Scoring rate': np.sum(score_list) / total_score * 100}

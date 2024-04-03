@@ -1,6 +1,8 @@
+import argparse
 import json
 import os
 import sys
+import textwrap
 from builtins import bool
 from copy import copy
 from dataclasses import MISSING, dataclass
@@ -11,8 +13,8 @@ import openai
 from transformers import BitsAndBytesConfig
 from transformers.hf_argparser import HfArg, HfArgumentParser
 
-from ..model.enum import ANTHROPIC_MODELS, OPENAI_CHAT_MODELS, OPENAI_MODELS, DASHSCOPE_MODELS, QIANFAN_MODELS
-from .logging import log_levels, set_logging
+from ..model.enum import ANTHROPIC_MODELS, DASHSCOPE_MODELS, OPENAI_CHAT_MODELS, OPENAI_MODELS, QIANFAN_MODELS
+from .logging import list_datasets, log_levels, set_logging
 
 logger = getLogger(__name__)
 
@@ -60,6 +62,7 @@ class ModelArguments:
         help="Whether to use vllm",
     )
     flash_attention: bool = HfArg(
+        aliases=["--flash_attn"],
         default=True,
         help="Whether to use flash attention",
     )
@@ -258,14 +261,16 @@ class ModelArguments:
 
 @dataclass
 class DatasetArguments:
-    dataset_name: str = HfArg(
+    dataset_names: List[str] = HfArg(
         default=MISSING,
         aliases=["-d", "--dataset"],
-        help="The name of a dataset or the name(s) of a/several subset(s) in a dataset. Format: 'dataset'"
-        " or 'dataset:subset(s)', e.g., copa, race, race:high, or wmt16:en-ro,en-fr",
+        help=
+        "Space splitted dataset names. If only one dataset is specified, it can be followed by subset names or category names. Format: 'dataset1 dataset2', 'dataset:subset1,subset2', or 'dataset:[cat1],[cat2]', e.g., copa, race, race:high, wmt16:en-ro,en-fr, or mmlu:[stem],[humanities]. Supported datasets: "
+        + ", ".join(list_datasets()),
+        metadata={"metavar": "DATASET"},
     )
     subset_names: ClassVar[Set[str]] = set()
-    """The name(s) of a/several subset(s) in a dataset, derived from `dataset_name` argument on initalization"""
+    """The name(s) of a/several subset(s) in a dataset, derived from `dataset_names` argument on initalization"""
     dataset_path: Optional[str] = HfArg(
         default=None,
         help="The path of dataset if loading from local. Supports repository cloned from huggingface, "
@@ -293,9 +298,9 @@ class DatasetArguments:
     )
 
     num_shots: int = HfArg(
-        aliases=["-shots"],
+        aliases=["-shots", "--max_num_shots"],
         default=0,
-        help="The few-shot number for demonstration",
+        help="The maximum few-shot number for demonstration",
     )
     ranking_type: Literal["ppl", "prob", "ppl_no_option"] = HfArg(
         default="ppl_no_option",
@@ -337,6 +342,7 @@ class DatasetArguments:
         default=None,
         help="The k value for pass@k metric",
     )
+    dataset_threading: bool = HfArg(default=True, help="Load dataset with threading")
 
     # set in `set_logging` with format "{evaluation_results_dir}/{log_filename}.json"
     evaluation_results_path: ClassVar[str] = None
@@ -357,9 +363,12 @@ class DatasetArguments:
             self.ranking_type = "ppl_no_option"
 
     def __post_init__(self):
-        if ":" in self.dataset_name:
-            self.dataset_name, subset_names = self.dataset_name.split(":")
-            self.subset_names = set(subset_names.split(","))
+        for d in self.dataset_names:
+            if ":" in d:
+                if len(self.dataset_names) > 1:
+                    raise ValueError("Only one dataset can be specified when using subset names.")
+                self.dataset_names[0], subset_names = d.split(":")
+                self.subset_names = set(subset_names.split(","))
 
         # argparse encodes string with unicode_escape, decode it to normal string, e.g., "\\n" -> "\n"
         self.instance_format = self.instance_format.encode('utf-8').decode('unicode_escape')
@@ -430,7 +439,7 @@ def check_args(model_args: ModelArguments, dataset_args: DatasetArguments, evalu
             f"Qianfan model {model_args.model_name_or_path} doesn't support batch_size > 1, automatically set batch_size to 1."
         )
 
-    if dataset_args.dataset_name == "vicuna_bench" and model_args.openai_api_key is None:
+    if "vicuna_bench" in dataset_args.dataset_names and model_args.openai_api_key is None:
         raise ValueError(
             "OpenAI API key is required for GPTEval metrics. Please set it by passing a `--openai_api_key` or through environment variable `OPENAI_API_KEY`."
         )
@@ -450,6 +459,20 @@ def check_args(model_args: ModelArguments, dataset_args: DatasetArguments, evalu
             setattr(model_args, arg, None)
 
 
+DESCRIPTION_STRING = r"""LLMBox is a comprehensive library for implementing LLMs, including a unified training pipeline and comprehensive model evaluation. LLMBox is designed to be a one-stop solution for training and utilizing LLMs. Through a pratical library design, we achieve a high-level of flexibility and efficiency in both training and utilization stages.
+GitHub: https://github.com/RUCAIBox/LLMBox"""
+
+EXAMPLE_STRING = r"""example:
+  Evaluating davinci-002 on HellaSwag:
+       python inference.py -m davinci-002 -d hellaswag
+  Evaluating Gemma on MMLU:
+       python inference.py -m gemma-7b -d mmlu -shots 5
+  Evaluating Phi-2 on GSM8k using self-consistency and 4-bit quantization:
+       python inference.py -m microsoft/phi-2 -d gsm8k -shots 8 --sample_num 100 --load_in_4bit
+
+"""
+
+
 def parse_argument(args=None) -> Tuple[ModelArguments, DatasetArguments, EvaluationArguments]:
     r"""Parse arguments from command line. Using `argparse` for predefined ones, and an easy mannal parser for others (saved in `kwargs`).
 
@@ -458,7 +481,12 @@ def parse_argument(args=None) -> Tuple[ModelArguments, DatasetArguments, Evaluat
     """
     if args is None:
         args = copy(sys.argv[1:])
-    parser = HfArgumentParser((ModelArguments, DatasetArguments, EvaluationArguments), description="LLMBox description")
+    parser = HfArgumentParser(
+        (ModelArguments, DatasetArguments, EvaluationArguments),
+        description=DESCRIPTION_STRING,
+        epilog=EXAMPLE_STRING,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     model_args, dataset_args, evaluation_args = parser.parse_args_into_dataclasses(args)
 
     if model_args.bnb_config:
