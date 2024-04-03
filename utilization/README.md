@@ -499,19 +499,19 @@ We currently support 53 commonly used datasets for LLMs. Each dataset may includ
   </tr>
   <tr>
       <td rowspan=4>mmlu</td>
-      <td><b>stem</b>: abstract_algebra, astronomy, ...</td>
+      <td><b>stem</b>: <code>abstract_algebra</code>, <code>astronomy</code>, ...</td>
       <td rowspan=4>MultipleChoice</td>
       <td rowspan=4>✅</td>
       <td rowspan=4></td>
   </tr>
   <tr>
-      <td><b>social_sciences</b>: econometrics, high_school_geography, ...</td>
+      <td><b>social_sciences</b>: <code>econometrics</code>, <code>high_school_geography</code>, ...</td>
   </tr>
   <tr>
-      <td><b>humanities</b>: formal_logic, high_school_european_history, ...</td>
+      <td><b>humanities</b>: <code>formal_logic</code>, <code>high_school_european_history</code>, ...</td>
   </tr>
   <tr>
-      <td><b>other</b>: anatomy, business_ethics, ...</td>
+      <td><b>other</b>: <code>anatomy</code>, <code>business_ethics</code>, ...</td>
   </tr>
   <tr>
       <td>mt_bench</td>
