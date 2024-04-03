@@ -24,7 +24,7 @@ Evaluating Gemma on MMLU:
 python inference.py -m gemma-7b -d mmlu -shots 5
 ```
 
-This will report the 53 subsets of MMLU, along with the macro average performance on four categories.
+This will report the 57 subsets of MMLU, along with the macro average performance on four categories.
 
 Evaluating Phi-2 on GSM8k using self-consistency and 4-bit quantization:
 
@@ -592,7 +592,7 @@ We currently support 53 commonly used datasets for LLMs. Each dataset may includ
   </tr>
   <tr>
       <td>story_cloze</td>
-      <td><code>2016</code> (default), 2018</td>
+      <td><code>2016</code> (default), <code>2018</code></td>
       <td>MultipleChoice</td>
       <td></td>
       <td><a href='http://goo.gl/forms/aQz39sdDrO'>Manually download</a></td>
@@ -648,7 +648,7 @@ We currently support 53 commonly used datasets for LLMs. Each dataset may includ
   </tr>
   <tr>
       <td>winograd</td>
-      <td><code>wsc273</code> (default), ...</td>
+      <td><code>wsc273</code> (default), <code>wsc285</code></td>
       <td>MultipleChoice</td>
       <td></td>
       <td></td>
