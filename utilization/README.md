@@ -240,7 +240,6 @@ We currently support 51 commonly used datasets for LLMs. Each dataset may includ
         <td><b>Evaluation Type</b></td>
         <td><b>CoT</b></td>
         <td><b>Notes</b></td>
-        <td><b>Reference</b></td>
     </tr>
     <tr>
         <td rowspan=3>agieval</td>
@@ -248,11 +247,9 @@ We currently support 51 commonly used datasets for LLMs. Each dataset may includ
         <td rowspan=2>MultipleChoice</td>
         <td></td>
         <td></td>
-        <td></td>
     </tr>
     <tr>
         <td>gaokao-chinese, gaokao-geography, gaokao-history, gaokao-biology, gaokao-chemistry, gaokao-english, logiqa-zh</td>
-        <td></td>
         <td></td>
         <td></td>
     </tr>
@@ -261,7 +258,6 @@ We currently support 51 commonly used datasets for LLMs. Each dataset may includ
         <td>Generation</td>
         <td>✅</td>
         <td></td>
-        <td></td>
     </tr>
     <tr>
         <td>alpaca_eval</td>
@@ -269,13 +265,11 @@ We currently support 51 commonly used datasets for LLMs. Each dataset may includ
         <td>Generation</td>
         <td></td>
         <td>GPTEval</td>
-        <td></td>
     </tr>
     <tr>
         <td>anli</td>
         <td></td>
         <td>MultipleChoice</td>
-        <td></td>
         <td></td>
         <td></td>
     </tr>
@@ -285,13 +279,11 @@ We currently support 51 commonly used datasets for LLMs. Each dataset may includ
         <td>MultipleChoice</td>
         <td></td>
         <td>Normalization</td>
-        <td></td>
     </tr>
     <tr>
         <td>bbh</td>
         <td></td>
         <td>Generation</td>
-        <td></td>
         <td></td>
         <td></td>
     </tr>
@@ -301,13 +293,11 @@ We currently support 51 commonly used datasets for LLMs. Each dataset may includ
         <td>MultipleChoice</td>
         <td></td>
         <td></td>
-        <td></td>
     </tr>
     <tr>
         <td>cb</td>
         <td></td>
         <td>MultipleChoice</td>
-        <td></td>
         <td></td>
         <td></td>
     </tr>
@@ -317,13 +307,11 @@ We currently support 51 commonly used datasets for LLMs. Each dataset may includ
         <td>MultipleChoice</td>
         <td></td>
         <td></td>
-        <td></td>
     </tr>
     <tr>
         <td>cmmlu</td>
         <td></td>
         <td>MultipleChoice</td>
-        <td></td>
         <td></td>
         <td></td>
     </tr>
@@ -333,13 +321,11 @@ We currently support 51 commonly used datasets for LLMs. Each dataset may includ
         <td>Generation</td>
         <td></td>
         <td></td>
-        <td></td>
     </tr>
     <tr>
         <td>color_objects</td>
         <td></td>
         <td>Generation</td>
-        <td></td>
         <td></td>
         <td></td>
     </tr>
@@ -349,13 +335,11 @@ We currently support 51 commonly used datasets for LLMs. Each dataset may includ
         <td>MultipleChoice</td>
         <td></td>
         <td></td>
-        <td></td>
     </tr>
     <tr>
         <td>copa</td>
         <td></td>
         <td>MultipleChoice</td>
-        <td></td>
         <td></td>
         <td></td>
     </tr>
@@ -365,13 +349,11 @@ We currently support 51 commonly used datasets for LLMs. Each dataset may includ
         <td>Generation</td>
         <td></td>
         <td></td>
-        <td></td>
     </tr>
     <tr>
         <td>crows_pairs</td>
         <td></td>
         <td>MultipleChoice</td>
-        <td></td>
         <td></td>
         <td></td>
     </tr>
@@ -381,13 +363,11 @@ We currently support 51 commonly used datasets for LLMs. Each dataset may includ
         <td>Generation</td>
         <td></td>
         <td></td>
-        <td></td>
     </tr>
     <tr>
         <td>gaokao</td>
         <td></td>
         <td>Generation</td>
-        <td></td>
         <td></td>
         <td></td>
     </tr>
@@ -397,13 +377,11 @@ We currently support 51 commonly used datasets for LLMs. Each dataset may includ
         <td>Generation</td>
         <td></td>
         <td></td>
-        <td></td>
     </tr>
     <tr>
         <td>halueval</td>
         <td></td>
         <td>Generation</td>
-        <td></td>
         <td></td>
         <td></td>
     </tr>
@@ -413,13 +391,11 @@ We currently support 51 commonly used datasets for LLMs. Each dataset may includ
         <td>MultipleChoice</td>
         <td></td>
         <td></td>
-        <td></td>
     </tr>
     <tr>
         <td>humaneval</td>
         <td></td>
         <td>Generation</td>
-        <td></td>
         <td></td>
         <td></td>
     </tr>
@@ -429,13 +405,11 @@ We currently support 51 commonly used datasets for LLMs. Each dataset may includ
         <td>Generation</td>
         <td></td>
         <td></td>
-        <td></td>
     </tr>
     <tr>
         <td>lambada</td>
         <td></td>
         <td>Generation</td>
-        <td></td>
         <td></td>
         <td></td>
     </tr>
@@ -445,13 +419,11 @@ We currently support 51 commonly used datasets for LLMs. Each dataset may includ
         <td>Generation</td>
         <td></td>
         <td></td>
-        <td></td>
     </tr>
     <tr>
         <td>mbpp</td>
         <td></td>
         <td>Generation</td>
-        <td></td>
         <td></td>
         <td></td>
     </tr>
@@ -461,13 +433,11 @@ We currently support 51 commonly used datasets for LLMs. Each dataset may includ
         <td>MultipleChoice</td>
         <td>✅</td>
         <td></td>
-        <td></td>
     </tr>
     <tr>
         <td>mt_bench</td>
         <td></td>
         <td>Generation</td>
-        <td></td>
         <td></td>
         <td></td>
     </tr>
@@ -477,7 +447,6 @@ We currently support 51 commonly used datasets for LLMs. Each dataset may includ
         <td>Generation</td>
         <td></td>
         <td></td>
-        <td></td>
     </tr>
     <tr>
         <td>openbookqa</td>
@@ -485,13 +454,11 @@ We currently support 51 commonly used datasets for LLMs. Each dataset may includ
         <td>MultipleChoice</td>
         <td></td>
         <td>Normalization</td>
-        <td></td>
     </tr>
     <tr>
         <td>penguins_in_a_table</td>
         <td></td>
         <td>MultipleChoice</td>
-        <td></td>
         <td></td>
         <td></td>
     </tr>
@@ -501,13 +468,11 @@ We currently support 51 commonly used datasets for LLMs. Each dataset may includ
         <td>MultipleChoice</td>
         <td></td>
         <td></td>
-        <td></td>
     </tr>
     <tr>
         <td>quac</td>
         <td></td>
         <td>Generation</td>
-        <td></td>
         <td></td>
         <td></td>
     </tr>
@@ -517,13 +482,11 @@ We currently support 51 commonly used datasets for LLMs. Each dataset may includ
         <td>MultipleChoice</td>
         <td></td>
         <td>Normalization</td>
-        <td></td>
     </tr>
     <tr>
         <td>real_toxicity_prompts</td>
         <td></td>
         <td>Generation</td>
-        <td></td>
         <td></td>
         <td></td>
     </tr>
@@ -533,13 +496,11 @@ We currently support 51 commonly used datasets for LLMs. Each dataset may includ
         <td>MultipleChoice</td>
         <td></td>
         <td></td>
-        <td></td>
     </tr>
     <tr>
         <td>siqa</td>
         <td></td>
         <td>MultipleChoice</td>
-        <td></td>
         <td></td>
         <td></td>
     </tr>
@@ -549,13 +510,11 @@ We currently support 51 commonly used datasets for LLMs. Each dataset may includ
         <td>Generation</td>
         <td></td>
         <td></td>
-        <td></td>
     </tr>
     <tr>
         <td>story_cloze</td>
         <td></td>
         <td>MultipleChoice</td>
-        <td></td>
         <td></td>
         <td></td>
     </tr>
@@ -565,13 +524,11 @@ We currently support 51 commonly used datasets for LLMs. Each dataset may includ
         <td>Generation</td>
         <td></td>
         <td></td>
-        <td></td>
     </tr>
     <tr>
         <td>translation</td>
         <td></td>
         <td>Generation</td>
-        <td></td>
         <td></td>
         <td></td>
     </tr>
@@ -581,13 +538,11 @@ We currently support 51 commonly used datasets for LLMs. Each dataset may includ
         <td>Generation</td>
         <td></td>
         <td></td>
-        <td></td>
     </tr>
     <tr>
         <td>truthfulqa_mc</td>
         <td></td>
         <td>MultipleChoice</td>
-        <td></td>
         <td></td>
         <td></td>
     </tr>
@@ -597,13 +552,11 @@ We currently support 51 commonly used datasets for LLMs. Each dataset may includ
         <td>Generation</td>
         <td></td>
         <td></td>
-        <td></td>
     </tr>
     <tr>
         <td>webq</td>
         <td></td>
         <td>Generation</td>
-        <td></td>
         <td></td>
         <td></td>
     </tr>
@@ -613,13 +566,11 @@ We currently support 51 commonly used datasets for LLMs. Each dataset may includ
         <td>MultipleChoice</td>
         <td></td>
         <td></td>
-        <td></td>
     </tr>
     <tr>
         <td>winogender</td>
         <td></td>
         <td>MultipleChoice</td>
-        <td></td>
         <td></td>
         <td></td>
     </tr>
@@ -629,13 +580,11 @@ We currently support 51 commonly used datasets for LLMs. Each dataset may includ
         <td>MultipleChoice</td>
         <td></td>
         <td></td>
-        <td></td>
     </tr>
     <tr>
         <td>winogrande</td>
         <td></td>
         <td>MultipleChoice</td>
-        <td></td>
         <td></td>
         <td></td>
     </tr>
@@ -645,13 +594,11 @@ We currently support 51 commonly used datasets for LLMs. Each dataset may includ
         <td>MultipleChoice</td>
         <td></td>
         <td></td>
-        <td></td>
     </tr>
     <tr>
         <td>xsum</td>
         <td></td>
         <td>Generation</td>
-        <td></td>
         <td></td>
         <td></td>
     </tr>
