@@ -12,6 +12,24 @@
 
 ## Usage
 
+Evaluating davinci-002 on HellaSwag:
+
+```bash
+python inference.py -m davinci-002 -d hellaswag
+```
+
+Evaluating Gemma on MMLU:
+
+```bash
+python inference.py -m gemma-7b -d mmlu -shots 5
+```
+
+Evaluating Phi-2 on GSM8k using self-consistency and 4-bit quantization:
+
+```bash
+python inference.py -m microsoft/phi-2 -d gsm8k -shots 8 --sample_num 100 --load_in_4bit
+```
+
 ### Model Arguments
 
 ```text
@@ -221,20 +239,27 @@ We currently support 51 commonly used datasets for LLMs. Each dataset may includ
         <td><b>Subsets / Collections</b></td>
         <td><b>Evaluation Type</b></td>
         <td><b>CoT</b></td>
-        <td><b>Additional Processor</b></td>
+        <td><b>Notes</b></td>
         <td><b>Reference</b></td>
     </tr>
     <tr>
-        <td rowspan=2>agieval</td>
+        <td rowspan=3>agieval</td>
         <td><b>English</b>: sat-en,sat-math,lsat-ar,lsat-lr,lsat-rc,logiqa-en,aqua-rat,math</td>
-        <td rowspan=2>Generation</td>
+        <td rowspan=2>MultipleChoice</td>
         <td></td>
         <td></td>
         <td></td>
     </tr>
     <tr>
-        <td><b>Chinese</b>: gaokao-chinese, gaokao-geography, gaokao-history, gaokao-biology, gaokao-chemistry, gaokao-physics, gaokao-mathqa</td>
+        <td>gaokao-chinese, gaokao-geography, gaokao-history, gaokao-biology, gaokao-chemistry, gaokao-english, logiqa-zh</td>
         <td></td>
+        <td></td>
+        <td></td>
+    </tr>
+    <tr>
+        <td>jec-qa-kd, jec-qa-ca, math, gaokao-physics, gaokao-mathcloze, gaokao-mathqa</td>
+        <td>Generation</td>
+        <td>✅</td>
         <td></td>
         <td></td>
     </tr>
@@ -243,7 +268,7 @@ We currently support 51 commonly used datasets for LLMs. Each dataset may includ
         <td></td>
         <td>Generation</td>
         <td></td>
-        <td></td>
+        <td>GPTEval</td>
         <td></td>
     </tr>
     <tr>
@@ -459,7 +484,7 @@ We currently support 51 commonly used datasets for LLMs. Each dataset may includ
         <td></td>
         <td>MultipleChoice</td>
         <td></td>
-        <td></td>
+        <td>Normalization</td>
         <td></td>
     </tr>
     <tr>
@@ -491,7 +516,7 @@ We currently support 51 commonly used datasets for LLMs. Each dataset may includ
         <td></td>
         <td>MultipleChoice</td>
         <td></td>
-        <td></td>
+        <td>Normalization</td>
         <td></td>
     </tr>
     <tr>
