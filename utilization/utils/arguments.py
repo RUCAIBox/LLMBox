@@ -519,7 +519,5 @@ def parse_argument(args=None) -> Tuple[ModelArguments, DatasetArguments, Evaluat
     if "CUDA_VISIBLE_DEVICES" in os.environ:
         logger.info(f"CUDA_VISIBLE_DEVICES={os.environ['CUDA_VISIBLE_DEVICES']}")
     logger.info(evaluation_args)
-    print(model_args, dataset_args, evaluation_args)
-    exit()
 
     return model_args, dataset_args, evaluation_args

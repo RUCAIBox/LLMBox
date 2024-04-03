@@ -37,6 +37,7 @@ def list_datasets() -> List[str]:
     results = [f[:-3] for f in results if f.endswith(".py")]
     results = [f for f in results if f not in BUILTIN_DATASET]
     results.extend(DATASET_ALIASES.keys())
+    results.append("squad_v2")
     return sorted(results)
 
 

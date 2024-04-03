@@ -24,10 +24,18 @@ Evaluating Gemma on MMLU:
 python inference.py -m gemma-7b -d mmlu -shots 5
 ```
 
+This will report the 53 subsets of MMLU, along with the macro average performance on four categories.
+
 Evaluating Phi-2 on GSM8k using self-consistency and 4-bit quantization:
 
 ```bash
 python inference.py -m microsoft/phi-2 -d gsm8k -shots 8 --sample_num 100 --load_in_4bit
+```
+
+Evaluating LLaMA-2 (7b) on CMMLU and CEval with instruction using vllm:
+
+```bash
+python inference.py -m llama-2-7b-hf -d cmmlu ceval --vllm True --model_type instruction
 ```
 
 ### Model Arguments
@@ -122,9 +130,10 @@ Specify the dataset, batch size, example strategies, CoT strategies and other ar
 ```text
 --dataset_name DATASET_NAME, -d DATASET_NAME, --dataset DATASET_NAME
                       The name of a dataset or the name(s) of a/several
-                      subset(s) in a dataset. Format: 'dataset' or
-                      'dataset:subset(s)', e.g., copa, race, race:high, or
-                      wmt16:en-ro,en-fr (default: None)
+                      subset(s) in a dataset. Format: 'dataset1 dataset2',
+                      'dataset:subset1,subset2', or 'dataset:[cat1],[cat2]',
+                      e.g., copa, race, race:high, wmt16:en-ro,en-fr, or
+                      mmlu:[stem],[humanities] (default: None)
 --dataset_path DATASET_PATH
                       The path of dataset if loading from local. Supports
                       repository cloned from huggingface, dataset saved by
@@ -192,6 +201,10 @@ Specify the random seed, logging directory, evaluation results directory, and ot
                       the model. (default: False)
 --proxy_port PROXY_PORT
                       The port of the proxy (default: None)
+--dataset_threading [DATASET_THREADING]
+                      Load dataset with threading
+--no_dataset_threading
+                      Load dataset with threading
 ```
 
 ## Supported Models
@@ -254,16 +267,16 @@ By inheriting the [`Model`](model/model.py) class, you can customize support for
 ```python
 class NewModel(Model):
 
-  def call_model(self, batched_inputs: List[str]) -> List[Any]:
-      return ...  # call to model, e.g., self.model.generate(...)
+    def call_model(self, batched_inputs: List[str]) -> List[Any]:
+        return ...  # call to model, e.g., self.model.generate(...)
 
-  def to_text(self, result: Any) -> str:
-      return ...  # convert result to text, e.g., result['text']
+    def to_text(self, result: Any) -> str:
+        return ...  # convert result to text, e.g., result['text']
 
-  def generation(self, batched_inputs: List[str]) -> List[str]:
-      results = self.call_model(batched_inputs)
-      results = [to_text(result) for result in results]
-      return results
+    def generation(self, batched_inputs: List[str]) -> List[str]:
+        results = self.call_model(batched_inputs)
+        results = [to_text(result) for result in results]
+        return results
 ```
 
 And then, you should register your model in the [`load`](model/load.py) file.
@@ -284,21 +297,19 @@ We currently support 53 commonly used datasets for LLMs. Each dataset may includ
   </tr>
   <tr>
       <td rowspan=3>agieval<br>(alias of <i>agieval_single_choice</i> and <i>agieval_cot</i>)</td>
-      <td><b>English</b>: sat-en, sat-math, lsat-ar, lsat-lr, lsat-rc, logiqa-en, aqua-rat, math</td>
+      <td><b>English</b>: <code>sat-en</code>, <code>sat-math</code>, <code>lsat-ar</code>, <code>lsat-lr</code>, <code>lsat-rc</code>, <code>logiqa-en</code>, <code>aqua-rat</code>, <code>math</code></td>
       <td rowspan=2>MultipleChoice</td>
       <td></td>
+      <td rowspan=3></td>
+  </tr>
+  <tr>
+      <td><code>gaokao-chinese</code>, <code>gaokao-geography</code>, <code>gaokao-history</code>, <code>gaokao-biology</code>, <code>gaokao-chemistry</code>, <code>gaokao-english</code>, <code>logiqa-zh</code></td>
       <td></td>
   </tr>
   <tr>
-      <td>gaokao-chinese, gaokao-geography, gaokao-history, gaokao-biology, gaokao-chemistry, gaokao-english, logiqa-zh</td>
-      <td></td>
-      <td></td>
-  </tr>
-  <tr>
-      <td>jec-qa-kd, jec-qa-ca, math, gaokao-physics, gaokao-mathcloze, gaokao-mathqa</td>
+      <td><code>jec-qa-kd</code>, <code>jec-qa-ca</code>, <code>math</code>, <code>gaokao-physics</code>, <code>gaokao-mathcloze</code>, <code>gaokao-mathqa</code></td>
       <td>Generation</td>
       <td>✅</td>
-      <td></td>
   </tr>
   <tr>
       <td>alpaca_eval</td>
@@ -309,21 +320,21 @@ We currently support 53 commonly used datasets for LLMs. Each dataset may includ
   </tr>
   <tr>
       <td>anli</td>
-      <td>Round2 (default)</td>
+      <td><code>Round2</code> (default)</td>
       <td>MultipleChoice</td>
       <td></td>
       <td></td>
   </tr>
   <tr>
       <td>arc</td>
-      <td>ARC-Easy, ARC-Challenge</td>
+      <td><code>ARC-Easy</code>, <code>ARC-Challenge</code></td>
       <td>MultipleChoice</td>
       <td></td>
       <td>Normalization</td>
   </tr>
   <tr>
       <td>bbh</td>
-      <td>boolean_expressions, ...</td>
+      <td><code>boolean_expressions</code>, ...</td>
       <td>Generation</td>
       <td>✅</td>
       <td></td>
@@ -344,45 +355,39 @@ We currently support 53 commonly used datasets for LLMs. Each dataset may includ
   </tr>
   <tr>
       <td rowspan=4>ceval</td>
-      <td><b>stem</b>: advanced_mathematics, college_chemistry, ...</td>
+      <td><b>stem</b>: <code>advanced_mathematics</code>, <code>college_chemistry</code>, ...</td>
       <td rowspan=4>MultipleChoice</td>
       <td rowspan=4>✅</td>
-      <td></td>
+      <td rowspan=4></td>
   </tr>
   <tr>
-      <td><b>social science</b>: business_administration, college_economics, ...</td>
-      <td></td>
+      <td><b>social science</b>: <code>business_administration</code>, <code>college_economics</code>, ...</td>
   </tr>
   <tr>
-      <td><b>humanities</b>: art_studies, chinese_language_and_literature, ...</td>
-      <td></td>
+      <td><b>humanities</b>: <code>art_studies</code>, <code>chinese_language_and_literature</code>, ...</td>
   </tr>
   <tr>
-      <td><b>other</b>: accountant, basic_medicine, ...</td>
-      <td></td>
+      <td><b>other</b>: <code>accountant</code>, <code>basic_medicine</code>, ...</td>
   </tr>
   <tr>
       <td rowspan=4>cmmlu</td>
-      <td><b>stem</b>: anatomy, astronomy, ...</td>
+      <td><b>stem</b>: <code>anatomy</code>, <code>astronomy</code>, ...</td>
       <td rowspan=4>MultipleChoice</td>
       <td rowspan=4>✅</td>
-      <td></td>
+      <td rowspan=4></td>
   </tr>
   <tr>
-      <td><b>social science</b>: ancient_chinese, business_ethics, ...</td>
-      <td></td>
+      <td><b>social science</b>: <code>ancient_chinese</code>, <code>business_ethics</code>, ...</td>
   </tr>
   <tr>
-      <td><b>humanities</b>: arts, chinese_history, ...</td>
-      <td></td>
+      <td><b>humanities</b>: <code>arts</code>, <code>chinese_history</code>, ...</td>
   </tr>
   <tr>
-      <td><b>other</b>: agronomy, chinese_driving_rule, ...</td>
-      <td></td>
+      <td><b>other</b>: <code>agronomy</code>, <code>chinese_driving_rule</code>, ...</td>
   </tr>
   <tr>
       <td>cnn_dailymail</td>
-      <td>3.0.0 (default), ...</td>
+      <td><code>3.0.0</code> (default), ...</td>
       <td>Generation</td>
       <td></td>
       <td></td>
@@ -431,63 +436,63 @@ We currently support 53 commonly used datasets for LLMs. Each dataset may includ
   </tr>
   <tr>
       <td>gaokao</td>
-      <td>2010-2022_Math_II_MCQs, 2010-2022_Math_I_MCQs, ...</td>
+      <td><code>2010-2022_Math_II_MCQs</code>, <code>2010-2022_Math_I_MCQs</code>, ...</td>
       <td>Generation</td>
       <td>✅</td>
-      <td></td>
+      <td>Metric: Exam scoring</td>
   </tr>
   <tr>
       <td>gsm8k</td>
-      <td>main (default), socratic</td>
+      <td><code>main</code> (default), <code>socratic</code></td>
       <td>Generation</td>
       <td>✅</td>
       <td>Code exec</td>
   </tr>
   <tr>
       <td>halueval</td>
-      <td></td>
+      <td><code>dialogue</code>, <code>general</code>, ...</td>
       <td>Generation</td>
       <td></td>
       <td></td>
   </tr>
   <tr>
       <td>hellaswag</td>
-      <td></td>
+      <td>/</td>
       <td>MultipleChoice</td>
       <td></td>
       <td></td>
   </tr>
   <tr>
       <td>humaneval</td>
-      <td></td>
+      <td>/</td>
       <td>Generation</td>
       <td></td>
       <td></td>
   </tr>
   <tr>
       <td>ifeval</td>
-      <td></td>
+      <td>/</td>
       <td>Generation</td>
       <td></td>
       <td></td>
   </tr>
   <tr>
       <td>lambada</td>
-      <td></td>
+      <td><code>default</code> (default), <code>de</code>, ... (source: <i>EleutherAI/lambada_openai</i>)</td>
       <td>Generation</td>
       <td></td>
       <td></td>
   </tr>
   <tr>
       <td>math</td>
-      <td></td>
+      <td>/</td>
       <td>Generation</td>
       <td>✅</td>
       <td></td>
   </tr>
   <tr>
       <td>mbpp</td>
-      <td></td>
+      <td><code>full</code> (default), <code>sanitized</code></td>
       <td>Generation</td>
       <td></td>
       <td></td>
@@ -497,128 +502,125 @@ We currently support 53 commonly used datasets for LLMs. Each dataset may includ
       <td><b>stem</b>: abstract_algebra, astronomy, ...</td>
       <td rowspan=4>MultipleChoice</td>
       <td rowspan=4>✅</td>
-      <td></td>
+      <td rowspan=4></td>
   </tr>
   <tr>
       <td><b>social_sciences</b>: econometrics, high_school_geography, ...</td>
-      <td></td>
   </tr>
   <tr>
       <td><b>humanities</b>: formal_logic, high_school_european_history, ...</td>
-      <td></td>
   </tr>
   <tr>
       <td><b>other</b>: anatomy, business_ethics, ...</td>
-      <td></td>
   </tr>
   <tr>
       <td>mt_bench</td>
-      <td></td>
+      <td>/</td>
       <td>Generation</td>
       <td></td>
       <td>Multi-turn GPTEval</td>
   </tr>
   <tr>
       <td>nq</td>
-      <td></td>
+      <td>/</td>
       <td>Generation</td>
       <td></td>
       <td></td>
   </tr>
   <tr>
       <td>openbookqa</td>
-      <td>main (default), additional</td>
+      <td><code>main</code> (default), <code>additional</code></td>
       <td>MultipleChoice</td>
       <td></td>
       <td>Normalization</td>
   </tr>
   <tr>
       <td>penguins_in_a_table</td>
-      <td><i><bigbench/i></td>
+      <td><i>bigbench</i></td>
       <td>MultipleChoice</td>
       <td></td>
       <td></td>
   </tr>
   <tr>
       <td>piqa</td>
-      <td></td>
+      <td>/</td>
       <td>MultipleChoice</td>
       <td></td>
       <td></td>
   </tr>
   <tr>
       <td>quac</td>
-      <td></td>
+      <td>/</td>
       <td>Generation</td>
       <td>✅</td>
       <td></td>
   </tr>
   <tr>
       <td>race</td>
-      <td></td>
+      <td><code>high</code>, <code>middle</code></td>
       <td>MultipleChoice</td>
       <td></td>
       <td>Normalization</td>
   </tr>
   <tr>
       <td>real_toxicity_prompts</td>
-      <td></td>
+      <td>/</td>
       <td>Generation</td>
       <td></td>
       <td>Perlexity Toxicity</td>
   </tr>
   <tr>
       <td>rte</td>
-      <td></td>
+      <td><i>super_glue</i></td>
       <td>MultipleChoice</td>
       <td></td>
       <td></td>
   </tr>
   <tr>
       <td>siqa</td>
-      <td></td>
+      <td>/</td>
       <td>MultipleChoice</td>
       <td></td>
       <td></td>
   </tr>
   <tr>
-      <td>squad</td>
-      <td></td>
+      <td>squad, squad_v2</td>
+      <td>/</td>
       <td>Generation</td>
       <td>✅</td>
       <td></td>
   </tr>
   <tr>
       <td>story_cloze</td>
-      <td></td>
+      <td><code>2016</code> (default), 2018</td>
       <td>MultipleChoice</td>
       <td></td>
       <td><a href='http://goo.gl/forms/aQz39sdDrO'>Manually download</a></td>
   </tr>
   <tr>
       <td>tldr</td>
-      <td></td>
+      <td>/</td>
       <td>Generation</td>
       <td></td>
       <td></td>
   </tr>
   <tr>
       <td>triviaqa</td>
-      <td></td>
+      <td><code>rc.wikipedia.nocontext</code> (default), <code>rc</code>, <code>rc.nocontext</code>, ...</td>
       <td>Generation</td>
       <td></td>
       <td></td>
   </tr>
   <tr>
       <td>truthfulqa_mc</td>
-      <td></td>
+      <td><code>multiple_choice</code> (default), <code>generation</code> (not supported)</td>
       <td>MultipleChoice</td>
       <td></td>
       <td></td>
   </tr>
   <tr>
       <td>vicuna_bench</td>
-      <td></td>
+      <td>/</td>
       <td>Generation</td>
       <td></td>
       <td>GPTEval</td>
@@ -639,28 +641,28 @@ We currently support 53 commonly used datasets for LLMs. Each dataset may includ
   </tr>
   <tr>
       <td>winogender</td>
-      <td>main, gotcha</td>
+      <td><code>main</code>, <code>gotcha</code></td>
       <td>MultipleChoice</td>
       <td></td>
       <td>Group by gender</td>
   </tr>
   <tr>
       <td>winograd</td>
-      <td>wsc273 (default), ...</td>
+      <td><code>wsc273</code> (default), ...</td>
       <td>MultipleChoice</td>
       <td></td>
       <td></td>
   </tr>
   <tr>
       <td>winogrande</td>
-      <td>winogrande_debiased (default), ...</td>
+      <td><code>winogrande_debiased</code> (default), ...</td>
       <td>MultipleChoice</td>
       <td></td>
       <td></td>
   </tr>
   <tr>
-      <td>wmt</td>
-      <td>en-ro, ro-en, ...</td>
+      <td>wmt21, wmt19, ...</td>
+      <td><code>en-ro</code>, <code>ro-en</code>, ...</td>
       <td>Generation</td>
       <td></td>
       <td></td>
@@ -703,16 +705,17 @@ We provide two types of datasets: [`GenerationDataset`](dataset/generation_datas
 ```python
 def NewDataset(GenerationDataset):
 
-    instruction = "The following are multiple choice questions (with answers) about subset."
+    instruction = "Answer the following question."
     metrics = [Accuracy()]
     evaluation_set = "test"
     example_set = "dev"
     load_args = ("huggingface/path", "subset")
+
     extra_model_args = dict(temperature=0)
     category_subsets = {"Group": ["subset1", "subset2"]}
 
     def format_instance(self, instance):
-        src, tgt = func(instance, self.exam_data)
+        src, tgt = func(instance, self.example_data)
         return dict(source=src, target=tgt)
 
     def reference(self):
