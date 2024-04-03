@@ -12,11 +12,9 @@ import torch
 import tqdm as tqdm_lib
 
 from utilization.metric.utils import avg_metrics
+from utilization.utils.batch_sampler import DatasetCollectionBatchSampler
 
-from .enum import (
-    AGIEVAL_CHINESE_TASK, AGIEVAL_ENGLISH_TASK, AGIEVAL_GAOKAO_TASK, GAOKAO_CHINESE_TASKS_SCORE,
-    GAOKAO_ENGLISH_TASKS_SCORE, GAOKAO_TASKS, GAOKAO_TASKS_SCORE
-)
+from .enum import GAOKAO_CHINESE_TASKS_SCORE, GAOKAO_ENGLISH_TASKS_SCORE, GAOKAO_TASKS_SCORE
 from .icl_strategies import ape, global_entropy_ordering_strategy, knn_construct_examples
 from .utils import get_raw_dataset_loader
 
@@ -195,8 +193,8 @@ class Dataset(torch.utils.data.Dataset):
 
         logger.info(self.args)
 
-    def _before_iter_init(self):
-        """Call this function manuanlly before iterating the dataset, or wrap Dataset with a DatasetCollection."""
+    def _init_model(self):
+        """(Re-)initialize the model before iterating through the dataset. This is useful when evaluating on a mixture of `GenerationDataset` and `MultipleChoiceDataset`. Call this function manuanlly before iterating the dataset, or use `DatasetCollectionBatchSampler` to manage the context switching automatically."""
         if getattr(self, "is_iter_initialized", False):
             return
         self.is_iter_initialized = True
@@ -207,8 +205,6 @@ class Dataset(torch.utils.data.Dataset):
             self.model.set_generation_args(**self._extra_model_args)
         elif self.model_evaluation_method == "get_prob":
             self.model.set_prob_args(**self._extra_model_args)
-
-        logger.info(self)
 
     @property
     def model_evaluation_method(self) -> Literal['get_ppl', 'get_prob', 'generation', 'user_defined']:
@@ -313,7 +309,6 @@ class Dataset(torch.utils.data.Dataset):
         return len(self.evaluation_instances)
 
     def __getitem__(self, idx):
-        self._before_iter_init()
         return self.evaluation_instances[idx]
 
     @property
@@ -941,7 +936,7 @@ class DatasetCollection(torch.utils.data.Dataset):
         return results, score_lists
 
     def get_batch_sampler(self):
-        pass
+        return DatasetCollectionBatchSampler(self, self.args.batch_size, self._datasets[0].model.args.vllm)
 
     def update_tqdm(self, tqdm):
         if isinstance(tqdm, tqdm_lib.tqdm):

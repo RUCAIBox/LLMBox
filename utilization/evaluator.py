@@ -55,19 +55,19 @@ class Evaluator:
 
         Finally, we call the `calculate_metric` to get the metric score of prediction results.
         """
-        dataloader = DataLoader(
-            self.dataset,
-            batch_size=self.dataset_args.batch_size if self.dataset_args.batch_size != -1 else self.dataset.len(),
-            collate_fn=lambda x: x,
-            shuffle=False,
-            pin_memory=True,
-            batch_sampler=self.dataset.get_batch_sampler(),
-        )
-
         if self.evaluation_args.dry_run:
             self.model.get_ppl = lambda x: [(0, 1)] * len(x)
             self.model.generation = lambda x: [""] * len(x)
             self.model.get_prob = lambda x: [[1 / p[1]] * p[1] for p in x]
+
+        batch_sampler = self.dataset.get_batch_sampler()
+        dataloader = DataLoader(
+            self.dataset,
+            collate_fn=lambda x: x,
+            pin_memory=True,
+            batch_sampler=batch_sampler,
+        )
+        call_model = batch_sampler.call_model
 
         # use tqdm for non-vllm models
         if self.dataset_args.batch_size != -1:
@@ -84,7 +84,7 @@ class Evaluator:
         # call model
         raw_predictions = []
         for batch in dataloader:
-            raw_predictions.extend(getattr(self.model, self.dataset.model_evaluation_method)(batch))
+            raw_predictions.extend(call_model(batch))
             self.dataset.log_predictions(raw_predictions)
             self.dataset.update_tqdm(dataloader)
 

@@ -20,15 +20,17 @@ if TYPE_CHECKING:
 
 logger = getLogger(__name__)
 
+ABSTRACT_DATASET = {"Dataset", "GenerationDataset", "MultipleChoiceDataset"}
 
-def _import_dataset_class(dataset_name: str) -> Dataset:
+
+def _import_dataset_class(dataset_name: str) -> Type[Dataset]:
 
     module_path = __package__ + "." + dataset_name
     module = importlib.import_module(module_path)
     clsmembers = inspect.getmembers(module, inspect.isclass)
 
     for name, obj in clsmembers:
-        if issubclass(obj, Dataset) and not name.lower().endswith("dataset"):
+        if issubclass(obj, Dataset) and name not in ABSTRACT_DATASET:
             logger.debug(f"Dataset class `{name}` imported from `{module_path}`.")
             return obj
 
@@ -38,7 +40,7 @@ def _import_dataset_class(dataset_name: str) -> Dataset:
     )
 
 
-def import_dataset_classes(dataset_name: str) -> List[Dataset]:
+def import_dataset_classes(dataset_name: str) -> List[Type[Dataset]]:
     if dataset_name in DATASET_ALIASES:
         logger.info("Loading dataset aliases: %s -> %s", dataset_name, DATASET_ALIASES[dataset_name])
         return [_import_dataset_class(alias) for alias in DATASET_ALIASES[dataset_name]]
@@ -54,6 +56,7 @@ def get_subsets(dataset_name: str, dataset_classes: List[Type[Dataset]], offline
     if not offline:
         for dataset_cls in dataset_classes:
 
+            # TODO: fix Tuple[()]
             hf_path = dataset_cls.load_args[0] if len(dataset_cls.load_args) > 0 else dataset_name
             download_config = DownloadConfig(use_etag=False)
             try:
@@ -91,6 +94,21 @@ def get_subsets(dataset_name: str, dataset_classes: List[Type[Dataset]], offline
     return available_subsets_by_cls
 
 
+def get_cmd_subset_names(cmd_subset_names: Set[str], dataset_cls: "Dataset") -> Set[str]:
+    """Get the subset names from the command line arguments. If the subset name is a category, expand it to the actual subset names."""
+    results = set()
+    for cmd_subset in cmd_subset_names:
+        if cmd_subset.startswith("[") and cmd_subset.endswith("]"):
+            if dataset_cls.categorized_subsets is None:
+                continue
+            categorized_subsets = dataset_cls.categorized_subsets[cmd_subset[1:-1]]
+            logger.info(f"Expanding category `{cmd_subset}` to `{categorized_subsets}`")
+            results.update(categorized_subsets)
+        else:
+            results.add(cmd_subset)
+    return results
+
+
 def load_dataset(dataset_name: str,
                  args: "DatasetArguments",
                  model: "Model",
@@ -110,24 +128,28 @@ def load_dataset(dataset_name: str,
 
     for dataset_cls, available_subsets in zip(dataset_classes, available_subsets_by_cls):
 
+        cmd_subset_names = get_cmd_subset_names(args.subset_names, dataset_cls)
+        if len(args.subset_names) > 0 and len(cmd_subset_names) == 0:
+            continue
+
         # for mmlu and race dataset, remove "all" subset by default
-        if dataset_name in {"mmlu", "race"} and len(args.subset_names) == 0:
+        if dataset_name in {"mmlu", "race"} and len(cmd_subset_names) == 0:
             available_subsets.remove("all")
 
         # if dataset not in huggingface, allow to manually specify subset_names
-        if len(available_subsets) and not available_subsets.issuperset(args.subset_names):
-            na = args.subset_names - available_subsets
+        if len(available_subsets) and not available_subsets.issuperset(cmd_subset_names):
+            na = cmd_subset_names - available_subsets
             raise ValueError(
                 f"Specified subset names {na} are not available. Available ones of {dataset_name} are: {available_subsets}"
             )
 
         # use specified subset_names if available
-        subset_names = args.subset_names or available_subsets
+        subset_names = cmd_subset_names or available_subsets
         logger.debug(
             f"{dataset_name} - available_subsets: {available_subsets}, load_args: {dataset_cls.load_args}, final subset_names: {subset_names}"
         )
 
-        if len(subset_names) > 1 and accepts_subset(dataset_cls.load_args, overwrite_subset=len(args.subset_names) > 0):
+        if len(subset_names) > 1 and accepts_subset(dataset_cls.load_args, overwrite_subset=len(cmd_subset_names) > 0):
             # race:middle,high (several subsets) , super_glue (all the subsets)
             logger.debug(f"Loading subsets of dataset `{dataset_name}`: " + ", ".join(subset_names))
             if threading and len(subset_names) >= 2:
@@ -135,6 +157,7 @@ def load_dataset(dataset_name: str,
                 first_dataset = (
                     dataset_name + ":" + first_dataset, dataset_cls(dataset_name, args, model, first_dataset)
                 )
+                logger.info(f"Loading other {len(subset_names)} subsets ...")
                 logging.disable(logging.INFO)
                 with ThreadPoolExecutor(max_workers=len(subset_names)) as executor:
                     res = [
@@ -153,7 +176,7 @@ def load_dataset(dataset_name: str,
             yield datasets
 
         elif len(subset_names) == 1 and len(available_subsets) != 1 and accepts_subset(
-            dataset_cls.load_args, overwrite_subset=len(args.subset_names) > 0, subset=next(iter(subset_names))
+            dataset_cls.load_args, overwrite_subset=len(cmd_subset_names) > 0, subset=next(iter(subset_names))
         ):
             # in some cases of get_dataset_config_names() have only one subset, loading dataset with the a subset name is not allowed in huggingface datasets library
             # len(available_subsets) == 0 means a special case, like wmt
@@ -174,5 +197,5 @@ def load_datasets(args: "DatasetArguments", model: "Model", threading: bool = Tr
         datasets.extend(load_dataset(d, args, model, threading))
     datasets = {k: v for d in datasets for k, v in d.items()}
     dataset_collection = DatasetCollection(datasets)
-    logger.debug(f"Loaded datasets: {dataset_collection}")
+    logger.info(f"Evaluation datasets: {dataset_collection}")
     return dataset_collection
