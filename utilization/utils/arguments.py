@@ -293,9 +293,9 @@ class DatasetArguments:
     )
 
     num_shots: int = HfArg(
-        aliases=["-shots"],
+        aliases=["-shots", "--max_num_shots"],
         default=0,
-        help="The few-shot number for demonstration",
+        help="The maximal few-shot number for demonstration",
     )
     ranking_type: Literal["ppl", "prob", "ppl_no_option"] = HfArg(
         default="ppl_no_option",

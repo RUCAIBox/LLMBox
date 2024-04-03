@@ -143,7 +143,7 @@ class Dataset(torch.utils.data.Dataset):
                 ]
             if len(self.example_data) < self.max_num_shots:
                 logger.warning(
-                    f"The example data only has {len(self.example_data)} instances, but the few-shot number is set to {self.max_num_shots}. Setting the few-shot number to {len(self.example_data)}."
+                    f"The example data of {self.dataset_name} only has {len(self.example_data)} instances, but the few-shot number is set to {self.max_num_shots}. Setting the few-shot number to {len(self.example_data)}."
                 )
                 self.max_num_shots = len(self.example_data)
             if len(self.example_data) == self.max_num_shots:
@@ -226,7 +226,7 @@ class Dataset(torch.utils.data.Dataset):
 
     def load_raw_dataset(
         self,
-        dataset_path: str,
+        dataset_path: Optional[str],
         subset_name: Optional[str],
         evaluation_set: str,
         example_set: Optional[str],
@@ -396,7 +396,7 @@ class Dataset(torch.utils.data.Dataset):
         """
         # it is not recommended to modify instance, in case of multiple calls
         formatted_instance = self.format_instance(instance)
-        loose = "\n" if loose else ""
+        loose = "\n" if loose else ""  # type: ignore
 
         if self.evaluation_type == "ranking" and "target_idx" in formatted_instance:
             if self.args.ranking_with_options:
@@ -555,6 +555,7 @@ class Dataset(torch.utils.data.Dataset):
             score_lists.update(metric_func.last_score_lists())
 
         subject_results = {}
+        # datasets like winogrander can be categorized by gender
         if self.category_column is not None:
             subject_results = pd.DataFrame({
                 "predictions":
@@ -566,7 +567,7 @@ class Dataset(torch.utils.data.Dataset):
             }).groupby("subject").apply(lambda df: _calculate_metric(df["predictions"], df["references"])).to_dict()
 
         metric_results = OrderedDict(**subject_results)
-        metric_results[self.name + (f":{self.subset_name}" if self.subset_name else "")] = overall_results
+        metric_results[self.dataset_name] = overall_results
         return metric_results, score_lists
 
     def post_processing(self, predictions: Union[List[Tuple[str, float]], List[List[float]]]):
@@ -769,6 +770,10 @@ class Dataset(torch.utils.data.Dataset):
         # do nothing
         pass
 
+    @property
+    def dataset_name(self) -> str:
+        return self.name + (f":{self.subset_name}" if self.subset_name else "")
+
     def __repr__(self):
         reprs = [f"{p}={getattr(self, p)!r}" for p in self._repr]
         reprs.append(f"len={self.len()}")
@@ -920,7 +925,7 @@ class DatasetCollection(torch.utils.data.Dataset):
                     if len(c.intersection(set(dataset_names))) != len(c):
                         # skip if not all subsets of a category are available
                         continue
-                    fstr = f"{name}[{cat.capitalize().replace('_', '')} Macro Average]"
+                    fstr = f"{name}[{cat.title().replace('_', ' ')} Macro Average]"
                     results[fstr] = avg_metrics([results[n] for n in c])
 
             if name == "gaokao":

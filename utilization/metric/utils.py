@@ -2,6 +2,11 @@ from typing import Dict, List, Literal, Optional
 
 import numpy as np
 
+# To calculate the overall metrics for some datasets (e.g. AGIEval)
+# which includes both GenerationDataset and MultipleChoiceDataset
+METRIC_ALIASES = {"Accuracy": "EM"}
+REVERSED_ALIASES = {v: k for k, v in METRIC_ALIASES.items()}
+
 
 def avg_metrics(
     subset_results: List[Dict[str, float]],
@@ -21,27 +26,27 @@ def avg_metrics(
         assert weighted_factor is not None, "weighted_factor must be provided when average_method is 'weighted'."
     results = {}
     metric_entries = next(iter(subset_results)).keys()
-    alias = {"Accuracy": "EM"}
-    reversed_alias = {v: k for k, v in alias.items()}
 
     for metric in metric_entries:
-        if metric in alias.keys():
-            fallback = metric
-            metric = alias[metric]
-        elif metric in reversed_alias.keys():
-            fallback = reversed_alias[metric]
-        else:
-            fallback = None
+        used_metrics = [metric]
 
         def i(results):
-            return results[metric] if metric in results else results[fallback]
+            if metric in results:
+                return results[metric]
+            elif metric in METRIC_ALIASES and METRIC_ALIASES[metric] in results:
+                used_metrics.append(METRIC_ALIASES[metric])
+                return results[METRIC_ALIASES[metric]]
+            elif metric in REVERSED_ALIASES and REVERSED_ALIASES[metric] in results:
+                used_metrics.append(REVERSED_ALIASES[metric])
+                return results[REVERSED_ALIASES[metric]]
+            else:
+                raise KeyError(f"Metric {metric} not found in the results.")
 
-        str_m = metric if fallback is None else metric + "/" + fallback
+        str_m = "/".join(used_metrics)
         if average_method == "macro":
             results[str_m] = np.mean([i(r) for r in subset_results])
         elif average_method == "weighted":
             results[str_m] = np.sum([i(r) * c
                                      for r, c in zip(subset_results, weighted_factor)]) / np.sum(weighted_factor)
 
-    print(results, metric_entries)
     return results

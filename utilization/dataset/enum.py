@@ -80,6 +80,28 @@ BBH_LETTER_CHOICE = [
     'tracking_shuffled_objects_three_objects'
 ]
 
+# 8 subsets reported as Agieval English in llama paper
+AGIEVAL_ENGLISH_SUBJECTS = [
+    'lsat-ar', 'lsat-lr', 'lsat-rc', 'logiqa-en', 'sat-math', 'sat-en', 'aqua-rat', 'sat-en-without-passage'
+]
+
+AGIEVAL_SUBJECTS = {"English": AGIEVAL_ENGLISH_SUBJECTS}
+
+AGIEVAL_EN_QA_TASKS = AGIEVAL_ENGLISH_SUBJECTS + ['gaokao-english']
+
+AGIEVAL_ZH_QA_TASKS = [
+    'logiqa-zh', 'jec-qa-kd', 'jec-qa-ca', 'gaokao-chinese', 'gaokao-geography', 'gaokao-history', 'gaokao-biology',
+    'gaokao-chemistry', 'gaokao-physics', 'gaokao-mathqa'
+]
+
+AGIEVAL_EN_CLOZE_TASKS = ['math']
+
+AGIEVAL_ZH_CLOZE_TASKS = ['gaokao-mathcloze']
+
+AGIEVAL_MULTI_ANSWERS_TASKS = ['jec-qa-kd', 'jec-qa-ca', 'gaokao-physics']
+
+AGIEVAL_NO_LETTER_CHOICE_TASKS = AGIEVAL_EN_CLOZE_TASKS + AGIEVAL_ZH_CLOZE_TASKS
+
 AGIEVAL_WORDS = [["问题：", "Q: "], ["选项：", "Answer Choices: "],
                  ["答案：从A到{}, 我们应选择", "A: Among A through {}, the answer is"],
                  ["从A到{}, 我们应选择什么？让我们逐步思考：", "Let's think step by step."], ["问题的解析:", "Explanation for Problem:"],
@@ -87,60 +109,9 @@ AGIEVAL_WORDS = [["问题：", "Q: "], ["选项：", "Answer Choices: "],
                  ["从以下选项中选择: ", "Choose from the following options: "], ["答案：", "A: The answer is"],
                  ["答案：让我们逐步思考：", "A: Let's think step by step."]]
 
-AGIEVAL_EN_QA = [
-    'lsat-ar', 'lsat-lr', 'lsat-rc', 'logiqa-en', 'sat-math', 'sat-en', 'aqua-rat', 'sat-en-without-passage',
-    'gaokao-english'
-]
+AGIEVAL_ZH_PROMPT_TASKS = AGIEVAL_ZH_CLOZE_TASKS + AGIEVAL_ZH_QA_TASKS
 
-AGIEVAL_ZH_QA = [
-    'logiqa-zh', 'jec-qa-kd', 'jec-qa-ca', 'gaokao-chinese', 'gaokao-geography', 'gaokao-history', 'gaokao-biology',
-    'gaokao-chemistry', 'gaokao-physics', 'gaokao-mathqa'
-]
-
-AGIEVAL_EN_CLOZE = ['math']
-
-AGIEVAL_ZH_CLOZE = ['gaokao-mathcloze']
-
-AGIEVAL_MULTI_CHOICE = ['jec-qa-kd', 'jec-qa-ca', 'gaokao-physics']
-
-AGIEVAL_CHINESE_TASK = AGIEVAL_ZH_CLOZE + AGIEVAL_ZH_QA
-
-AGIEVAL_ENGLISH_TASK = AGIEVAL_EN_CLOZE + AGIEVAL_EN_QA
-
-AGIEVAL_GAOKAO_TASK = [
-    'gaokao-chinese', 'gaokao-geography', 'gaokao-history', 'gaokao-biology', 'gaokao-chemistry', 'gaokao-physics',
-    'gaokao-mathqa', 'gaokao-mathcloze', 'gaokao-english'
-]
-
-AGIEVAL_NO_LETTER_CHOICE = AGIEVAL_EN_CLOZE + AGIEVAL_ZH_CLOZE
-
-AGIEVAL_MULTIPLE_CHOICE_TASK = [
-    'lsat-ar',
-    'lsat-lr',
-    'lsat-rc',
-    'logiqa-en',
-    'sat-math',
-    'sat-en',
-    'aqua-rat',
-    'sat-en-without-passage',
-    'gaokao-english',
-    'logiqa-zh',
-    'gaokao-chinese',
-    'gaokao-chemistry',
-    'gaokao-geography',
-    'gaokao-history',
-    'gaokao-biology',
-    # 'gaokao-mathqa',    # due to the bugs in agieval dataset, we now treat gaokao-mathqa as generation.
-]
-
-AGIEVAL_GENERTION_TASK = [
-    'jec-qa-kd',
-    'jec-qa-ca',
-    'gaokao-physics',
-    'math',
-    'gaokao-mathcloze',
-    'gaokao-mathqa'  # due to the bugs in agieval dataset, we now treat gaokao-mathqa as generation.
-]
+AGIEVAL_EN_PROMPT_TASKS = AGIEVAL_EN_CLOZE_TASKS + AGIEVAL_EN_QA_TASKS
 
 CMMLU_NAME_TRANS = {
     "agronomy": "农学",
@@ -323,24 +294,25 @@ GAOKAO_PROMPTS = {
     '请你做一道语文选择题\n请你一步一步思考并将思考过程写在【解析】和<eoe>之间。你将从A，B，C，D中选出正确的答案，并写在【答案】和<eoa>之间。\n例如：【答案】: A <eoa>\n完整的题目回答的格式如下：\n（1）【解析】 ... <eoe>\n【答案】 ... <eoa>\n（2）【解析】 ... <eoe>\n【答案】 ... <eoa>\n请你严格按照上述格式作答。如果不止一道题，请分别作答\n题目如下：'
 }
 
+# See Gaokao.extract_choice_answer for the details
 GAOKAO_TASKS = {
-    "2010-2022_Math_II_MCQs": "single_choice",
-    "2010-2022_Math_I_MCQs": "single_choice",
-    "2010-2022_History_MCQs": "single_choice",
-    "2010-2022_Biology_MCQs": "single_choice",
-    "2010-2022_Political_Science_MCQs": "single_choice",
-    "2010-2022_Physics_MCQs": "multi_choice",
-    "2010-2022_Chemistry_MCQs": "single_choice",
-    "2010-2013_English_MCQs": "single_choice",
-    "2010-2022_Chinese_Modern_Lit": "multi_question_choice",
-    "2010-2022_English_Fill_in_Blanks": "multi_question_choice",
-    "2012-2022_English_Cloze_Test": "five_out_of_seven",
-    "2010-2022_Geography_MCQs": "multi_question_choice",
-    "2010-2022_English_Reading_Comp": "multi_question_choice",
-    "2010-2022_Chinese_Lang_and_Usage_MCQs": "multi_question_choice"
+    "2010-2022_Math_II_MCQs": "single_answer_mcq",
+    "2010-2022_Math_I_MCQs": "single_answer_mcq",
+    "2010-2022_History_MCQs": "single_answer_mcq",
+    "2010-2022_Biology_MCQs": "single_answer_mcq",
+    "2010-2022_Political_Science_MCQs": "single_answer_mcq",
+    "2010-2022_Physics_MCQs": "multi_answers_mcq",
+    "2010-2022_Chemistry_MCQs": "single_answer_mcq",
+    "2010-2013_English_MCQs": "single_answer_mcq",
+    "2010-2022_Chinese_Modern_Lit": "multi_mcqs",
+    "2010-2022_English_Fill_in_Blanks": "multi_mcqs",
+    "2012-2022_English_Cloze_Test": "seven_option",
+    "2010-2022_Geography_MCQs": "multi_mcqs",
+    "2010-2022_English_Reading_Comp": "multi_mcqs",
+    "2010-2022_Chinese_Lang_and_Usage_MCQs": "multi_mcqs"
 }
 
-# The total score of each subsets
+# The total score of each subsets. Each instance may have different score.
 GAOKAO_CHINESE_TASKS_SCORE = {
     "2010-2022_Chinese_Modern_Lit": 261,
     "2010-2022_Chinese_Lang_and_Usage_MCQs": 240,

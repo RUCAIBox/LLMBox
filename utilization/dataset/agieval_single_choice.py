@@ -1,9 +1,12 @@
+import re
 from logging import getLogger
 
-from .enum import AGIEVAL_CHINESE_TASK, AGIEVAL_ENGLISH_TASK, AGIEVAL_GAOKAO_TASK, AGIEVAL_WORDS
+from .enum import AGIEVAL_SUBJECTS, AGIEVAL_WORDS, AGIEVAL_ZH_PROMPT_TASKS
 from .multiple_choice_dataset import MultipleChoiceDataset
 
 logger = getLogger(__name__)
+
+uncleaned_label = re.compile(r"^(\([ABCDEFGHIJ]\)|[ABCDEFGHIJ] *\.) *")
 
 
 class Agieval_single_choice(MultipleChoiceDataset):
@@ -24,11 +27,7 @@ class Agieval_single_choice(MultipleChoiceDataset):
     example_set = "dev"
     evaluation_set = "test"
     load_args = ("RUCAIBox/agieval-single-choice",)
-    categorized_subsets = {
-        "Chinese": AGIEVAL_CHINESE_TASK,
-        "English": AGIEVAL_ENGLISH_TASK,
-        "Gaokao": AGIEVAL_GAOKAO_TASK
-    }
+    categorized_subsets = AGIEVAL_SUBJECTS
 
     def __init__(self, dataset_name, args, model, subset_name: str):
         self.task = subset_name
@@ -36,7 +35,7 @@ class Agieval_single_choice(MultipleChoiceDataset):
         super().__init__(dataset_name, args, model, subset_name)
 
     def format_instance(self, instance):
-        WORDS = [_[0 if self.task in AGIEVAL_CHINESE_TASK else 1] for _ in AGIEVAL_WORDS]
+        WORDS = [w[0 if self.task in AGIEVAL_ZH_PROMPT_TASKS else 1] for w in AGIEVAL_WORDS]
         passage = "" if instance["passage"] is None else instance["passage"]
         if self.shots == 0:
             source = passage + WORDS[0] + instance["question"] + "\n" + WORDS[2].format(
@@ -44,7 +43,7 @@ class Agieval_single_choice(MultipleChoiceDataset):
             )
         else:
             source = WORDS[6] + passage + " " + instance["question"] + "\n" + WORDS[7]
-        options = list(map(lambda op: " " + op.strip()[3:], instance["options"]))
+        options = list(map(lambda op: " " + uncleaned_label.split(op.strip())[-1], instance["options"]))
         return dict(source=source, target_idx=int(ord(instance["label"].strip()) - ord('A')), options=options)
 
     def calculate_metric(self, predictions):
@@ -57,4 +56,7 @@ class Agieval_single_choice(MultipleChoiceDataset):
 
     @property
     def references(self):
-        return [ord(instance["label"].strip()) - ord('A') for instance in self.evaluation_data]
+        return [
+            ord(instance["label"].strip()) - ord('A')  # type: ignore
+            for instance in self.evaluation_data
+        ]

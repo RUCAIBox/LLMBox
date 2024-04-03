@@ -46,7 +46,7 @@ class Evaluator:
             self.model.constant_option_num = all(n == self.dataset.option_nums[0] for n in self.dataset.option_nums)
 
     @catch_error
-    def evaluate(self) -> Dict[str, float]:
+    def evaluate(self) -> Dict[str, Dict[str, float]]:
         r"""It conducts the evaluation on the dataset with corresponding models.
         We support two evaluation types:
 
