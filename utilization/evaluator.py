@@ -111,6 +111,8 @@ class Evaluator:
         self.dataset.log_predictions(raw_predictions, predictions, last_score_lists)
         msg = f"Evaluation finished successfully:\nevaluation results: {self.dataset_args.evaluation_results_path}"
         for dataset_name, result in metric_results.items():
+            if result is None:
+                continue
             msg += f"\n##### {dataset_name} #####"
             for key, value in result.items():
                 msg += "\n{}: {:.2f}".format(key, value)

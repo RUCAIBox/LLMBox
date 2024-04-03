@@ -12,7 +12,7 @@ def avg_metrics(
     subset_results: List[Dict[str, float]],
     weighted_factor: Optional[List[int]] = None,
     average_method: Literal["macro", "weighted"] = "macro"
-) -> Dict[str, float]:
+) -> Optional[Dict[str, float]]:
     """Calculate the average of the metrics in the subset_results.
 
     Args:
@@ -25,6 +25,8 @@ def avg_metrics(
     if average_method == "weighted":
         assert weighted_factor is not None, "weighted_factor must be provided when average_method is 'weighted'."
     results = {}
+    if len(subset_results) <= 1:
+        return None
     metric_entries = next(iter(subset_results)).keys()
 
     for metric in metric_entries:
