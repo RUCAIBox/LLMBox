@@ -462,19 +462,21 @@ class Dataset(torch.utils.data.Dataset):
                 " model type, which can be chosen from `base` and `instruction`."
             )
 
+        _instruction = self.instruction + "\n\n" if len(self.instruction) > 0 else ""
+
         if isinstance(instance["source"], list):
             # return a list of formatted instances if the source is a list (in cases like winogrande)
             sources = [
                 self.examples + self.args.instance_format.format(source=s, target="") for s in instance["source"]
             ]
             if self.model.type == "instruction":
-                sources = [self.instruction + "\n\n" + s for s in sources]
+                sources = [_instruction + s for s in sources]
 
             return sources
         else:
             source = self.examples + self.args.instance_format.format(source=instance["source"], target="")
             if self.model.type == "instruction":
-                source = self.instruction + "\n\n" + source
+                source = _instruction + source
 
             return source
 
