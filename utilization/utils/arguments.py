@@ -5,7 +5,7 @@ import sys
 import textwrap
 from builtins import bool
 from copy import copy
-from dataclasses import MISSING, dataclass
+from dataclasses import MISSING, dataclass, fields
 from logging import getLogger
 from typing import ClassVar, Dict, List, Literal, Optional, Set, Tuple, Union
 
@@ -31,8 +31,9 @@ def get_redacted(sensitive: Optional[str]) -> str:
 def filter_none_repr(self):
     kwargs = {}
     redact = getattr(self, "_redact", set())
+    fs = set(f.name for f in fields(self))
     for key, value in self.__dict__.items():
-        if value is not None and not key.startswith("_"):
+        if value is not None and not key.startswith("_") and key in fs and value is not False:
             kwargs[key] = value if key not in redact else get_redacted(value)
     return f"{self.__class__.__name__}({', '.join(f'{key}={value!r}' for key, value in kwargs.items())})"
 
@@ -165,7 +166,7 @@ class ModelArguments:
     )
 
     vllm_gpu_memory_utilization: float = HfArg(
-        default=0.9,
+        default=None,
         help="The maximum gpu memory utilization of vllm.",
     )
 
@@ -255,6 +256,9 @@ class ModelArguments:
         if self.tokenizer_name_or_path is None:
             self.tokenizer_name_or_path = self.model_name_or_path
 
+        if self.vllm:
+            self.vllm_gpu_memory_utilization = 0.9
+
         if self.is_openai_model() or self.is_anthropic_model() or self.is_dashscope_model() or self.is_qianfan_model():
             self.vllm = False
 
@@ -324,25 +328,21 @@ class DatasetArguments:
     kate: bool = HfArg(default=False, aliases=["-kate"], help="Whether to use KATE as an ICL strategy")
     globale: bool = HfArg(default=False, aliases=["-globale"], help="Whether to use GlobalE as an ICL strategy")
     ape: bool = HfArg(default=False, aliases=["-ape"], help="Whether to use APE as an ICL strategy")
-    cot: str = HfArg(
+    cot: Optional[Literal["base", "least_to_most", "pal"]] = HfArg(
         default=None,
-        help=
-        "The method to prompt, eg. 'none', 'base', 'least_to_most', 'pal'. Only available for some specific datasets.",
-        metadata={"choices": [None, "base", "least_to_most", "pal"]},
+        help="The method to prompt, eg. 'base', 'least_to_most', 'pal'. Only available for some specific datasets.",
     )
     perspective_api_key: str = HfArg(
         default=None,
-        help="The Perspective API key",
-    )
-    proxy_port: int = HfArg(
-        default=None,
-        help="The port of the proxy",
+        help="The Perspective API key for toxicity metrics",
     )
     pass_at_k: int = HfArg(
         default=None,
         help="The k value for pass@k metric",
     )
-    dataset_threading: bool = HfArg(default=True, help="Load dataset with threading")
+
+    proxy_port: ClassVar[int] = None
+    dataset_threading: ClassVar[bool] = True
 
     # set in `set_logging` with format "{evaluation_results_dir}/{log_filename}.json"
     evaluation_results_path: ClassVar[str] = None
@@ -399,6 +399,11 @@ class EvaluationArguments:
         default=False,
         help="Test the evaluation pipeline without actually calling the model.",
     )
+    proxy_port: int = HfArg(
+        default=None,
+        help="The port of the proxy",
+    )
+    dataset_threading: bool = HfArg(default=True, help="Load dataset with threading")
 
     __repr__ = filter_none_repr
 
@@ -417,6 +422,11 @@ def check_args(model_args: ModelArguments, dataset_args: DatasetArguments, evalu
         dataset_args (DatasetArguments): The dataset configurations.
         evaluation_args (EvaluationArguments): The evaluation configurations.
     """
+    if evaluation_args.proxy_port:
+        dataset_args.proxy_port = evaluation_args.proxy_port
+
+    dataset_args.dataset_threading = evaluation_args.dataset_threading
+
     model_args.seed = evaluation_args.seed
     if model_args.model_name_or_path.lower() in OPENAI_CHAT_MODELS and dataset_args.batch_size > 1:
         dataset_args.batch_size = 1

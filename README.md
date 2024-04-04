@@ -125,10 +125,10 @@ We provide a broad support on Huggingface models, OpenAI, Anthropic, QWen and  m
         <td><b>GSM (8-shot)</b></td>
     </tr>
     <tr>
-        <td><b>GPT-4</b></td>
-        <td>76.01</td>
-        <td>45.97</td>
-        <td>14.56</td>
+        <td><b>GPT-3.5 Turbo</b></td>
+        <td>79.98</td>
+        <td>69.25</td>
+        <td>75.13</td>
     </tr>
     <tr>
         <td><b>LLaMA-2 (7B)</b></td>
