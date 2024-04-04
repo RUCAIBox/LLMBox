@@ -13,8 +13,9 @@ class Lambada(GenerationDataset):
 
     """
 
+    instruction = ""
     evaluation_set = "test"
-    example_set = "validation"
+    example_set = "train"
     load_args = ("EleutherAI/lambada_openai", "default")
     extra_model_args = dict(max_tokens=5, temperature=0)
 

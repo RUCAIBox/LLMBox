@@ -1,10 +1,10 @@
 from logging import getLogger
 from typing import List, Tuple
 
+import tiktoken
+
 from ..metric import Accuracy
 from .generation_dataset import GenerationDataset
-
-import tiktoken
 
 logger = getLogger(__name__)
 
@@ -19,20 +19,21 @@ class Halueval(GenerationDataset):
     """
 
     instruction = ""
-    example_set = "data"
+    example_set = None
     evaluation_set = "data"
     metrics = [Accuracy()]
     load_args = ("pminervini/HaluEval",)
     extra_model_args = dict(temperature=0, stop='\n')
+    banned_subsets = ["qa", "dialogue", "summarization", "general"]
 
     def format_instance(self, instance):
         subset_name = self.args.subset_names
         if "qa_samples" in subset_name:
             source = source = instruction_qa + "\n\n#Question#: " + instance["question"] + "\n#Answer#: " + instance[
-            "answer"] + "\n#Your Judgement#:"
+                "answer"] + "\n#Your Judgement#:"
         elif "dialogue_samples" in subset_name:
             source = instruction_dial + "\n\n#Dialogue History#: " + instance[
-            "dialogue_history"] + "\n#Response#: " + instance["response"] + "\n#Your Judgement#:"
+                "dialogue_history"] + "\n#Response#: " + instance["response"] + "\n#Your Judgement#:"
         elif "summarization_samples" in subset_name:
             model = self.model.name
             prompt1 = instruction_summarization + "\n\n#Document#: " + instance["document"]
@@ -113,7 +114,7 @@ You are trying to determine if the summary is factual but some information canno
 #Summary#: A chameleon that was found in a Cardiff park has been put down after being abandoned and neglected by its owners.
 #Your Judgement#: Yes
 
-You are trying to determine if there exists some non-factual and incorrect information in the summary.  
+You are trying to determine if there exists some non-factual and incorrect information in the summary.
 #Document#: The city was brought to a standstill on 15 December last year when a gunman held 18 hostages for 17 hours. Family members of victims Tori Johnson and Katrina Dawson were in attendance. Images of the floral tributes that filled the city centre in the wake of the siege were projected on to the cafe and surrounding buildings in an emotional twilight ceremony. Prime Minister Malcolm Turnbull gave an address saying a "whole nation resolved to answer hatred with love". "Testament to the spirit of Australians is that with such unnecessary, thoughtless tragedy, an amazing birth of mateship, unity and love occurs. Proud to be Australian," he said. How the Sydney siege unfolded New South Wales Premier Mike Baird has also announced plans for a permanent memorial to be built into the pavement in Martin Place. Clear cubes containing flowers will be embedded into the concrete and will shine with specialised lighting. It is a project inspired by the massive floral tributes that were left in the days after the siege. "Something remarkable happened here. As a city we were drawn to Martin Place. We came in shock and in sorrow but every step we took was with purpose," he said on Tuesday.
 #Summary#: Crowds have gathered in Sydney's Martin Place to honour the victims of the Lindt cafe siege, one year on.
 #Your Judgement#: No

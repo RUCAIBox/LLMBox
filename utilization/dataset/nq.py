@@ -16,6 +16,7 @@ class Nq(GenerationDataset):
         'question': 'when was the last time anyone was on the moon'
     """
 
+    instruction = ""
     example_set = "train"
     evaluation_set = "validation"
     load_args = ("nq_open",)

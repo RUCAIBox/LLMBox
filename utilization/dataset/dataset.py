@@ -87,6 +87,8 @@ class Dataset(torch.utils.data.Dataset):
 
     average_method: Literal["macro", "micro", "weighted"] = "macro"
 
+    banned_subsets: Optional[List[str]] = None
+
     _repr = [
         "name",
         "subset_name",
@@ -300,6 +302,14 @@ class Dataset(torch.utils.data.Dataset):
 
         self.evaluation_data = list(load_fn(evaluation_set))
         if self.max_num_shots:
+            if not example_set:
+                raise ValueError(
+                    f"Please provide the example set for dataset {self.name} to construct few-shot examples."
+                )
+            if "val" in example_set or "test" in example_set:
+                logger.warning(
+                    f"Example set is used for constructing few-shot examples, but `{example_set}` seems to be an evaluation set."
+                )
             self.example_data = list(load_fn(example_set)) if example_set else []
 
         logger.info(f"Evaluation data with {len(self.evaluation_data)} instances")

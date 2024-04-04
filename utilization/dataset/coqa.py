@@ -1,6 +1,7 @@
 import copy
 import json
 import re
+from pathlib import Path
 
 from ..metric import F1, Em
 from .generation_dataset import GenerationDataset
@@ -44,16 +45,26 @@ class Coqa(GenerationDataset):
 
     instruction = "Answer the last question based on the given passage."
     example_set = "train"
-    evaluation_set = "validation"
+    evaluation_set = "dev"
     load_args = ("coqa",)
     metrics = [F1(multiref_strategy="leave_one_out"), Em(multiref_strategy="leave_one_out")]
     extra_model_args = dict(max_tokens=64, temperature=0, stop=["\n"])
 
     def load_raw_dataset(self, dataset_path, subset_name, evaluation_set, example_set):
-        # https://nlp.stanford.edu/data/coqa/coqa-dev-v1.0.json
-        evaluation_dataset = json.load(open("coqa-dev-v1.0.json"))["data"]
-        # https://nlp.stanford.edu/data/coqa/coqa-train-v1.0.json
-        example_dataset = json.load(open("coqa-train-v1.0.json"))["data"]
+        if not dataset_path:
+            dataset_path = ""
+        dataset_path = Path(dataset_path)
+
+        try:
+            # https://nlp.stanford.edu/data/coqa/coqa-dev-v1.0.json
+            evaluation_dataset = json.load(open(dataset_path / f"coqa-{self.evaluation_set}-v1.0.json"))["data"]
+            # https://nlp.stanford.edu/data/coqa/coqa-train-v1.0.json
+            example_dataset = json.load(open(dataset_path / f"coqa-{self.example_set}-v1.0.json"))["data"]
+        except FileNotFoundError:
+            raise FileNotFoundError(
+                f"CoQA not found. Please download the dataset from https://stanfordnlp.github.io/coqa/coqa-dev-v1.0.json and https://nlp.stanford.edu/data/coqa/coqa-train-v1.0.json and specify the path to the dataset directory using the --dataset_path argument."
+            )
+
         self.evaluation_data = self.convert(evaluation_dataset, "dev")
         self.example_data = self.convert(example_dataset, "train")
 

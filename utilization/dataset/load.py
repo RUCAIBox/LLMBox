@@ -8,7 +8,10 @@ from typing import TYPE_CHECKING, Dict, Iterator, List, Set, Type
 import openai
 from datasets import DownloadConfig, get_dataset_config_names
 
+from utilization.metric.pass_at_k import PassAtK
+
 from ..metric import GPTEval
+from ..utils.catch_error import catch_error
 from .dataset import Dataset, DatasetCollection
 from .enum import DATASET_ALIASES
 from .utils import accepts_subset
@@ -48,7 +51,12 @@ def import_dataset_classes(dataset_name: str) -> List[Type[Dataset]]:
         return [_import_dataset_class(dataset_name)]
 
 
-def get_subsets(dataset_name: str, dataset_classes: List[Type[Dataset]], offline: bool = False) -> List[Set[str]]:
+def get_subsets(
+    dataset_name: str,
+    dataset_classes: List[Type[Dataset]],
+    args: "DatasetArguments",
+    offline: bool = False
+) -> List[Set[str]]:
 
     available_subsets = set()
     available_subsets_by_cls = []
@@ -56,11 +64,15 @@ def get_subsets(dataset_name: str, dataset_classes: List[Type[Dataset]], offline
     if not offline:
         for dataset_cls in dataset_classes:
 
-            # TODO: fix Tuple[()]
-            hf_path = dataset_cls.load_args[0] if len(dataset_cls.load_args) > 0 else dataset_name
+            # dynamically set load_args for squad and wmt datasets, in order to support squad_v2 and wmt series datasets
+            if not dataset_cls.load_args:
+                dataset_cls.load_args = (dataset_name,)
+
             download_config = DownloadConfig(use_etag=False)
             try:
-                s = get_dataset_config_names(hf_path, download_config=download_config, trust_remote_code=True)
+                s = get_dataset_config_names(
+                    dataset_cls.load_args[0], download_config=download_config, trust_remote_code=True
+                )
             except Exception as e:
                 logger.info(f"Failed when trying to get_dataset_config_names: {e}")
                 s = []
@@ -68,24 +80,35 @@ def get_subsets(dataset_name: str, dataset_classes: List[Type[Dataset]], offline
             if s == ["default"]:
                 s = []
 
+            for m in getattr(dataset_cls, "metrics", []):
+                if isinstance(m, GPTEval) and openai.api_key is None:
+                    raise ValueError(
+                        "OpenAI API key is required for GPTEval metrics. Please set it by passing a `--openai_api_key` or through environment variable `OPENAI_API_KEY`."
+                    )
+                if isinstance(m, PassAtK) and args.pass_at_k is None:
+                    raise ValueError(
+                        "PassAtK metric requires `--pass_at_k` argument to be set. Please set it to a valid integer."
+                    )
+
+            s = set(s)
+            if dataset_cls.banned_subsets:
+                if isinstance(dataset_cls.banned_subsets, str):
+                    logger.warning(f"{dataset_cls}.banned_subsets should be a list of strings, not a string.")
+                    banned_subsets = {dataset_cls.banned_subsets}  # type: ignore
+                else:
+                    banned_subsets = set(dataset_cls.banned_subsets)
+                s -= banned_subsets
+
             available_subsets.update(s)
-            available_subsets_by_cls.append(set(s))
+            available_subsets_by_cls.append(s)
+    else:
+        available_subsets_by_cls = [set() for _ in dataset_classes]
 
     # for wmt, en-xx and xx-en are both supported
     if "wmt" == dataset_name:
         for subset in available_subsets.copy():
             if subset.endswith("-en"):
                 available_subsets.add("en-" + subset.split("-")[0])
-
-    # GPTEval requires openai-gpt
-    if any(isinstance(m, GPTEval) for m in dataset_cls.metrics) and openai.api_key is None:
-        raise ValueError(
-            "OpenAI API key is required for GPTEval metrics. Please set it by passing a `--openai_api_key` or through environment variable `OPENAI_API_KEY`."
-        )
-
-    # load dataset
-    if "squad_v2" in dataset_name:
-        dataset_cls.load_args = ("squad_v2",)
 
     for idx, a in enumerate(available_subsets_by_cls):
         available_subsets_by_cls[idx] = a.intersection(available_subsets)
@@ -124,17 +147,13 @@ def load_dataset(dataset_name: str,
     """
 
     dataset_classes = import_dataset_classes(dataset_name)
-    available_subsets_by_cls = get_subsets(dataset_name, dataset_classes, offline=args.dataset_path is not None)
+    available_subsets_by_cls = get_subsets(dataset_name, dataset_classes, args, offline=args.dataset_path is not None)
 
     for dataset_cls, available_subsets in zip(dataset_classes, available_subsets_by_cls):
 
         cmd_subset_names = get_cmd_subset_names(args.subset_names, dataset_cls)
         if len(args.subset_names) > 0 and len(cmd_subset_names) == 0:
             continue
-
-        # for mmlu and race dataset, remove "all" subset by default
-        if dataset_name in {"mmlu", "race"} and len(cmd_subset_names) == 0:
-            available_subsets.remove("all")
 
         # if dataset not in huggingface, allow to manually specify subset_names
         if len(available_subsets) and not available_subsets.issuperset(cmd_subset_names):
@@ -148,6 +167,7 @@ def load_dataset(dataset_name: str,
         logger.debug(
             f"{dataset_name} - available_subsets: {available_subsets}, load_args: {dataset_cls.load_args}, final subset_names: {subset_names}"
         )
+        logger.info("Loading dataset `%s` with subset(s): %s", dataset_name, subset_names)
 
         if len(subset_names) > 1 and accepts_subset(dataset_cls.load_args, overwrite_subset=len(cmd_subset_names) > 0):
             # race:middle,high (several subsets) , super_glue (all the subsets)
@@ -191,11 +211,14 @@ def load_dataset(dataset_name: str,
             yield {dataset_name: dataset_cls(dataset_name, args, model)}
 
 
+@catch_error
 def load_datasets(args: "DatasetArguments", model: "Model") -> DatasetCollection:
     datasets = []
     for d in args.dataset_names:
         datasets.extend(load_dataset(d, args, model, args.dataset_threading))
     datasets = {k: v for d in datasets for k, v in d.items()}
+    if len(datasets) <= 0:
+        raise ValueError("No datasets loaded.")
     dataset_collection = DatasetCollection(datasets)
     logger.info(f"Evaluation datasets: {dataset_collection}")
     return dataset_collection

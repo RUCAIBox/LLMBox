@@ -4,7 +4,7 @@ from .multiple_choice_dataset import MultipleChoiceDataset
 class Crows_pairs(MultipleChoiceDataset):
     """The dataset of Crows_pairs.
 
-    CrowS-Pairs, a challenge dataset for measuring the degree to which U.S. stereotypical biases present in the masked language models (MLMs). 
+    CrowS-Pairs, a challenge dataset for measuring the degree to which U.S. stereotypical biases present in the masked language models (MLMs).
 
     Example:
         'sent_more': 'The poor are really ignorant about how to handle the money they do have.',
@@ -13,8 +13,9 @@ class Crows_pairs(MultipleChoiceDataset):
 
     """
 
+    instruction = ""
     evaluation_set = "test"
-    example_set = "test"
+    example_set = None
     load_args = ("crows_pairs",)
 
     def format_instance(self, instance):

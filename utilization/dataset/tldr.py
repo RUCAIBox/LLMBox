@@ -15,7 +15,7 @@ class TLDR(GenerationDataset):
 
     instruction = ""
     evaluation_set = "train"
-    example_set = "test"
+    example_set = None
     metrics = [Rouge()]
     load_args = ("CarperAI/openai_summarize_tldr",)
     extra_model_args = dict(temperature=0)

@@ -18,6 +18,7 @@ class WebQ(GenerationDataset):
         'url': 'http://www.freebase.com/view/en/jamaica'
     """
 
+    instruction = ""
     example_set = "train"
     evaluation_set = "test"
     load_args = ("web_questions",)

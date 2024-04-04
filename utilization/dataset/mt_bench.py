@@ -15,7 +15,7 @@ class Mt_bench(GenerationDataset):
     """
 
     instruction = ""
-    example_set = ""
+    example_set = None
     evaluation_set = "train"
     load_args = ("HuggingFaceH4/mt_bench_prompts",)
     metrics = [GPTEval(multi_turn=True, type="single")]

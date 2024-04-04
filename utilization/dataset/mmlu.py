@@ -22,6 +22,7 @@ class Mmlu(MultipleChoiceDataset):
     example_set = "dev"
     load_args = ("hails/mmlu_no_train",)  # remove "all" by default
     categorized_subsets = MMLU_SUBJECTS
+    banned_subsets = ["all"]
 
     def __init__(self, dataset_name, args, model, subset_name: str):
         self.instruction = self.instruction.format(self._format_subject(subset_name))

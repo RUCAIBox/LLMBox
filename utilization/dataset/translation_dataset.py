@@ -4,7 +4,7 @@ from ..metric import Bleu
 from .generation_dataset import GenerationDataset
 
 
-class Translation(GenerationDataset):
+class TranslationDataset(GenerationDataset):
     """The dataset of Wmt dataset.
 
     Example:

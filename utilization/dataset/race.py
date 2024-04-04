@@ -37,6 +37,7 @@ class Race(MultipleChoiceDataset):
     evaluation_set = "validation"
     example_set = "train"
     load_args = ("ehovy/race",)  # specify subset from command line, remove "all" by default
+    banned_subsets = ["all"]
 
     def format_instance(self, instance):
         source_text = "Article:\n" + instance["article"] + "\n\n" + "Q: " + instance["question"]

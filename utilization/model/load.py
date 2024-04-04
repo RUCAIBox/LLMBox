@@ -1,6 +1,8 @@
 from logging import getLogger
 from typing import TYPE_CHECKING
 
+from ..utils.catch_error import catch_error
+
 if TYPE_CHECKING:
     # solve the circular import
     from ..utils import ModelArguments
@@ -9,6 +11,7 @@ if TYPE_CHECKING:
 logger = getLogger(__name__)
 
 
+@catch_error
 def load_model(args: "ModelArguments") -> "Model":
     r"""Load corresponding model class.
 

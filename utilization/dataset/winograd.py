@@ -20,7 +20,7 @@ class Winograd(MultipleChoiceDataset):
 
     instruction = ""
     evaluation_set = "test"
-    example_set = "test"
+    example_set = None
     load_args = ("winograd_wsc", "wsc273")  # specify subset from command line
 
     def format_instance(self, instance):
