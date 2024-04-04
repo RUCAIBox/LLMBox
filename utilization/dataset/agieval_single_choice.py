@@ -44,7 +44,7 @@ class Agieval_single_choice(MultipleChoiceDataset):
         else:
             source = WORDS[6] + passage + " " + instance["question"] + "\n" + WORDS[7]
         options = list(map(lambda op: " " + uncleaned_label.split(op.strip())[-1], instance["options"]))
-        return dict(source=source, target_idx=int(ord(instance["label"].strip()) - ord('A')), options=options)
+        return dict(source=source, target_idx=int(ord(instance["label"].strip()[0]) - ord('A')), options=options)
 
     def calculate_metric(self, predictions):
         results, score_lists = super().calculate_metric(predictions)
@@ -57,6 +57,6 @@ class Agieval_single_choice(MultipleChoiceDataset):
     @property
     def references(self):
         return [
-            ord(instance["label"].strip()) - ord('A')  # type: ignore
+            ord(instance["label"].strip()[0]) - ord('A')  # type: ignore
             for instance in self.evaluation_data
         ]
