@@ -322,7 +322,7 @@ We currently support 53 commonly used datasets for LLMs. Each dataset may includ
       <td>anli</td>
       <td><code>Round2</code> (default)</td>
       <td>MultipleChoice</td>
-      <td></td>
+      <td>⭕️</td>
       <td></td>
   </tr>
   <tr>
@@ -435,11 +435,17 @@ We currently support 53 commonly used datasets for LLMs. Each dataset may includ
       <td></td>
   </tr>
   <tr>
-      <td>gaokao</td>
+      <td rowspan=3>gaokao</td>
+      <td><b>Chinese</b>: <code>2010-2022_Chinese_Modern_Lit</code>, <code>2010-2022_Chinese_Lang_and_Usage_MCQs</code></td>
+      <td rowspan=3>Generation</td>
+      <td rowspan=3></td>
+      <td rowspan=3>Metric: Exam scoring</td>
+  </tr>
+  <tr>
+      <td><b>English</b>: <code>2010-2022_English_Reading_Comp</code>, <code>2010-2022_English_Fill_in_Blanks</code>, ...</td>
+  </tr>
+  <tr>
       <td><code>2010-2022_Math_II_MCQs</code>, <code>2010-2022_Math_I_MCQs</code>, ...</td>
-      <td>Generation</td>
-      <td></td>
-      <td>Metric: Exam scoring</td>
   </tr>
   <tr>
       <td>gsm8k</td>
