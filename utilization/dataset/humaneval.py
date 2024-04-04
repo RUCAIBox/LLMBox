@@ -19,6 +19,7 @@ IMPORT_HELPER = [
     "from collections import *",
 ]
 
+
 class Humaneval(GenerationDataset):
     """The dataset of HumanEval.
 
@@ -39,8 +40,8 @@ class Humaneval(GenerationDataset):
     extra_model_args = dict(max_tokens=512, temperature=0.1)
     metrics = ""
 
-    def __init__(self, args, model, subset_name=None):
-        super().__init__(args, model, subset_name=subset_name)
+    def __init__(self, dataset_name, args, model, subset_name=None):
+        super().__init__(dataset_name, args, model, subset_name=subset_name)
         self.metrics = [PassAtK(k=args.pass_at_k)]
 
     def format_instance(self, instance):
@@ -52,6 +53,7 @@ class Humaneval(GenerationDataset):
     def post_processing(predictions):
 
         stop_words = ["\ndef", "\nclass", "\nif", "\n#", "\nprint"]
+
         def _truncate_code_at_stopwords(code, stop_words):
             min_stop_idx = len(code)
             for stop_word in stop_words:
@@ -59,11 +61,12 @@ class Humaneval(GenerationDataset):
                 if 0 <= stop_index < min_stop_idx:
                     min_stop_idx = stop_index
             return code[:min_stop_idx]
+
         return [_truncate_code_at_stopwords(prediction, stop_words) for prediction in predictions]
 
     @property
     def references(self):
         return [
-            "\n".join(IMPORT_HELPER) + '\n' +  instance["prompt"] + "{pred}" + "\n" + instance["test"] + "\n" + f"check({instance['entry_point']})"
-            for instance in self.evaluation_data
+            "\n".join(IMPORT_HELPER) + '\n' + instance["prompt"] + "{pred}" + "\n" + instance["test"] + "\n" +
+            f"check({instance['entry_point']})" for instance in self.evaluation_data
         ]

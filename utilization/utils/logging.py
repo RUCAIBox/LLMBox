@@ -2,9 +2,11 @@ import datetime
 import logging
 import os
 import pathlib
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, List, Optional, Set
 
 import coloredlogs
+
+from ..dataset.enum import DATASET_ALIASES
 
 if TYPE_CHECKING:
     # solve the circular import
@@ -26,6 +28,16 @@ log_levels = {
     "error": logging.ERROR,
     "critical": logging.CRITICAL,
 }
+
+BUILTIN_DATASET = {"__init__", "enum", "dataset", "utils", "multiple_choice_dataset", "generation_dataset", "load"}
+
+
+def list_datasets() -> List[str]:
+    results = os.listdir(os.path.join(os.path.dirname(__file__), "../dataset"))
+    results = [f[:-3] for f in results if f.endswith(".py")]
+    results = [f for f in results if f not in BUILTIN_DATASET]
+    results.extend(DATASET_ALIASES.keys())
+    return sorted(results)
 
 
 def get_git_revision(base_path) -> str:
@@ -55,16 +67,29 @@ def _get_file_handler(log_path, int_file_log_level):
     return handler
 
 
+def _format_dataset_names(dataset_names: List[str], subset_names: Set[str]) -> str:
+    name = ""
+    if len(dataset_names) == 1:
+        name = dataset_names[0]
+        if len(subset_names) > 0:
+            name += "_" + ",".join(subset_names)
+    else:
+        name = ",".join(dataset_names)
+    return name
+
+
 def _format_path(model_args, dataset_args, evaluation_args):
+
     model_name = model_args.model_name_or_path.strip("/").split("/")[-1]
-    dataset_name = dataset_args.dataset_name.replace(
-        '/', '-'
-    ) + ("_" + ",".join(dataset_args.subset_names) if dataset_args.subset_names else "")
+    dataset_name = _format_dataset_names(dataset_args.dataset_names, dataset_args.subset_names)
     num_shots = str(dataset_args.num_shots)
     execution_time = datetime.datetime.now().strftime(DEFAULT_DATETIME_FORMAT)
+
     log_filename = f"{model_name}-{dataset_name}-{num_shots}shot-{execution_time}"
+
     log_path = f"{evaluation_args.logging_dir}/{log_filename}.log"
     evaluation_results_path = f"{evaluation_args.evaluation_results_dir}/{log_filename}.json"
+
     return log_path, evaluation_results_path
 
 

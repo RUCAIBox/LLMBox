@@ -1,12 +1,13 @@
 from logging import getLogger
 
-from .generation_dataset import GenerationDataset
-from .enum import GAOKAO_PROMPTS, GAOKAO_TASKS
 from ..metric import Gaokao_bench_metric
+from .enum import GAOKAO_CHINESE_TASKS_SCORE, GAOKAO_ENGLISH_TASKS_SCORE, GAOKAO_PROMPTS, GAOKAO_TASKS
+from .generation_dataset import GenerationDataset
 
 logger = getLogger(__name__)
 
 import re
+
 
 class Gaokao(GenerationDataset):
     """The dataset of GAOKAO-Bench.
@@ -28,21 +29,19 @@ class Gaokao(GenerationDataset):
     evaluation_set = "test"
     load_args = ("RUCAIBox/gaokao-bench",)
     metrics = [Gaokao_bench_metric()]
+    categorized_subsets = None  # weighted average score
 
-    def __init__(self, args, model, subset_name: str):
+    def __init__(self, dataset_name, args, model, subset_name: str):
         self.instruction = self.instruction.format(GAOKAO_PROMPTS[subset_name])
         self.task = subset_name
         self.extra_model_args = dict(temperature=0.3, max_tokens=4096)
         # According to https://github.com/OpenLMLab/GAOKAO-Bench/blob/main/Models/openai_gpt4.py
         # We use temperature=0.3 and max_tokens=4096
-        super().__init__(args, model, subset_name)
+        super().__init__(dataset_name, args, model, subset_name)
 
     def format_instance(self, instance):
         target = instance["answer"].__str__()
-        return dict(
-            source=instance["question"].strip(),
-            target=" " + target
-        )
+        return dict(source=instance["question"].strip(), target=" " + target)
 
     def post_processing(self, predictions):
         new_predictions = []
@@ -53,25 +52,26 @@ class Gaokao(GenerationDataset):
             new_predictions.append(tuple(new_pred) if len(new_pred) != 0 else "")
         return new_predictions
 
-    # from https://github.com/OpenLMLab/GAOKAO-Bench/blob/main/Bench/bench_function.py
     @staticmethod
     def extract_choice_answer(model_output, question_type, answer_lenth=None):
         """
         Extract choice answer from model output
 
         Format of model_output that is expected:
-        'single_choice': choice answer should be the last Capital Letter of the model_output, e.g.: "...【答案】 A <eoa>"
-        'multi_question_choice': "...【答案】A ... 【答案】C ..." or write the choice answers at the beginning of the model_output, e.g. "A C D E F...."
-        'multi_choice': "...【答案】 ABD " or write the choice answers at the end of the model_output, e.g. "... ACD"
-        'five_out_of_seven': choice answers should be the first five Capital Letters of the model_output, e.g. "A C D F B ...."
+        `'single_answer_mcq'`: Multiple-choice question (单选题). choice answer should be the last Capital Letter of the model_output, e.g.: `"...【答案】 A <eoa>"`
+        `'multi_mcqs'`: Answer multiple related questions after a context, e.g. reading comprehension or cloze. `"...【答案】A ... 【答案】C ..."` or write the choice answers at the beginning of the model_output, e.g. `"A C D E F...."`
+        `'multi_answers_mcq'`: Multiple-choice question, there may be more than one correct answer (多选题). `"...【答案】 ABD "` or write the choice answers at the end of the model_output, e.g. `"... ACD"`
+        `'seven_option'`: Seven options for five blanks (七选五). choice answers should be the first five Capital Letters of the model_output, e.g. `"A C D F B ...."`
+
+        sources: https://github.com/OpenLMLab/GAOKAO-Bench/blob/main/Bench/bench_function.py
         """
-        if question_type == 'single_choice':
+        if question_type == 'single_answer_mcq':
             model_answer = []
             temp = re.findall(r'[A-D](?!})', model_output[::-1])
             if len(temp) != 0:
                 model_answer.append(temp[0])
 
-        elif question_type == 'multi_question_choice':
+        elif question_type == 'multi_mcqs':
             model_answer = []
             temp = re.findall(r"【答案】\s*[:：]*\s*[A-Z](?!})", model_output)
 
@@ -84,7 +84,7 @@ class Gaokao(GenerationDataset):
                     for k in range(min(len(temp), answer_lenth)):
                         model_answer.append(temp[k])
 
-        elif question_type == 'multi_choice':
+        elif question_type == 'multi_answers_mcq':
             model_answer = []
             answer = ''
             content = re.sub(r'\s+', '', model_output)
@@ -102,7 +102,7 @@ class Gaokao(GenerationDataset):
             if len(answer) != 0:
                 model_answer.append(answer)
 
-        elif question_type == 'five_out_of_seven':
+        elif question_type == 'seven_option':
             model_answer = []
             temp = re.findall(r'[A-G](?!})', model_output)
             if len(temp) > 0:

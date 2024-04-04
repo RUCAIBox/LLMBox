@@ -1,3 +1,7 @@
+DATASET_ALIASES = {
+    "agieval": ["agieval_single_choice", "agieval_cot"],  # try to use MultipleChoiceDataset first
+}
+
 MMLU_STEM_SUBJECTS = [
     'abstract_algebra', 'astronomy', 'college_biology', 'college_chemistry', 'college_computer_science',
     'college_mathematics', 'college_physics', 'computer_security', 'conceptual_physics', 'electrical_engineering',
@@ -36,111 +40,78 @@ BBH_PROMPTS = {
     'formal_fallacies': "Distinguish deductively valid arguments from formal fallacies.",
     'geometric_shapes': "Name geometric shapes from their SVG paths.",
     'hyperbaton': "Order adjectives correctly in English sentences.",
-    'logical_deduction_five_objects': "A logical deduction task which requires deducing the order of a sequence of objects.",
-    'logical_deduction_seven_objects': "A logical deduction task which requires deducing the order of a sequence of objects.",
-    'logical_deduction_three_objects': "A logical deduction task which requires deducing the order of a sequence of objects.",
+    'logical_deduction_five_objects':
+    "A logical deduction task which requires deducing the order of a sequence of objects.",
+    'logical_deduction_seven_objects':
+    "A logical deduction task which requires deducing the order of a sequence of objects.",
+    'logical_deduction_three_objects':
+    "A logical deduction task which requires deducing the order of a sequence of objects.",
     'movie_recommendation': "Recommend movies similar to the given list of movies.",
     'multistep_arithmetic_two': "Solve multi-step arithmetic problems.",
-    'navigate': "Given a series of navigation instructions, determine whether one would end up back at the starting point.",
+    'navigate':
+    "Given a series of navigation instructions, determine whether one would end up back at the starting point.",
     'object_counting': "Questions that involve enumerating objects and asking the model to count them.",
     'penguins_in_a_table': "Answer questions about a table of penguins and their attributes.",
     'reasoning_about_colored_objects': "Answer extremely simple questions about the colors of objects on a surface.",
     'ruin_names': "Select the humorous edit that 'ruins' the input movie or musical artist name.",
-    'salient_translation_error_detection': "Detect the type of error in an English translation of a German source sentence.",
+    'salient_translation_error_detection':
+    "Detect the type of error in an English translation of a German source sentence.",
     'snarks': "Determine which of two sentences is sarcastic.",
-    'sports_understanding': "Determine whether an artificially constructed sentence relating to sports is plausible or not.",
+    'sports_understanding':
+    "Determine whether an artificially constructed sentence relating to sports is plausible or not.",
     'temporal_sequences': "Task description: Answer questions about which times certain events could have occurred.",
-    'tracking_shuffled_objects_five_objects': "A task requiring determining the final positions of a set of objects given their initial positions and a description of a sequence of swaps.",
-    'tracking_shuffled_objects_seven_objects': "A task requiring determining the final positions of a set of objects given their initial positions and a description of a sequence of swaps.",
-    'tracking_shuffled_objects_three_objects': "A task requiring determining the final positions of a set of objects given their initial positions and a description of a sequence of swaps.",
+    'tracking_shuffled_objects_five_objects':
+    "A task requiring determining the final positions of a set of objects given their initial positions and a description of a sequence of swaps.",
+    'tracking_shuffled_objects_seven_objects':
+    "A task requiring determining the final positions of a set of objects given their initial positions and a description of a sequence of swaps.",
+    'tracking_shuffled_objects_three_objects':
+    "A task requiring determining the final positions of a set of objects given their initial positions and a description of a sequence of swaps.",
     'web_of_lies': "Evaluate a random boolean function expressed as a word problem.",
     'word_sorting': "Sort a list of words."
 }
 
-BBH_NO_CHOICE = [
-    'dyck_languages',
-    'multistep_arithmetic_two',
-    'object_counting',
-    'word_sorting'
-]
+BBH_NO_CHOICE = ['dyck_languages', 'multistep_arithmetic_two', 'object_counting', 'word_sorting']
 
 BBH_LETTER_CHOICE = [
-    'date_understanding',
-    'disambiguation_qa',
-    'geometric_shapes',
-    'hyperbaton',
-    'logical_deduction_five_objects',
-    'logical_deduction_seven_objects',
-    'logical_deduction_three_objects',
-    'movie_recommendation',
-    'penguins_in_a_table',
-    'reasoning_about_colored_objects',
-    'ruin_names',
-    'salient_translation_error_detection',
-    'snarks',
-    'temporal_sequences',
-    'tracking_shuffled_objects_five_objects',
-    'tracking_shuffled_objects_seven_objects',
+    'date_understanding', 'disambiguation_qa', 'geometric_shapes', 'hyperbaton', 'logical_deduction_five_objects',
+    'logical_deduction_seven_objects', 'logical_deduction_three_objects', 'movie_recommendation', 'penguins_in_a_table',
+    'reasoning_about_colored_objects', 'ruin_names', 'salient_translation_error_detection', 'snarks',
+    'temporal_sequences', 'tracking_shuffled_objects_five_objects', 'tracking_shuffled_objects_seven_objects',
     'tracking_shuffled_objects_three_objects'
 ]
 
-AGIEVAL_WORDS = [
-    ["问题：", "Q: "],
-    ["选项：", "Answer Choices: "],
-    ["答案：从A到{}, 我们应选择", "A: Among A through {}, the answer is"],
-    ["从A到{}, 我们应选择什么？让我们逐步思考：", "Let's think step by step."],
-    ["问题的解析:", "Explanation for Problem:"],
-    ["答案是", "The answer is therefore"],
-    ["问题. ", "Problem. "],
-    ["从以下选项中选择: ", "Choose from the following options: "],
-    ["答案：", "A: The answer is"],
-    ["答案：让我们逐步思考：", "A: Let's think step by step."]
+# 8 subsets reported as Agieval English in llama paper
+AGIEVAL_ENGLISH_SUBJECTS = [
+    'lsat-ar', 'lsat-lr', 'lsat-rc', 'logiqa-en', 'sat-math', 'sat-en', 'aqua-rat', 'sat-en-without-passage'
 ]
 
-AGIEVAL_EN_QA = [
-    'lsat-ar', 'lsat-lr', 'lsat-rc',
-    'logiqa-en', 'sat-math', 'sat-en',
-    'aqua-rat', 'sat-en-without-passage', 'gaokao-english'
-]
+AGIEVAL_SUBJECTS = {"English": AGIEVAL_ENGLISH_SUBJECTS}
 
-AGIEVAL_ZH_QA = [
-    'logiqa-zh', 'jec-qa-kd', 'jec-qa-ca', 'gaokao-chinese',
-    'gaokao-geography', 'gaokao-history', 'gaokao-biology',
+AGIEVAL_EN_QA_TASKS = AGIEVAL_ENGLISH_SUBJECTS + ['gaokao-english']
+
+AGIEVAL_ZH_QA_TASKS = [
+    'logiqa-zh', 'jec-qa-kd', 'jec-qa-ca', 'gaokao-chinese', 'gaokao-geography', 'gaokao-history', 'gaokao-biology',
     'gaokao-chemistry', 'gaokao-physics', 'gaokao-mathqa'
 ]
 
-AGIEVAL_EN_CLOZE = ['math']
+AGIEVAL_EN_CLOZE_TASKS = ['math']
 
-AGIEVAL_ZH_CLOZE = ['gaokao-mathcloze']
+AGIEVAL_ZH_CLOZE_TASKS = ['gaokao-mathcloze']
 
-AGIEVAL_MULTI_CHOICE = ['jec-qa-kd', 'jec-qa-ca', 'gaokao-physics']
+AGIEVAL_MULTI_ANSWERS_TASKS = ['jec-qa-kd', 'jec-qa-ca', 'gaokao-physics']
 
-AGIEVAL_CHINESE_TASK = AGIEVAL_ZH_CLOZE + AGIEVAL_ZH_QA
+AGIEVAL_NO_LETTER_CHOICE_TASKS = AGIEVAL_EN_CLOZE_TASKS + AGIEVAL_ZH_CLOZE_TASKS
 
-AGIEVAL_ENGLISH_TASK = AGIEVAL_EN_CLOZE + AGIEVAL_EN_QA
+AGIEVAL_WORDS = [["问题：", "Q: "], ["选项：", "Answer Choices: "],
+                 ["答案：从A到{}, 我们应选择", "A: Among A through {}, the answer is"],
+                 ["从A到{}, 我们应选择什么？让我们逐步思考：", "Let's think step by step."], ["问题的解析:", "Explanation for Problem:"],
+                 ["答案是", "The answer is therefore"], ["问题. ", "Problem. "],
+                 ["从以下选项中选择: ", "Choose from the following options: "], ["答案：", "A: The answer is"],
+                 ["答案：让我们逐步思考：", "A: Let's think step by step."]]
 
-AGIEVAL_GAOKAO_TASK = [
-    'gaokao-chinese', 'gaokao-geography', 'gaokao-history',
-    'gaokao-biology', 'gaokao-chemistry', 'gaokao-physics',
-    'gaokao-mathqa', 'gaokao-mathcloze', 'gaokao-english'
-]
+AGIEVAL_ZH_PROMPT_TASKS = AGIEVAL_ZH_CLOZE_TASKS + AGIEVAL_ZH_QA_TASKS
 
-AGIEVAL_NO_LETTER_CHOICE = AGIEVAL_EN_CLOZE + AGIEVAL_ZH_CLOZE
-
-AGIEVAL_MULTIPLE_CHOICE_TASK = [
-    'lsat-ar', 'lsat-lr', 'lsat-rc',
-    'logiqa-en', 'sat-math', 'sat-en',
-    'aqua-rat', 'sat-en-without-passage', 'gaokao-english',
-    'logiqa-zh', 'gaokao-chinese', 'gaokao-chemistry',
-    'gaokao-geography', 'gaokao-history', 'gaokao-biology',
-    # 'gaokao-mathqa',    # due to the bugs in agieval dataset, we now treat gaokao-mathqa as generation.
-]
-
-AGIEVAL_GENERTION_TASK = [
-    'jec-qa-kd', 'jec-qa-ca', 'gaokao-physics',
-    'math', 'gaokao-mathcloze',
-    'gaokao-mathqa'    # due to the bugs in agieval dataset, we now treat gaokao-mathqa as generation.
-]
+AGIEVAL_EN_PROMPT_TASKS = AGIEVAL_EN_CLOZE_TASKS + AGIEVAL_EN_QA_TASKS
 
 CMMLU_NAME_TRANS = {
     "agronomy": "农学",
@@ -153,16 +124,16 @@ CMMLU_NAME_TRANS = {
     "chinese_driving_rule": "中国驾驶规则",
     "chinese_food_culture": "中国饮食文化",
     "chinese_foreign_policy": "中国外交政策",
-    "chinese_history":"中国历史",
+    "chinese_history": "中国历史",
     "chinese_literature": "中国文学",
     "chinese_teacher_qualification": "中国教师资格",
     "clinical_knowledge": "临床知识",
-    "college_actuarial_science":"大学精算学",
-    "college_education":"大学教育学",
+    "college_actuarial_science": "大学精算学",
+    "college_education": "大学教育学",
     "college_engineering_hydrology": "大学工程水文学",
     "college_law": "大学法律",
     "college_mathematics": "大学数学",
-    "college_medical_statistics":"大学医学统计",
+    "college_medical_statistics": "大学医学统计",
     "college_medicine": "大学医学",
     "computer_science": "计算机科学",
     "computer_security": "计算机安全",
@@ -171,8 +142,8 @@ CMMLU_NAME_TRANS = {
     "economics": "经济学",
     "education": "教育学",
     "electrical_engineering": "电气工程",
-    "elementary_chinese":"小学语文",
-    "elementary_commonsense":"小学常识",
+    "elementary_chinese": "小学语文",
+    "elementary_commonsense": "小学常识",
     "elementary_information_and_technology": "小学信息技术",
     "elementary_mathematics": "初等数学",
     "ethnology": "民族学",
@@ -203,12 +174,12 @@ CMMLU_NAME_TRANS = {
     "professional_medicine": "专业医学",
     "professional_psychology": "专业心理学",
     "public_relations": "公共关系",
-    "security_study":"安全研究",
+    "security_study": "安全研究",
     "sociology": "社会学",
     "sports_science": "体育学",
     "traditional_chinese_medicine": "中医中药",
     "virology": "病毒学",
-    "world_history":"世界历史",
+    "world_history": "世界历史",
     "world_religions": "世界宗教",
 }
 
@@ -269,77 +240,89 @@ CEVAL_TRANS = {
 
 CEVAL_SUBJECTS = {
     'stem': [
-        'advanced_mathematics', 'college_chemistry', 'college_physics',
-        'college_programming', 'computer_architecture', 'computer_network',
-        'discrete_mathematics', 'electrical_engineer', 'high_school_biology',
-        'high_school_chemistry', 'high_school_mathematics', 'high_school_physics',
-        'metrology_engineer', 'middle_school_biology', 'middle_school_chemistry',
-        'middle_school_mathematics', 'middle_school_physics', 'operating_system',
-        'probability_and_statistics', 'veterinary_medicine'
+        'advanced_mathematics', 'college_chemistry', 'college_physics', 'college_programming', 'computer_architecture',
+        'computer_network', 'discrete_mathematics', 'electrical_engineer', 'high_school_biology',
+        'high_school_chemistry', 'high_school_mathematics', 'high_school_physics', 'metrology_engineer',
+        'middle_school_biology', 'middle_school_chemistry', 'middle_school_mathematics', 'middle_school_physics',
+        'operating_system', 'probability_and_statistics', 'veterinary_medicine'
     ],
     'social science': [
-        'business_administration', 'college_economics', 'education_science',
-        'high_school_geography', 'high_school_politics', 'mao_zedong_thought',
-        'marxism', 'middle_school_geography', 'middle_school_politics', 'teacher_qualification'
+        'business_administration', 'college_economics', 'education_science', 'high_school_geography',
+        'high_school_politics', 'mao_zedong_thought', 'marxism', 'middle_school_geography', 'middle_school_politics',
+        'teacher_qualification'
     ],
     'humanities': [
-        'art_studies', 'chinese_language_and_literature', 'high_school_chinese',
-        'high_school_history', 'ideological_and_moral_cultivation', 'law',
-        'legal_professional', 'logic', 'middle_school_history',
+        'art_studies', 'chinese_language_and_literature', 'high_school_chinese', 'high_school_history',
+        'ideological_and_moral_cultivation', 'law', 'legal_professional', 'logic', 'middle_school_history',
         'modern_chinese_history', 'professional_tour_guide'
     ],
     'other': [
-        'accountant', 'basic_medicine', 'civil_servant',
-        'clinical_medicine', 'environmental_impact_assessment_engineer',
-        'fire_engineer', 'physician', 'plant_protection', 'sports_science',
+        'accountant', 'basic_medicine', 'civil_servant', 'clinical_medicine',
+        'environmental_impact_assessment_engineer', 'fire_engineer', 'physician', 'plant_protection', 'sports_science',
         'tax_accountant', 'urban_and_rural_planner'
     ]
 }
 
 GAOKAO_PROMPTS = {
-    '2010-2022_Math_II_MCQs': '请你做一道数学选择题\n请你一步一步思考并将思考过程写在【解析】和<eoe>之间。你将从A，B，C，D中选出正确的答案，并写在【答案】和<eoa>之间。\n例如：【答案】: A <eoa>\n完整的题目回答的格式如下：\n【解析】 ... <eoe>\n【答案】 ... <eoa>\n请你严格按照上述格式作答。\n题目如下：',
-    '2010-2022_Math_I_MCQs': '请你做一道数学选择题\n请你一步一步思考并将思考过程写在【解析】和<eoe>之间。你将从A，B，C，D中选出正确的答案，并写在【答案】和<eoa>之间。\n例如：【答案】: A <eoa>\n完整的题目回答的格式如下：\n【解析】 ... <eoe>\n【答案】 ... <eoa>\n请你严格按照上述格式作答。\n题目如下：',
-    '2010-2022_History_MCQs': '请你做一道历史选择题\n请你一步一步思考并将思考过程写在【解析】和<eoe>之间。你将从A，B，C，D中选出正确的答案，并写在【答案】和<eoa>之间。\n例如：【答案】: A <eoa>\n完整的题目回答的格式如下：\n【解析】 ... <eoe>\n【答案】 ... <eoa>\n请你严格按照上述格式作答。\n题目如下：',
-    '2010-2022_Biology_MCQs': '请你做一道生物选择题\n请你一步一步思考并将思考过程写在【解析】和<eoe>之间。你将从A，B，C，D中选出正确的答案，并写在【答案】和<eoa>之间。\n例如：【答案】: A <eoa>\n完整的题目回答的格式如下：\n【解析】 ... <eoe>\n【答案】 ... <eoa>\n请你严格按照上述格式作答。\n题目如下：',
-    '2010-2022_Political_Science_MCQs': '请你做一道政治选择题\n请你一步一步思考并将思考过程写在【解析】和<eoe>之间。你将从A，B，C，D中选出正确的答案，并写在【答案】和<eoa>之间。\n例如：【答案】: A <eoa>\n完整的题目回答的格式如下：\n【解析】 ... <eoe>\n【答案】 ... <eoa>\n请你严格按照上述格式作答。\n题目如下：',
-    '2010-2022_Physics_MCQs': '请你做一道物理选择题。\n请你一步一步思考并将思考过程写在【解析】和<eoe>之间。你将从A，B，C，D中选出所有符合题意的答案，并写在【答案】和<eoa>之间。\n例如：【答案】 AB <eoa>\n完整的题目回答的格式如下：\n【解析】 ... <eoe>\n【答案】... <eoa>\n请你严格按照上述格式作答。\n',
-    '2010-2022_Chemistry_MCQs': '请你做一道化学选择题\n请你一步一步思考并将思考过程写在【解析】和<eoe>之间。你将从A，B，C，D中选出正确的答案，并写在【答案】和<eoa>之间。\n例如：【答案】: A <eoa>\n完整的题目回答的格式如下：\n【解析】 ... <eoe>\n【答案】 ... <eoa>\n请你严格按照上述格式作答。\n题目如下：',
-    '2010-2013_English_MCQs': '请你做一道英语选择题\n请你一步一步思考并将思考过程写在【解析】和<eoe>之间。你将从A，B，C，D中选出正确的答案，并写在【答案】和<eoa>之间。\n例如：【答案】: A <eoa>\n完整的题目回答的格式如下：\n【解析】 ... <eoe>\n【答案】 ... <eoa>\n请你严格按照上述格式作答。\n题目如下：',
-    '2010-2022_Chinese_Modern_Lit': '请你做一道语文阅读理解题，其中包含三个小题。\n请你一步一步思考。每一题你将从A，B，C，D中选出正确的答案，并写在【答案】和<eoa>之间。\n例如：（1）【答案】 A <eoa>\n（2）【答案】 B <eoa>\n请你严格按照上述格式作答。\n',
-    '2010-2022_English_Fill_in_Blanks': '请你做一道英语完形填空题,其中包含二十个小题。\n请你一步一步思考。每一题你将从A，B，C，D中选出正确的答案，并写在【答案】和<eoa>之间。\n例如：（1）【答案】 A <eoa>\n（2）【答案】 B <eoa>\n请你严格按照上述格式作答。\n',
-    '2012-2022_English_Cloze_Test': '请回答下面的问题，将符合题意的五个选项的字母写在【答案】和<eoa>之间，例如“【答案】 A B C D E <eoa>\n请严格按照上述格式作答。\n',
-    '2010-2022_Geography_MCQs': '请你做一道地理选择题，其中包含两到三个小题。\n请你一步一步思考。每一题你将从A，B，C，D中选出正确的答案，并写在【答案】和<eoa>之间。\n例如：（1）【答案】 A <eoa>\n（2）【答案】 B <eoa>\n请你严格按照上述格式作答。\n',
-    '2010-2022_English_Reading_Comp': '请你做一道英语阅读理解题，其中包含三到五个小题。\n请你一步一步思考。每一题你将从A，B，C，D中选出正确的答案，并写在【答案】和<eoa>之间。\n例如：（1）【答案】 A <eoa>\n（2）【答案】 B <eoa>\n请你严格按照上述格式作答。\n',
-    '2010-2022_Chinese_Lang_and_Usage_MCQs': '请你做一道语文选择题\n请你一步一步思考并将思考过程写在【解析】和<eoe>之间。你将从A，B，C，D中选出正确的答案，并写在【答案】和<eoa>之间。\n例如：【答案】: A <eoa>\n完整的题目回答的格式如下：\n（1）【解析】 ... <eoe>\n【答案】 ... <eoa>\n（2）【解析】 ... <eoe>\n【答案】 ... <eoa>\n请你严格按照上述格式作答。如果不止一道题，请分别作答\n题目如下：'
+    '2010-2022_Math_II_MCQs':
+    '请你做一道数学选择题\n请你一步一步思考并将思考过程写在【解析】和<eoe>之间。你将从A，B，C，D中选出正确的答案，并写在【答案】和<eoa>之间。\n例如：【答案】: A <eoa>\n完整的题目回答的格式如下：\n【解析】 ... <eoe>\n【答案】 ... <eoa>\n请你严格按照上述格式作答。\n题目如下：',
+    '2010-2022_Math_I_MCQs':
+    '请你做一道数学选择题\n请你一步一步思考并将思考过程写在【解析】和<eoe>之间。你将从A，B，C，D中选出正确的答案，并写在【答案】和<eoa>之间。\n例如：【答案】: A <eoa>\n完整的题目回答的格式如下：\n【解析】 ... <eoe>\n【答案】 ... <eoa>\n请你严格按照上述格式作答。\n题目如下：',
+    '2010-2022_History_MCQs':
+    '请你做一道历史选择题\n请你一步一步思考并将思考过程写在【解析】和<eoe>之间。你将从A，B，C，D中选出正确的答案，并写在【答案】和<eoa>之间。\n例如：【答案】: A <eoa>\n完整的题目回答的格式如下：\n【解析】 ... <eoe>\n【答案】 ... <eoa>\n请你严格按照上述格式作答。\n题目如下：',
+    '2010-2022_Biology_MCQs':
+    '请你做一道生物选择题\n请你一步一步思考并将思考过程写在【解析】和<eoe>之间。你将从A，B，C，D中选出正确的答案，并写在【答案】和<eoa>之间。\n例如：【答案】: A <eoa>\n完整的题目回答的格式如下：\n【解析】 ... <eoe>\n【答案】 ... <eoa>\n请你严格按照上述格式作答。\n题目如下：',
+    '2010-2022_Political_Science_MCQs':
+    '请你做一道政治选择题\n请你一步一步思考并将思考过程写在【解析】和<eoe>之间。你将从A，B，C，D中选出正确的答案，并写在【答案】和<eoa>之间。\n例如：【答案】: A <eoa>\n完整的题目回答的格式如下：\n【解析】 ... <eoe>\n【答案】 ... <eoa>\n请你严格按照上述格式作答。\n题目如下：',
+    '2010-2022_Physics_MCQs':
+    '请你做一道物理选择题。\n请你一步一步思考并将思考过程写在【解析】和<eoe>之间。你将从A，B，C，D中选出所有符合题意的答案，并写在【答案】和<eoa>之间。\n例如：【答案】 AB <eoa>\n完整的题目回答的格式如下：\n【解析】 ... <eoe>\n【答案】... <eoa>\n请你严格按照上述格式作答。\n',
+    '2010-2022_Chemistry_MCQs':
+    '请你做一道化学选择题\n请你一步一步思考并将思考过程写在【解析】和<eoe>之间。你将从A，B，C，D中选出正确的答案，并写在【答案】和<eoa>之间。\n例如：【答案】: A <eoa>\n完整的题目回答的格式如下：\n【解析】 ... <eoe>\n【答案】 ... <eoa>\n请你严格按照上述格式作答。\n题目如下：',
+    '2010-2013_English_MCQs':
+    '请你做一道英语选择题\n请你一步一步思考并将思考过程写在【解析】和<eoe>之间。你将从A，B，C，D中选出正确的答案，并写在【答案】和<eoa>之间。\n例如：【答案】: A <eoa>\n完整的题目回答的格式如下：\n【解析】 ... <eoe>\n【答案】 ... <eoa>\n请你严格按照上述格式作答。\n题目如下：',
+    '2010-2022_Chinese_Modern_Lit':
+    '请你做一道语文阅读理解题，其中包含三个小题。\n请你一步一步思考。每一题你将从A，B，C，D中选出正确的答案，并写在【答案】和<eoa>之间。\n例如：（1）【答案】 A <eoa>\n（2）【答案】 B <eoa>\n请你严格按照上述格式作答。\n',
+    '2010-2022_English_Fill_in_Blanks':
+    '请你做一道英语完形填空题,其中包含二十个小题。\n请你一步一步思考。每一题你将从A，B，C，D中选出正确的答案，并写在【答案】和<eoa>之间。\n例如：（1）【答案】 A <eoa>\n（2）【答案】 B <eoa>\n请你严格按照上述格式作答。\n',
+    '2012-2022_English_Cloze_Test':
+    '请回答下面的问题，将符合题意的五个选项的字母写在【答案】和<eoa>之间，例如“【答案】 A B C D E <eoa>\n请严格按照上述格式作答。\n',
+    '2010-2022_Geography_MCQs':
+    '请你做一道地理选择题，其中包含两到三个小题。\n请你一步一步思考。每一题你将从A，B，C，D中选出正确的答案，并写在【答案】和<eoa>之间。\n例如：（1）【答案】 A <eoa>\n（2）【答案】 B <eoa>\n请你严格按照上述格式作答。\n',
+    '2010-2022_English_Reading_Comp':
+    '请你做一道英语阅读理解题，其中包含三到五个小题。\n请你一步一步思考。每一题你将从A，B，C，D中选出正确的答案，并写在【答案】和<eoa>之间。\n例如：（1）【答案】 A <eoa>\n（2）【答案】 B <eoa>\n请你严格按照上述格式作答。\n',
+    '2010-2022_Chinese_Lang_and_Usage_MCQs':
+    '请你做一道语文选择题\n请你一步一步思考并将思考过程写在【解析】和<eoe>之间。你将从A，B，C，D中选出正确的答案，并写在【答案】和<eoa>之间。\n例如：【答案】: A <eoa>\n完整的题目回答的格式如下：\n（1）【解析】 ... <eoe>\n【答案】 ... <eoa>\n（2）【解析】 ... <eoe>\n【答案】 ... <eoa>\n请你严格按照上述格式作答。如果不止一道题，请分别作答\n题目如下：'
 }
 
+# See Gaokao.extract_choice_answer for the details
 GAOKAO_TASKS = {
-    "2010-2022_Math_II_MCQs": "single_choice",
-    "2010-2022_Math_I_MCQs": "single_choice",
-    "2010-2022_History_MCQs": "single_choice",
-    "2010-2022_Biology_MCQs": "single_choice",
-    "2010-2022_Political_Science_MCQs": "single_choice",
-    "2010-2022_Physics_MCQs": "multi_choice",
-    "2010-2022_Chemistry_MCQs": "single_choice",
-    "2010-2013_English_MCQs": "single_choice",
-    "2010-2022_Chinese_Modern_Lit": "multi_question_choice",
-    "2010-2022_English_Fill_in_Blanks": "multi_question_choice",
-    "2012-2022_English_Cloze_Test": "five_out_of_seven",
-    "2010-2022_Geography_MCQs": "multi_question_choice",
-    "2010-2022_English_Reading_Comp": "multi_question_choice",
-    "2010-2022_Chinese_Lang_and_Usage_MCQs": "multi_question_choice"
+    "2010-2022_Math_II_MCQs": "single_answer_mcq",
+    "2010-2022_Math_I_MCQs": "single_answer_mcq",
+    "2010-2022_History_MCQs": "single_answer_mcq",
+    "2010-2022_Biology_MCQs": "single_answer_mcq",
+    "2010-2022_Political_Science_MCQs": "single_answer_mcq",
+    "2010-2022_Physics_MCQs": "multi_answers_mcq",
+    "2010-2022_Chemistry_MCQs": "single_answer_mcq",
+    "2010-2013_English_MCQs": "single_answer_mcq",
+    "2010-2022_Chinese_Modern_Lit": "multi_mcqs",
+    "2010-2022_English_Fill_in_Blanks": "multi_mcqs",
+    "2012-2022_English_Cloze_Test": "seven_option",
+    "2010-2022_Geography_MCQs": "multi_mcqs",
+    "2010-2022_English_Reading_Comp": "multi_mcqs",
+    "2010-2022_Chinese_Lang_and_Usage_MCQs": "multi_mcqs"
 }
 
-GAOKAO_CHINESE_TASKS = {
+# The total score of each subsets. Each instance may have different score.
+GAOKAO_CHINESE_TASKS_SCORE = {
     "2010-2022_Chinese_Modern_Lit": 261,
     "2010-2022_Chinese_Lang_and_Usage_MCQs": 240,
-    "all": 501
 }
 
-GAOKAO_ENGLISH_TASKS = {
+GAOKAO_ENGLISH_TASKS_SCORE = {
     "2010-2022_English_Reading_Comp": 940,
     "2010-2022_English_Fill_in_Blanks": 900,
     "2012-2022_English_Cloze_Test": 260,
     "2010-2013_English_MCQs": 105,
-    "all": 2205
 }
+
+GAOKAO_TASKS_SCORE = dict(**GAOKAO_CHINESE_TASKS_SCORE, **GAOKAO_ENGLISH_TASKS_SCORE)

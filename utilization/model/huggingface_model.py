@@ -89,7 +89,7 @@ class HuggingFaceModel(Model):
         super().__init__(args)
         self.args = args
         self.type = args.model_type
-        if self.type not in {"base", "instruction"}:
+        if self.type not in {"base", "instruction", "chat"}:
             raise ValueError(
                 f"Invalid model type: {self.type}. Please use `--model_type` to specify the"
                 " model type, which can be chosen from `base` and `instruction`."
@@ -243,10 +243,12 @@ class HuggingFaceModel(Model):
             "no_repeat_ngram_size",
             "stop",
         ]:
-            # ModelArguments > extra_model_args
-            value = getattr(self.args, key, None)
-            if value is None:
+            # ModelArguments (cmd) > extra_model_args > ModelArguments (default)
+            if not self.args.passed_in_commandline(key):
                 value = extra_model_args.pop(key, None)
+            if value is None:
+                value = getattr(self.args, key, None)
+
             if key == "max_tokens" and value is None:
                 value = 1024
             if value is not None:
@@ -278,6 +280,10 @@ class HuggingFaceModel(Model):
         Returns:
             List[str]: The list of generation results.
         """
+
+        if self.args.model_type == "chat":
+            chats = [[{"role": "user", "content": prompt}] for prompt in batched_inputs]
+        batched_inputs = [self.tokenizer.apply_chat_template(chat, tokenize=False, add_generation_prompt=True) for chat in chats]
 
         batched_encodings = self.tokenizer(
             batched_inputs,
