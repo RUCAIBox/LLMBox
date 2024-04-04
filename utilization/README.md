@@ -315,7 +315,7 @@ We currently support 53 commonly used datasets for LLMs. Each dataset may includ
       <td>alpaca_eval</td>
       <td>/</td>
       <td>Generation</td>
-      <td>✅</td>
+      <td></td>
       <td>Single GPTEval</td>
   </tr>
   <tr>
@@ -357,7 +357,7 @@ We currently support 53 commonly used datasets for LLMs. Each dataset may includ
       <td rowspan=4>ceval</td>
       <td><b>stem</b>: <code>advanced_mathematics</code>, <code>college_chemistry</code>, ...</td>
       <td rowspan=4>MultipleChoice</td>
-      <td rowspan=4>✅</td>
+      <td rowspan=4></td>
       <td rowspan=4></td>
   </tr>
   <tr>
@@ -373,7 +373,7 @@ We currently support 53 commonly used datasets for LLMs. Each dataset may includ
       <td rowspan=4>cmmlu</td>
       <td><b>stem</b>: <code>anatomy</code>, <code>astronomy</code>, ...</td>
       <td rowspan=4>MultipleChoice</td>
-      <td rowspan=4>✅</td>
+      <td rowspan=4></td>
       <td rowspan=4></td>
   </tr>
   <tr>
@@ -410,14 +410,14 @@ We currently support 53 commonly used datasets for LLMs. Each dataset may includ
       <td>copa</td>
       <td><i>super_glue</i></td>
       <td>MultipleChoice</td>
-      <td>✅</td>
+      <td></td>
       <td></td>
   </tr>
   <tr>
       <td>coqa</td>
       <td>/</td>
       <td>Generation</td>
-      <td>✅</td>
+      <td></td>
       <td></td>
   </tr>
   <tr>
@@ -431,14 +431,14 @@ We currently support 53 commonly used datasets for LLMs. Each dataset may includ
       <td>drop</td>
       <td>/</td>
       <td>Generation</td>
-      <td>✅</td>
+      <td></td>
       <td></td>
   </tr>
   <tr>
       <td>gaokao</td>
       <td><code>2010-2022_Math_II_MCQs</code>, <code>2010-2022_Math_I_MCQs</code>, ...</td>
       <td>Generation</td>
-      <td>✅</td>
+      <td></td>
       <td>Metric: Exam scoring</td>
   </tr>
   <tr>
@@ -487,7 +487,7 @@ We currently support 53 commonly used datasets for LLMs. Each dataset may includ
       <td>math</td>
       <td>/</td>
       <td>Generation</td>
-      <td>✅</td>
+      <td></td>
       <td></td>
   </tr>
   <tr>
@@ -501,7 +501,7 @@ We currently support 53 commonly used datasets for LLMs. Each dataset may includ
       <td rowspan=4>mmlu</td>
       <td><b>stem</b>: <code>abstract_algebra</code>, <code>astronomy</code>, ...</td>
       <td rowspan=4>MultipleChoice</td>
-      <td rowspan=4>✅</td>
+      <td rowspan=4></td>
       <td rowspan=4></td>
   </tr>
   <tr>
@@ -552,7 +552,7 @@ We currently support 53 commonly used datasets for LLMs. Each dataset may includ
       <td>quac</td>
       <td>/</td>
       <td>Generation</td>
-      <td>✅</td>
+      <td></td>
       <td></td>
   </tr>
   <tr>
@@ -587,7 +587,7 @@ We currently support 53 commonly used datasets for LLMs. Each dataset may includ
       <td>squad, squad_v2</td>
       <td>/</td>
       <td>Generation</td>
-      <td>✅</td>
+      <td></td>
       <td></td>
   </tr>
   <tr>
