@@ -322,7 +322,7 @@ We currently support 53 commonly used datasets for LLMs. Each dataset may includ
       <td>anli</td>
       <td><code>Round2</code> (default)</td>
       <td>MultipleChoice</td>
-      <td>⭕️</td>
+      <td></td>
       <td></td>
   </tr>
   <tr>
@@ -418,7 +418,7 @@ We currently support 53 commonly used datasets for LLMs. Each dataset may includ
       <td>/</td>
       <td>Generation</td>
       <td></td>
-      <td></td>
+      <td>Download: <a href="https://nlp.stanford.edu/data/coqa/coqa-train-v1.0.json">train</a>, <a href="https://nlp.stanford.edu/data/coqa/coqa-dev-v1.0.json">dev</a></td>
   </tr>
   <tr>
       <td>crows_pairs</td>
@@ -456,7 +456,7 @@ We currently support 53 commonly used datasets for LLMs. Each dataset may includ
   </tr>
   <tr>
       <td>halueval</td>
-      <td><code>dialogue</code>, <code>general</code>, ...</td>
+      <td><code>dialogue_samples</code>, <code>qa_samples</code>, <code>summarization_samples</code></td>
       <td>Generation</td>
       <td></td>
       <td></td>
@@ -473,7 +473,7 @@ We currently support 53 commonly used datasets for LLMs. Each dataset may includ
       <td>/</td>
       <td>Generation</td>
       <td></td>
-      <td></td>
+      <td>Pass@K</td>
   </tr>
   <tr>
       <td>ifeval</td>
@@ -501,7 +501,7 @@ We currently support 53 commonly used datasets for LLMs. Each dataset may includ
       <td><code>full</code> (default), <code>sanitized</code></td>
       <td>Generation</td>
       <td></td>
-      <td></td>
+      <td>Pass@K</td>
   </tr>
   <tr>
       <td rowspan=4>mmlu</td>
@@ -573,7 +573,7 @@ We currently support 53 commonly used datasets for LLMs. Each dataset may includ
       <td>/</td>
       <td>Generation</td>
       <td></td>
-      <td>Perlexity Toxicity</td>
+      <td><a href="https://www.perspectiveapi.com/">Perspective</a> Toxicity</td>
   </tr>
   <tr>
       <td>rte</td>
