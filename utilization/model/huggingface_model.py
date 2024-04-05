@@ -281,7 +281,7 @@ class HuggingFaceModel(Model):
 
         if self.args.model_type == "chat":
             chats = [[{"role": "user", "content": prompt}] for prompt in batched_inputs]
-        batched_inputs = [self.tokenizer.apply_chat_template(chat, tokenize=False, add_generation_prompt=True) for chat in chats]
+            batched_inputs = [self.tokenizer.apply_chat_template(chat, tokenize=False, add_generation_prompt=True) for chat in chats]
 
         batched_encodings = self.tokenizer(
             batched_inputs,

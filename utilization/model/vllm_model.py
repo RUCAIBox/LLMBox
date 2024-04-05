@@ -123,7 +123,7 @@ class vllmModel(Model):
     def generation(self, batched_inputs) -> List[str]:
         if self.args.model_type == "chat":
             chats = [[{"role": "user", "content": prompt}] for prompt in batched_inputs]
-        batched_inputs = [self.tokenizer.apply_chat_template(chat, tokenize=False, add_generation_prompt=True) for chat in chats]
+            batched_inputs = [self.tokenizer.apply_chat_template(chat, tokenize=False, add_generation_prompt=True) for chat in chats]
         results = self.model.generate(batched_inputs, sampling_params=self.generation_kwargs)
         return [r.outputs[0].text for r in results]
 
