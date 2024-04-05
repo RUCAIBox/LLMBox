@@ -24,11 +24,11 @@ class Gsm8k(GenerationDataset):
 
     _decimal_separator = re.compile(r"(\d),(\d)")
     _extract_numbers = re.compile(r"[-+]?\d*\.\d+|\d+")
-    
-    def __init__(self, args, model, subset_name=None):
+
+    def __init__(self, dataset_name, args, model, subset_name=None):
         if model.type == 'base':
             self.extra_model_args['stop'] = ['\n']
-        super().__init__(args, model, subset_name)
+        super().__init__(dataset_name, args, model, subset_name)
 
     def load_raw_dataset(self, dataset_path, subset_name, evaluation_set, example_set):
         super().load_raw_dataset(dataset_path, subset_name, evaluation_set, example_set)
@@ -87,6 +87,7 @@ class Gsm8k(GenerationDataset):
 
 
 class Timeout:
+
     def __init__(self, seconds=10, error_message='Timeout'):
         self.seconds = seconds
         self.error_message = error_message

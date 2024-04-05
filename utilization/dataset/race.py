@@ -36,7 +36,7 @@ class Race(MultipleChoiceDataset):
     instruction = ""
     evaluation_set = "validation"
     example_set = "train"
-    load_args = ("race",)  # specify subset from command line, remove "all" by default
+    load_args = ("ehovy/race",)  # specify subset from command line, remove "all" by default
 
     def format_instance(self, instance):
         source_text = "Article:\n" + instance["article"] + "\n\n" + "Q: " + instance["question"]

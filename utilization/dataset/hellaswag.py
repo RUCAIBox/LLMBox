@@ -24,7 +24,7 @@ class Hellaswag(MultipleChoiceDataset):
     instruction = ""
     evaluation_set = "validation"
     example_set = "train"
-    load_args = ("hellaswag",)
+    load_args = ("Rowan/hellaswag",)
 
     @staticmethod
     def preprocess(text):

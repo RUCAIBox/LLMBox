@@ -21,9 +21,9 @@ class Translation(GenerationDataset):
     load_args = ()
     extra_model_args = dict(temperature=0, stop=["\n"])
 
-    def __init__(self, args, model, subset_name):
+    def __init__(self, dataset_name, args, model, subset_name):
         self.language = Language(subset_name[3:5]).language_name("en")
-        super().__init__(args, model, subset_name)
+        super().__init__(dataset_name, args, model, subset_name)
 
     def format_instance(self, instance):
         instance = instance["translation"]

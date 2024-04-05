@@ -47,11 +47,11 @@ class Squad(GenerationDataset):
         Returns:
             str: The constructed demonstration text.
         """
-        if self.num_shots == 0:
+        if self.max_num_shots == 0:
             return ""
         elif len(self.example_data) == 0:
             raise ValueError(
-                f"Receive num_shots={self.num_shots}, but cannot construct examples for dataset {self.name} without example data."
+                f"Receive num_shots={self.max_num_shots}, but cannot construct examples for dataset {self.name} without example data."
             )
 
         generation_example_text = ""
@@ -65,7 +65,7 @@ class Squad(GenerationDataset):
                 classified_title[key] = [item]
 
         keys = list(classified_title.keys())
-        randoms_keys = [keys[i] for i in np.random.choice(range(len(keys)), self.num_shots, replace=False)]
+        randoms_keys = [keys[i] for i in np.random.choice(range(len(keys)), self.max_num_shots, replace=False)]
         for data in [classified_title[key] for key in randoms_keys]:
             instance = data[0]
             source_text = "Title: " + instance["title"] + "\n\nBackground: " + instance["context"]
