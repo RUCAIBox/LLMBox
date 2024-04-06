@@ -31,13 +31,11 @@ class Gaokao(GenerationDataset):
     metrics = [Gaokao_bench_metric()]
     categorized_subsets = None  # weighted average score
 
-    def __init__(self, dataset_name, args, model, subset_name: str):
-        self.instruction = self.instruction.format(GAOKAO_PROMPTS[subset_name])
-        self.task = subset_name
+    def _init_arguments(self):
+        self.instruction = self.instruction.format(GAOKAO_PROMPTS[self.subset_name])
         self.extra_model_args = dict(temperature=0.3, max_tokens=4096)
         # According to https://github.com/OpenLMLab/GAOKAO-Bench/blob/main/Models/openai_gpt4.py
         # We use temperature=0.3 and max_tokens=4096
-        super().__init__(dataset_name, args, model, subset_name)
 
     def format_instance(self, instance):
         target = instance["answer"].__str__()
@@ -46,7 +44,7 @@ class Gaokao(GenerationDataset):
     def post_processing(self, predictions):
         new_predictions = []
         for pred, instance in zip(predictions, self.evaluation_data):
-            eval_type = GAOKAO_TASKS[self.task]
+            eval_type = GAOKAO_TASKS[self.subset_name]
             expect = len(instance["answer"])
             new_pred = self.extract_choice_answer(pred, eval_type, expect)
             new_predictions.append(tuple(new_pred) if len(new_pred) != 0 else "")
@@ -117,7 +115,7 @@ class Gaokao(GenerationDataset):
         for instance in self.evaluation_data:
             references.append([{
                 "answer": instance["answer"],
-                "task": GAOKAO_TASKS[self.task],
+                "task": GAOKAO_TASKS[self.subset_name],
                 "score": instance["score"]
             }])
         return references

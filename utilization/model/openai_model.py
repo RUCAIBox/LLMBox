@@ -38,7 +38,7 @@ class Openai(Model):
         self.name = args.model_name_or_path
         self.type = "instruction" if self.name in OPENAI_INSTRUCTION_MODELS else "base"
         self.is_chat_model = self.name in OPENAI_CHAT_MODELS
-        self.tokenizer = tiktoken.get_encoding(tiktoken.encoding_name_for_model(self.name))
+        self.tokenizer = tiktoken.get_encoding(args.tokenizer_name_or_path)
         self.max_try_times = 5
 
     def set_ppl_args(self, **extra_model_args):

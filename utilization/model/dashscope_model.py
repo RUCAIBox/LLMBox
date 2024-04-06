@@ -1,8 +1,8 @@
 import time
+from http import HTTPStatus
 from logging import getLogger
 
-import qianfan
-import tiktoken
+import dashscope
 
 from ..utils import ModelArguments
 from .model import Model
@@ -10,31 +10,30 @@ from .model import Model
 logger = getLogger(__name__)
 
 
-class Qianfan(Model):
-    r"""The model for calling Qianfan APIs. (Baidu)
+class Dashscope(Model):
+    r"""The model for calling Dashscope APIs. (Aliyun)
 
-    Please refer to https://cloud.baidu.com/doc/WENXINWORKSHOP/index.html.
+    Please refer to https://help.aliyun.com/zh/dashscope/.
 
-    We now support `ERNIE-4.0-8K`, `ERNIE-3.5-8K`, `ERNIE-3.5-8K-0205`, `ERNIE-3.5-8K-1222`,
-                   `ERNIE-3.5-4K-0205`, `ERNIE-Speed-8K`, `ERNIE-Speed-128K`, `ERNIE-Lite-8K-0922`,
-                   `ERNIE-Lite-8K-0308`, `ERNIE Tiny`, `ERNIE Speed-AppBuilder`.
+    We now support `qwen-turbo`, `qwen-plus`, `qwen-max`, `qwen-max-1201`, `qwen-max-longcontext`, `qwen1.5-72b-chat`,
+                   `qwen1.5-14b-chat`, `qwen1.5-7b-chat`, `qwen-72b-chat`, `qwen-14b-chat`, `qwen-7b-chat`,
+                   `qwen-1.8b-longcontext-chat`, `qwen-1.8b-chat`.
     """
 
     def __init__(self, args: ModelArguments):
         super().__init__(args)
-        if not args.qianfan_access_key or not args.qianfan_secret_key:
+        if not args.dashscope_api_key:
             raise ValueError(
-                "Qianfan API access key and secret key is required. Please set it by passing `--qianfan_access_key` and `--qianfan_secret_key` or through environment variable `QIANFAN_ACCESS_KEY` and `QIANFAN_SECRET_KEY`."
+                "Dashscope API key is required. Please set it by passing a `--dashscope_api_key` or through environment variable `DASHSCOPE_API_KEY`."
             )
-        private_key = args.qianfan_access_key[:6] + "*" * 14 + args.qianfan_access_key[-4:]
-        logger.info(f"Trying to load Qianfan model with access_key='{private_key}' and secret_key " + "*" * 32)
-        self.qianfan_access_key = args.qianfan_access_key
-        self.qianfan_secret_key = args.qianfan_secret_key
+        private_key = args.dashscope_api_key[:8] + "*" * 23 + args.dashscope_api_key[-4:]
+        logger.info(f"Trying to load Dashscope model with api_key='{private_key}'")
+        self.api_key = args.dashscope_api_key
 
         self.args = args
         self.name = args.model_name_or_path
         self.type = "instruction"
-        self.tokenizer = tiktoken.get_encoding("cl100k_base")
+        self.tokenizer = dashscope.get_tokenizer(args.tokenizer_name_or_path)
         self.max_try_times = 10
 
     def set_generation_args(self, **extra_model_args):
@@ -44,25 +43,23 @@ class Qianfan(Model):
             "temperature",
             "top_p",
             "top_k",
-            "penalty_score",
+            "max_tokens",
+            "repetition_penalty",
+            "enable_search",
             "stop",
-            "disable_search",
-            "enable_citation",
-            "max_tokens"
         ]:
             # ModelArguments > extra_model_args
             value = getattr(self.args, key, None)
             if value is None:
                 value = extra_model_args.pop(key, None)
 
-            if key == "max_tokens":
-                key = "max_output_tokens"
-                value = 1024 if value is None else value
+            if key == "max_tokens" and value is None:
+                value = 1024
             if value is not None:
                 generation_kwargs[key] = value
 
-        if "temperture" not in generation_kwargs:
-            generation_kwargs["temperature"] = 0.0001
+        if generation_kwargs.get("temperature", 1) == 0:
+            generation_kwargs["seed"] = self.args.seed
         self.generation_kwargs = generation_kwargs
         self.multi_turn = extra_model_args.pop("multi_turn", False)
 
@@ -70,12 +67,12 @@ class Qianfan(Model):
         results = self.request(batched_inputs, self.generation_kwargs, multi_turn=self.multi_turn)
         answers = []
         for result in results:
-            answer = result["result"]
+            answer = result.content
             answers.append(answer)
         return [tuple(answers)] if self.multi_turn else answers
 
     def request(self, prompt, kwargs, multi_turn=False):
-        r"""Call the Qianfan API.
+        r"""Call the DashScope API.
 
         Args:
             prompt (List[str]): The list of input prompts.
@@ -85,9 +82,6 @@ class Qianfan(Model):
         Returns:
             List[dict]: The responsed JSON results.
         """
-        qianfan.AccessKey(self.qianfan_access_key)
-        qianfan.SecretKey(self.qianfan_secret_key)
-        chat_comp = qianfan.ChatCompletion()
         for _ in range(self.max_try_times):
             error_msg = "EMPTY_ERROR_MSG"
             try:
@@ -98,19 +92,17 @@ class Qianfan(Model):
                     if len(query) == 0:
                         continue
                     messages.append({"role": "user", "content": query})
-                    msg = chat_comp.do(
-                        model=self.name,
-                        messages=messages,
-                        **kwargs
+                    msg = dashscope.Generation.call(
+                        model=self.name, messages=messages, result_format="message", **kwargs
                     )
-                    if "error_code" in msg:
-                        error_msg = msg.error_msg
-                    assert("error_code" not in msg)
-                    results.append(msg.body)
-                    messages.append({"role": "assistant", "content": msg.body["result"]})
+                    if (msg.status_code != HTTPStatus.OK):
+                        error_msg = msg.message
+                    assert (msg.status_code == HTTPStatus.OK)
+                    results.append(msg.output.choices[0].message)
+                    messages.append({"role": "assistant", "content": msg.output.choices[0].message.content})
                 return results
             except Exception as e:
                 logger.warning("Receive error: {}".format(error_msg))
                 logger.warning("retrying...")
                 time.sleep(1)
-        raise ConnectionError("Qianfan API error")
+        raise ConnectionError("Dashscope API error")

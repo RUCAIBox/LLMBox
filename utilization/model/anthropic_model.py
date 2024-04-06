@@ -31,7 +31,7 @@ class Anthropic(Model):
         self.args = args
         self.name = args.model_name_or_path
         self.type = "instruction"
-        self.tokenizer = tiktoken.get_encoding("cl100k_base")
+        self.tokenizer = tiktoken.get_encoding(args.tokenizer_name_or_path)
         self.max_try_times = 5
 
     def set_generation_args(self, **extra_model_args):
