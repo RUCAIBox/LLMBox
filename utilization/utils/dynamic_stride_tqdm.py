@@ -1,16 +1,18 @@
+from logging import getLogger
 from typing import Iterable, Optional, Union
 
 import tqdm
+
+logger = getLogger(__name__)
 
 
 class dynamic_stride_tqdm(tqdm.tqdm):
 
     def __init__(
         self,
-        iterable=None,
-        strides: Iterable[float] = None,
+        iterable,
+        strides: Iterable[float],
         stride_scale: Union[float, bool] = False,
-        total: Optional[int] = None,
         desc: Optional[str] = None,
         disable: bool = False,
         unit: str = "it",
@@ -19,10 +21,7 @@ class dynamic_stride_tqdm(tqdm.tqdm):
         **kwargs
     ):
         """Tqdm progress bar with dynamic strides. Use `strides` to specify the strides for each step and `stride_scale` to scale the strides. For example, if `strides` is `[1, 2, 3]` and `stride_scale` is `2`, then the fianl strides will be `[2, 4, 6]`, which require 12 iterations to stop. Different from `unit_scale` which changes the unit of the progress bar., `stride_scale` only changes the stride of each iteration. `total` is set to the length of `strides` list by default."""
-        if strides is not None:
-            self.strides = list(strides)
-        else:
-            self.strides = [1] * total
+        self.strides = list(strides)
         self.stride_scale = float(stride_scale)
         super().__init__(
             iterable=iterable,
@@ -73,3 +72,6 @@ class dynamic_stride_tqdm(tqdm.tqdm):
         finally:
             self.n = int(n)
             self.close()
+            logger.info(
+                f"Finished at {self.n}{self.unit} after {self.format_interval(self.last_print_t - self.start_t)}."
+            )

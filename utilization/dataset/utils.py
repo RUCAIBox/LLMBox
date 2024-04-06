@@ -17,7 +17,7 @@ split_regex = re.compile(r"(\w+)(\[\d*:\d*\])?")
 slice_regex = re.compile(r"\[(\d*):(\d*)\]")
 
 
-class TokenizerUtil:
+class DatasetUtilMixin:
 
     def set_tokenizer(self, tokenizer: Union[tiktoken.Encoding, PreTrainedTokenizer, PreTrainedTokenizerFast]) -> None:
         self.tokenizer = tokenizer

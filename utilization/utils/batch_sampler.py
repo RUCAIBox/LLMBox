@@ -1,7 +1,6 @@
 from logging import getLogger
 from typing import TYPE_CHECKING, Any, Callable, Dict, Iterator, List, Tuple
 
-from numpy import r_
 from torch.utils.data.sampler import Sampler
 
 if TYPE_CHECKING:
@@ -77,8 +76,8 @@ class DatasetCollectionBatchSampler(Sampler[List[int]]):
             init_model()
             yield from sample_dataset(total, self.batch_size if not self.vllm else total)
 
-    def call_model(self, *args, **kwargs):
-        return self._forward_call(*args, **kwargs)
+    def call_model(self, *args, **kwargs) -> List[Any]:
+        return self._forward_call(*args, **kwargs)  # type: ignore
 
     def __len__(self) -> int:
         return sum(dataset.len() // self.batch_size for dataset in self.dataset_collection._datasets)

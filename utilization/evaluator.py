@@ -8,6 +8,7 @@ from torch.utils.data import DataLoader
 from .dataset import load_datasets
 from .model import load_model
 from .utils import DatasetArguments, EvaluationArguments, ModelArguments, catch_error, dynamic_stride_tqdm
+from .utils.log_predictions import PredictionWriter
 
 logger = getLogger(__name__)
 
@@ -41,9 +42,8 @@ class Evaluator:
                 logger.info(
                     "Setting batch_size to -1, since vllm can automatically planning the optimal batch and order."
                 )
+        self.writer = PredictionWriter(self.dataset_args.evaluation_results_path)
         self.dataset = load_datasets(self.dataset_args, self.model)
-        if self.dataset.model_evaluation_method == "get_prob":
-            self.model.constant_option_num = all(n == self.dataset.option_nums[0] for n in self.dataset.option_nums)
 
     @catch_error
     def evaluate(self) -> Dict[str, Dict[str, float]]:
@@ -83,10 +83,12 @@ class Evaluator:
 
         # call model
         raw_predictions = []
-        for batch in dataloader:
-            raw_predictions.extend(call_model(batch))
-            self.dataset.log_predictions(raw_predictions)
-            self.dataset.update_tqdm(dataloader)
+        with self.writer:
+            for batch in dataloader:
+                batch_results = call_model(batch)
+                raw_predictions.extend(batch_results)
+                self.dataset.log_batch_predictions(self.writer, batch_results)
+                self.dataset.update_tqdm(dataloader)
 
         if len(raw_predictions) != self.dataset.len():
             raise RuntimeError(
@@ -108,7 +110,7 @@ class Evaluator:
 
         # calculate metric
         metric_results, last_score_lists = self.dataset.calculate_metric(mode_predictions)
-        self.dataset.log_predictions(raw_predictions, predictions, last_score_lists)
+        self.dataset.log_final_predictions(raw_predictions, predictions, last_score_lists)
         msg = f"Evaluation finished successfully:\nevaluation results: {self.dataset_args.evaluation_results_path}"
         for dataset_name, result in metric_results.items():
             if result is None:
