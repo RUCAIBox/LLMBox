@@ -1,3 +1,5 @@
+**LLMBox** | [Training](training/README.md) | [Utilization](utilization/README.md)
+
 # LLMBox
 
 LLMBox is a comprehensive library for implementing LLMs, including **a unified training pipeline** and **comprehensive model evaluation**. LLMBox is designed to be a one-stop solution for training and utilizing LLMs. Through a pratical library design, we achieve a high-level of **flexibility** and **efficiency** in both training and utilization stages.
@@ -204,8 +206,7 @@ Various types of evaluation methods are supported:
     </tr>
     <tr>
         <td><b>GenerationDataset</b></td>
-        <td><code>generation</code></td>
-        <td></td>
+        <td colspan=2><code>generation</code></td>
     </tr>
     <tr>
         <td rowspan=2><b>MultipleChoiceDataset</b></td>

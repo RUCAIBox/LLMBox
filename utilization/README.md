@@ -1,3 +1,5 @@
+[LLMBox](../README.md) | [Training](../training/README.md) | **Utilization**
+
 # Utilization
 
 - [Utilization](#utilization)
@@ -128,12 +130,13 @@ Specify the model, efficient evaluation, generation arguments, quantization, and
 Specify the dataset, batch size, example strategies, CoT strategies and other arguments.
 
 ```text
---dataset_name DATASET_NAME, -d DATASET_NAME, --dataset DATASET_NAME
-                      The name of a dataset or the name(s) of a/several
-                      subset(s) in a dataset. Format: 'dataset1 dataset2',
-                      'dataset:subset1,subset2', or 'dataset:[cat1],[cat2]',
-                      e.g., copa, race, race:high, wmt16:en-ro,en-fr, or
-                      mmlu:[stem],[humanities] (default: None)
+--dataset_names DATASET [DATASET ...], -d DATASET [DATASET ...], --dataset DATASET [DATASET ...]
+                      Space splitted dataset names. If only one dataset is specified, it can be followed by
+                      subset names or category names. Format: 'dataset1 dataset2', 'dataset:subset1,subset2', or
+                      'dataset:[cat1],[cat2]', e.g., 'copa race', 'race:high', 'wmt16:en-ro,en-fr', or
+                      'mmlu:[stem],[humanities]'. (default: None)
+--batch_size BATCH_SIZE, -bsz BATCH_SIZE, -b BATCH_SIZE
+                      The evaluation batch size (default: 1)
 --dataset_path DATASET_PATH
                       The path of dataset if loading from local. Supports
                       repository cloned from huggingface, dataset saved by
@@ -152,14 +155,76 @@ Specify the dataset, batch size, example strategies, CoT strategies and other ar
                       each instance (default: {source}{target})
 --num_shots NUM_SHOTS, -shots NUM_SHOTS
                       The few-shot number for demonstration (default: 0)
---ranking_type {ppl,prob,ppl_no_option}
-                      The evaluation and prompting method for ranking task
-                      (default: ppl_no_option)
 --max_example_tokens MAX_EXAMPLE_TOKENS
                       The maximum token number of demonstration (default:
                       1024)
---batch_size BATCH_SIZE, -bsz BATCH_SIZE, -b BATCH_SIZE
-                      The evaluation batch size (default: 1)
+```
+
+Evaluation methods and ranking types:
+
+<table>
+    <tr>
+        <td><b>Dataset</b></td>
+        <td><b>Evaluation Method</b></td>
+        <td><b>Prompt</b></td>
+    </tr>
+    <tr>
+        <td><p><b>Generation</b></p>
+        <p><pre><code>{
+  "question":
+    "when was ...",
+  "answer": [
+    '14 December 1972',
+    'December 1972'
+  ]
+}</code></pre></p></td>
+        <td><p><code>generation</code></p><p>Generate based on the source text</p></td>
+        <td><p><pre><code>Q: When was ...?
+A: ________</code></pre></p></td>
+    </tr>
+    <tr>
+        <td rowspan=3><p><b>MultipleChoice</b></p>
+<pre><code>{
+  "question":
+    "What is the ...?",
+  "choices": [
+    "The first",
+    "The second",
+    ...
+  ],
+  "answer": 3
+}</code></pre></td>
+        <td rowspan=2><p><code>get_ppl</code></p><p>Calculate perplexity of the option text based on the source text</p></td>
+        <td><p style="text-align: center;"><code>ppl_no_option</code></p>
+<p><pre><code>Q: What is ...?
+A: The first
+   └--ppl--┘</code></pre></p></td>
+    </tr>
+    <tr>
+        <td><p style="text-align: center;"><code>ppl</code></p>
+<p><pre><code>Q: What is ...?
+A. The first
+B. The second
+C. ...
+A: A. The first
+   └----ppl---┘</code></pre></p></td>
+    </tr>
+    <tr>
+        <td><p><code>get_prob</code></p><p>Get the probability of each option label</p></td>
+        <td><p style="text-align: center;"><code>prob</code></p>
+<p><pre><code>Q: What is ...?
+A. The first
+B. The second
+C. ...
+A: _
+   └→ [A B C D]</code></pre></p></td>
+    </tr>
+</table>
+
+```text
+--ranking_type {ppl,prob,ppl_no_option}
+                      The evaluation and prompting method for ranking task
+                      (default: ppl_no_option)
 --sample_num SAMPLE_NUM, --majority SAMPLE_NUM, --consistency SAMPLE_NUM
                       The sampling number for self-consistency (default: 1)
 --kate [KATE], -kate [KATE]
@@ -286,6 +351,13 @@ And then, you should register your model in the [`load`](model/load.py) file.
 ## Supported Datasets
 
 We currently support 53 commonly used datasets for LLMs. Each dataset may includes multiple subsets, or is a subset of a collection.
+
+Load from huggingface server:
+```bash
+python inference.py -d copa
+python inference.py -d race:middle,high
+python inference.py -d race:middle,high --evaluation_set "test[:10]" --example_set "train"
+```
 
 <table>
   <tr>
@@ -704,6 +776,49 @@ python inference.py -m model -d cnn_dailymail
 # equivalent: cnn_dailymail:3.0.0
 ```
 
+If `dataset_path` is not None, the dataset will be loaded from the given local path:
+
+```bash
+# from a cloned directory of the huggingface dataset repository:
+python inference.py -d copa --dataset_path /path/to/copa
+
+# from a local (nested) directory saved by `dataset.save_to_disk`:
+python inference.py -d race --dataset_path /path/to/race/middle
+python inference.py -d race:middle --dataset_path /path/to/race
+python inference.py -d race:middle --dataset_path /path/to/race/middle
+python inference.py -d race:middle,high --dataset_path /path/to/race
+```
+
+`dataset_path` can also accept a dataset file or a directory containing these files (supports json, jsonl, csv, and txt):
+```bash
+# load one split from one subset only
+python inference.py -d gsm8k --dataset_path /path/to/gsm.jsonl
+python inference.py -d race --dataset_path /path/to/race/middle/train.json
+
+# load test and train splits from middle subset (a directory contains `/path/to/race/middle/train.json` and `/path/to/race/middle/test.json`)
+python inference.py -d race --dataset_path /path/to/race/middle --evaluation_set "test[:10]" --example_set "train"
+
+# load test and train splits from middle and high subsets (a nested directory)
+python inference.py -d race:middle,high --dataset_path /path/to/race --evaluation_set "test[:10]" --example_set "train"
+
+# load test and train splits from middle and high subsets with a filename pattern
+python inference.py -d race:middle,high --evaluation_set "test[:10]" --example_set "train" --dataset_path "/pattern/of/race_{subset}_{split}.json"
+python inference.py -d mmlu --evaluation_set val --example_set dev --dataset_path "/pattern/of/mmlu/{split}/{subset}_{split}.csv"
+```
+
+---
+
+Also feel free to override this function if you want to load the dataset in a different way:
+
+```python
+from .utils import load_raw_dataset_from_file, get_raw_dataset_loader
+
+class MyDataset(Dataset):
+    def load_raw_dataset(self, dataset_path, subset_name, evaluation_set, example_set):
+        self.evaluation_data = get_raw_dataset_loader(...)("test")
+        self.example_data = load_raw_dataset_from_file("examples.json")
+```
+
 ## Customize Dataset
 
 We provide two types of datasets: [`GenerationDataset`](dataset/generation_dataset.py), [`MultipleChoiceDataset`](dataset/multiple_choice_dataset.py). You can also customize support for a new dataset type by inheriting the [`Dataset`](dataset/dataset.py) class. For example, you can implement a new `GenerationDataset` as follows:
@@ -732,5 +847,23 @@ You can load the raw dataset by the following methods:
 
 - Set a `load_args`: The arguments for [`datasets.load_dataset`](https://huggingface.co/docs/datasets/v2.18.0/en/package_reference/loading_methods#datasets.load_dataset).
 - Or overwrite `load_raw_dataset` function: Set the `self.evaluation_data` and `self.example_data`.
+
+```python
+from .utils import load_raw_dataset_from_file, get_raw_dataset_loader
+
+class MyDataset(Dataset):
+    def load_raw_dataset(self, dataset_path, subset_name, evaluation_set, example_set):
+        self.evaluation_data = get_raw_dataset_loader(...)("test")
+        self.example_data = load_raw_dataset_from_file("examples.json")
+```
+
+Then, format the instance by implementing the `format_instance` method. The instance should be a dictionary with the following keys:
+
+- `source` (`Union[str, List[str]]`): The source text. If this is a list, `source_idx` is required.
+- `source_idx` (`int`, optional): The index of the correct source (for multiple contexts ranking dataset like winogrande).
+- `source_postfix` (`str`, optional): The postfix of the source text. This will be appended to the source text after options when `ranking_with_options` is True.
+- `target` (`str`, optional): The target text. Either `target` or `target_idx` should be provided.
+- `target_idx` (`int`, optional): The index of the target in the options (for ranking). This will generate the `target` text in `_format_instance`.
+- `options` (`List[str]`, optional): The options for ranking.
 
 See [`Dataset`](dataset/dataset.py) for more details.
