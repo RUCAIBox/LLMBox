@@ -26,11 +26,9 @@ class Bbh(GenerationDataset):
     load_args = ("RUCAIBox/bbh",)
     metrics = [Em()]
 
-    def __init__(self, dataset_name, args, model, subset_name: str):
-        self.instruction = self.instruction.format(BBH_PROMPTS[subset_name])
-        self.task = subset_name
-        self.extra_model_args = dict(stop=["\n"]) if args.cot is None else dict()
-        super().__init__(dataset_name, args, model, subset_name)
+    def init_arguments(self):
+        self.instruction = self.instruction.format(BBH_PROMPTS[self.subset_name])
+        self.extra_model_args = dict(stop=["\n"]) if self.args.cot is None else dict()
 
     def format_instance(self, instance):
         target = instance["answer"]
@@ -46,10 +44,10 @@ class Bbh(GenerationDataset):
                 new_pred = extracted_answer.group(1).strip()
             else:
                 new_pred = pred.strip()
-            if self.task not in BBH_NO_CHOICE:
+            if self.subset_name not in BBH_NO_CHOICE:
                 if len(new_pred) > 0:
                     new_pred = new_pred.split()[0]
-                    if self.task in BBH_LETTER_CHOICE:
+                    if self.subset_name in BBH_LETTER_CHOICE:
                         pattern = r'.*([A-Z]).*'
                         new_pred = re.sub(pattern, r'\1', new_pred)
             new_predictions.append(new_pred)

@@ -34,10 +34,9 @@ class Math(GenerationDataset):
     metrics = [Accuracy()]
     extra_model_args = dict(temperature=0)
 
-    def __init__(self, dataset_name, args, model, subset_name=None):
-        if model.type == 'base':
+    def init_arguments(self):
+        if self.model.type == 'base':
             self.extra_model_args['stop'] = ['\n\n']
-        super().__init__(dataset_name, args, model, subset_name)
 
     @staticmethod
     def normalize_final_answer(final_answer: str) -> str:

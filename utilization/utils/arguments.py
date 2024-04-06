@@ -10,6 +10,7 @@ from logging import getLogger
 from typing import ClassVar, Dict, List, Literal, Optional, Set, Tuple, Union
 
 import openai
+import tiktoken
 from torch import Value
 from transformers import BitsAndBytesConfig
 from transformers.hf_argparser import HfArg, HfArgumentParser
@@ -225,26 +226,35 @@ class ModelArguments:
             self.openai_api_key = os.environ["OPENAI_API_KEY"]
         if self.openai_api_key is not None:
             openai.api_key = self.openai_api_key
-        if self.is_openai_model() and self.openai_api_key is None:
-            raise ValueError(
-                "OpenAI API key is required. Please set it by passing a `--openai_api_key` or through environment variable `OPENAI_API_KEY`."
-            )
+        if self.is_openai_model():
+            if self.openai_api_key is None:
+                raise ValueError(
+                    "OpenAI API key is required. Please set it by passing a `--openai_api_key` or through environment variable `OPENAI_API_KEY`."
+                )
+            if self.tokenizer_name_or_path is None:
+                self.tokenizer_name_or_path = tiktoken.encoding_name_for_model(self.model_name_or_path)
 
         # set `self.anthropic_api_key` from environment variables
         if "ANTHROPIC_API_KEY" in os.environ and self.anthropic_api_key is None:
             self.anthropic_api_key = os.environ["ANTHROPIC_API_KEY"]
-        if self.is_anthropic_model() and self.anthropic_api_key is None:
-            raise ValueError(
-                "Anthropic API key is required. Please set it by passing a `--anthropic_api_key` or through environment variable `ANTHROPIC_API_KEY`."
-            )
+        if self.is_anthropic_model():
+            if self.anthropic_api_key is None:
+                raise ValueError(
+                    "Anthropic API key is required. Please set it by passing a `--anthropic_api_key` or through environment variable `ANTHROPIC_API_KEY`."
+                )
+            if self.tokenizer_name_or_path is None:
+                self.tokenizer_name_or_path = "cl100k_base"
 
         # set `self.dashscope_api_key` from environment variables
         if "DASHSCOPE_API_KEY" in os.environ and self.dashscope_api_key is None:
             self.dashscope_api_key = os.environ["DASHSCOPE_API_KEY"]
-        if self.is_dashscope_model() and self.dashscope_api_key is None:
-            raise ValueError(
-                "Dashscope API key is required. Please set it by passing a `--dashscope_api_key` or through environment variable `DASHSCOPE_API_KEY`."
-            )
+        if self.is_dashscope_model():
+            if self.dashscope_api_key is None:
+                raise ValueError(
+                    "Dashscope API key is required. Please set it by passing a `--dashscope_api_key` or through environment variable `DASHSCOPE_API_KEY`."
+                )
+            if self.tokenizer_name_or_path is None:
+                self.tokenizer_name_or_path = self.model_name_or_path
 
         # set `self.qianfan_access_key` and `self.qianfan_secret_key` from environment variables
         if "QIANFAN_ACCESS_KEY" in os.environ and self.qianfan_access_key is None:
@@ -256,15 +266,17 @@ class ModelArguments:
                 raise ValueError(
                     "Qianfan API access key and secret key is required. Please set it by passing `--qianfan_access_key` and `--qianfan_secret_key` or through environment variable `QIANFAN_ACCESS_KEY` and `QIANFAN_SECRET_KEY`."
                 )
+            if self.tokenizer_name_or_path is None:
+                self.tokenizer_name_or_path = "cl100k_base"
 
         if self.tokenizer_name_or_path is None:
             self.tokenizer_name_or_path = self.model_name_or_path
 
-        if self.vllm:
-            self.vllm_gpu_memory_utilization = 0.9
-
         if self.is_openai_model() or self.is_anthropic_model() or self.is_dashscope_model() or self.is_qianfan_model():
             self.vllm = False
+
+        if self.vllm:
+            self.vllm_gpu_memory_utilization = 0.9
 
 
 @dataclass
@@ -279,6 +291,11 @@ class DatasetArguments:
     )
     subset_names: ClassVar[Set[str]] = set()
     """The name(s) of a/several subset(s) in a dataset, derived from `dataset_names` argument on initalization"""
+    batch_size: int = HfArg(
+        default=1,
+        aliases=["-bsz", "-b"],
+        help="The evaluation batch size",
+    )
     dataset_path: Optional[str] = HfArg(
         default=None,
         help="The path of dataset if loading from local. Supports repository cloned from huggingface, "
@@ -310,25 +327,20 @@ class DatasetArguments:
         default=0,
         help="The maximum few-shot number for demonstration",
     )
-    ranking_type: Literal["ppl", "prob", "ppl_no_option"] = HfArg(
-        default="ppl_no_option",
-        help="The evaluation and prompting method for ranking task",
-    )
     max_example_tokens: int = HfArg(
         default=1024,
         help="The maximum token number of demonstration",
     )
-    batch_size: int = HfArg(
-        default=1,
-        aliases=["-bsz", "-b"],
-        help="The evaluation batch size",
+
+    ranking_type: Literal["ppl", "prob", "ppl_no_option"] = HfArg(
+        default="ppl_no_option",
+        help="The evaluation and prompting method for ranking task",
     )
     sample_num: int = HfArg(
         default=1,
         aliases=["--majority", "--consistency"],
         help="The sampling number for self-consistency",
     )
-
     kate: bool = HfArg(default=False, aliases=["-kate"], help="Whether to use KATE as an ICL strategy")
     globale: bool = HfArg(default=False, aliases=["-globale"], help="Whether to use GlobalE as an ICL strategy")
     ape: bool = HfArg(default=False, aliases=["-ape"], help="Whether to use APE as an ICL strategy")

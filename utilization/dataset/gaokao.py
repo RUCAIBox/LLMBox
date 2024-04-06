@@ -31,7 +31,7 @@ class Gaokao(GenerationDataset):
     metrics = [Gaokao_bench_metric()]
     categorized_subsets = None  # weighted average score
 
-    def _init_arguments(self):
+    def init_arguments(self):
         self.instruction = self.instruction.format(GAOKAO_PROMPTS[self.subset_name])
         self.extra_model_args = dict(temperature=0.3, max_tokens=4096)
         # According to https://github.com/OpenLMLab/GAOKAO-Bench/blob/main/Models/openai_gpt4.py

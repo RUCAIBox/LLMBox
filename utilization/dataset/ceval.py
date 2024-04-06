@@ -28,9 +28,8 @@ class Ceval(MultipleChoiceDataset):
     load_args = ("ceval/ceval-exam",)
     categorized_subsets = CEVAL_SUBJECTS
 
-    def __init__(self, dataset_name, args, model, subset_name: str):
-        self.instruction = self.instruction.format(CEVAL_TRANS[subset_name])
-        super().__init__(dataset_name, args, model, subset_name)
+    def init_arguments(self):
+        self.instruction = self.instruction.format(CEVAL_TRANS[self.subset_name])
 
     def format_instance(self, instance):
         options = list(map(lambda op: " " + op, [instance[chr(ord('A') + _)] for _ in range(4)]))

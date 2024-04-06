@@ -51,6 +51,9 @@ class Openai(Model):
         self.ppl_kwargs = dict(echo=True, max_tokens=0, logprobs=0)
         self.multi_turn = extra_model_args.pop("multi_turn", False)
 
+        if len(extra_model_args) > 0:
+            logger.warning(f"Unused generation arguments: {extra_model_args}")
+
     def set_generation_args(self, **extra_model_args):
         r"""Set the configurations for open-ended generation. This is useful because different datasets may have different requirements for generation."""
         generation_kwargs = {}
@@ -63,10 +66,11 @@ class Openai(Model):
             "presence_penalty",
             "stop",
         ]:
-            # ModelArguments > extra_model_args
-            value = getattr(self.args, key, None)
-            if value is None:
+            # ModelArguments (cmd) > extra_model_args > ModelArguments (default)
+            if not self.args.passed_in_commandline(key):
                 value = extra_model_args.pop(key, None)
+            if value is None:
+                value = getattr(self.args, key, None)
 
             if key == "max_tokens" and value is None:
                 value = 1024
@@ -75,8 +79,13 @@ class Openai(Model):
 
         if generation_kwargs.get("temperature", 1) == 0:
             generation_kwargs["seed"] = self.args.seed
+
         self.generation_kwargs = generation_kwargs
+
         self.multi_turn = extra_model_args.pop("multi_turn", False)
+
+        if len(extra_model_args) > 0:
+            logger.warning(f"Unused generation arguments: {extra_model_args}")
 
     def set_prob_args(self, **extra_model_args):
 
