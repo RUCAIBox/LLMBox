@@ -16,7 +16,7 @@ from utilization.utils.batch_sampler import DatasetCollectionBatchSampler
 
 from .enum import GAOKAO_CHINESE_TASKS_SCORE, GAOKAO_ENGLISH_TASKS_SCORE, GAOKAO_TASKS_SCORE
 from .icl_strategies import ape, global_entropy_ordering_strategy, knn_construct_examples
-from .utils import get_raw_dataset_loader
+from .utils import TokenizerUtil, get_raw_dataset_loader
 
 if typing.TYPE_CHECKING:
     # solve the circular import
@@ -27,7 +27,7 @@ if typing.TYPE_CHECKING:
 logger = getLogger(__name__)
 
 
-class Dataset(torch.utils.data.Dataset):
+class Dataset(torch.utils.data.Dataset, TokenizerUtil):
     r"""The base class representing a dataset for a specific task.
 
     Class Attributes:
@@ -526,22 +526,16 @@ class Dataset(torch.utils.data.Dataset):
             indice = global_entropy_ordering_strategy(indice, labels, self.formatted_example_data, self.model.get_ppl)
 
         # construct few-shot examples
-        example_text = ""
-        example_token_nums = 0
-        self.real_num_shots = 0
-        for index in indice:
-            if hasattr(self, "formatted_example_data"):
-                example = self.formatted_example_data[index]
-            else:
-                example = self._format_instance(self.example_data[index], format_example=True)
-            cur_example_text = self.args.instance_format.format_map(example) + "\n\n"
-            cur_token_num = len(self.tokenizer.encode(cur_example_text))
-            if cur_token_num + example_token_nums <= self.max_example_tokens:
-                example_text += cur_example_text
-                example_token_nums += cur_token_num
-                self.real_num_shots += 1
-
-        self.real_example_tokens = example_token_nums
+        if hasattr(self, "formatted_example_data"):
+            examples = [self.formatted_example_data[i] for i in indice]
+        else:
+            examples = [self._format_instance(self.example_data[i], format_example=True) for i in indice]
+        example_texts = [self.args.instance_format.format_map(example) + "\n\n" for example in examples]
+        example_text, self.real_example_tokens, self.real_num_shots = self.truncate_by_word(
+            words=example_texts,
+            max_tokens=self.max_example_tokens,
+            side="right",
+        )
         return example_text
 
     def calculate_metric(self, predictions) -> Tuple[Dict[str, Dict[str, float]], Dict[str, List[float]]]:

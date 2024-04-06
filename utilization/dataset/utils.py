@@ -1,17 +1,65 @@
 import json
 import os
 import re
+from bisect import bisect_left, bisect_right
 from importlib.machinery import SourceFileLoader
 from logging import getLogger
 from os.path import abspath
-from typing import Callable, List, Optional, Tuple, Union
+from typing import Callable, List, Literal, Optional, Tuple, Union
 
 import datasets
+import tiktoken
 
 logger = getLogger(__name__)
 
 split_regex = re.compile(r"(\w+)(\[\d*:\d*\])?")
 slice_regex = re.compile(r"\[(\d*):(\d*)\]")
+
+
+class TokenizerUtil:
+
+    def __init__(self) -> None:
+        self.tokenizer_encode = self.tokenizer.encode_ordinary if isinstance(
+            self.tokenizer, tiktoken.Encoding
+        ) else self.tokenizer.encode
+
+    def prompt_token_nums(self, prompt: str):
+        return len(self.tokenizer_encode(prompt))
+
+    def truncate_by_word(
+        self,
+        words: List[str],
+        max_tokens: int,
+        side: Literal["left", "right"],
+    ) -> Tuple[str, int, int]:
+        """Truncate the prompt by word to fit the maximum token length.
+
+        Return:
+            - prompt: the truncated prompt
+            - real_token_nums: the real token numbers of the truncated prompt
+            - word_nums: the number of words in the truncated prompt
+        """
+        lengths = [0]
+        for w in words:
+            lengths.append(lengths[-1] + len(w))
+        prompt = "".join(words)
+
+        tokens = self.tokenizer_encode(prompt)
+        real_token_nums = len(tokens)
+        if real_token_nums <= max_tokens:
+            return prompt, real_token_nums, len(words)
+
+        st = 0
+        ed = len(words)
+        if side == "left":
+            truncated_raw = self.tokenizer.decode(tokens[-max_tokens:])
+            st = bisect_left(lengths, len(prompt) - len(truncated_raw))
+        elif side == "right":
+            truncated_raw = self.tokenizer.decode(tokens[:max_tokens])
+            ed = bisect_right(lengths, len(truncated_raw)) - 1
+        prompt = "".join(words[st:ed])
+        real_token_nums = self.prompt_token_nums(prompt)
+        return prompt, real_token_nums, ed - st
 
 
 def accepts_subset(
