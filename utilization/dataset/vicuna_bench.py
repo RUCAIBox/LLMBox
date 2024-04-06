@@ -13,7 +13,7 @@ class Vicuna_bench(GenerationDataset):
         turns: ["How can I improve my time management skills?"]
     """
 
-    example_set = ""
+    example_set = None
     evaluation_set = ""
     load_args = ()
     metrics = [GPTEval()]

@@ -29,7 +29,10 @@ log_levels = {
     "critical": logging.CRITICAL,
 }
 
-BUILTIN_DATASET = {"__init__", "enum", "dataset", "utils", "multiple_choice_dataset", "generation_dataset", "load"}
+BUILTIN_DATASET = {
+    "__init__", "enum", "dataset", "utils", "multiple_choice_dataset", "generation_dataset", "load", "icl_strategies",
+    "translation_dataset"
+}
 
 
 def list_datasets() -> List[str]:
@@ -37,7 +40,6 @@ def list_datasets() -> List[str]:
     results = [f[:-3] for f in results if f.endswith(".py")]
     results = [f for f in results if f not in BUILTIN_DATASET]
     results.extend(DATASET_ALIASES.keys())
-    results.append("squad_v2")
     return sorted(results)
 
 

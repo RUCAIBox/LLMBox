@@ -14,7 +14,7 @@ class Xsum(GenerationDataset):
 
     instruction = ""
     evaluation_set = "train"
-    example_set = "test"
+    example_set = None
     metrics = [Rouge()]
     load_args = ("EdinburghNLP/xsum",)
     extra_model_args = dict(temperature=0)

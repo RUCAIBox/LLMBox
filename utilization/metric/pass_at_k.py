@@ -1,12 +1,13 @@
-import itertools
-from typing import List, Union
-import numpy as np
-from tqdm import tqdm
-from multiprocessing import Process, Manager
 import concurrent.futures
-import os
 import contextlib
 import io
+import itertools
+import os
+from multiprocessing import Manager, Process
+from typing import List, Union
+
+import numpy as np
+from tqdm import tqdm
 
 from .metric import Metric
 
@@ -19,7 +20,9 @@ class PassAtK(Metric):
 
     """
 
-    def __init__(self, k: int):
+    def set_k(self, k: int):
+        if not isinstance(k, int):
+            raise ValueError(f"Pass@K expects an integer, but got {type(k)}.")
         self.k = k
 
     def __call__(self, predictions, references):
@@ -99,6 +102,7 @@ class PassAtK(Metric):
 
         return np.array([estimator(int(n), int(c), k) for n, c in zip(num_samples_it, num_correct)])
 
+
 class WriteOnlyStringIO(io.StringIO):
     """ StringIO that throws an exception when it's read from """
 
@@ -115,8 +119,10 @@ class WriteOnlyStringIO(io.StringIO):
         """ Returns True if the IO object can be read. """
         return False
 
+
 class redirect_stdin(contextlib._RedirectStream):  # type: ignore
     _stream = 'stdin'
+
 
 @contextlib.contextmanager
 def swallow_io():

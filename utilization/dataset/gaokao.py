@@ -25,7 +25,7 @@ class Gaokao(GenerationDataset):
     """
 
     instruction = "{}"
-    example_set = ""
+    example_set = None
     evaluation_set = "test"
     load_args = ("RUCAIBox/gaokao-bench",)
     metrics = [Gaokao_bench_metric()]

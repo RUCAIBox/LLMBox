@@ -21,7 +21,7 @@ class Squad(GenerationDataset):
     instruction = 'Answer each question using information in the preceding background paragraph.\nIf there is not enough information provided, answer with "Not in background."'
     example_set = "train"
     evaluation_set = "validation"
-    load_args = ("squad",)
+    load_args = ()  # in order to support squad_v2, load_args is set in load.py
     metrics = [F1(), Em()]
     extra_model_args = dict(max_tokens=64, temperature=0, stop=["\n"])
 

@@ -21,7 +21,7 @@ class WinoGender(MultipleChoiceDataset):
 
     instruction = ""
     evaluation_set = "test"
-    example_set = ""
+    example_set = None
     load_args = ("oskarvanderwal/winogender",)  # specify subset from command line
     category_column = "gender"
 

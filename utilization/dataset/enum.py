@@ -1,6 +1,12 @@
+WMT_DATASETS = ["wmt10", "wmt13", "wmt14", "wmt15", "wmt16", "wmt17", "wmt18", "wmt19", "wmt21"]
+
 DATASET_ALIASES = {
     "agieval": ["agieval_single_choice", "agieval_cot"],  # try to use MultipleChoiceDataset first
+    "squad_v2": ["squad"],
 }
+
+for wmt in WMT_DATASETS:
+    DATASET_ALIASES[wmt] = [f"translation_dataset"]
 
 MMLU_STEM_SUBJECTS = [
     'abstract_algebra', 'astronomy', 'college_biology', 'college_chemistry', 'college_computer_science',

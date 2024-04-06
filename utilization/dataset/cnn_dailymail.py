@@ -15,8 +15,8 @@ class CNN_DailyMail(GenerationDataset):
     """
 
     instruction = ""
-    evaluation_set = "train"
-    example_set = "test"
+    evaluation_set = "test"
+    example_set = "train"
     metrics = [Rouge()]
     load_args = ("cnn_dailymail", "3.0.0")
     extra_model_args = dict(temperature=0)

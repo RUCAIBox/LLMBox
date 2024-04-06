@@ -1,6 +1,7 @@
+import re
+
 from ..metric import GPTEval
 from .generation_dataset import GenerationDataset
-import re
 
 
 class Alpaca_eval(GenerationDataset):
@@ -13,7 +14,7 @@ class Alpaca_eval(GenerationDataset):
 
     instruction = "Please answer the following question."
     evaluation_set = "eval"
-    example_set = "eval"
+    example_set = None
     metrics = [GPTEval(multi_turn=False, type="pairwise")]
     load_args = ("tatsu-lab/alpaca_eval", "alpaca_eval")
     extra_model_args = dict(temperature=0.7, max_tokens=1024)

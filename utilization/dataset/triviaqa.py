@@ -24,6 +24,7 @@ class TriviaQA(GenerationDataset):
         'question': 'Which Lloyd Webber musical premiered in the US on 10th December 1993?',
     """
 
+    instruction = ""
     example_set = "train"
     evaluation_set = "validation"
     load_args = ("trivia_qa", "rc.wikipedia.nocontext")
