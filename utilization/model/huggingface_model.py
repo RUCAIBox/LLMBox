@@ -6,6 +6,7 @@ import torch
 from torch.nn import CrossEntropyLoss
 from transformers.modeling_utils import PreTrainedModel
 from transformers.models.auto import AutoModelForCausalLM, AutoTokenizer
+from transformers.pipelines.conversational import Conversation
 from transformers.tokenization_utils import PreTrainedTokenizer
 from transformers.tokenization_utils_fast import PreTrainedTokenizerFast
 
@@ -19,8 +20,9 @@ logger = getLogger(__name__)
 def load_hf_model(args: ModelArguments) -> Tuple[PreTrainedModel, Union[PreTrainedTokenizer, PreTrainedTokenizerFast]]:
     logger.info(f"Loading {args.model_name_or_path} using Hugging Face Transformers...")
 
+    # https://github.com/meta-llama/llama/issues/380#issuecomment-1656714118
     model_kwargs = dict(
-        torch_dtype=torch.float16,
+        torch_dtype=getattr(torch, args.torch_dtype),
         device_map=args.device_map,
         load_in_4bit=args.load_in_4bit,
         load_in_8bit=args.load_in_8bit,
@@ -57,7 +59,11 @@ def load_hf_model(args: ModelArguments) -> Tuple[PreTrainedModel, Union[PreTrain
 
     # TODO: [Important]!!! check for each tokenizer
     if tokenizer.pad_token is None:
-        tokenizer.pad_token = tokenizer.unk_token
+        if "llama2" in args.model_name_or_path.lower().replace("_", "").replace("-", ""):
+            # https://github.com/meta-llama/llama/issues/380#issuecomment-1729077205
+            tokenizer.pad_token = tokenizer.bos_token
+        else:
+            tokenizer.pad_token = tokenizer.unk_token
 
     # TODO: [Important]!!! check for each tokenizer
     max_length = min(getattr(tokenizer, "tokenizer_model_max_length", 1e10), getattr(args, "max_length") or 1e10)
@@ -85,6 +91,10 @@ def load_hf_model(args: ModelArguments) -> Tuple[PreTrainedModel, Union[PreTrain
 
 class HuggingFaceModel(Model):
 
+    tokenizer: Union[PreTrainedTokenizer, PreTrainedTokenizerFast]
+
+    _repr = ["type", "system_prompt", "multi_turn", "candidate_ids"]
+
     def __init__(self, args: ModelArguments):
         super().__init__(args)
         self.args = args
@@ -110,7 +120,7 @@ class HuggingFaceModel(Model):
         r"""Set the configurations for PPL score calculation. This is useful because different datasets may have different requirements for ppl calculation."""
         self.loss_fct = CrossEntropyLoss(reduction="none")
         if len(extra_model_args) > 0:
-            logger.warning(f"Unused generation arguments: {extra_model_args}")
+            logger.warning(f"Unused ppl arguments: {extra_model_args}")
 
     def get_ppl(self, batched_inputs: List[Tuple[str, str]]) -> List[float]:
         prompt = [src + tgt for src, tgt in batched_inputs]
@@ -270,20 +280,90 @@ class HuggingFaceModel(Model):
 
         generation_kwargs["pad_token_id"] = self.tokenizer.pad_token_id
         generation_kwargs["eos_token_id"] = self.tokenizer.eos_token_id
+
+        self.multi_turn = extra_model_args.pop("multi_turn", False)
+        if self.type != "chat":
+            if self.multi_turn:
+                raise ValueError("The multi_turn is only available for chat model. Please set `--model_type chat`.")
+            if self.args.system_prompt:
+                raise ValueError("The system_prompt is only available for chat model. Please set `--model_type chat`.")
+
+        self.system_prompt = self.args.system_prompt
+        if self.args.system_prompt:
+            self._system = lambda: Conversation([{"role": "system", "content": self.args.system_prompt}])
+        else:
+            self._system = lambda: Conversation()
+
         self.generation_kwargs = generation_kwargs
         if len(extra_model_args) > 0:
             logger.warning(f"Unused generation arguments: {extra_model_args}")
+        return self.generation_kwargs
 
-    def generation(self, batched_inputs: List[str]) -> List[str]:
+    def generation(self, batched_inputs: List[str]) -> Union[List[str], List[Tuple[str, ...]]]:
         """Generate the response of given question for this batch.
 
         Returns:
             List[str]: The list of generation results.
         """
 
-        if self.args.model_type == "chat":
-            chats = [[{"role": "user", "content": prompt}] for prompt in batched_inputs]
-            batched_inputs = [self.tokenizer.apply_chat_template(chat, tokenize=False, add_generation_prompt=True) for chat in chats]
+        if self.type == "chat" and self.multi_turn:
+            batched_mt_inputs = [s.split("__SEPARATOR__") for s in batched_inputs]
+            return self._multi_turn_generation(batched_mt_inputs)
+        else:
+            return self._generation(batched_inputs)
+
+    def _multi_turn_generation(self, batched_mt_inputs: List[List[str]]) -> List[Tuple[str, ...]]:
+        """Multi-turn generation
+
+        Args:
+            batched_mt_inputs (List[List[str]]): [Batch Turn]
+
+        Returns:
+            List[Tuple[str, ...]]: [Batch Turn]
+        """
+        batch_size = len(batched_mt_inputs)
+        max_turn = max(len(turns) for turns in batched_mt_inputs)
+
+        # generate the first turn (with system prompt)
+        history_conversations = [self._system() for _ in range(batch_size)]
+        for conv, turn in zip(history_conversations, batched_mt_inputs):
+            conv.add_message({"role": "user", "content": turn[0]})
+
+        answers = self._generation(history_conversations)
+        responses = [[conv[-1]["content"]] for conv in answers]
+
+        for turn_idx in range(1, max_turn):
+            cur_turn = [mt_input[turn_idx] if len(mt_input) > turn_idx else None for mt_input in batched_mt_inputs]
+            next_batch = []
+            for conv, turn in zip(history_conversations, cur_turn):
+                if turn is not None:
+                    conv.add_message({"role": "user", "content": turn})
+                    next_batch.append(conv)
+
+            answers = self._generation(next_batch)
+
+            for idx, (r, turn) in enumerate(zip(responses, cur_turn)):
+                if turn is not None:
+                    conv = answers.pop(0)
+                    r.append(conv[-1]["content"])
+                    history_conversations[idx] = conv
+            print(history_conversations)
+
+        return [tuple(r) for r in responses]
+
+    def _generation(self, batched_inputs: Union[List[str], List[Conversation]]) -> Union[List[str], List[Conversation]]:
+
+        batched_conversations = None
+        if self.type == "chat" and isinstance(batched_inputs[0], Conversation):
+            batched_conversations = batched_inputs
+            batched_inputs = [
+                self.tokenizer.apply_chat_template(
+                    conv,
+                    tokenize=False,
+                    add_generation_prompt=True,
+                    truncation=True,
+                ) for conv in batched_conversations
+            ]
 
         batched_encodings = self.tokenizer(
             batched_inputs,
@@ -301,6 +381,12 @@ class HuggingFaceModel(Model):
 
         max_input_length = batched_encodings["input_ids"].size(1)
         answers = self._process_generation_results(batch_outputs[:, max_input_length:])
+
+        if self.type == "chat" and batched_conversations is not None:
+            for conv, answer in zip(batched_conversations, answers):
+                conv.add_message({"role": "assistant", "content": answer})
+            answers = batched_conversations
+
         return answers
 
     def _process_generation_results(self, batch_outputs: torch.Tensor) -> List[str]:
@@ -324,10 +410,10 @@ class HuggingFaceModel(Model):
     def set_prob_args(self, **extra_model_args):
         self._token_labels = []
         self._word_labels = []
-        self._candidate_ids = extra_model_args.pop("candidate_ids", None)
+        self.candidate_ids = extra_model_args.pop("candidate_ids", None)
 
         if len(extra_model_args) > 0:
-            logger.warning(f"Unused generation arguments: {extra_model_args}")
+            logger.warning(f"Unused prob arguments: {extra_model_args}")
 
     def _get_label_ids(self, option_num: Optional[int]) -> List[int]:
         """Return the tokenized labels of options."""
@@ -338,9 +424,9 @@ class HuggingFaceModel(Model):
                 self._token_labels.extend([self.tokenizer.convert_tokens_to_ids(l) for l in labels])
             return self._word_labels[:option_num] + self._token_labels[:option_num]
         else:
-            if self._candidate_ids is None:
+            if self.candidate_ids is None:
                 raise ValueError("The candidate_ids must be provided when option_num is None.")
-            return self._candidate_ids
+            return self.candidate_ids
 
     def get_prob(self, batched_inputs: List[Tuple[str, int]]) -> List[List[float]]:
         batched_prompts, batched_option_nums = map(list, zip(*batched_inputs))
