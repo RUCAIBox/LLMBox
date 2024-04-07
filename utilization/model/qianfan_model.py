@@ -20,6 +20,8 @@ class Qianfan(Model):
                    `ERNIE-Lite-8K-0308`, `ERNIE Tiny`, `ERNIE Speed-AppBuilder`.
     """
 
+    _repr = ["type", "multi_turn"]
+
     def __init__(self, args: ModelArguments):
         super().__init__(args)
         if not args.qianfan_access_key or not args.qianfan_secret_key:
@@ -58,6 +60,7 @@ class Qianfan(Model):
             generation_kwargs["temperature"] = 0.0001
         self.generation_kwargs = generation_kwargs
         self.multi_turn = extra_model_args.pop("multi_turn", False)
+        return self.generation_kwargs
 
     def generation(self, batched_inputs):
         results = self.request(batched_inputs, self.generation_kwargs, multi_turn=self.multi_turn)

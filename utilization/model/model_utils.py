@@ -23,3 +23,6 @@ class KeyWordsCriteria(StoppingCriteria):
                     self.sequences_should_be_stopped[i] = True
                     break
         return all(self.sequences_should_be_stopped)
+
+    def __repr__(self):
+        return f"KeyWordsCriteria(stop_sequences={self.stop_sequences})"

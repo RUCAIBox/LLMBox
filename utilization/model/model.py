@@ -1,5 +1,5 @@
 from logging import getLogger
-from typing import TYPE_CHECKING, List, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Tuple, Union
 
 from tiktoken import Encoding
 from transformers import PreTrainedTokenizer, PreTrainedTokenizerFast
@@ -78,3 +78,10 @@ class Model:
             List[int]: The option index of greatest probabiltiy.
         """
         raise NotImplementedError(f"{self.name} model does not support `get_prob`.")
+
+    def _aggregate_model_attr(self) -> Dict[str, Any]:
+        kwargs = {}
+        for key in getattr(self, "_repr", []):
+            if getattr(self, key, None):
+                kwargs[key] = getattr(self, key)
+        return kwargs

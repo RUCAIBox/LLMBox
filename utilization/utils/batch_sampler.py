@@ -1,5 +1,5 @@
 from logging import getLogger
-from typing import TYPE_CHECKING, Any, Callable, Iterator, List, Tuple
+from typing import TYPE_CHECKING, Any, Callable, Dict, Iterator, List, Tuple
 
 from numpy import r_
 from torch.utils.data.sampler import Sampler
@@ -10,15 +10,16 @@ if TYPE_CHECKING:
 logger = getLogger(__name__)
 
 
-def info_dataset_group(dataset_group: List["Dataset"], group_length: int):
+def info_dataset_group(dataset_group: List["Dataset"], group_length: int, model_attr: Any, model_kwargs: Any):
     subset_names = [d.subset_name for d in dataset_group if d.subset_name is not None]
     subset_names = (":" + ",".join(subset_names)) if len(subset_names) > 0 else ""
     instances = 0
     for d in dataset_group:
         instances += d.len(False, False, False)
         logger.debug(d)
+    kwargs_name = d.model_evaluation_method.split("_")[-1] + "_kwargs"
     logger.info(
-        f"Evaluating {d.model_evaluation_method} on {d.name}{subset_names} (model_args={d._extra_model_args}, len={group_length}, num_instances={instances})"
+        f"Evaluating {d.model_evaluation_method} on {d.name}{subset_names} (model_attr={model_attr}, {kwargs_name}={model_kwargs}, len={group_length}, num_instances={instances})"
     )
 
 
@@ -54,8 +55,10 @@ class DatasetCollectionBatchSampler(Sampler[List[int]]):
 
                     def wrapper():
                         # use a callback function to index the entire group
-                        info_dataset_group(group_datasets[group_idx], group_lengths[group_idx])
-                        group_datasets[group_idx][0]._init_model()
+                        kwargs = group_datasets[group_idx][0]._init_model()
+                        info_dataset_group(
+                            group_datasets[group_idx], group_lengths[group_idx], model._aggregate_model_attr(), kwargs
+                        )
 
                     return wrapper
 

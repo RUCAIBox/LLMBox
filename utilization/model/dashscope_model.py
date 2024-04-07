@@ -20,6 +20,8 @@ class Dashscope(Model):
                    `qwen-1.8b-longcontext-chat`, `qwen-1.8b-chat`.
     """
 
+    _repr = ["type", "multi_turn"]
+
     def __init__(self, args: ModelArguments):
         super().__init__(args)
         if not args.dashscope_api_key:
@@ -62,6 +64,7 @@ class Dashscope(Model):
             generation_kwargs["seed"] = self.args.seed
         self.generation_kwargs = generation_kwargs
         self.multi_turn = extra_model_args.pop("multi_turn", False)
+        return self.generation_kwargs
 
     def generation(self, batched_inputs):
         results = self.request(batched_inputs, self.generation_kwargs, multi_turn=self.multi_turn)
