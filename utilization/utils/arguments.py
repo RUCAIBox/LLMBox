@@ -10,6 +10,7 @@ from logging import getLogger
 from typing import ClassVar, Dict, List, Literal, Optional, Set, Tuple, Union
 
 import openai
+from torch import Value
 from transformers import BitsAndBytesConfig
 from transformers.hf_argparser import HfArg, HfArgumentParser
 
@@ -185,7 +186,10 @@ class ModelArguments:
         "anthropic": {"anthropic_api_key"},
         "dashscope": {"dashscope_api_key"},
         "qianfan": {"qianfan_access_key", "qianfan_secret_key"},
-        "huggingface": {"device_map", "vllm", "flash_attention", "tokenizer_name_or_path"},
+        "huggingface": {
+            "device_map", "vllm", "flash_attention", "tokenizer_name_or_path", "bnb_config", "load_in_8bit",
+            "load_in_4bit", "gptq", "vllm_gpu_memory_utilization"
+        },
     }
 
     def is_openai_model(self) -> bool:
@@ -269,7 +273,7 @@ class DatasetArguments:
         default=MISSING,
         aliases=["-d", "--dataset"],
         help=
-        "Space splitted dataset names. If only one dataset is specified, it can be followed by subset names or category names. Format: 'dataset1 dataset2', 'dataset:subset1,subset2', or 'dataset:[cat1],[cat2]', e.g., copa, race, race:high, wmt16:en-ro,en-fr, or mmlu:[stem],[humanities]. Supported datasets: "
+        "Space splitted dataset names. If only one dataset is specified, it can be followed by subset names or category names. Format: 'dataset1 dataset2', 'dataset:subset1,subset2', or 'dataset:[cat1],[cat2]', e.g., 'copa race', 'race:high', 'wmt16:en-ro,en-fr', or 'mmlu:[stem],[humanities]'. Supported datasets: "
         + ", ".join(list_datasets()),
         metadata={"metavar": "DATASET"},
     )
@@ -422,12 +426,15 @@ def check_args(model_args: ModelArguments, dataset_args: DatasetArguments, evalu
         dataset_args (DatasetArguments): The dataset configurations.
         evaluation_args (EvaluationArguments): The evaluation configurations.
     """
+    # copy arguments
     if evaluation_args.proxy_port:
         dataset_args.proxy_port = evaluation_args.proxy_port
 
     dataset_args.dataset_threading = evaluation_args.dataset_threading
 
     model_args.seed = evaluation_args.seed
+
+    # check models
     if model_args.model_name_or_path.lower() in OPENAI_CHAT_MODELS and dataset_args.batch_size > 1:
         dataset_args.batch_size = 1
         logger.warning(
@@ -449,9 +456,20 @@ def check_args(model_args: ModelArguments, dataset_args: DatasetArguments, evalu
             f"Qianfan model {model_args.model_name_or_path} doesn't support batch_size > 1, automatically set batch_size to 1."
         )
 
+    # check dataset
     if "vicuna_bench" in dataset_args.dataset_names and model_args.openai_api_key is None:
         raise ValueError(
             "OpenAI API key is required for GPTEval metrics. Please set it by passing a `--openai_api_key` or through environment variable `OPENAI_API_KEY`."
+        )
+
+    if "story_cloze" in dataset_args.dataset_names and dataset_args.dataset_path is None:
+        raise ValueError(
+            "Story Cloze dataset requires manual download. View details at https://github.com/RUCAIBox/LLMBox/blob/main/utilization/README.md#supported-datasets."
+        )
+
+    if "coqa" in dataset_args.dataset_names and dataset_args.dataset_path is None:
+        raise ValueError(
+            "CoQA dataset requires manual download. View details at https://github.com/RUCAIBox/LLMBox/blob/main/utilization/README.md#supported-datasets."
         )
 
     args_ignored = set()
