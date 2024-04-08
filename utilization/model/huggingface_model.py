@@ -108,6 +108,15 @@ class HuggingFaceModel(Model):
         self.model, self.tokenizer = load_hf_model(args)
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
 
+        self.system_prompt = self.args.system_prompt
+        self.chat_template = self.args.chat_template
+        if self.system_prompt:
+            self._system = lambda: Conversation([{"role": "system", "content": self.system_prompt}])
+        else:
+            self._system = lambda: Conversation()
+        if self.chat_template is not None:
+            self.tokenizer.chat_template = self.chat_template
+
     @staticmethod
     def _subsentences_start_idx(offset_mapping: torch.Tensor) -> Iterator[int]:
         r"""Given offset mapping, return the index of the first token in the encoded sentence of each subsentence. The length of the encoded sentence will be yielded at the end, to ensure that the end index of the last subsentence will be included."""
@@ -282,17 +291,12 @@ class HuggingFaceModel(Model):
         generation_kwargs["eos_token_id"] = self.tokenizer.eos_token_id
 
         self.multi_turn = extra_model_args.pop("multi_turn", False)
+
         if self.type != "chat":
             if self.multi_turn:
-                raise ValueError("The multi_turn is only available for chat model. Please set `--model_type chat`.")
-            if self.args.system_prompt:
-                raise ValueError("The system_prompt is only available for chat model. Please set `--model_type chat`.")
-
-        self.system_prompt = self.args.system_prompt
-        if self.args.system_prompt:
-            self._system = lambda: Conversation([{"role": "system", "content": self.args.system_prompt}])
-        else:
-            self._system = lambda: Conversation()
+                raise ValueError(
+                    "The multi_turn is only available for chat-based model. Please use a chat model and set `--model_type chat`."
+                )
 
         self.generation_kwargs = generation_kwargs
         if len(extra_model_args) > 0:
@@ -347,7 +351,6 @@ class HuggingFaceModel(Model):
                     conv = answers.pop(0)
                     r.append(conv[-1]["content"])
                     history_conversations[idx] = conv
-            print(history_conversations)
 
         return [tuple(r) for r in responses]
 

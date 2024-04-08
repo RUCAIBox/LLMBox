@@ -152,6 +152,10 @@ class ModelArguments:
         default="",
         help="The system prompt of the model",
     )
+    chat_template: str = HfArg(
+        default=None,
+        help="The chat template for chat-based models",
+    )
 
     bnb_config: Optional[str] = HfArg(default=None, help="JSON string for BitsAndBytesConfig parameters.")
 
@@ -291,6 +295,16 @@ class ModelArguments:
 
         if self.vllm:
             self.vllm_gpu_memory_utilization = 0.9
+
+        if self.model_type != "chat":
+            if self.system_prompt:
+                raise ValueError(
+                    "The system_prompt is only available for chat-based model. Please use a chat model and set `--model_type chat`."
+                )
+            if self.chat_template:
+                raise ValueError(
+                    "The chat_template is only available for huggingface chat-based model. Please use a chat model and set `--model_type chat`."
+                )
 
         # argparse encodes string with unicode_escape, decode it to normal string, e.g., "\\n" -> "\n"
         if self.stop is not None:
