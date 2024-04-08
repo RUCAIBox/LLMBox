@@ -235,16 +235,6 @@ class Dataset(TokenizerUtil, torch.utils.data.Dataset):
                 f"Self-consistency only supports generation with temperature > 0, automatically set temperature = 1."
             )
 
-        # add stop for generation
-        if isinstance(self.model.args.stop, str) and len(self.model.args.stop) > 0:
-            cmd_stop = [self.model.args.stop]
-        elif isinstance(self.model.args.stop, list) and len(self.model.args.stop) > 0:
-            cmd_stop = self.model.args.stop
-        else:
-            cmd_stop = []
-        if len(cmd_stop) > 0:
-            self._extra_model_args["stop"] = self._extra_model_args.get("stop", []) + cmd_stop
-
         logger.info(self.args)
 
     def load_raw_dataset(
@@ -317,13 +307,15 @@ class Dataset(TokenizerUtil, torch.utils.data.Dataset):
         )
         evaluation_instances, option_nums = construct_fn()
 
-        def _print(info, instance):
+        def _print(info, instance, idx):
+            if isinstance(instance, str):
+                instance = [instance]
             for i, seg in zip(range(len(instance)), ["source", "option"]):
-                info(f"Formatted example ({seg})\n" + pformat(instance[i], width=100))
+                info(f"Formatted evaluation instance {idx} ({seg})\n" + pformat(instance[i], width=100))
 
-        _print(logger.info, evaluation_instances[0])
+        _print(logger.info, evaluation_instances[0], 0)
         if len(evaluation_instances) > 1:
-            _print(logger.debug, evaluation_instances[1])
+            _print(logger.debug, evaluation_instances[1], 1)
 
         # for self-consistency
         evaluation_instances = evaluation_instances * self.sample_num
@@ -513,11 +505,11 @@ class Dataset(TokenizerUtil, torch.utils.data.Dataset):
         self.is_iter_initialized = True
 
         if self.model_evaluation_method == "get_ppl":
-            self.model.set_ppl_args(**self._extra_model_args)
+            return self.model.set_ppl_args(**self._extra_model_args)
         elif self.model_evaluation_method == "generation":
-            self.model.set_generation_args(**self._extra_model_args)
+            return self.model.set_generation_args(**self._extra_model_args)
         elif self.model_evaluation_method == "get_prob":
-            self.model.set_prob_args(**self._extra_model_args)
+            return self.model.set_prob_args(**self._extra_model_args)
 
     def post_processing(self, predictions: Union[List[Tuple[str, float]], List[List[float]]]):
         r"""Post processing for the predictions.

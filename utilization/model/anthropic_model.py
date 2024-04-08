@@ -18,6 +18,8 @@ class Anthropic(Model):
     We now support Claude (`claude-2.1`) and Claude Instant (`claude-instant-1.2`).
     """
 
+    _repr = ["type", "multi_turn"]
+
     def __init__(self, args: ModelArguments):
         super().__init__(args)
         if not args.anthropic_api_key:
@@ -54,6 +56,7 @@ class Anthropic(Model):
                 del generation_kwargs["stop_sequences"]
         self.generation_kwargs = generation_kwargs
         self.multi_turn = extra_model_args.pop("multi_turn", False)
+        return self.generation_kwargs
 
     def generation(self, batched_inputs):
         results = self.request(batched_inputs, self.generation_kwargs, multi_turn=self.multi_turn)
@@ -84,7 +87,7 @@ class Anthropic(Model):
                     if len(query) == 0:
                         continue
                     messages.append({"role": "user", "content": query})
-                    msg = client.beta.messages.create(model=self.name, messages=messages, **kwargs)
+                    msg = client.messages.create(model=self.name, messages=messages, **kwargs)
                     results.append(msg)
                     messages.append({"role": "assistant", "content": msg.content[0].text})
                 return results

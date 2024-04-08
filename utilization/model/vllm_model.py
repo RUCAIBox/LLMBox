@@ -35,6 +35,8 @@ class LabelProcessor:
 
 class vllmModel(Model):
 
+    _repr = ["type", "candidate_ids"]
+
     def __init__(self, args: "ModelArguments"):
         super().__init__(args)
         self.args = args
@@ -61,6 +63,7 @@ class vllmModel(Model):
         self.ppl_kwargs = SamplingParams(max_tokens=1, prompt_logprobs=0)
         if len(extra_model_args) > 0:
             logger.warning(f"Unused generation arguments: {extra_model_args}")
+        return self.ppl_kwargs
 
     def get_ppl(self, batched_inputs):
         prompt = [src + tgt for src, tgt in batched_inputs]
@@ -123,9 +126,10 @@ class vllmModel(Model):
         self.generation_kwargs = SamplingParams(**generation_kwargs)
         if len(extra_model_args) > 0:
             logger.warning(f"Unused generation arguments: {extra_model_args}")
+        return self.generation_kwargs
 
     def generation(self, batched_inputs) -> List[str]:
-        if self.args.model_type == "chat":
+        if self.type == "chat":
             chats = [[{"role": "user", "content": prompt}] for prompt in batched_inputs]
             batched_inputs = [
                 self.tokenizer.apply_chat_template(chat, tokenize=False, add_generation_prompt=True) for chat in chats
@@ -139,6 +143,7 @@ class vllmModel(Model):
 
         if len(extra_model_args) > 0:
             logger.warning(f"Unused generation arguments: {extra_model_args}")
+        return self.prob_kwargs
 
     def _set_candidate_ids(self, option_num: int):
         labels = [chr(i + 65) for i in range(option_num)]

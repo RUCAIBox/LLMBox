@@ -23,6 +23,8 @@ class Openai(Model):
 
     tokenizer: tiktoken.Encoding
 
+    _repr = ["type", "multi_turn", "candidate_ids"]
+
     def __init__(self, args: ModelArguments):
         super().__init__(args)
 
@@ -49,10 +51,10 @@ class Openai(Model):
                 f"{self.name} doesn't support PPL score calculation. Please use get_prob mode by setting `--ranking_type prob` instead"
             )
         self.ppl_kwargs = dict(echo=True, max_tokens=0, logprobs=0)
-        self.multi_turn = extra_model_args.pop("multi_turn", False)
 
         if len(extra_model_args) > 0:
             logger.warning(f"Unused generation arguments: {extra_model_args}")
+        return self.ppl_kwargs
 
     def set_generation_args(self, **extra_model_args):
         r"""Set the configurations for open-ended generation. This is useful because different datasets may have different requirements for generation."""
@@ -86,6 +88,7 @@ class Openai(Model):
 
         if len(extra_model_args) > 0:
             logger.warning(f"Unused generation arguments: {extra_model_args}")
+        return self.generation_kwargs
 
     def set_prob_args(self, **extra_model_args):
 
@@ -93,14 +96,15 @@ class Openai(Model):
         self._token_label_ids = []
         self._word_label_texts = []
         self._token_label_texts = []
-        self._candidate_ids = extra_model_args.pop("candidate_ids", None)
-        self._candidate_texts = self.tokenizer.decode_batch(self._candidate_ids) if self._candidate_ids else None
+        self.candidate_ids = extra_model_args.pop("candidate_ids", None)
+        self._candidate_texts = self.tokenizer.decode_batch(self.candidate_ids) if self.candidate_ids else None
 
         self.prob_kwargs = {"max_tokens": 1, "temperature": 0.0}
         self.constant_option_num = extra_model_args.pop("constant_option_num", False)
 
         if len(extra_model_args) > 0:
             logger.warning(f"Unused generation arguments: {extra_model_args}")
+        return self.prob_kwargs
 
     def _get_label_ids(self, option_num: Optional[int]) -> Tuple[List[int], List[str]]:
         """Return the tokenized labels of options and labels themselves."""
@@ -121,9 +125,9 @@ class Openai(Model):
             texts = self._word_label_texts[:option_num] + self._token_label_texts[:option_num]
             return ids, texts
         else:
-            if self._candidate_ids is None:
+            if self.candidate_ids is None:
                 raise ValueError("The candidate_ids must be provided when option_num is None.")
-            return self._candidate_ids, self._candidate_texts
+            return self.candidate_ids, self._candidate_texts
 
     def get_ppl(self, batched_inputs: List[Tuple[str, ...]]) -> List[Tuple[float, int]]:
         prompt = ["".join(parts) for parts in batched_inputs]

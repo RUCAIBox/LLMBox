@@ -2,8 +2,6 @@ import argparse
 import json
 import os
 import sys
-import textwrap
-from builtins import bool
 from copy import copy
 from dataclasses import MISSING, dataclass, fields
 from logging import getLogger
@@ -11,7 +9,6 @@ from typing import ClassVar, Dict, List, Literal, Optional, Set, Tuple, Union
 
 import openai
 import tiktoken
-from torch import Value
 from transformers import BitsAndBytesConfig
 from transformers.hf_argparser import HfArg, HfArgumentParser
 
@@ -150,6 +147,16 @@ class ModelArguments:
         help="Positive values encourage longer sequences, vice versa. Used in beam search.",
     )
 
+    system_prompt: str = HfArg(
+        aliases=["-sys"],
+        default="",
+        help="The system prompt of the model",
+    )
+    chat_template: str = HfArg(
+        default=None,
+        help="The chat template for chat-based models",
+    )
+
     bnb_config: Optional[str] = HfArg(default=None, help="JSON string for BitsAndBytesConfig parameters.")
 
     load_in_8bit: bool = HfArg(
@@ -170,6 +177,11 @@ class ModelArguments:
     vllm_gpu_memory_utilization: float = HfArg(
         default=None,
         help="The maximum gpu memory utilization of vllm.",
+    )
+
+    torch_dtype: Literal["float16", "bfloat16", "float32"] = HfArg(
+        default="float16",
+        help="The torch dtype for model input and output",
     )
 
     seed: ClassVar[int] = None  # use class variable to facilitate type hint inference
@@ -269,6 +281,12 @@ class ModelArguments:
             if self.tokenizer_name_or_path is None:
                 self.tokenizer_name_or_path = "cl100k_base"
 
+        if self.is_huggingface_model():
+            if "chat" in self.model_name_or_path and self.model_type != "chat":
+                logger.warning(
+                    f"Model {self.model_name_or_path} seems to be a chat-based model, you can set --model_type to `chat` to use chat format."
+                )
+
         if self.tokenizer_name_or_path is None:
             self.tokenizer_name_or_path = self.model_name_or_path
 
@@ -277,6 +295,23 @@ class ModelArguments:
 
         if self.vllm:
             self.vllm_gpu_memory_utilization = 0.9
+
+        if self.model_type != "chat":
+            if self.system_prompt:
+                raise ValueError(
+                    "The system_prompt is only available for chat-based model. Please use a chat model and set `--model_type chat`."
+                )
+            if self.chat_template:
+                raise ValueError(
+                    "The chat_template is only available for huggingface chat-based model. Please use a chat model and set `--model_type chat`."
+                )
+
+        # argparse encodes string with unicode_escape, decode it to normal string, e.g., "\\n" -> "\n"
+        if self.stop is not None:
+            if isinstance(self.stop, str):
+                self.stop = [self.stop]
+            for idx in range(len(self.stop)):
+                self.stop[idx] = self.stop[idx].encode('utf-8').decode('unicode_escape')
 
 
 @dataclass
@@ -311,11 +346,6 @@ class DatasetArguments:
         help="The set name for demonstration, supporting slice, e.g., train, dev, train[:10]",
     )
 
-    system_prompt: str = HfArg(
-        aliases=["-sys"],
-        default="",
-        help="The system prompt of the model",
-    )
     instance_format: str = HfArg(
         aliases=["-fmt"],
         default="{source}{target}",
