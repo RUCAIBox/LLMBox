@@ -1,3 +1,4 @@
+import re
 from logging import getLogger
 
 from ..metric import Em
@@ -9,8 +10,6 @@ from .enum import (
 from .generation_dataset import GenerationDataset
 
 logger = getLogger(__name__)
-
-import re
 
 
 class Agieval_cot(GenerationDataset):
@@ -34,18 +33,15 @@ class Agieval_cot(GenerationDataset):
     load_args = ("RUCAIBox/agieval",)
     metrics = [Em()]
 
-    def __init__(self, dataset_name, args, model, subset_name: str):
-        self.task = subset_name
-        self.shots = args.num_shots
-        self.extra_model_args = dict(stop=["\n"]) if args.cot is None else dict()
-        super().__init__(dataset_name, args, model, subset_name)
+    def init_arguments(self):
+        self.extra_model_args = dict(stop=["\n"]) if self.args.cot is None else dict()
 
     def format_instance(self, instance):
-        WORDS = [w[0 if self.task in AGIEVAL_ZH_PROMPT_TASKS else 1] for w in AGIEVAL_WORDS]
+        WORDS = [w[0 if self.subset_name in AGIEVAL_ZH_PROMPT_TASKS else 1] for w in AGIEVAL_WORDS]
         passage = "" if instance["passage"] is None else instance["passage"]
         target = instance["label"]
-        if self.task not in AGIEVAL_NO_LETTER_CHOICE_TASKS:
-            if self.shots == 0:
+        if self.subset_name not in AGIEVAL_NO_LETTER_CHOICE_TASKS:
+            if self.max_num_shots == 0:
                 source = passage + WORDS[0] + instance["question"] + " " + WORDS[1] + self._choice_to_str(
                     instance["options"]
                 ) + "\n"
@@ -64,7 +60,7 @@ class Agieval_cot(GenerationDataset):
                     if instance["explanation"] is not None:
                         target = instance["explanation"] + "\n" + WORDS[5] + " " + instance["label"]
         else:
-            if self.shots == 0:
+            if self.max_num_shots == 0:
                 source = passage + WORDS[0] + instance["question"] + "\n"
                 if self.args.cot is None:
                     source += WORDS[8]
@@ -90,7 +86,7 @@ class Agieval_cot(GenerationDataset):
             if new_pred is not None:
                 while new_pred.endswith("."):
                     new_pred = new_pred[:len(new_pred) - 1]
-                if self.task in AGIEVAL_NO_LETTER_CHOICE_TASKS:
+                if self.subset_name in AGIEVAL_NO_LETTER_CHOICE_TASKS:
                     new_pred = math_equiv._strip_string(new_pred)
             else:
                 new_pred = ""
@@ -119,7 +115,7 @@ class Agieval_cot(GenerationDataset):
 
     @property
     def references(self):
-        if self.task not in AGIEVAL_NO_LETTER_CHOICE_TASKS:
+        if self.subset_name not in AGIEVAL_NO_LETTER_CHOICE_TASKS:
             return [[str(instance["label"])] for instance in self.evaluation_data]  # type: ignore
         else:
             return [
@@ -151,7 +147,7 @@ class Agieval_cot(GenerationDataset):
         return string
 
     def try_parse_few_shot_qa_single_answer(self, string, language='en'):
-        if self.shots > 0 and self.args.cot is not None:
+        if self.max_num_shots > 0 and self.args.cot is not None:
             string = self.extract_last_line(string)
         if language == 'en':
             pattern = "answer is .*?([A-G])"
@@ -165,17 +161,17 @@ class Agieval_cot(GenerationDataset):
             return None
 
     def try_parse_few_shot_pattern(self, string: str):
-        if self.shots > 0 and self.args.cot is not None:
+        if self.max_num_shots > 0 and self.args.cot is not None:
             string = self.extract_last_line(string)
-        if self.task in AGIEVAL_ZH_CLOZE_TASKS:
+        if self.subset_name in AGIEVAL_ZH_CLOZE_TASKS:
             return string.startswith("答案是")
-        elif self.task in AGIEVAL_EN_CLOZE_TASKS:
+        elif self.subset_name in AGIEVAL_EN_CLOZE_TASKS:
             return string.startswith("The answer is therefore")
-        elif self.task in AGIEVAL_ZH_QA_TASKS:
+        elif self.subset_name in AGIEVAL_ZH_QA_TASKS:
             pattern = "答案是.*?([A-G])"
             match = re.search(pattern, string)
             return match is not None
-        elif self.task in AGIEVAL_EN_QA_TASKS:
+        elif self.subset_name in AGIEVAL_EN_QA_TASKS:
             pattern = "answer is .*?([A-G])"
             match = re.search(pattern, string)
             return match is not None
@@ -189,9 +185,9 @@ class Agieval_cot(GenerationDataset):
             return answer
 
     def parse_math_answer(self, raw_string):
-        if self.shots > 0 and self.args.cot is not None:
+        if self.max_num_shots > 0 and self.args.cot is not None:
             raw_string = self.extract_last_line(raw_string)
-        if self.shots > 0:
+        if self.max_num_shots > 0:
             raw_string = self.remove_few_shot_prefix(raw_string)
             return raw_string
 
@@ -266,27 +262,27 @@ class Agieval_cot(GenerationDataset):
         return answer
 
     def parse_qa_multiple_answer(self, string):
-        if self.shots > 0 and self.args.cot is not None:
+        if self.max_num_shots > 0 and self.args.cot is not None:
             string = self.extract_last_line(string)
         pattern = r"\(*([A-F])\)*"
         match = re.findall(pattern, string)
         if match:
             answers = sorted(set(match))
-            if self.task == "gaokao-physics" and len(answers) == 1:
+            if self.subset_name == "gaokao-physics" and len(answers) == 1:
                 return answers[0]
             return answers.__str__()
         return ""
 
     def post_process(self, prediction):
-        if self.task in AGIEVAL_NO_LETTER_CHOICE_TASKS:
+        if self.subset_name in AGIEVAL_NO_LETTER_CHOICE_TASKS:
             return self.parse_math_answer(prediction)
 
-        if self.task in AGIEVAL_MULTI_ANSWERS_TASKS:
+        if self.subset_name in AGIEVAL_MULTI_ANSWERS_TASKS:
             return self.parse_qa_multiple_answer(prediction)
 
-        if self.shots == 0:
+        if self.max_num_shots == 0:
             answer = self._find_choice(prediction)
             return answer
 
-        language = "en" if self.task in AGIEVAL_EN_PROMPT_TASKS else "zh"
+        language = "en" if self.subset_name in AGIEVAL_EN_PROMPT_TASKS else "zh"
         return self.parse_few_shot_qa_single_answer(prediction, language)

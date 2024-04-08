@@ -30,6 +30,8 @@ class Arc(MultipleChoiceDataset):
     evaluation_set = "test"
     example_set = "train"
     load_args = ("allenai/ai2_arc",)
+    use_normalization = True
+    normalization_prompt = "Question: \nAnswer:"
 
     def format_instance(self, instance):
         options = list(map(lambda _s: " " + _s, instance["choices"]["text"]))
@@ -43,21 +45,6 @@ class Arc(MultipleChoiceDataset):
             target_idx=instance["answerKey"],
             options=options,
         )
-
-    def construct_instances(self):
-        self.evaluation_instances = []
-        self.option_nums = []
-        for formatted_instance in self.formatted_evaluation_data:
-            instance_with_examples = self.format_instruction_and_examples(formatted_instance)
-            options = [(instance_with_examples, option) for option in formatted_instance['options']]
-            self.option_nums.append(len(options))
-            answer_options = [("Answer:", option) for option in formatted_instance["options"]]
-            options = [item for pair in zip(options, answer_options) for item in pair]
-            self.evaluation_instances.extend(options)
-        logger.info("Evaluation mode: calculate PPL of the optional text based on the source text")
-        logger.info("Formatted example (source)\n" + self.evaluation_instances[0][0])
-        logger.info("Formatted example (option)\n" + self.evaluation_instances[0][1])
-        self.evaluation_instances = self.evaluation_instances * self.args.sample_num
 
     def post_processing(self, predictions: List[Tuple[float, int]]) -> List[int]:
         labels = []

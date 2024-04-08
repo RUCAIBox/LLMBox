@@ -29,15 +29,10 @@ class Agieval_single_choice(MultipleChoiceDataset):
     load_args = ("RUCAIBox/agieval-single-choice",)
     categorized_subsets = AGIEVAL_SUBJECTS
 
-    def __init__(self, dataset_name, args, model, subset_name: str):
-        self.task = subset_name
-        self.shots = args.num_shots
-        super().__init__(dataset_name, args, model, subset_name)
-
     def format_instance(self, instance):
-        WORDS = [w[0 if self.task in AGIEVAL_ZH_PROMPT_TASKS else 1] for w in AGIEVAL_WORDS]
+        WORDS = [w[0 if self.subset_name in AGIEVAL_ZH_PROMPT_TASKS else 1] for w in AGIEVAL_WORDS]
         passage = "" if instance["passage"] is None else instance["passage"]
-        if self.shots == 0:
+        if self.max_num_shots == 0:
             source = passage + WORDS[0] + instance["question"] + "\n" + WORDS[2].format(
                 self._max_choice_letter(instance["options"])
             )

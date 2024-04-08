@@ -24,13 +24,12 @@ class Mmlu(MultipleChoiceDataset):
     categorized_subsets = MMLU_SUBJECTS
     banned_subsets = ["all"]
 
-    def __init__(self, dataset_name, args, model, subset_name: str):
-        self.instruction = self.instruction.format(self._format_subject(subset_name))
-        if args.ranking_type.startswith("ppl"):  # ppl or ppl_no_option
+    def init_arguments(self):
+        self.instruction = self.instruction.format(self._format_subject(self.subset_name))
+        if self.args.ranking_type.startswith("ppl"):  # ppl or ppl_no_option
             self.source_prefix = "Question: "
-        elif args.ranking_type == "prob":
+        elif self.args.ranking_type == "prob":
             self.source_prefix = ""
-        super().__init__(dataset_name, args, model, subset_name)
 
     @staticmethod
     def _format_subject(subject: str) -> str:

@@ -59,6 +59,8 @@ class vllmModel(Model):
 
     def set_ppl_args(self, **extra_model_args):
         self.ppl_kwargs = SamplingParams(max_tokens=1, prompt_logprobs=0)
+        if len(extra_model_args) > 0:
+            logger.warning(f"Unused generation arguments: {extra_model_args}")
 
     def get_ppl(self, batched_inputs):
         prompt = [src + tgt for src, tgt in batched_inputs]
@@ -110,7 +112,7 @@ class vllmModel(Model):
             # ModelArguments > extra_model_args
             value = getattr(self.args, key, None)
             if value is None:
-                value = extra_model_args.get(key, None)
+                value = extra_model_args.pop(key, None)
 
             if key == "max_tokens" and value is None:
                 value = 1024
@@ -119,11 +121,15 @@ class vllmModel(Model):
         if generation_kwargs.get("best_of", 0) > 1:
             generation_kwargs["use_beam_search"] = True
         self.generation_kwargs = SamplingParams(**generation_kwargs)
+        if len(extra_model_args) > 0:
+            logger.warning(f"Unused generation arguments: {extra_model_args}")
 
     def generation(self, batched_inputs) -> List[str]:
         if self.args.model_type == "chat":
             chats = [[{"role": "user", "content": prompt}] for prompt in batched_inputs]
-            batched_inputs = [self.tokenizer.apply_chat_template(chat, tokenize=False, add_generation_prompt=True) for chat in chats]
+            batched_inputs = [
+                self.tokenizer.apply_chat_template(chat, tokenize=False, add_generation_prompt=True) for chat in chats
+            ]
         results = self.model.generate(batched_inputs, sampling_params=self.generation_kwargs)
         return [r.outputs[0].text for r in results]
 

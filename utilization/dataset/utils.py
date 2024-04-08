@@ -9,6 +9,7 @@ from typing import Callable, List, Literal, Optional, Tuple, Union
 
 import datasets
 import tiktoken
+from transformers import PreTrainedTokenizer, PreTrainedTokenizerFast
 
 logger = getLogger(__name__)
 
@@ -18,7 +19,8 @@ slice_regex = re.compile(r"\[(\d*):(\d*)\]")
 
 class TokenizerUtil:
 
-    def __init__(self) -> None:
+    def set_tokenizer(self, tokenizer: Union[tiktoken.Encoding, PreTrainedTokenizer, PreTrainedTokenizerFast]) -> None:
+        self.tokenizer = tokenizer
         self.tokenizer_encode = self.tokenizer.encode_ordinary if isinstance(
             self.tokenizer, tiktoken.Encoding
         ) else self.tokenizer.encode

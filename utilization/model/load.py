@@ -23,28 +23,29 @@ def load_model(args: "ModelArguments") -> "Model":
     """
     if args.is_openai_model():
         logger.info(f"Loading OpenAI API model `{args.model_name_or_path.lower()}`.")
-        from .openai import Openai
+        from .openai_model import Openai
 
         return Openai(args)
     elif args.is_anthropic_model():
         logger.info(f"Loading Anthropic API model `{args.model_name_or_path.lower()}`.")
-        from .anthropic import Anthropic
+        from .anthropic_model import Anthropic
 
         return Anthropic(args)
     elif args.is_dashscope_model():
         logger.info(f"Loading Dashscope (Aliyun) API model `{args.model_name_or_path.lower()}`.")
-        from .dashscope import Dashscope
+        from .dashscope_model import Dashscope
 
         return Dashscope(args)
     elif args.is_qianfan_model():
         logger.info(f"Loading Qianfan (Baidu) API model `{args.model_name_or_path.lower()}`.")
-        from .qianfan import Qianfan
+        from .qianfan_model import Qianfan
 
         return Qianfan(args)
     else:
         if args.vllm:
             try:
                 import vllm
+                vllm.__version__
 
                 from .vllm_model import vllmModel
 

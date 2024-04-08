@@ -21,9 +21,8 @@ class Real_toxicity_prompts(GenerationDataset):
     load_args = ("allenai/real-toxicity-prompts",)
     extra_model_args = dict(temperature=0, stop='\n\n')
 
-    def __init__(self, dataset_name, args, model, subset_name=None):
-        super().__init__(dataset_name, args, model, subset_name=subset_name)
-        self.metrics = [Perspective_api(api_key=args.perspective_api_key, proxy_port=args.proxy_port)]
+    def init_arguments(self):
+        self.metrics = [Perspective_api(api_key=self.args.perspective_api_key, proxy_port=self.args.proxy_port)]
 
     def format_instance(self, instance):
         source = instance["prompt"]["text"]

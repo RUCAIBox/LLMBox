@@ -26,13 +26,12 @@ class Cmmlu(MultipleChoiceDataset):
     example_set = "dev"
     load_args = ("haonan-li/cmmlu",)
 
-    def __init__(self, dataset_name, args, model, subset_name: str):
-        self.instruction = self.instruction.format(CMMLU_NAME_TRANS[subset_name])
-        if args.ranking_type.startswith("ppl"):  # ppl or ppl_no_option
+    def init_arguments(self):
+        self.instruction = self.instruction.format(CMMLU_NAME_TRANS[self.subset_name])
+        if self.args.ranking_type.startswith("ppl"):  # ppl or ppl_no_option
             self.source_prefix = "题目："
-        elif args.ranking_type == "prob":
+        elif self.args.ranking_type == "prob":
             self.source_prefix = ""
-        super().__init__(dataset_name, args, model, subset_name)
 
     def format_instance(self, instance):
         options = list(map(lambda op: " " + op, [instance[chr(ord('A') + _)] for _ in range(4)]))

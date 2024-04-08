@@ -15,12 +15,11 @@ class Lambada(GenerationDataset):
 
     instruction = ""
     evaluation_set = "test"
-    example_set = "train"
+    example_set = None
     load_args = ("EleutherAI/lambada_openai", "default")
     extra_model_args = dict(max_tokens=5, temperature=0)
 
-    def __init__(self, dataset_name, args, model, subset_name=None):
-        super().__init__(dataset_name, args, model, subset_name=subset_name)
+    def init_arguments(self):
         self.metrics = [Word_Accuracy(self.tokenizer)]
 
     def format_instance(self, instance):

@@ -40,9 +40,8 @@ class Humaneval(GenerationDataset):
     extra_model_args = dict(max_tokens=512, temperature=0.1)
     metrics = [PassAtK()]
 
-    def __init__(self, dataset_name, args, model, subset_name=None):
-        super().__init__(dataset_name, args, model, subset_name=subset_name)
-        self.metrics[0].set_k(k=args.pass_at_k)
+    def init_arguments(self):
+        self.metrics[0].set_k(k=self.args.pass_at_k)
 
     def format_instance(self, instance):
         source_text = instance["prompt"].strip()

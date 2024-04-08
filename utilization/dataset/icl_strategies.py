@@ -1,11 +1,10 @@
 from itertools import permutations
 
 import numpy as np
-import openai
 import torch
 from tqdm import tqdm
 
-from ..model import openai
+from ..model import openai_model
 
 
 def knn_construct_examples(instance_query, example_dataset, k):
@@ -116,7 +115,7 @@ def ape(example_dataset, eval_dataset, call_model, api_key):
         queries.append(query)
     prompts = []
     model_parameter = ModelArguments()
-    instruct_gen_model = openai.Openai(model_parameter)
+    instruct_gen_model = openai_model.Openai(model_parameter)
     for query in queries:
         response = instruct_gen_model.request(query, gpt_config)
         prompts += [response[i]["text"].strip().replace('"', "") for i in range(len(response))]
