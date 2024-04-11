@@ -9,7 +9,6 @@ from .lima import LimaDataset
 from .openassistant import OpenAssistantDataset
 from .self_instruct import SelfInstructDataset
 from .sharegpt import ShareGPTDataset
-from .ultrachat import UltraChatDataset
 
 # You can add your own dataset name and corresponding class here
 DATASETNAMEMAP = OrderedDict({
@@ -22,7 +21,6 @@ DATASETNAMEMAP = OrderedDict({
     "sharegpt": ShareGPTDataset,
     "openassistant": OpenAssistantDataset,
     "flan": FlanDataset,
-    "ultrachat": UltraChatDataset
 })
 
 class SFTDataset:
