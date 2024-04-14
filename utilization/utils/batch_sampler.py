@@ -40,12 +40,12 @@ class DatasetCollectionBatchSampler(Sampler[List[int]]):
         dataset_collection: "DatasetCollection",
         batch_size: int,
         vllm: bool = False,
-        dynamic_batching: bool = False,
+        auto_batch_size: bool = False,
     ):
         self.dataset_collection = dataset_collection
         self.batch_size = batch_size
         self.vllm = vllm
-        self.dynamic_batching = dynamic_batching
+        self.auto_batch_size = auto_batch_size
         self._forward_call = lambda *a, **k: RuntimeError("Not in dataset iteration context")
         self._splitted = self._split(self.dataset_collection)
 
@@ -94,7 +94,7 @@ class DatasetCollectionBatchSampler(Sampler[List[int]]):
         for total, init_model, self._forward_call in zip(*self._splitted):
             iterator, total_prefix_num = init_model()
             if total_prefix_num > 1:
-                sampler = CachePrefixSampler(iterator, total, total_prefix_num, self.batch_size, self.dynamic_batching)
+                sampler = CachePrefixSampler(iterator, total, total_prefix_num, self.batch_size, self.auto_batch_size)
                 model.set_cacher(sampler)
                 yield from sampler
             else:

@@ -8,7 +8,7 @@ from torch.utils.data import DataLoader
 from .dataset import load_datasets
 from .model import load_model
 from .utils import DatasetArguments, EvaluationArguments, ModelArguments, catch_error, dynamic_stride_tqdm
-from .utils.log_predictions import PredictionWriter
+from .utils.log_results import PredictionWriter
 
 logger = getLogger(__name__)
 
@@ -104,7 +104,7 @@ class Evaluator:
 
         # calculate metric
         metric_results, last_score_lists = self.dataset.calculate_metric(mode_predictions)
-        self.dataset.log_final_predictions(raw_predictions, predictions, last_score_lists)
+        self.dataset.log_final_results(raw_predictions, predictions, last_score_lists)
         msg = f"Evaluation finished successfully:\nevaluation results: {self.dataset_args.evaluation_results_path}"
         for dataset_name, result in metric_results.items():
             if result is None:

@@ -2,8 +2,9 @@ import argparse
 import json
 import os
 import sys
+import typing
 from copy import copy
-from dataclasses import MISSING, dataclass, fields
+from dataclasses import MISSING, dataclass
 from logging import getLogger
 from typing import ClassVar, Dict, List, Literal, Optional, Set, Tuple, Union
 
@@ -13,32 +14,16 @@ from transformers import BitsAndBytesConfig
 from transformers.hf_argparser import HfArg, HfArgumentParser
 
 from ..model.enum import ANTHROPIC_MODELS, DASHSCOPE_MODELS, OPENAI_CHAT_MODELS, OPENAI_MODELS, QIANFAN_MODELS
-from .logging import list_datasets, log_levels, set_logging
+from .logging import filter_none_repr, get_redacted, list_datasets, log_levels, passed_in_commandline, set_logging
 
 logger = getLogger(__name__)
 
+ENVIRONMENT_ARGUMENTS = {"CUDA_VISIBLE_DEVICES", "PYTORCH_CUDA_ALLOC_CONF", "TOKENIZERS_PARALLELISM"}
 
-def get_redacted(sensitive: Optional[str]) -> str:
-    if sensitive is None:
-        return ""
-    middle = len(sensitive) - 12
-    if middle <= 0:
-        return "*" * len(sensitive)
-    return sensitive[:8] + "*" * middle + sensitive[-4:]
-
-
-def filter_none_repr(self):
-    kwargs = {}
-    redact = getattr(self, "_redact", set())
-    fs = set(f.name for f in fields(self))
-    for key, value in self.__dict__.items():
-        if value is not None and not key.startswith("_") and key in fs and value is not False:
-            kwargs[key] = value if key not in redact else get_redacted(value)
-    return f"{self.__class__.__name__}({', '.join(f'{key}={value!r}' for key, value in kwargs.items())})"
-
-
-def passed_in_commandline(self, key):
-    return self.__dataclass_fields__[key].hash
+if typing.TYPE_CHECKING:
+    batch_size_type = int
+else:
+    batch_size_type = str
 
 
 @dataclass
@@ -101,6 +86,7 @@ class ModelArguments:
 
     max_tokens: Optional[int] = HfArg(
         default=None,
+        aliases=["--max_new_tokens"],  # compatible with HF arguments
         help="The maximum number of tokens for output generation",
     )
     max_length: Optional[int] = HfArg(
@@ -143,7 +129,7 @@ class ModelArguments:
 
     best_of: int = HfArg(
         default=None,
-        aliases=["--num_beams"],
+        aliases=["--num_beams"],  # compatible with HF arguments
         help="The beam size for beam search",
     )
     length_penalty: float = HfArg(
@@ -193,6 +179,8 @@ class ModelArguments:
     )
 
     seed: ClassVar[int] = None  # use class variable to facilitate type hint inference
+
+    _argument_group_name = "model arguments"
 
     __repr__ = filter_none_repr
 
@@ -346,15 +334,13 @@ class DatasetArguments:
     )
     subset_names: ClassVar[Set[str]] = set()
     """The name(s) of a/several subset(s) in a dataset, derived from `dataset_names` argument on initalization"""
-    batch_size: int = HfArg(
+    batch_size: batch_size_type = HfArg(
         default=1,
         aliases=["-bsz", "-b"],
-        help="The evaluation batch size",
+        help=
+        "The evaluation batch size. Specify an integer (e.g., '10') to use a fixed batch size for all iterations. Alternatively, append ':auto' (e.g., '10:auto') to start with the specified batch size and automatically adjust it in subsequent iterations to maintain constant CUDA memory usage",
     )
-    dynamic_batching: bool = HfArg(
-        default=False,
-        help="Whether to use dynamic batching",
-    )
+    auto_batch_size: ClassVar[bool] = False
     dataset_path: Optional[str] = HfArg(
         default=None,
         help="The path of dataset if loading from local. Supports repository cloned from huggingface, "
@@ -410,12 +396,18 @@ class DatasetArguments:
         default=None,
         help="The k value for pass@k metric",
     )
+    max_evaluation_instances: int = HfArg(
+        default=None,
+        help="The maximum number of evaluation instances per dataset (subset)",
+    )
 
     proxy_port: ClassVar[int] = None
     dataset_threading: ClassVar[bool] = True
 
     # set in `set_logging` with format "{evaluation_results_dir}/{log_filename}.json"
-    evaluation_results_path: ClassVar[str] = None
+    evaluation_results_path: ClassVar[Optional[str]] = None
+
+    _argument_group_name = "dataset arguments"
 
     __repr__ = filter_none_repr
 
@@ -431,6 +423,17 @@ class DatasetArguments:
 
         # argparse encodes string with unicode_escape, decode it to normal string, e.g., "\\n" -> "\n"
         self.instance_format = self.instance_format.encode('utf-8').decode('unicode_escape')
+
+        if isinstance(self.batch_size, str):
+            if self.batch_size.endswith(":auto") and self.batch_size[:-len(":auto")].isdigit():
+                self.batch_size = int(self.batch_size[:-len(":auto")])
+                self.auto_batch_size = True
+            elif self.batch_size.isdigit():
+                self.batch_size = int(self.batch_size)
+            else:
+                raise ValueError(
+                    f"Invalid batch size: {self.batch_size}. Specify an integer (e.g., '10') to use a fixed batch size for all iterations. Alternatively, append ':auto' (e.g., '10:auto') to start with the specified batch size and automatically adjust it in subsequent iterations to maintain constant CUDA memory usage"
+                )
 
 
 @dataclass
@@ -451,8 +454,13 @@ class EvaluationArguments:
     )
     evaluation_results_dir: str = HfArg(
         default="evaluation_results",
-        help="The directory to save evaluation results, which includes source"
-        " and target texts, generated texts, and the references.",
+        help="The directory to save evaluation results. This includes detailed information for each instance,"
+        " such as the input data, reference data, raw results, and processed results.",
+    )
+    log_results: bool = HfArg(
+        default=True,
+        help=
+        "Whether to log the evaluation results. Notes that the generated JSON file will be the same size as the evaluation dataset itself",
     )
     dry_run: bool = HfArg(
         default=False,
@@ -464,6 +472,8 @@ class EvaluationArguments:
     )
     dataset_threading: bool = HfArg(default=True, help="Load dataset with threading")
     dataloader_workers: int = HfArg(default=0, help="The number of workers for dataloader")
+
+    _argument_group_name = "evaluation arguments"
 
     __repr__ = filter_none_repr
 
@@ -598,9 +608,11 @@ def parse_argument(args=None) -> Tuple[ModelArguments, DatasetArguments, Evaluat
     for key, value in redact_dict.items():
         if key in args:
             args[args.index(key) + 1] = repr(value)
-    logger.info("Command line arguments: {}".format(" ".join(args)))
-    if "CUDA_VISIBLE_DEVICES" in os.environ:
-        logger.info(f"CUDA_VISIBLE_DEVICES={os.environ['CUDA_VISIBLE_DEVICES']}")
+    env_args = {arg: os.environ.get(arg, None) for arg in ENVIRONMENT_ARGUMENTS}
+    env_args = " ".join(f"{key}={value}" for key, value in env_args.items() if value is not None)
+    cmd_args = " ".join(args)
+    pid = os.getpid()
+    logger.info(f"Run commands (pid={pid}): {env_args} {sys.executable} inference.py {cmd_args}")
     logger.info(evaluation_args)
 
     return model_args, dataset_args, evaluation_args

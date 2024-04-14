@@ -292,7 +292,7 @@ class CachePrefixSampler(Sampler[List[int]], Cacher):
         total: int,
         total_prefix_num: int,
         batch_size: int,
-        dynamic_batching: bool = False,
+        auto_batch_size: bool = False,
     ):
 
         # split data into (src,) and (src, tgt)
@@ -303,7 +303,7 @@ class CachePrefixSampler(Sampler[List[int]], Cacher):
         # the batch_size for the kvcache is smaller than the batch_size to avoid OOM
         cache_batch_size = (batch_size + 1) // 2
         self.cache_batch_size = [cache_batch_size] * (self.total_prefix_num - 1) + [batch_size]
-        self.dynamic_batching = dynamic_batching
+        self.auto_batch_size = auto_batch_size
 
         self.cache: Dict[Tuple[int, int], SequenceCache] = dict()
         """The KV-Cache for the prefixes. The key is a tuple of (cache_level, data_idx)."""
@@ -383,7 +383,7 @@ class CachePrefixSampler(Sampler[List[int]], Cacher):
         """Check the condition to start a new batch."""
 
         current_batch = len(queries)
-        if not self.dynamic_batching:
+        if not self.auto_batch_size:
             return current_batch > self.cache_batch_size[cache_level]
         max_len = max(len(self.joined_data[cache_level][q]) for q in queries)
         if next_data < len(self.joined_data[cache_level]):

@@ -2,6 +2,7 @@ import datetime
 import logging
 import os
 import pathlib
+from dataclasses import fields
 from typing import TYPE_CHECKING, List, Optional, Set
 
 import coloredlogs
@@ -57,6 +58,29 @@ def get_git_revision(base_path) -> str:
             return ref.strip()
     except FileNotFoundError:
         return "Not a git repository"
+
+
+def get_redacted(sensitive: Optional[str]) -> str:
+    if sensitive is None:
+        return ""
+    middle = len(sensitive) - 12
+    if middle <= 0:
+        return "*" * len(sensitive)
+    return sensitive[:8] + "*" * middle + sensitive[-4:]
+
+
+def filter_none_repr(self) -> str:
+    kwargs = {}
+    redact = getattr(self, "_redact", set())
+    fs = set(f.name for f in fields(self))
+    for key, value in self.__dict__.items():
+        if value is not None and not key.startswith("_") and key in fs and value is not False:
+            kwargs[key] = value if key not in redact else get_redacted(value)
+    return f"{self.__class__.__name__}({', '.join(f'{key}={value!r}' for key, value in kwargs.items())})"
+
+
+def passed_in_commandline(self, key: str) -> bool:
+    return self.__dataclass_fields__[key].hash
 
 
 def _get_file_handler(log_path, int_file_log_level):
@@ -125,7 +149,8 @@ def set_logging(
 
     # set the log file
     log_path, evaluation_results_path = _format_path(model_args, dataset_args, evaluation_args)
-    dataset_args.evaluation_results_path = evaluation_results_path  # type: ignore
+    if evaluation_args.log_results:
+        dataset_args.evaluation_results_path = evaluation_results_path  # type: ignore
 
     # add file handler to root logger
     if file_log_level is None:
