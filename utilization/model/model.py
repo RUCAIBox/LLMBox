@@ -1,12 +1,13 @@
 from logging import getLogger
-from typing import TYPE_CHECKING, Any, Dict, List, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Tuple, Union
 
 from tiktoken import Encoding
-from transformers import PreTrainedTokenizer, PreTrainedTokenizerFast
+from transformers import PreTrainedModel, PreTrainedTokenizer, PreTrainedTokenizerFast
 
 if TYPE_CHECKING:
     # solve the circular import
     from ..utils import ModelArguments
+    from .vllm_model import LLM
 
 logger = getLogger(__name__)
 
@@ -27,10 +28,18 @@ class Model:
     """
     name = ""
     type = ""
+    backend: Literal["anthropic", "dashscope", "huggingface", "openai", "qianfan", "vllm"]
+
+    model: Union[PreTrainedModel, "LLM", None] = None
+    tokenizer: Union[PreTrainedTokenizer, PreTrainedTokenizerFast, Encoding]
 
     def __init__(self, args: "ModelArguments"):
         self.args = args
-        self.tokenizer: Union[PreTrainedTokenizer, PreTrainedTokenizerFast, Encoding] = None
+    def _remove_tokenizer(self):
+        return
+
+    def _reload_tokenizer(self):
+        return
 
     def set_ppl_args(self, **extra_model_args):
         r"""Set the configurations for PPL score calculation. This is useful because different datasets may have different requirements for ppl calculation."""
