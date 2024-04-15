@@ -4,6 +4,8 @@ from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Tuple, Uni
 from tiktoken import Encoding
 from transformers import PreTrainedModel, PreTrainedTokenizer, PreTrainedTokenizerFast
 
+from ..utils.prefix_caching import Cacher
+
 if TYPE_CHECKING:
     # solve the circular import
     from ..utils import ModelArguments
@@ -32,14 +34,36 @@ class Model:
 
     model: Union[PreTrainedModel, "LLM", None] = None
     tokenizer: Union[PreTrainedTokenizer, PreTrainedTokenizerFast, Encoding]
+    cacher: Optional["Cacher"] = None
+    model_max_length: int
 
     def __init__(self, args: "ModelArguments"):
         self.args = args
+
+    def set_cacher(self, cacher: Any = None):
+        r"""Set the cacher for this model. The cacher is used to cache the generated results for the model."""
+        if isinstance(cacher, Cacher):
+            self.cacher = cacher
+        elif cacher is None:
+            self.cacher = None
+
     def _remove_tokenizer(self):
         return
 
     def _reload_tokenizer(self):
         return
+
+    @property
+    def use_cache(self) -> bool:
+        return self.cacher is not None
+
+    @use_cache.setter
+    def use_cache(self, value: bool) -> bool:
+        if value:
+            raise ValueError("Please use `set_cacher` to set the cacher.")
+        else:
+            self.cacher = None
+        return False
 
     def set_ppl_args(self, **extra_model_args):
         r"""Set the configurations for PPL score calculation. This is useful because different datasets may have different requirements for ppl calculation."""

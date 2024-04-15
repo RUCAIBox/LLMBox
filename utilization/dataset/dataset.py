@@ -351,7 +351,7 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
             self.prefix_caching = False
         return evaluation_instances, option_nums
 
-    def _construct_instances_ppl(self):
+    def _construct_instances_ppl(self) -> Tuple[List[Tuple[str, ...]], List[int]]:
         evaluation_instances = []
         option_nums = []
         for formatted_instance in self.formatted_evaluation_data:
@@ -378,7 +378,7 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
                 option_nums.append(len(contexts))
         return evaluation_instances, option_nums
 
-    def _construct_instances_prob(self):
+    def _construct_instances_prob(self) -> Tuple[_InputsWithOptionNum, List[int]]:
         evaluation_instances = []
         option_nums = []
         for formatted_instance in self.formatted_evaluation_data:
@@ -391,7 +391,7 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
                 evaluation_instances.append(tuple(instance_with_examples) + (option_num,))
         return evaluation_instances, option_nums
 
-    def _construct_instances_generation(self):
+    def _construct_instances_generation(self) -> Tuple[List[Tuple[str, ...]], List[Literal[1]]]:
         evaluation_instances = []
         option_nums = []
         for formatted_instance in self.formatted_evaluation_data:
@@ -450,6 +450,9 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
         Returns:
             Union[str, List[str]]: The final formatted instance. Return a list of formatted instances if the source is a list (in cases like winogrande).
         """
+        if split_prefix is None:
+            split_prefix = self.prefix_caching
+
         if self.examples == "" or self.kate or self.globale:
             self.examples = self.construct_examples(instance)
 

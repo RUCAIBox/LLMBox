@@ -57,6 +57,10 @@ class ModelArguments:
         default="auto",
         help="The device map for model and data",
     )
+    prefix_caching: bool = HfArg(
+        default=True,
+        help="Whether to cache prefix in get_ppl mode",
+    )
     vllm: bool = HfArg(
         default=False,
         help="Whether to use vllm",
@@ -205,8 +209,8 @@ class ModelArguments:
         "qianfan": {"qianfan_access_key", "qianfan_secret_key"},
         "vllm": {"vllm", "flash_attention", "gptq", "vllm_gpu_memory_utilization"},
         "huggingface": {
-            "device_map", "vllm", "flash_attention", "tokenizer_name_or_path", "bnb_config", "load_in_8bit",
-            "load_in_4bit", "gptq", "vllm_gpu_memory_utilization"
+            "device_map", "prefix_caching", "vllm", "flash_attention", "bnb_config", "load_in_8bit", "load_in_4bit",
+            "gptq", "vllm_gpu_memory_utilization", "chat_template"
         },
     }
 
@@ -346,6 +350,10 @@ class DatasetArguments:
         default=1,
         aliases=["-bsz", "-b"],
         help="The evaluation batch size",
+    )
+    dynamic_batching: bool = HfArg(
+        default=False,
+        help="Whether to use dynamic batching",
     )
     dataset_path: Optional[str] = HfArg(
         default=None,
@@ -504,6 +512,12 @@ def check_args(model_args: ModelArguments, dataset_args: DatasetArguments, evalu
             f"Qianfan model {model_args.model_name_or_path} doesn't support batch_size > 1, automatically set batch_size to 1."
         )
 
+    # vllm has its own prefix caching mechanism
+    if model_args.prefix_caching and "expandable_segments" not in os.environ.get("PYTORCH_CUDA_ALLOC_CONF", ""):
+        logger.warning(
+            f"Prefix caching might results in cuda memory fragmentation, which can be mitigated by setting `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True`. See https://pytorch.org/docs/stable/notes/cuda.html#environment-variables for details."
+        )
+
     # check dataset
     if "vicuna_bench" in dataset_args.dataset_names and model_args.openai_api_key is None:
         raise ValueError(
@@ -519,6 +533,9 @@ def check_args(model_args: ModelArguments, dataset_args: DatasetArguments, evalu
         raise ValueError(
             "CoQA dataset requires manual download. View details at https://github.com/RUCAIBox/LLMBox/blob/main/utilization/README.md#supported-datasets."
         )
+
+    if evaluation_args.dry_run and model_args.prefix_caching:
+        model_args.prefix_caching = False
 
     args_ignored = set()
     for model_impl, args in model_args._model_specific_arguments.items():

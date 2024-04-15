@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Dict, Iterator, List, Set, Type
 
 import openai
 from datasets import DownloadConfig, get_dataset_config_names
+from tqdm import tqdm
 
 from utilization.metric.pass_at_k import PassAtK
 
@@ -210,6 +211,17 @@ def load_dataset(dataset_name: str,
 
 @catch_error
 def load_datasets(args: "DatasetArguments", model: "Model") -> DatasetCollection:
+
+    if model.backend == "vllm":
+        args.batch_size = -1
+        logger.info("Setting batch_size to -1, since vllm can automatically planning the optimal batch and order.")
+
+    if model.args.prefix_caching and model.backend != "huggingface":
+        logger.warning(
+            "Prefix caching is only available for HuggingFaceModel. Automatically set prefix_caching to False"
+        )
+        model.args.prefix_caching = False
+
     datasets = []
     for d in args.dataset_names:
         datasets.extend(load_dataset(d, args, model, args.dataset_threading))

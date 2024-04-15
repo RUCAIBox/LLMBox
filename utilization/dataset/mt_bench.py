@@ -21,6 +21,10 @@ class Mt_bench(GenerationDataset):
     metrics = [GPTEval(multi_turn=True, type="single")]
     extra_model_args = {"multi_turn": True}
 
+    def init_arguments(self):
+        # TODO add prefix caching
+        self.prefix_caching = False
+
     def load_raw_dataset(self, dataset_path, subset_name, evaluation_set, example_set):
         super().load_raw_dataset(dataset_path, subset_name, evaluation_set, example_set)
         new_evaluation_data = []
