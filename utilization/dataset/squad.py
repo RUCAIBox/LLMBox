@@ -80,7 +80,7 @@ class Squad(GenerationDataset):
                 target_text = " " + text
                 source_text += target_text
             cur_example_text = source_text + "\n\n"
-            cur_token_num = len(self.tokenizer.encode(cur_example_text))
+            cur_token_num = len(self.tokenizer_encode(cur_example_text))
             if cur_token_num + generation_example_token_nums <= self.max_example_tokens:
                 generation_example_text += cur_example_text
                 generation_example_token_nums += cur_token_num

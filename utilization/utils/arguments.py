@@ -150,11 +150,11 @@ class ModelArguments:
     system_prompt: str = HfArg(
         aliases=["-sys"],
         default="",
-        help="The system prompt of the model",
+        help="The system prompt for chat-based models",
     )
     chat_template: str = HfArg(
         default=None,
-        help="The chat template for chat-based models",
+        help="The chat template for huggingface chat-based models",
     )
 
     bnb_config: Optional[str] = HfArg(default=None, help="JSON string for BitsAndBytesConfig parameters.")
@@ -397,17 +397,6 @@ class DatasetArguments:
 
     passed_in_commandline = passed_in_commandline
 
-    @property
-    def ranking_with_options(self):
-        return not self.ranking_type.endswith("no_option")
-
-    @ranking_with_options.setter
-    def ranking_with_options(self, value: bool):
-        if value:
-            self.ranking_type = self.ranking_type.rstrip("no_option")
-        else:
-            self.ranking_type = "ppl_no_option"
-
     def __post_init__(self):
         for d in self.dataset_names:
             if ":" in d:
@@ -450,6 +439,7 @@ class EvaluationArguments:
         help="The port of the proxy",
     )
     dataset_threading: bool = HfArg(default=True, help="Load dataset with threading")
+    dataloader_workers: int = HfArg(default=0, help="The number of workers for dataloader")
 
     __repr__ = filter_none_repr
 

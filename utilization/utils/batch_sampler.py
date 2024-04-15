@@ -1,5 +1,5 @@
 from logging import getLogger
-from typing import TYPE_CHECKING, Any, Callable, Dict, Iterator, List, Tuple
+from typing import TYPE_CHECKING, Any, Callable, Iterator, List, Tuple
 
 from torch.utils.data.sampler import Sampler
 

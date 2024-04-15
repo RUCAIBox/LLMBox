@@ -34,14 +34,6 @@ class Evaluator:
         set_seed(self.evaluation_args.seed)
 
         self.model = load_model(self.model_args)
-        if self.model_args.vllm:
-            from vllm import LLM
-
-            if isinstance(self.model.model, LLM):
-                self.dataset_args.batch_size = -1
-                logger.info(
-                    "Setting batch_size to -1, since vllm can automatically planning the optimal batch and order."
-                )
         self.writer = PredictionWriter(self.dataset_args.evaluation_results_path)
         self.dataset = load_datasets(self.dataset_args, self.model)
 
@@ -60,11 +52,12 @@ class Evaluator:
             self.model.generation = lambda x: [""] * len(x)
             self.model.get_prob = lambda x: [[1 / p[1]] * p[1] for p in x]
 
-        batch_sampler = self.dataset.get_batch_sampler()
+        batch_sampler = self.dataset.get_batch_sampler(self.evaluation_args.dataloader_workers > 0)
         dataloader = DataLoader(
             self.dataset,
             collate_fn=lambda x: x,
             pin_memory=True,
+            num_workers=self.evaluation_args.dataloader_workers,
             batch_sampler=batch_sampler,
         )
         call_model = batch_sampler.call_model
@@ -75,20 +68,21 @@ class Evaluator:
             dataloader = dynamic_stride_tqdm(
                 dataloader,
                 strides=self.dataset.strides,
-                stride_scale=self.dataset_args.batch_size,
                 desc=self.dataset.name,
                 dynamic_ncols=True,
-                unit=" examples",
+                unit=" instances",
             )
 
         # call model
         raw_predictions = []
-        with self.writer:
-            for batch in dataloader:
-                batch_results = call_model(batch)
-                raw_predictions.extend(batch_results)
-                self.dataset.log_batch_predictions(self.writer, batch_results)
-                self.dataset.update_tqdm(dataloader)
+        for batch in dataloader:
+            batch_results = call_model(batch)
+            if len(batch) != len(batch_results) and len(batch_results) != 0:
+                raise RuntimeError(
+                    f"The number of results {len(batch_results)} should be equal to the number of samples in the batch {len(batch)}."
+                )
+            raw_predictions.extend(batch_results)
+            self.dataset.step(self.writer, dataloader, batch_results)
 
         if len(raw_predictions) != self.dataset.len():
             raise RuntimeError(

@@ -43,7 +43,7 @@ class Hellaswag(MultipleChoiceDataset):
         options = [label2text[option] for option in [0, 1, 2, 3]]
         return dict(
             source=source,
-            source_postfix="\nAnswer:" if self.args.ranking_with_options else "",
+            source_postfix="\nAnswer:" if self.ranking_with_options else "",
             target_idx=int(instance["label"]),
             options=options,
         )

@@ -35,16 +35,13 @@ class PredictionWriter:
 
     def __init__(self, evaluation_path: str):
         self.evaluation_path = evaluation_path
-        self.queue = Queue()
-        self.process = Process(target=PredictionWriter._listen_and_write, args=(self.queue, self.evaluation_path))
-        self.process.start()
+        self._alive = True
 
     def __enter__(self):
         return self
 
     def __exit__(self, exc_type, exc_value, exc_tb):
-        self.queue.put("STOP")
-        self.process.join()
+        pass
 
     @staticmethod
     def _listen_and_write(queue: Queue, file: str):
@@ -60,16 +57,25 @@ class PredictionWriter:
                 logger.warning(f"Failed to log_predictions: {e}\n{data}")
                 break
 
+    def alive(self):
+        return self._alive
+
     def _write(self, data):
-        self.queue.put(data)
+        try:
+            with open(self.evaluation_path, "a") as f:
+                json.dump(data, f, ensure_ascii=False)
+                f.write("\n")
+        except Exception as e:
+            logger.warning(f"Failed to log_predictions: {e}\n{data}")
+            self._alive = False
 
     def log_batch_predictions(
         self,
         raw_predictions: List[str],
         lines_iter: Iterator[Tuple[int, str, Any]],
     ) -> int:
-        if not self.process.is_alive():
-            return 0
+        if not self.alive():
+            return len(raw_predictions)
 
         for raw_prediction, (idx, source, reference) in zip(raw_predictions, lines_iter):
             lines = {
@@ -125,7 +131,8 @@ def log_final_predictions(
 
             return zip(*wrapper())
 
-        source_text, target_text = zip(*evaluation_instances)
+        *source_texts, target_text = zip(*evaluation_instances)
+        source_text = ["".join(seg[sent_idx] for seg in source_texts) for sent_idx in range(len(source_texts[0]))]
         if use_normalization:
             source_text, target_text, raw_predictions = source_text[::2], target_text[::2], raw_predictions[::2]
         index, references, transposed_score_lists, option_nums = repeat_by_option(references, transposed_score_lists)
@@ -154,7 +161,7 @@ def log_final_predictions(
     elif model_evaluation_method == "get_prob":
 
         lines = {
-            "index": range(len(evaluation_data)),
+            "index": list(range(len(evaluation_data))),
             "source": map(lambda i: i[0], evaluation_instances),
             "probabilites": raw_predictions,
             "prediction": processed_predictions,
@@ -162,7 +169,7 @@ def log_final_predictions(
             "metric": transposed_score_lists,
         }
         try:
-            return pd.Series(lines)
+            return pd.DataFrame(lines).groupby("index").apply(to_dict())
         except Exception as e:
             lines = {k: len(v) for k, v in lines.items()}
             logger.warning(f"Failed to log_predictions: {e}\n{lines}")

@@ -25,6 +25,13 @@ class WinoGrande(MultipleChoiceDataset):
     example_set = "train"
     load_args = ("winogrande", "winogrande_debiased")  # specify subset from command line
 
+    def init_arguments(self):
+        if self.ranking_with_options:
+            logger.warning(
+                f"Winogrande does not support ranking with options, automatically set ranking_with_options = False."
+            )
+            self.ranking_with_options = False
+
     def format_instance(self, instance):
         question, completion = instance['sentence'].split('_')
         contexts = [question.strip() + ' ' + option for option in [instance['option1'], instance['option2']]]

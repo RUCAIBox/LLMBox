@@ -2,12 +2,13 @@ import json
 import os
 import re
 from bisect import bisect_left, bisect_right
+from dataclasses import dataclass
 from importlib.machinery import SourceFileLoader
 from logging import getLogger
 from os.path import abspath
 from typing import Callable, List, Literal, Optional, Tuple, Union
 
-import datasets
+import datasets as ds
 import tiktoken
 from transformers import PreTrainedTokenizer, PreTrainedTokenizerFast
 
@@ -17,13 +18,25 @@ split_regex = re.compile(r"(\w+)(\[\d*:\d*\])?")
 slice_regex = re.compile(r"\[(\d*):(\d*)\]")
 
 
+@dataclass
 class DatasetUtilMixin:
+
+    normalization_prompt: str = "Q: \nA:"
 
     def set_tokenizer(self, tokenizer: Union[tiktoken.Encoding, PreTrainedTokenizer, PreTrainedTokenizerFast]) -> None:
         self.tokenizer = tokenizer
-        self.tokenizer_encode = self.tokenizer.encode_ordinary if isinstance(
-            self.tokenizer, tiktoken.Encoding
-        ) else self.tokenizer.encode
+        if isinstance(tokenizer, tiktoken.Encoding):
+            # Encoding.encode_ordinary is slightly faster than Encoding.encode
+            self.tokenizer_encode = tokenizer.encode_ordinary
+        else:
+            self.tokenizer_encode = tokenizer.encode
+        self.tokenizer_decode = tokenizer.decode
+
+    def _apply_normalization(self, options: List[Tuple[str, ...]], prefix_length: int) -> List[Tuple[str, ...]]:
+        normalized_option = ("",) * prefix_length + (self.normalization_prompt,)
+        normalized_options = [normalized_option + (option,) for *_, option in options]
+        options = [o for g in zip(options, normalized_options) for o in g]
+        return options
 
     def prompt_token_nums(self, prompt: str):
         return len(self.tokenizer_encode(prompt))
@@ -54,10 +67,10 @@ class DatasetUtilMixin:
         st = 0
         ed = len(words)
         if side == "left":
-            truncated_raw = self.tokenizer.decode(tokens[-max_tokens:])
+            truncated_raw = self.tokenizer_decode(tokens[-max_tokens:])
             st = bisect_left(lengths, len(prompt) - len(truncated_raw))
         elif side == "right":
-            truncated_raw = self.tokenizer.decode(tokens[:max_tokens])
+            truncated_raw = self.tokenizer_decode(tokens[:max_tokens])
             ed = bisect_right(lengths, len(truncated_raw)) - 1
         prompt = "".join(words[st:ed])
         real_token_nums = self.prompt_token_nums(prompt)
@@ -92,6 +105,9 @@ def _get_split_data(data, split):
         return data[split]
 
 
+_LoaderType = Callable[[Optional[str]], ds.Dataset]
+
+
 def get_raw_dataset_loader(
     dataset_name: str,
     dataset_path: Optional[str],
@@ -99,10 +115,7 @@ def get_raw_dataset_loader(
     load_args: Optional[Union[Tuple[str], Tuple[str, str], Tuple[()]]],
     return_msg: bool = False,
     use_etag: bool = False,
-) -> Union[
-    Callable[[Optional[str]], datasets.Dataset],
-    Tuple[Callable[[str], datasets.Dataset], str],
-]:
+) -> Union[_LoaderType, Tuple[_LoaderType, str]]:
     """Get the function to load the raw dataset from huggingface (if `load_args` is not None) or local path (if `dataset_path` is not None).
 
     ```python
@@ -127,7 +140,7 @@ def get_raw_dataset_loader(
     msg = f"Loading raw dataset `{dataset_msg}`"
     load_fn = None
 
-    download_config = datasets.DownloadConfig(use_etag=use_etag)
+    download_config = ds.DownloadConfig(use_etag=use_etag)
 
     # if `dataset_path` is not None, load from local path
     if dataset_path is not None:
@@ -146,7 +159,7 @@ def get_raw_dataset_loader(
                 logger.debug(f"Loading from a cloned or cached repository: {dataset_path}, {dataset_name}")
 
                 def load_fn(split):
-                    return datasets.load_dataset(
+                    return ds.load_dataset(
                         dataset_path,
                         dataset_name,
                         split=split,
@@ -159,7 +172,7 @@ def get_raw_dataset_loader(
                 logger.debug(f"Loading from a cloned or cached repository: {dataset_path}, {subset_name}")
 
                 def load_fn(split):
-                    return datasets.load_dataset(
+                    return ds.load_dataset(
                         dataset_path,
                         subset_name,
                         split=split,
@@ -177,7 +190,7 @@ def get_raw_dataset_loader(
             logger.debug(f"Loading from a cloned or cached repository: {dataset_path}, {subset_name}")
 
             def load_fn(split):
-                return datasets.load_dataset(
+                return ds.load_dataset(
                     dataset_path,
                     "default",
                     split=split,
@@ -191,7 +204,7 @@ def get_raw_dataset_loader(
             logger.debug(f"Loading from a local directory: {dataset_path}")
 
             def load_fn(split):
-                data = datasets.load_from_disk(dataset_path)
+                data = ds.load_from_disk(dataset_path)
                 return _get_split_data(data, split)
 
         # load from a local directory with subset
@@ -201,7 +214,7 @@ def get_raw_dataset_loader(
             logger.debug(f"Loading from a local directory with subset: {new_dataset_path}")
 
             def load_fn(split):
-                data = datasets.load_from_disk(new_dataset_path)
+                data = ds.load_from_disk(new_dataset_path)
                 return _get_split_data(data, split)
 
         # for those datasets that is in huggingface but should be downloaded manually
@@ -212,7 +225,7 @@ def get_raw_dataset_loader(
             if ".cache" in dataset_path:
 
                 def load_fn(split):
-                    return datasets.load_dataset(
+                    return ds.load_dataset(
                         dataset_name,
                         subset_name,
                         split=split,
@@ -223,7 +236,7 @@ def get_raw_dataset_loader(
             else:
 
                 def load_fn(split):
-                    return datasets.load_dataset(
+                    return ds.load_dataset(
                         dataset_name,
                         subset_name,
                         split=split,
@@ -276,16 +289,14 @@ def get_raw_dataset_loader(
         msg += f" from huggingface ({', '.join(load_args)})"
 
         def load_fn(split):
-            return datasets.load_dataset(
-                *load_args, split=split, trust_remote_code=True, download_config=download_config
-            )
+            return ds.load_dataset(*load_args, split=split, trust_remote_code=True, download_config=download_config)
 
     if load_fn is None:
         raise ValueError(
             f"Failed to load dataset `{dataset_msg}`. Please check if the dataset exists in huggingface or local path."
         )
 
-    def informative_load_fn(split=None) -> datasets.Dataset:
+    def informative_load_fn(split=None) -> ds.Dataset:
         try:
             return load_fn(split=split)
         except KeyError as e:
@@ -296,15 +307,15 @@ def get_raw_dataset_loader(
     return informative_load_fn
 
 
-def load_raw_dataset_from_file(dataset_file_path: str) -> datasets.Dataset:
+def load_raw_dataset_from_file(dataset_file_path: str) -> ds.Dataset:
     """Load huggingface dataset from file."""
 
     if dataset_file_path.endswith((".jsonl", ".json")):
-        return datasets.Dataset.from_json(dataset_file_path)
+        return ds.Dataset.from_json(dataset_file_path)
     elif dataset_file_path.endswith(".csv"):
-        return datasets.Dataset.from_csv(dataset_file_path)
+        return ds.Dataset.from_csv(dataset_file_path)
     elif dataset_file_path.endswith(".txt"):
-        return datasets.Dataset.from_text(dataset_file_path)
+        return ds.Dataset.from_text(dataset_file_path)
     elif dataset_file_path.endswith(".py"):
         module = SourceFileLoader("source_dataset", dataset_file_path).load_module()
         objects = [getattr(module, obj) for obj in dir(module) if not obj.startswith("_")]
@@ -313,7 +324,7 @@ def load_raw_dataset_from_file(dataset_file_path: str) -> datasets.Dataset:
             def generator():
                 yield from objects[0]
 
-            return datasets.Dataset.from_generator(generator)
+            return ds.Dataset.from_generator(generator)
 
     raise ValueError(
         f"Cannot find raw dataset from file {dataset_file_path}. Supported formats: .jsonl, .json, .csv, .txt, .py"

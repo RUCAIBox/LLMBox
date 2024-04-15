@@ -34,7 +34,7 @@ class Copa(MultipleChoiceDataset):
         options = [label2text[option] for option in [0, 1]]
         return dict(
             source=source,
-            source_postfix="\nAnswer:" if self.args.ranking_with_options else "",
+            source_postfix="\nAnswer:" if self.ranking_with_options else "",
             target_idx=instance["label"],
             options=options,
         )
