@@ -429,8 +429,8 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
         if "source_postfix" in formatted_instance:
             formatted_instance["source"] += formatted_instance.pop("source_postfix")
 
-        if not formatted_instance["target"].startswith(" "):
-            formatted_instance["target"] = " " + formatted_instance["target"]
+        # remove redundant spaces
+        formatted_instance["target"] = " " + formatted_instance["target"].lstrip()
 
         if format_example and "source_idx" in formatted_instance:
             formatted_instance["source"] = formatted_instance["source"][formatted_instance.pop("source_idx")]
