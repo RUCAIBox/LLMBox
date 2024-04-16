@@ -2,22 +2,30 @@ torch
 transformers
 safetensors
 tokenizers
-openai==0.28.1
-tqdm>=4.58.0
-tiktoken>=0.5.0
 datasets>=2.16.1
 accelerate
 coloredlogs
+tqdm>=4.58.0
+
+# Efficient inference
+packaging
+vllm
+flash-attn  # https://github.com/Dao-AILab/flash-attention/issues/453#issuecomment-1692867770
+
+# API Models
+anthropic
+dashscope
+qianfan
+openai==0.28.1
+tiktoken>=0.5.0
+
+# Metrics
 nltk
 sacrebleu
 rouge_score
-vllm
-flash-attn
 langcodes
 language_data
-anthropic
 google-api-python-client
 immutabledict
 langdetect
-dashscope
-qianfan
+
