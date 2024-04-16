@@ -8,7 +8,7 @@ from .dataset import Dataset
 
 logger = getLogger(__name__)
 
-LARGE_POSITIVE = 1e10
+LARGE_POSITIVE = int(1e10)
 
 
 class MultipleChoiceDataset(Dataset):
@@ -16,6 +16,17 @@ class MultipleChoiceDataset(Dataset):
 
     evaluation_type = "ranking"
     metrics = [Accuracy()]
+
+    @property
+    def ranking_with_options(self):
+        return not self.ranking_type.endswith("no_option")
+
+    @ranking_with_options.setter
+    def ranking_with_options(self, value: bool):
+        if value:
+            self.ranking_type = self.ranking_type.rstrip("no_option")
+        else:
+            self.ranking_type = "ppl_no_option"
 
     def post_processing(self, predictions: Union[List[Tuple[float, int]], List[List[int]]]) -> List[int]:
         if self.model_evaluation_method == "get_ppl":

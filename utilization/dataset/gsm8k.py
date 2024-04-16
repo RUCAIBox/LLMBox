@@ -17,7 +17,7 @@ class Gsm8k(GenerationDataset):
 
     instruction = "Answer the following question."
     evaluation_set = "test"
-    example_set = None
+    example_set = "train"
     load_args = ("gsm8k", "main")
     metrics = [Accuracy()]
     extra_model_args = dict(temperature=0)

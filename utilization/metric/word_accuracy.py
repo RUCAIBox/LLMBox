@@ -1,18 +1,20 @@
-from typing import Dict
+from typing import Dict, Union
+
 import numpy as np
 import tiktoken
+from transformers import PreTrainedTokenizer, PreTrainedTokenizerFast
 
 from .metric import Metric
 
 
 class Word_Accuracy(Metric):
     r""" For those tasks only require to predict curtain number words, calculate the Accuracy score.
-    
+
     Return
         "Accuracy": float
     """
-    
-    def __init__(self, tokenizer):
+
+    def __init__(self, tokenizer: Union[tiktoken.Encoding, PreTrainedTokenizer, PreTrainedTokenizerFast]):
         self.tokenizer = tokenizer
 
     def __call__(self, predictions, references) -> Dict[str, float]:
@@ -20,9 +22,14 @@ class Word_Accuracy(Metric):
             refs_len = [len(ref) for ref in self.tokenizer.encode_batch(references)]
             trunced_preds = [pred[:l] for l, pred in zip(refs_len, self.tokenizer.encode_batch(predictions))]
             trunced_preds = self.tokenizer.decode_batch(trunced_preds)
-        else: # transformers
-            refs_len = [len(ref) for ref in self.tokenizer(references, add_special_tokens=False)['input_ids']]
-            trunced_preds = [pred[:l] for l, pred in zip(refs_len, self.tokenizer(predictions, add_special_tokens=False)['input_ids'])]
+        else:  # transformers
+            refs_len = [len(ref) for ref in self.tokenizer(references, add_special_tokens=False).input_ids]
+            trunced_preds = [
+                pred[:l] for l, pred in zip(
+                    refs_len,
+                    self.tokenizer(predictions, add_special_tokens=False).input_ids,
+                )
+            ]
             trunced_preds = self.tokenizer.batch_decode(trunced_preds, clean_up_tokenization_spaces=False)
 
         trunced_preds = [p.strip() for p in trunced_preds]

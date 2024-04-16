@@ -52,10 +52,12 @@ def load_model(args: "ModelArguments") -> "Model":
                 return vllmModel(args)
             except ModuleNotFoundError:
                 args.vllm = False
+                args.model_backend = "huggingface"
                 logger.warning(f"vllm has not been installed, falling back to huggingface.")
             except ValueError as e:
                 if "are not supported for now" in str(e):
                     args.vllm = False
+                    args.model_backend = "huggingface"
                     logger.warning(f"vllm has not supported the architecture of {args.model_name_or_path} for now.")
                 elif "divisible by tensor parallel size" in str(e):
                     raise ValueError(f"Set an appropriate tensor parallel size via CUDA_VISIBLE_DEVICES: {e}")

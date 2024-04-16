@@ -8,6 +8,7 @@ from torch.utils.data import DataLoader
 from .dataset import load_datasets
 from .model import load_model
 from .utils import DatasetArguments, EvaluationArguments, ModelArguments, catch_error, dynamic_stride_tqdm
+from .utils.log_predictions import PredictionWriter
 
 logger = getLogger(__name__)
 
@@ -33,17 +34,8 @@ class Evaluator:
         set_seed(self.evaluation_args.seed)
 
         self.model = load_model(self.model_args)
-        if self.model_args.vllm:
-            from vllm import LLM
-
-            if isinstance(self.model.model, LLM):
-                self.dataset_args.batch_size = -1
-                logger.info(
-                    "Setting batch_size to -1, since vllm can automatically planning the optimal batch and order."
-                )
+        self.writer = PredictionWriter(self.dataset_args.evaluation_results_path)
         self.dataset = load_datasets(self.dataset_args, self.model)
-        if self.dataset.model_evaluation_method == "get_prob":
-            self.model.constant_option_num = all(n == self.dataset.option_nums[0] for n in self.dataset.option_nums)
 
     @catch_error
     def evaluate(self) -> Dict[str, Dict[str, float]]:
@@ -60,11 +52,12 @@ class Evaluator:
             self.model.generation = lambda x: [""] * len(x)
             self.model.get_prob = lambda x: [[1 / p[1]] * p[1] for p in x]
 
-        batch_sampler = self.dataset.get_batch_sampler()
+        batch_sampler = self.dataset.get_batch_sampler(self.evaluation_args.dataloader_workers > 0)
         dataloader = DataLoader(
             self.dataset,
             collate_fn=lambda x: x,
             pin_memory=True,
+            num_workers=self.evaluation_args.dataloader_workers,
             batch_sampler=batch_sampler,
         )
         call_model = batch_sampler.call_model
@@ -75,18 +68,21 @@ class Evaluator:
             dataloader = dynamic_stride_tqdm(
                 dataloader,
                 strides=self.dataset.strides,
-                stride_scale=self.dataset_args.batch_size,
                 desc=self.dataset.name,
                 dynamic_ncols=True,
-                unit=" examples",
+                unit=" instances",
             )
 
         # call model
         raw_predictions = []
         for batch in dataloader:
-            raw_predictions.extend(call_model(batch))
-            self.dataset.log_predictions(raw_predictions)
-            self.dataset.update_tqdm(dataloader)
+            batch_results = call_model(batch)
+            if len(batch) != len(batch_results) and len(batch_results) != 0:
+                raise RuntimeError(
+                    f"The number of results {len(batch_results)} should be equal to the number of samples in the batch {len(batch)}."
+                )
+            raw_predictions.extend(batch_results)
+            self.dataset.step(self.writer, dataloader, batch_results)
 
         if len(raw_predictions) != self.dataset.len():
             raise RuntimeError(
@@ -108,7 +104,7 @@ class Evaluator:
 
         # calculate metric
         metric_results, last_score_lists = self.dataset.calculate_metric(mode_predictions)
-        self.dataset.log_predictions(raw_predictions, predictions, last_score_lists)
+        self.dataset.log_final_predictions(raw_predictions, predictions, last_score_lists)
         msg = f"Evaluation finished successfully:\nevaluation results: {self.dataset_args.evaluation_results_path}"
         for dataset_name, result in metric_results.items():
             if result is None:

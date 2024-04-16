@@ -1,6 +1,6 @@
 from bisect import bisect_left
 from logging import getLogger
-from typing import TYPE_CHECKING, List, Optional, Tuple
+from typing import TYPE_CHECKING, List, Tuple
 
 import torch
 from transformers.tokenization_utils_fast import PreTrainedTokenizerFast
@@ -21,7 +21,7 @@ logger = getLogger(__name__)
 
 class LabelProcessor:
 
-    def __init__(self, candidate_ids: List[int]) -> List[int]:
+    def __init__(self, candidate_ids: List[int]):
         self.candidate_ids = candidate_ids
 
     def __call__(self, token_ids: List[int], logits_row: torch.Tensor) -> torch.Tensor:
@@ -35,7 +35,9 @@ class LabelProcessor:
 
 class vllmModel(Model):
 
-    _repr = ["type", "candidate_ids"]
+    backend = "vllm"
+
+    _repr = ["type", "backend", "candidate_ids"]
 
     def __init__(self, args: "ModelArguments"):
         super().__init__(args)

@@ -171,13 +171,14 @@ def load_dataset(dataset_name: str,
 
         if len(subset_names) > 1 and accepts_subset(dataset_cls.load_args, overwrite_subset=len(cmd_subset_names) > 0):
             # race:middle,high (several subsets) , super_glue (all the subsets)
+            subset_names = sorted(subset_names)
             logger.debug(f"Loading subsets of dataset `{dataset_name}`: " + ", ".join(subset_names))
             if threading and len(subset_names) > 2:
-                first_dataset = subset_names.pop()
+                first_dataset = subset_names.pop(0)
                 first_dataset = (
                     dataset_name + ":" + first_dataset, dataset_cls(dataset_name, args, model, first_dataset)
                 )
-                logger.info(f"Loading other {len(subset_names)} subsets ...")
+                logger.info(f"Loading remaining subsets ...")
                 logging.disable(logging.INFO)
                 with ThreadPoolExecutor(max_workers=len(subset_names)) as executor:
                     res = [
@@ -185,14 +186,10 @@ def load_dataset(dataset_name: str,
                             lambda s: (dataset_name + ":" + s, dataset_cls(dataset_name, args, model, s)), s
                         ) for s in subset_names
                     ]
-                datasets = [first_dataset] + [f.result() for f in as_completed(res)]
-                datasets = dict(sorted(datasets, key=lambda x: x[0]))
+                datasets = dict([first_dataset] + [f.result() for f in as_completed(res)])
                 logging.disable(logging.NOTSET)
             else:
-                datasets = {
-                    dataset_name + ":" + s: dataset_cls(dataset_name, args, model, s)
-                    for s in sorted(subset_names)
-                }
+                datasets = {dataset_name + ":" + s: dataset_cls(dataset_name, args, model, s) for s in subset_names}
             yield datasets
 
         elif len(subset_names) == 1 and len(available_subsets) != 1 and accepts_subset(
@@ -220,5 +217,5 @@ def load_datasets(args: "DatasetArguments", model: "Model") -> DatasetCollection
     if len(datasets) <= 0:
         raise ValueError("No datasets loaded.")
     dataset_collection = DatasetCollection(datasets)
-    logger.info(f"Evaluation datasets: {dataset_collection}")
+    logger.debug(f"Evaluation datasets: {dataset_collection}")
     return dataset_collection

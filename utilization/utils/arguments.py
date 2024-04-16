@@ -86,6 +86,10 @@ class ModelArguments:
         default=None,
         help="The Qianfan secret key",
     )
+    model_backend: Literal["anthropic", "dashscope", "huggingface", "openai", "qianfan", "vllm"] = HfArg(
+        default=None,
+        help="The model backend",
+    )
 
     tokenizer_name_or_path: str = HfArg(
         default=None, aliases=["--tokenizer"], help="The tokenizer name or path, e.g., meta-llama/Llama-2-7b-hf"
@@ -150,11 +154,11 @@ class ModelArguments:
     system_prompt: str = HfArg(
         aliases=["-sys"],
         default="",
-        help="The system prompt of the model",
+        help="The system prompt for chat-based models",
     )
     chat_template: str = HfArg(
         default=None,
-        help="The chat template for chat-based models",
+        help="The chat template for huggingface chat-based models",
     )
 
     bnb_config: Optional[str] = HfArg(default=None, help="JSON string for BitsAndBytesConfig parameters.")
@@ -195,10 +199,11 @@ class ModelArguments:
 
     # simplify logging with model-specific arguments
     _model_specific_arguments: ClassVar[Dict[str, Set[str]]] = {
-        # openai model is used for gpt-eval metrics, not specific arguments
         "anthropic": {"anthropic_api_key"},
         "dashscope": {"dashscope_api_key"},
+        "openai": set(),  # openai model is used for gpt-eval metrics, not specific arguments
         "qianfan": {"qianfan_access_key", "qianfan_secret_key"},
+        "vllm": {"vllm", "flash_attention", "gptq", "vllm_gpu_memory_utilization"},
         "huggingface": {
             "device_map", "vllm", "flash_attention", "tokenizer_name_or_path", "bnb_config", "load_in_8bit",
             "load_in_4bit", "gptq", "vllm_gpu_memory_utilization"
@@ -206,32 +211,41 @@ class ModelArguments:
     }
 
     def is_openai_model(self) -> bool:
-        return self._model_impl == "openai"
+        return self.model_backend == "openai"
 
     def is_anthropic_model(self) -> bool:
-        return self._model_impl == "anthropic"
+        return self.model_backend == "anthropic"
 
     def is_dashscope_model(self) -> bool:
-        return self._model_impl == "dashscope"
+        return self.model_backend == "dashscope"
 
     def is_qianfan_model(self) -> bool:
-        return self._model_impl == "qianfan"
+        return self.model_backend == "qianfan"
 
     def is_huggingface_model(self) -> bool:
-        return self._model_impl == "huggingface"
+        return self.model_backend == "huggingface"
+
+    def is_vllm_model(self) -> bool:
+        return self.model_backend == "vllm"
+
+    def is_local_model(self) -> bool:
+        return self.is_huggingface_model() or self.is_vllm_model()
 
     def __post_init__(self):
         # set _model_impl first
-        if self.model_name_or_path.lower() in OPENAI_MODELS:
-            self._model_impl = "openai"
-        elif self.model_name_or_path.lower() in ANTHROPIC_MODELS:
-            self._model_impl = "anthropic"
-        elif self.model_name_or_path.lower() in DASHSCOPE_MODELS:
-            self._model_impl = "dashscope"
-        elif self.model_name_or_path.lower() in QIANFAN_MODELS:
-            self._model_impl = "qianfan"
-        else:
-            self._model_impl = "huggingface"
+        if self.model_backend is None:
+            if self.model_name_or_path.lower() in OPENAI_MODELS:
+                self.model_backend = "openai"
+            elif self.model_name_or_path.lower() in ANTHROPIC_MODELS:
+                self.model_backend = "anthropic"
+            elif self.model_name_or_path.lower() in DASHSCOPE_MODELS:
+                self.model_backend = "dashscope"
+            elif self.model_name_or_path.lower() in QIANFAN_MODELS:
+                self.model_backend = "qianfan"
+            elif self.vllm:
+                self.model_backend = "vllm"
+            else:
+                self.model_backend = "huggingface"
 
         # set `self.openai_api_key` and `openai.api_key` from environment variables
         if "OPENAI_API_KEY" in os.environ and self.openai_api_key is None:
@@ -290,8 +304,10 @@ class ModelArguments:
         if self.tokenizer_name_or_path is None:
             self.tokenizer_name_or_path = self.model_name_or_path
 
-        if self.is_openai_model() or self.is_anthropic_model() or self.is_dashscope_model() or self.is_qianfan_model():
+        if not self.is_local_model():
             self.vllm = False
+        else:
+            self.vllm = self.is_vllm_model()
 
         if self.vllm:
             self.vllm_gpu_memory_utilization = 0.9
@@ -397,17 +413,6 @@ class DatasetArguments:
 
     passed_in_commandline = passed_in_commandline
 
-    @property
-    def ranking_with_options(self):
-        return not self.ranking_type.endswith("no_option")
-
-    @ranking_with_options.setter
-    def ranking_with_options(self, value: bool):
-        if value:
-            self.ranking_type = self.ranking_type.rstrip("no_option")
-        else:
-            self.ranking_type = "ppl_no_option"
-
     def __post_init__(self):
         for d in self.dataset_names:
             if ":" in d:
@@ -450,6 +455,7 @@ class EvaluationArguments:
         help="The port of the proxy",
     )
     dataset_threading: bool = HfArg(default=True, help="Load dataset with threading")
+    dataloader_workers: int = HfArg(default=0, help="The number of workers for dataloader")
 
     __repr__ = filter_none_repr
 
@@ -516,10 +522,10 @@ def check_args(model_args: ModelArguments, dataset_args: DatasetArguments, evalu
 
     args_ignored = set()
     for model_impl, args in model_args._model_specific_arguments.items():
-        if model_impl != model_args._model_impl:
+        if model_impl != model_args.model_backend:
             args_ignored.update(args)
     # some arguments might be shared by multiple model implementations
-    args_ignored -= model_args._model_specific_arguments.get(model_args._model_impl, set())
+    args_ignored -= model_args._model_specific_arguments.get(model_args.model_backend, set())
 
     for arg in args_ignored:
         if hasattr(model_args, arg):

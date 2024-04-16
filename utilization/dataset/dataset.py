@@ -1,7 +1,7 @@
-import json
 import typing
 from collections import OrderedDict, defaultdict
 from copy import copy
+from itertools import chain
 from logging import getLogger
 from pprint import pformat
 from typing import Dict, Iterator, List, Literal, Optional, Tuple, Union
@@ -9,14 +9,15 @@ from typing import Dict, Iterator, List, Literal, Optional, Tuple, Union
 import numpy as np
 import pandas as pd
 import torch
-import tqdm as tqdm_lib
 
-from utilization.metric.utils import avg_metrics
-from utilization.utils.batch_sampler import DatasetCollectionBatchSampler
+from utilization.utils import dynamic_stride_tqdm
 
+from ..metric.utils import avg_metrics
+from ..utils.batch_sampler import DatasetCollectionBatchSampler
+from ..utils.log_predictions import PredictionWriter, log_final_predictions, repeat_iter
 from .enum import GAOKAO_CHINESE_TASKS_SCORE, GAOKAO_ENGLISH_TASKS_SCORE, GAOKAO_TASKS_SCORE
 from .icl_strategies import ape, global_entropy_ordering_strategy, knn_construct_examples
-from .utils import TokenizerUtil, get_raw_dataset_loader
+from .utils import DatasetUtilMixin, get_raw_dataset_loader
 
 if typing.TYPE_CHECKING:
     # solve the circular import
@@ -24,10 +25,13 @@ if typing.TYPE_CHECKING:
     from ..model.model import Model
     from ..utils import DatasetArguments
 
+_InputsWithOptionNum = Union[List[Tuple[str, int]], List[Tuple[str, str, int]], List[Tuple[str, str, str, int]]]
+"""Instance format for the `get_prob` model evaluation method. The tuple contains the source text and the number of options. If prefix_caching is enabled, the source text will be segmented into prefixes."""
+
 logger = getLogger(__name__)
 
 
-class Dataset(TokenizerUtil, torch.utils.data.Dataset):
+class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
     r"""The base class representing a dataset for a specific task.
 
     Class Attributes:
@@ -95,13 +99,14 @@ class Dataset(TokenizerUtil, torch.utils.data.Dataset):
         "instruction",
         "metrics",
         "evaluation_type",
+        "load_args",
         "model_evaluation_method",
+        "ranking_type",
         "evaluation_set",
         "example_set",
+        "extra_model_args",
         "real_num_shots",
         "real_example_tokens",
-        "load_args",
-        "extra_model_args",
     ]
 
     def __init__(self, dataset_name: str, args: "DatasetArguments", model: "Model", subset_name: Optional[str] = None):
@@ -125,6 +130,9 @@ class Dataset(TokenizerUtil, torch.utils.data.Dataset):
         self.kate = args.kate
         self.globale = args.globale
         self.ape = args.ape
+        self.ranking_type = args.ranking_type
+        self.model_type = self.model.type
+        self.prefix_caching = self.model.args.prefix_caching
 
         self._init_arguments()
 
@@ -134,22 +142,22 @@ class Dataset(TokenizerUtil, torch.utils.data.Dataset):
         self.examples = ""
 
         # load `self.evaluation_data` and `self.example_data`
-        evaluation_set = args.evaluation_set or self.evaluation_set
-        example_set = args.example_set or self.example_set
+        self.evaluation_set = args.evaluation_set or self.evaluation_set
+        self.example_set = args.example_set or self.example_set
         if self.max_num_shots:
-            if not example_set:
+            if not self.example_set:
                 raise ValueError(
                     f"Please provide the example set for dataset {self.name} to construct few-shot examples."
                 )
-            if "val" in example_set or "test" in example_set:
+            if "val" in self.example_set or "test" in self.example_set:
                 logger.warning(
-                    f"Example set is used for constructing few-shot examples, but `{example_set}` seems to be an evaluation set."
+                    f"Example set is used for constructing few-shot examples, but `{self.example_set}` seems to be an evaluation set."
                 )
         self.load_raw_dataset(
             dataset_path=args.dataset_path,
             subset_name=subset_name,
-            evaluation_set=evaluation_set,
-            example_set=example_set,
+            evaluation_set=self.evaluation_set,
+            example_set=self.example_set,
         )
 
         self.evaluation_instances, self.option_nums = self.construct_instances()
@@ -160,6 +168,9 @@ class Dataset(TokenizerUtil, torch.utils.data.Dataset):
 
     def __getitem__(self, idx):
         return self.evaluation_instances[idx]
+
+    def __iter__(self):
+        yield from self.evaluation_instances
 
     def format_instance(self, instance: dict) -> dict:
         r"""Format the dataset instance into task source text, target text, and options (for ranking).
@@ -192,13 +203,17 @@ class Dataset(TokenizerUtil, torch.utils.data.Dataset):
         raise NotImplementedError(f"{self.name} dataset must implement the `references` property.")
 
     @property
+    def dataset_name(self) -> str:
+        return self.name + (f":{self.subset_name}" if self.subset_name else "")
+
+    @property
     def model_evaluation_method(self) -> Literal['get_ppl', 'get_prob', 'generation', 'user_defined']:
         if not hasattr(self, "args"):
             raise ValueError("The `args` attribute is not found. Please call `__init__` first.")
         if self.evaluation_type == "ranking":
-            if self.args.ranking_type.startswith("ppl"):  # ppl or ppl_no_option
+            if self.ranking_type.startswith("ppl"):  # ppl or ppl_no_option
                 return "get_ppl"
-            elif self.args.ranking_type == "prob":
+            elif self.ranking_type == "prob":
                 return "get_prob"
         elif self.evaluation_type == "generation":
             return "generation"
@@ -210,12 +225,13 @@ class Dataset(TokenizerUtil, torch.utils.data.Dataset):
             )
 
     def init_arguments(self):
+        """Initialize the dataset attributes and extra_model_args. This is called before data formatting."""
         return
 
     def _init_arguments(self):
         """Initialize the dataset attributes and extra_model_args from `DatasetArguments` and `ModelArguments`.
 
-        You should NOT modify `self.args` or `self.model.args` because multiple datasets are sharing the same arguments.."""
+        You should NOT modify `self.args` or `self.model.args` because multiple datasets are sharing the same arguments."""
 
         self.init_arguments()
 
@@ -261,8 +277,10 @@ class Dataset(TokenizerUtil, torch.utils.data.Dataset):
         self.evaluation_data = list(load_fn(evaluation_set))
         self.example_data = list(load_fn(example_set)) if example_set else []
 
-        logger.info(f"Evaluation data with {len(self.evaluation_data)} instances")
-        logger.info(pformat(self.evaluation_data[0], sort_dicts=False))
+        logger.info(
+            f"Evaluation data with {len(self.evaluation_data)} instances:\n" +
+            pformat(self.evaluation_data[0], sort_dicts=False)
+        )
 
     def construct_instances(self):
         r"""Construct and format all the instances of `evaluation_data`.
@@ -310,7 +328,12 @@ class Dataset(TokenizerUtil, torch.utils.data.Dataset):
         def _print(info, instance, idx):
             if isinstance(instance, str):
                 instance = [instance]
-            for i, seg in zip(range(len(instance)), ["source", "option"]):
+            instance = [i for i in instance if isinstance(i, str)]
+            if len(instance) <= 2:
+                labels = ["source", "target"]
+            else:
+                labels = [f"source_{i}" for i in range(len(instance) - 1)] + ["target"]
+            for i, seg in zip(range(len(instance)), labels):
                 info(f"Formatted evaluation instance {idx} ({seg})\n" + pformat(instance[i], width=100))
 
         _print(logger.info, evaluation_instances[0], 0)
@@ -320,6 +343,12 @@ class Dataset(TokenizerUtil, torch.utils.data.Dataset):
         # for self-consistency
         evaluation_instances = evaluation_instances * self.sample_num
         option_nums = option_nums * self.sample_num
+        self.total_prefix_num = len([1 for i in evaluation_instances[0] if isinstance(i, str)])
+        if self.total_prefix_num <= 1 and self.prefix_caching:
+            logger.warning(
+                f"Setting prefix_caching to False, since the total prefix number is {self.total_prefix_num}."
+            )
+            self.prefix_caching = False
         return evaluation_instances, option_nums
 
     def _construct_instances_ppl(self):
@@ -370,12 +399,6 @@ class Dataset(TokenizerUtil, torch.utils.data.Dataset):
             option_nums.append(1)
         return evaluation_instances, option_nums
 
-    def _apply_normalization(self, options: List[Tuple[str, ...]], prefix_length: int) -> List[Tuple[str, ...]]:
-        normalized_option = ("",) * prefix_length + (self.normalization_prompt,)
-        normalized_options = [normalized_option + (option,) for *_, option in options]
-        options = [o for g in zip(options, normalized_options) for o in g]
-        return options
-
     def _format_instance(self, instance, loose: bool = False, format_example: bool = False):
         """Format the dataset instance into task source text, target text, and options (for ranking).
 
@@ -389,7 +412,7 @@ class Dataset(TokenizerUtil, torch.utils.data.Dataset):
         loose = "\n" if loose else ""  # type: ignore
 
         if self.evaluation_type == "ranking" and "target_idx" in formatted_instance:
-            if self.args.ranking_with_options:
+            if self.ranking_with_options:
                 # update options with labels and then append options to source
                 for i, option in enumerate(formatted_instance["options"]):
                     formatted_instance["options"][i] = chr(65 + i) + ". " + option.lstrip()
@@ -406,15 +429,19 @@ class Dataset(TokenizerUtil, torch.utils.data.Dataset):
         if "source_postfix" in formatted_instance:
             formatted_instance["source"] += formatted_instance.pop("source_postfix")
 
-        if not formatted_instance["target"].startswith(" "):
-            formatted_instance["target"] = " " + formatted_instance["target"]
+        # remove redundant spaces
+        formatted_instance["target"] = " " + formatted_instance["target"].lstrip()
 
         if format_example and "source_idx" in formatted_instance:
             formatted_instance["source"] = formatted_instance["source"][formatted_instance.pop("source_idx")]
 
         return formatted_instance
 
-    def construct_instruction_and_examples(self, instance) -> Union[str, List[str]]:
+    def construct_instruction_and_examples(
+        self,
+        instance: Dict[str, typing.Any],
+        split_prefix: Optional[bool] = None,
+    ) -> Union[str, List[str]]:
         r"""Format one instance with the instruction and demonstration.
 
         Args:
@@ -426,9 +453,9 @@ class Dataset(TokenizerUtil, torch.utils.data.Dataset):
         if self.examples == "" or self.kate or self.globale:
             self.examples = self.construct_examples(instance)
 
-        if self.model.type not in ["base", "instruction", "chat"]:
+        if self.model_type not in {"base", "instruction", "chat"}:
             raise ValueError(
-                f"Invalid model type: {self.model.type}. Please use `--model_type` to specify the"
+                f"Invalid model type: {self.model_type}. Please use `--model_type` to specify the"
                 " model type, which can be chosen from `base` and `instruction`."
             )
 
@@ -439,18 +466,23 @@ class Dataset(TokenizerUtil, torch.utils.data.Dataset):
             sources = [
                 self.examples + self.args.instance_format.format(source=s, target="") for s in instance["source"]
             ]
-            if self.model.type == "instruction":
+            if self.model_type == "instruction":
                 sources = [_instruction + s for s in sources]
 
             return sources
         else:
-            source = self.examples + self.args.instance_format.format(source=instance["source"], target="")
-            if self.model.type == "instruction":
-                source = _instruction + source
+            source = self.args.instance_format.format(source=instance["source"], target="")
+            if self.model_type == "instruction":
+                results = [_instruction, self.examples, source]
+            else:
+                results = [self.examples, source]
+            if split_prefix:  # to support prefix_caching
+                results = [p for p in results if len(p) > 0]
+                return results
+            else:
+                return "".join(results)
 
-            return source
-
-    def construct_examples(self, instance=None) -> str:
+    def construct_examples(self, instance: Optional[dict] = None) -> str:
         r"""Format one instance with the instruction and demonstration.
 
         Args:
@@ -469,6 +501,7 @@ class Dataset(TokenizerUtil, torch.utils.data.Dataset):
             )
 
         if self.kate is True:
+            assert instance is not None
             if isinstance(instance["source"], list):
                 instance_source = instance["source"][instance["source_idx"]]
             else:
@@ -498,12 +531,16 @@ class Dataset(TokenizerUtil, torch.utils.data.Dataset):
         )
         return example_text
 
-    def _init_model(self):
+    def _init_model(self) -> Optional[Dict[str, typing.Any]]:
         """(Re-)initialize the model before iterating through the dataset. This is useful when evaluating on a mixture of `GenerationDataset` and `MultipleChoiceDataset`. Call this function manuanlly before iterating the dataset, or use `DatasetCollectionBatchSampler` to manage the context switching automatically."""
         if getattr(self, "is_iter_initialized", False):
             return
         self.is_iter_initialized = True
 
+        if self.model_evaluation_method == "get_prob":
+            self._extra_model_args["constant_option_num"] = all(n == self.option_nums[0] for n in self.option_nums)
+
+        self.model._reload_tokenizer()
         if self.model_evaluation_method == "get_ppl":
             return self.model.set_ppl_args(**self._extra_model_args)
         elif self.model_evaluation_method == "generation":
@@ -560,160 +597,6 @@ class Dataset(TokenizerUtil, torch.utils.data.Dataset):
         metric_results[self.dataset_name] = overall_results
         return metric_results, score_lists
 
-    def log_predictions(
-        self,
-        raw_predictions: List[str],
-        processed_predictions: Optional[List[Union[str, float]]] = None,
-        score_lists: Optional[Dict[str, List[float]]] = None,
-        file: Optional[str] = None,
-        _to_json: bool = True,
-    ) -> pd.DataFrame:
-        r"""Save the dataset inputs and corresponding model predictions to file. Log intermediate results with `log_predictions(raw_predictions)` and log final results with `log_predictions(raw_predictions, processed_predictions, score_lists)`.
-
-        Args:
-            raw_predictions (List[str]): The raw predictions of model.
-            processed_predictions (Optional[List[Union[str, float]]]): The processed answers.
-            file (Optional[str]): The file path to save the predictions. If None, will use `args.evaluation_results_path`.
-        """
-
-        file = file or self.args.evaluation_results_path
-        if processed_predictions is not None:
-            assert score_lists is not None and score_lists is not None
-            transposed_score_lists = [dict(zip(score_lists.keys(), values)) for values in zip(*score_lists.values())]
-
-        def repeat_iter(obj, n):
-            for _ in range(n):
-                yield from obj
-
-        def to_dict(merge: Optional[List[str]] = None, merge_by_option: Optional[List[str]] = None):
-            merge = merge or []
-            merge_by_option = merge_by_option or []
-
-            def wrapper(df):
-                df_dict = df.to_dict(orient="list")
-                for col in merge:
-                    df_dict[col] = df_dict[col][0]
-                if "option_num" in df_dict:
-                    option_num = df_dict.pop("option_num")[0]
-                    for col in merge_by_option:
-                        df_dict[col] = df_dict[col][:option_num]
-                return df_dict
-
-            return wrapper
-
-        if processed_predictions is None:
-            # log intermediate results only
-            if not hasattr(self, "_lines_iter"):
-                self._lines_iter = zip(
-                    range(self.len()), self.evaluation_instances, repeat_iter(self.references, self.sample_num)
-                )
-            for idx, source, reference in self._lines_iter:
-                lines = {
-                    "index": idx,
-                    "source": source,
-                    "raw_prediction": raw_predictions[-1],
-                    "reference": reference,
-                }
-                if _to_json:
-                    try:
-                        with open(file, "a") as f:
-                            json.dump(lines, f, ensure_ascii=False)
-                            f.write("\n")
-                    except Exception as e:
-                        logger.warning(f"Failed to log_predictions: {e}\n{lines}")
-                return lines
-            return None
-
-        elif self.model_evaluation_method == "generation":
-            # only generation tasks support self-consistency
-            lines = {
-                "index": repeat_iter(range(len(self.evaluation_data)), self.sample_num),
-                "source": self.evaluation_instances,
-                "raw_prediction": raw_predictions,
-                "processed_prediction": processed_predictions,
-                "reference": repeat_iter(self.references, self.sample_num),
-                "metric": repeat_iter(transposed_score_lists, self.sample_num),
-            }
-            try:
-                lines = pd.DataFrame(lines).groupby("index").apply(
-                    to_dict(merge=["index", "source", "metric", "reference"])
-                )
-                if _to_json:
-                    lines.to_json(file, orient="records", indent=4, force_ascii=False)
-                return lines
-            except Exception as e:
-                lines = {k: len(v) for k, v in lines.items()}
-                logger.warning(f"Failed to log_predictions: {e}\n{lines}")
-                return None
-
-        elif self.model_evaluation_method == "get_ppl":  # ranking
-
-            def repeat_by_option(*arr):
-
-                def wrapper():
-                    for cols in zip(range(len(self.option_nums)), *arr):
-                        for _ in range(self.option_nums[cols[0]]):
-                            yield (*cols, self.option_nums[cols[0]])
-
-                return zip(*wrapper())
-
-            source_text, target_text = zip(*self.evaluation_instances)
-            if self.use_normalization:
-                source_text, target_text, raw_predictions = source_text[::2], target_text[::2], raw_predictions[::2]
-            index, references, transposed_score_lists, option_nums = repeat_by_option(
-                self.references, transposed_score_lists
-            )
-            lines = {
-                "index": index,
-                "source": source_text,
-                "option": target_text,
-                "option_num": option_nums,
-                "perplexity": map(lambda r: r[0], raw_predictions),
-                "reference": references,
-                "metric": transposed_score_lists,
-            }
-            try:
-                if self.name == "winogrande":
-                    merge = ["index", "option", "reference", "metric"]
-                    merge_by_option = ["source"]
-                else:
-                    merge = ["index", "source", "reference", "metric"]
-                    merge_by_option = ["option"]
-                lines = pd.DataFrame(lines).groupby("index").apply(to_dict(merge, merge_by_option))
-                if _to_json:
-                    lines.to_json(file, orient="records", indent=4, force_ascii=False)
-                return lines
-            except Exception as e:
-                lines = {k: len(v) for k, v in lines.items()}
-                logger.warning(f"Failed to log_predictions: {e}\n{lines}")
-                return None
-
-        elif self.model_evaluation_method == "get_prob":
-
-            lines = {
-                "index": range(len(self.evaluation_data)),
-                "source": map(lambda i: i[0], self.evaluation_instances),
-                "probabilites": raw_predictions,
-                "prediction": processed_predictions,
-                "reference": self.references,
-                "metric": transposed_score_lists,
-            }
-            try:
-                lines = pd.DataFrame(lines)
-                if _to_json:
-                    lines.to_json(file, orient="records", indent=4, force_ascii=False)
-                return lines
-            except Exception as e:
-                lines = {k: len(v) for k, v in lines.items()}
-                logger.warning(f"Failed to log_predictions: {e}\n{lines}")
-                return None
-
-        else:
-            logger.debug(
-                f"Failed to log predictions: processed_predictions={processed_predictions}, model_evaluation_method={self.model_evaluation_method}"
-            )
-            return None
-
     def last_score_lists(self) -> Dict[str, List[float]]:
         results = {}
         for metric in self.metrics:
@@ -724,7 +607,7 @@ class Dataset(TokenizerUtil, torch.utils.data.Dataset):
         """Provides a unified interface to retrieve the length of dataset`.
 
         - `len(dataset.evaluation_data)` or `len(dataset.evaluation_data)`: the length of raw evaluation data
-        - `len(dataset)` or `len(dataset.evaluation_instances)`: the length of `__iter__`. Equal to length of raw data multiplied by `args.sample_num`, option_num (if `model_evaluation_method` is "get_ppl") and 2 (if `use_normalization` is True)
+        - `len(dataset)` or `len(dataset.evaluation_instances)`: the length of `__iter__`. Equal to length of raw data multiplied by `self.sample_num`, option_num (if `model_evaluation_method` is "get_ppl") and 2 (if `use_normalization` is True)
         """
         # if `model_evaluation_method` is not "get_ppl", two branches of `option_num` should be equivalent
         if option_num:
@@ -741,13 +624,17 @@ class Dataset(TokenizerUtil, torch.utils.data.Dataset):
                 length *= 2
         return length
 
-    def update_tqdm(self, tqdm):
-        # do nothing
-        pass
-
-    @property
-    def dataset_name(self) -> str:
-        return self.name + (f":{self.subset_name}" if self.subset_name else "")
+    def log_final_predictions(
+        self,
+        raw_predictions: List[str],
+        processed_predictions: List[Union[str, float]],
+        score_lists: Dict[str, List[float]],
+    ) -> Optional[pd.Series]:
+        return log_final_predictions(
+            raw_predictions, processed_predictions, score_lists, self.name == "winogrande",
+            self.model_evaluation_method, self.use_normalization, self.option_nums, self.evaluation_data,
+            self.evaluation_instances, self.sample_num, self.references
+        )
 
     def __repr__(self):
         reprs = [f"{p}={getattr(self, p)!r}" for p in self._repr]
@@ -765,15 +652,14 @@ class DatasetCollection(torch.utils.data.Dataset):
         self._datasets_mapping = datasets
         self._cur_idx = 0
         self.args = self._datasets[0].args
-        self._repr = copy(self._datasets[0]._repr)
+        self._lines_iter = chain.from_iterable(
+            zip(range(d.len()), d.evaluation_instances, repeat_iter(d.references, d.sample_num)) for d in self._datasets
+        )
+
         self.categorized_subsets = {}
         for d in self._datasets:
             if d.categorized_subsets:
                 self.categorized_subsets[d.name] = d.categorized_subsets
-        for idx, prop in enumerate(self._repr):
-            if prop == "subset_name":
-                self._repr[idx] = "dataset_names"
-                break
 
     @property
     def name(self) -> str:
@@ -793,7 +679,10 @@ class DatasetCollection(torch.utils.data.Dataset):
                 o = [i * 2 for i in d.option_nums]
             else:
                 o = d.option_nums
-            option_nums.extend(o)
+            if d.model_evaluation_method == "get_prob":
+                option_nums.extend([1] * len(o))
+            else:
+                option_nums.extend(o)
         return option_nums
 
     def len(self, sample_num: bool = True, option_num: bool = True, normalization: bool = True) -> int:
@@ -809,7 +698,7 @@ class DatasetCollection(torch.utils.data.Dataset):
         option_num=True,
         normalization=True,
         strict=True,
-    ) -> Iterator[Union[list, dict]]:
+    ) -> Iterator[Union[list, dict, None]]:
         st = 0
         if obj is None:
             yield from [None] * len(self._datasets)
@@ -823,44 +712,38 @@ class DatasetCollection(torch.utils.data.Dataset):
                 yield obj[st:st + dlen]
                 st += dlen
         elif isinstance(obj, dict):
-            print(obj.items())
-            print(self.len(sample_num, option_num, normalization))
             assert all(len(v) == self.len(sample_num, option_num, normalization) for v in obj.values())
             for d in self._datasets:
                 dlen = d.len(sample_num, option_num, normalization)
                 yield {k: v[st:st + dlen] for k, v in obj.items()}
                 st += dlen
 
-    def log_predictions(
+    def log_final_predictions(
         self,
         raw_predictions: List[str],
-        processed_predictions: Optional[List[Union[str, float]]] = None,
-        score_lists: Optional[List[Dict[str, List[float]]]] = None,
-        file: Optional[str] = None
+        processed_predictions: List[Union[str, float]],
+        score_lists: List[Dict[str, List[float]]],
     ):
         lines = []
-        raw = self._split_by_subset(raw_predictions, strict=processed_predictions is not None)
+        raw = self._split_by_subset(raw_predictions)
         processed = self._split_by_subset(processed_predictions, option_num=False, normalization=False)
 
-        if processed_predictions is None:
-            for d, r in zip(self._datasets, raw):
-                results = d.log_predictions(r, None, None, file, True)
-                if results is not None:
-                    return
-        else:
-            for d, r, p, s in zip(self._datasets, raw, processed, score_lists):
+        for d, r, p, s in zip(self._datasets, raw, processed, score_lists):
 
-                def set_subset(l):
-                    l["subset"] = d.subset_name
+            def set_subset(l: dict):
+                l["subset"] = d.subset_name
 
-                df = d.log_predictions(r, p, s, file, False)
-                df.apply(set_subset)
-                lines.append(df)
-            file = file or self.args.evaluation_results_path
-            try:
-                pd.concat(lines).to_json(file, orient="records", indent=4, force_ascii=False)
-            except Exception as e:
-                logger.debug(f"Failed to log predictions: {e}")
+            series = d.log_final_predictions(r, p, s)  # type: ignore
+            if series is None:
+                return
+            series.apply(set_subset)
+            lines.append(series)
+
+        file = self.args.evaluation_results_path
+        try:
+            pd.concat(lines).to_json(file, orient="records", indent=4, force_ascii=False)
+        except Exception as e:
+            logger.warning(f"Failed to log predictions: {e}")
 
     def post_processing(self, predictions: List[Union[str, float]]):
         return sum((d.post_processing(p) for d, p in zip(self._datasets, self._split_by_subset(predictions))), [])
@@ -915,15 +798,30 @@ class DatasetCollection(torch.utils.data.Dataset):
 
         return results, score_lists
 
-    def get_batch_sampler(self):
-        return DatasetCollectionBatchSampler(self, self.args.batch_size, self._datasets[0].model.args.vllm)
+    def get_batch_sampler(self, reload_tokenizer: bool = False):
+        if reload_tokenizer:
+            self._datasets[0].model._remove_tokenizer()
+        return DatasetCollectionBatchSampler(
+            self, self.args.batch_size, self._datasets[0].model.backend == "vllm", self.args.dynamic_batching
+        )
 
-    def update_tqdm(self, tqdm):
-        if isinstance(tqdm, tqdm_lib.tqdm):
-            tqdm.set_description(self.dataset_names[self._cur_idx])
+    def step(
+        self,
+        writer: PredictionWriter,
+        tqdm: Union[dynamic_stride_tqdm, typing.Any],
+        batch_raw_predictions: List[str],
+    ):
+        batch_size = len(batch_raw_predictions)
+        if isinstance(tqdm, dynamic_stride_tqdm):
+            tqdm.step(batch_size)
+            if batch_size > 0:
+                tqdm.set_description(self.dataset_names[self._cur_idx])
+        if batch_size > 0:
+            writer.log_batch_predictions(batch_raw_predictions, self._lines_iter)
 
     def __repr__(self):
-        reprs = [f"{p}={getattr(self, p)!r}" for p in self._repr]
+        reprs = []
+        reprs.append(f"dataset_names={self.dataset_names}")
         reprs.append(f"len={self.len()}")
         reprs.append(f"num_instances={self.len(sample_num=False, option_num=False, normalization=False)}")
         return "DatasetCollection(" + ", ".join(reprs) + ")"
