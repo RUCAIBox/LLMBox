@@ -397,6 +397,7 @@ class DatasetArguments:
         help="The k value for pass@k metric",
     )
     max_evaluation_instances: int = HfArg(
+        aliases=["-i"],
         default=None,
         help="The maximum number of evaluation instances per dataset (subset)",
     )

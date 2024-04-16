@@ -29,6 +29,10 @@ class OpenBookQA(MultipleChoiceDataset):
     use_normalization = True
     normalization_prompt = "Q: \nA:"
 
+    def init_arguments(self):
+        # TODO
+        self.prefix_caching = False
+
     def format_instance(self, instance):
         source_text = "Q: " + instance['question_stem']
         options = instance["choices"]['text']

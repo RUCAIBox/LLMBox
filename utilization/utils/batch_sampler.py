@@ -60,7 +60,7 @@ class DatasetCollectionBatchSampler(Sampler[List[int]]):
         last_hash = None
         model = dataset_collection._datasets[0].model
         for dataset in dataset_collection._datasets:
-            cur_hash = (dataset._extra_model_args.items(), dataset.model_evaluation_method)
+            cur_hash = (dataset._extra_model_args.items(), dataset.model_evaluation_method, dataset.total_prefix_num)
             if cur_hash != last_hash:
 
                 def init_fn(group_idx: int):

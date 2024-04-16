@@ -35,10 +35,12 @@ class Model:
     model: Union[PreTrainedModel, "LLM", None] = None
     tokenizer: Union[PreTrainedTokenizer, PreTrainedTokenizerFast, Encoding]
     cacher: Optional["Cacher"] = None
-    model_max_length: int
+    model_max_input_and_output: int
+    support_cache: bool = True
 
     def __init__(self, args: "ModelArguments"):
         self.args = args
+        self.name = args.model_name_or_path
 
     def set_cacher(self, cacher: Any = None):
         r"""Set the cacher for this model. The cacher is used to cache the generated results for the model."""
@@ -55,7 +57,7 @@ class Model:
 
     @property
     def use_cache(self) -> bool:
-        return self.cacher is not None
+        return self.support_cache and self.cacher is not None
 
     @use_cache.setter
     def use_cache(self, value: bool) -> bool:

@@ -106,7 +106,7 @@ def get_subsets(
         available_subsets_by_cls = [set() for _ in dataset_classes]
 
     # for wmt, en-xx and xx-en are both supported
-    if "wmt" == dataset_name:
+    if "wmt" in dataset_name:  # matches "wmt16", "wmt17", ...
         for subset in available_subsets.copy():
             if subset.endswith("-en"):
                 available_subsets.add("en-" + subset.split("-")[0])

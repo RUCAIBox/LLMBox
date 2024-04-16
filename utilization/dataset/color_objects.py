@@ -25,6 +25,10 @@ class Color_objects(GenerationDataset):
     load_args = ("tasksource/bigbench", "reasoning_about_colored_objects")
     extra_model_args = dict(temperature=0, stop=["\n"])
 
+    def init_arguments(self):
+        # TODO fix color_objects prefix_caching
+        self.prefix_caching = False
+
     def format_instance(self, instance):
         source_text = instance["inputs"]
         target_text = " " + instance["targets"][0]

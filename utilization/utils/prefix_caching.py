@@ -411,7 +411,7 @@ class CachePrefixSampler(Sampler[List[int]], Cacher):
 
         cache_level = self.data_cache_level[self.data_idx]
         if cache_level == 0:
-            return None, 0
+            return None, 0  # do not have prefix
 
         def lower_bound(i, l) -> Tuple[int, int]:
             max_k = 0
@@ -420,27 +420,75 @@ class CachePrefixSampler(Sampler[List[int]], Cacher):
                     max_k = max(max_k, k)
             return max_k, self.next_data_idx[l].get(max_k, max_k + 1)
 
+        # `last_cache_count` is local variable while `self.last_cache_st`
+        # and `self.last_cache_ed` is global variable because one cache
+        # might be used by different batches, and we count the repeated
+        # time separately for different batches.
         caches = []
         last_cache_count = 0
+
         for i in self.data_order_with_cache[self.data_idx]:
-            # get the `cache_level - 1` cache for the current data
+            #
+            #        ↙ latest cache
+            #   [Prefix1] [Data1]  ← last_cache_st
+            #             [Data2]
+            #   [Prefix2] [Data3]  ← current data i == last_cache_ed
+            #             [Data4]
+            #
+            # if the current data (i) is not in the latest cache, we update the
+            # latest cache in following steps:
+            #  1. save the cache of the last data (i - 1) for return
+            #  2. delete the cache of the last data
+            #  3. retrieve the cache of the current data
+            #  4. update `last_cache_count` and `last_cache`
             if self.last_cache_ed[cache_level] <= i:
+
+                # 1. save the cache of the last data (i - 1) for return
                 if last_cache_count > 0:
-                    # if i goes out of the range of the last cache, we pop the last cache
                     caches.append(self.last_cache[cache_level].expand_seq(last_cache_count))
+
+                # 2. delete the cache of the last data if it exists
                 if self.last_cache_st[cache_level] > -1:
                     del self.cache[(cache_level - 1, self.last_cache_st[cache_level])]
 
+                # 3. retrieve the cache of the current data
+                #   case 1: [..., st = i, ..., ed]  (if `i` is in `next_data_idx`)
+                #   case 2: [..., st = i, ed = i + 1]  (when cache_level == total_prefix_num)
+                #   case 3: [..., st, ..., i, ..., ed]  (find with lower_bound)
                 self.last_cache_st[cache_level] = i
                 self.last_cache_ed[cache_level] = self.next_data_idx[cache_level - 1].get(i, None)
                 if self.last_cache_ed[cache_level] is None:
                     if cache_level == self.total_prefix_num:
                         self.last_cache_ed[cache_level] = i + 1
                     else:
-                        self.last_cache_st[cache_level], self.last_cache_ed[cache_level] = lower_bound(
-                            i, cache_level - 1
-                        )
+                        st, ed = lower_bound(i, cache_level - 1)
+                        if i == ed:
+                            self.last_cache_ed[cache_level] = i + 1
+                        else:
+                            self.last_cache_st[cache_level] = st
+                            self.last_cache_ed[cache_level] = ed
+
+                # 4. update `last_cache_count` and `last_cache`
                 last_cache_count = 1
+                if (cache_level - 1, self.last_cache_st[cache_level]) not in self.cache:
+                    print(f"Cache not found: {cache_level - 1}, {self.last_cache_st[cache_level]}")
+                    print(i, self.last_cache_st[cache_level], self.last_cache_ed[cache_level])
+                    print(self.cache.keys())
+                    print(self.joined_data[self.total_prefix_num - 1][i - 1])
+                    print("====")
+                    print(self.joined_data[self.total_prefix_num - 1][i])
+                    print("====")
+                    print(self.joined_data[self.total_prefix_num - 1][i + 1])
+
+                    print(self.data_cache_level[self.data_idx - 10:self.data_idx - 1])
+                    print(self.data_order_with_cache[self.data_idx - 10:self.data_idx - 1])
+
+                    print(self.data_cache_level[self.data_idx])
+                    print(self.data_order_with_cache[self.data_idx])
+
+                    print(self.data_cache_level[self.data_idx + 1:self.data_idx + 10])
+                    print(self.data_order_with_cache[self.data_idx + 1:self.data_idx + 10])
+                    raise ValueError
                 self.last_cache[cache_level] = self.cache[(cache_level - 1, self.last_cache_st[cache_level])]
             else:
                 last_cache_count += 1

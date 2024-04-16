@@ -110,7 +110,10 @@ class HuggingFaceModel(Model):
 
     model: PreTrainedModel
 
-    _repr = ["type", "backend", "system_prompt", "multi_turn", "candidate_ids", "use_cache"]
+    _repr = [
+        "type", "backend", "model_max_input", "model_max_input_and_output", "system_prompt", "multi_turn",
+        "candidate_ids", "use_cache"
+    ]
 
     def __init__(self, args: ModelArguments):
         super().__init__(args)
@@ -123,8 +126,8 @@ class HuggingFaceModel(Model):
             )
 
         self.model, self._tokenizer = load_hf_model(args)
-        self.model_max_length = self.tokenizer.model_max_length
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.model_max_input_and_output = self.tokenizer.model_max_length
 
         self.system_prompt = self.args.system_prompt
         self.chat_template = self.args.chat_template
@@ -135,6 +138,30 @@ class HuggingFaceModel(Model):
         if self.chat_template is not None:
             self.tokenizer.chat_template = self.chat_template
 
+        try:
+            self.model(position_ids=None)
+        except TypeError:
+            logger.warning(f"Cannot set `position_ids` for {self.name}. Set `support_position_ids` to False.")
+            self.support_position_ids = False
+        except ValueError:
+            self.support_position_ids = True
+
+        try:
+            self.model(use_cache=True, past_key_values=None)
+        except TypeError:
+            logger.warning(f"Cannot set `use_cache` for {self.name}. Set `support_cache` to False.")
+            self.support_cache = False
+        except ValueError:
+            self.support_cache = True
+
+    @property
+    def model_max_input(self):
+        return self.tokenizer.model_max_length
+
+    @model_max_input.setter
+    def model_max_input(self, value):
+        self.tokenizer.model_max_length = value
+
     @property
     def tokenizer(self):
         return self._tokenizer
@@ -143,7 +170,7 @@ class HuggingFaceModel(Model):
         if hasattr(self, "_tokenizer"):
             return
         self._tokenizer = load_tokenizer(
-            self.args.tokenizer_name_or_path, use_fast=True, max_length=self.model_max_length
+            self.args.tokenizer_name_or_path, use_fast=True, max_length=self.model_max_input_and_output
         )
 
     def _remove_tokenizer(self):
@@ -192,7 +219,7 @@ class HuggingFaceModel(Model):
                     input_pos.append(torch.arange(prefix_len, prefix_len + max_input_len))
             if max_input_len is not None:
                 input_pos = torch.stack(input_pos).to(**_to)
-        if max_input_len is not None:
+        if isinstance(input_pos, torch.Tensor):
             return prefix_mask, input_pos, prefix_lengths
         else:
             return prefix_mask, None, prefix_lengths
@@ -201,10 +228,12 @@ class HuggingFaceModel(Model):
         self,
         batched_inputs: List[str],
         prefix_cache: Optional[SequenceCache] = None,
+        *,
         device: Optional[str] = None,
         add_dummy_prefix: bool = False,
         dummy_prefix: str = "text ",
         padding: bool = True,
+        reserve_tokens: int = 0,
     ) -> Union[List[List[int]], _PostfixEncoding]:
         """Tokenize the inputs as postfix. If `prefix_cache` is provided, the attention_mask of the prefix will be concatenated with the input attention_mask and the position_ids of the input will be calculated based on the length of the prefix.
 
@@ -247,19 +276,24 @@ class HuggingFaceModel(Model):
 
         # remove the prefix from the input_ids and get the batched_ids for postfix
         if prefix_cache is not None and prefix_cache.last_texts is not None:
-            ids_slice = [
-                slice(char_to_token(i, len(l)), self.tokenizer.model_max_length)
-                for i, l in enumerate(prefix_cache.last_texts)
-            ]
+            ids_starts = [char_to_token(i, len(l)) for i, l in enumerate(prefix_cache.last_texts)]
         elif add_dummy_prefix:
             char_index = len(dummy_prefix)
-            ids_slice = [
-                slice(char_to_token(i, char_index), self.tokenizer.model_max_length) for i in range(batch_size)
+            ids_starts = [char_to_token(i, char_index) for i in range(batch_size)]
+        else:
+            ids_starts = [0] * batch_size
+        if prefix_cache:
+            ids_ends = [
+                self.model_max_input - reserve_tokens - prefix_len for prefix_len in prefix_cache.real_seq_length
             ]
         else:
-            ids_slice = [slice(0, self.tokenizer.model_max_length)] * batch_size
-        batched_ids = [i[slc] for i, slc in zip(batched_encodings["input_ids"], ids_slice)]
+            ids_ends = [self.model_max_input - reserve_tokens] * batch_size
+        batched_ids = [ids[st:ed] for ids, st, ed in zip(batched_encodings["input_ids"], ids_starts, ids_ends)]
         input_lengths = [len(seq) for seq in batched_ids]
+        if any(l == 0 for l in input_lengths):
+            raise ValueError(
+                "The prefix is too long for the model. Please reduce the length of the prefix (e.g. `--max_example_tokens`)"
+            )
         max_input_len = max(input_lengths)
         if not padding:
             return batched_ids
@@ -287,6 +321,7 @@ class HuggingFaceModel(Model):
         batched_inputs: List[str],
         prefix_cache: Optional[SequenceCache] = None,
         *,
+        reserve_tokens: int = 0,
         return_caches: bool = True,
         save_token_ids: bool = False,
         save_next_logits: bool = False,
@@ -308,9 +343,14 @@ class HuggingFaceModel(Model):
                     f"The number of sentence in prefix_cache {cache_num} should be one or be equal to the batch size {batch_size}"
                 )
 
+        # TODO: replica truncation side = left
         input_ids, attention_mask, input_pos, prefix_lengths, input_lengths = self._tokenize_postfix(
-            batched_inputs, prefix_cache
+            batched_inputs, prefix_cache, reserve_tokens=reserve_tokens
         )
+        if not self.support_position_ids:
+            pos_kwargs = {}
+        else:
+            pos_kwargs = {"position_ids": input_pos}
         if prefix_cache is not None:
             past_key_values = prefix_cache.to_legacy_cache()
         else:
@@ -320,9 +360,9 @@ class HuggingFaceModel(Model):
             results = self.model(
                 input_ids=input_ids,
                 attention_mask=attention_mask,
-                position_ids=input_pos,
                 past_key_values=past_key_values,
                 use_cache=True,
+                **pos_kwargs
             )
             logits = results.logits.detach()
 
@@ -382,6 +422,8 @@ class HuggingFaceModel(Model):
     def set_ppl_args(self, **extra_model_args):
         r"""Set the configurations for PPL score calculation. This is useful because different datasets may have different requirements for ppl calculation."""
         self.loss_fct = CrossEntropyLoss(reduction="none")
+        self.model_max_input = self.model_max_input_and_output - 1
+        self.max_option_tokens = extra_model_args.pop("max_option_tokens", 128)
         if len(extra_model_args) > 0:
             logger.warning(f"Unused ppl arguments: {extra_model_args}")
 
@@ -399,14 +441,6 @@ class HuggingFaceModel(Model):
 
             # if cache is available, get_ppl_with_cache
             prefix_cache, cached_num = self.cacher.get_cache()
-            # print(">", cached_num, cache_level)
-            # print(
-            #     cached_num == cache_level,
-            #     len(batched_inputs),
-            #     max(len(b[0]) for b in batched_inputs),
-            #     max(len(b[1]) for b in batched_inputs),
-            #     max(len(b[2]) for b in batched_inputs),
-            # )
             if prefix_cache is not None and cached_num == cache_level:
                 self.cacher.step()
                 return self.get_ppl_with_cache(targets, prefix_cache, exact_match)
@@ -481,8 +515,13 @@ class HuggingFaceModel(Model):
             if value is None:
                 value = getattr(self.args, key, None)
 
-            if key == "max_tokens" and value is None:
-                value = 1024
+            if key == "max_tokens":
+                if value is None:
+                    value = 1024
+                else:
+                    # if `max_tokens` is provided, ensure the maximum length of input
+                    self.model_max_input = self.model_max_input_and_output - value
+
             if value is not None:
                 if key == "max_tokens":
                     generation_kwargs["max_new_tokens"] = value
@@ -559,7 +598,7 @@ class HuggingFaceModel(Model):
         else:
             grouped_prompts = list(map(list, zip(*batched_inputs)))
             prompts = ["".join(pg[i] for pg in grouped_prompts) for i in range(len(grouped_prompts[0]))]
-            cache_level = len(grouped_prompts) - 1
+            cache_level = len(grouped_prompts)
 
         if self.type == "chat" and self.multi_turn:
             batched_mt_inputs = [s.split("__SEPARATOR__") for s in batched_inputs]
@@ -567,7 +606,7 @@ class HuggingFaceModel(Model):
         elif use_cache and self.use_cache:
             # if cache is available, generation_with_cache
             prefix_cache, cached_num = self.cacher.get_cache()
-            if prefix_cache is not None and cached_num == cache_level:
+            if prefix_cache is not None and cached_num == cache_level - 1:
                 self.cacher.step()
                 return self.generation_with_cache(grouped_prompts[-1], prefix_cache)
 
@@ -576,8 +615,8 @@ class HuggingFaceModel(Model):
             self.cacher.set_cache(prefix_cache)
             self.cacher.step()
             return []
-        else:
-            return self._generation(prompts)
+
+        return self._generation(prompts)
 
     def _multi_turn_generation(self, batched_mt_inputs: List[List[str]]) -> List[Tuple[str, ...]]:
         """Multi-turn generation
@@ -730,15 +769,17 @@ class HuggingFaceModel(Model):
         if self.use_cache and use_cache:
             # if cache is available, get_prob_with_cache
             prefix_cache, cached_num = self.cacher.get_cache()
-            if prefix_cache is not None and cached_num == cache_level:
+            if cached_num == -1:
+                self.use_cache = False
+            elif prefix_cache is not None and cached_num == cache_level:
                 self.cacher.step()
                 return self.get_prob_with_cache(grouped_prompts[-1], batched_option_nums, prefix_cache)
-
-            # pass the input without prefix text to the model
-            prefix_cache = self.get_cache(grouped_prompts[cached_num], prefix_cache, save_next_logits=False)
-            self.cacher.set_cache(prefix_cache)
-            self.cacher.step()
-            return []
+            else:
+                # pass the input without prefix text to the model
+                prefix_cache = self.get_cache(grouped_prompts[cached_num], prefix_cache, save_next_logits=False)
+                self.cacher.set_cache(prefix_cache)
+                self.cacher.step()
+                return []
 
         batched_encodings = self.tokenizer(
             batched_prompts,

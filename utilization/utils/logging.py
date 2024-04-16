@@ -2,6 +2,7 @@ import datetime
 import logging
 import os
 import pathlib
+import sys
 from dataclasses import fields
 from typing import TYPE_CHECKING, List, Optional, Set
 
@@ -143,6 +144,7 @@ def set_logging(
     coloredlogs.install(
         level=logging.DEBUG,
         logger=package_logger,
+        stream=sys.stdout,
         fmt=DEFAULT_LOG_FORMAT if evaluation_args.log_level != "debug" else DEBUG_LOG_FORMAT,
     )
     package_logger.handlers[0].setLevel(level=log_levels[evaluation_args.log_level])
