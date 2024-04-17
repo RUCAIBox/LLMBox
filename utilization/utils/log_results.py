@@ -33,29 +33,15 @@ def to_dict(merge: Optional[List[str]] = None, merge_by_option: Optional[List[st
 
 class PredictionWriter:
 
-    def __init__(self, evaluation_path: str):
+    def __init__(self, evaluation_path: Optional[str]):
         self.evaluation_path = evaluation_path
-        self._alive = True
+        self._alive = isinstance(evaluation_path, str)
 
     def __enter__(self):
         return self
 
     def __exit__(self, exc_type, exc_value, exc_tb):
         pass
-
-    @staticmethod
-    def _listen_and_write(queue: Queue, file: str):
-        while True:
-            data = queue.get()
-            if data == "STOP":
-                break
-            try:
-                with open(file, "a") as f:
-                    json.dump(data, f, ensure_ascii=False)
-                    f.write("\n")
-            except Exception as e:
-                logger.warning(f"Failed to log_predictions: {e}\n{data}")
-                break
 
     def alive(self):
         return self._alive
@@ -69,7 +55,7 @@ class PredictionWriter:
             logger.warning(f"Failed to log_predictions: {e}\n{data}")
             self._alive = False
 
-    def log_batch_predictions(
+    def log_batch_results(
         self,
         raw_predictions: List[str],
         lines_iter: Iterator[Tuple[int, str, Any]],
@@ -88,7 +74,7 @@ class PredictionWriter:
         return len(raw_predictions)
 
 
-def log_final_predictions(
+def log_final_results(
     raw_predictions: List[str],
     processed_predictions: List[Union[str, float]],
     score_lists: Dict[str, List[float]],

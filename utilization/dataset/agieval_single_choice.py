@@ -29,6 +29,10 @@ class Agieval_single_choice(MultipleChoiceDataset):
     load_args = ("RUCAIBox/agieval-single-choice",)
     categorized_subsets = AGIEVAL_SUBJECTS
 
+    def init_arguments(self):
+        # FIXME
+        self.prefix_caching = False
+
     def format_instance(self, instance):
         WORDS = [w[0 if self.subset_name in AGIEVAL_ZH_PROMPT_TASKS else 1] for w in AGIEVAL_WORDS]
         passage = "" if instance["passage"] is None else instance["passage"]

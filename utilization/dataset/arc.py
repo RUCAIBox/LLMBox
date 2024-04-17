@@ -33,6 +33,10 @@ class Arc(MultipleChoiceDataset):
     use_normalization = True
     normalization_prompt = "Question: \nAnswer:"
 
+    def init_arguments(self):
+        # TODO
+        self.prefix_caching = False
+
     def format_instance(self, instance):
         options = list(map(lambda _s: " " + _s, instance["choices"]["text"]))
         if instance["answerKey"].isdigit():

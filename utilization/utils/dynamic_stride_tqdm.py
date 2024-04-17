@@ -60,6 +60,8 @@ class dynamic_stride_tqdm(tqdm.tqdm):
                 yield obj
                 if self.delta_a == 0:
                     continue
+                if int(n) >= len(self.accumulated):
+                    continue
                 while a + self.delta_a > self.accumulated[int(n)]:
                     n += 1
                 a += self.delta_a
@@ -72,6 +74,8 @@ class dynamic_stride_tqdm(tqdm.tqdm):
                         self.update(int(n - last_print_n))
                         last_print_n = self.last_print_n
                         last_print_t = self.last_print_t
+        except IndexError:
+            print(len(self.accumulated), n)
         finally:
             self.n = int(n)
             self.close()

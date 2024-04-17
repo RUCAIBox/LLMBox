@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Dict, Iterator, List, Set, Type
 
 import openai
 from datasets import DownloadConfig, get_dataset_config_names
+from tqdm import tqdm
 
 from utilization.metric.pass_at_k import PassAtK
 
@@ -105,7 +106,7 @@ def get_subsets(
         available_subsets_by_cls = [set() for _ in dataset_classes]
 
     # for wmt, en-xx and xx-en are both supported
-    if "wmt" == dataset_name:
+    if "wmt" in dataset_name:  # matches "wmt16", "wmt17", ...
         for subset in available_subsets.copy():
             if subset.endswith("-en"):
                 available_subsets.add("en-" + subset.split("-")[0])
@@ -167,12 +168,16 @@ def load_dataset(dataset_name: str,
         logger.debug(
             f"{dataset_name} - available_subsets: {available_subsets}, load_args: {dataset_cls.load_args}, final subset_names: {subset_names}"
         )
-        logger.info("Loading dataset `%s` with subset(s): %s", dataset_name, subset_names)
 
         if len(subset_names) > 1 and accepts_subset(dataset_cls.load_args, overwrite_subset=len(cmd_subset_names) > 0):
             # race:middle,high (several subsets) , super_glue (all the subsets)
             subset_names = sorted(subset_names)
-            logger.debug(f"Loading subsets of dataset `{dataset_name}`: " + ", ".join(subset_names))
+            max_eles = 5
+            if len(subset_names) > max_eles or logger.level <= logging.DEBUG:
+                subset_repr = ",".join(subset_names[:max_eles]) + " ..."
+            else:
+                subset_repr = ",".join(subset_names)
+            logger.info("Loading dataset `%s` with subset(s): %s", dataset_name, subset_repr)
             if threading and len(subset_names) > 2:
                 first_dataset = subset_names.pop(0)
                 first_dataset = (
@@ -199,17 +204,28 @@ def load_dataset(dataset_name: str,
             # len(available_subsets) == 0 means a special case, like wmt
             # race:middle (one of the subsets), coqa (default)
             subset_name = next(iter(subset_names))
-            logger.debug(f"Loading subset of dataset `{dataset_name}:{subset_name}`")
+            logger.info(f"Loading subset of dataset `{dataset_name}:{subset_name}`")
             yield {dataset_name + ":" + subset_name: dataset_cls(dataset_name, args, model, subset_name)}
 
         else:
             # copa (super_glue:copa) or anli
-            logger.debug(f"Loading dataset `{dataset_name}`")
+            logger.info(f"Loading dataset `{dataset_name}`")
             yield {dataset_name: dataset_cls(dataset_name, args, model)}
 
 
 @catch_error
 def load_datasets(args: "DatasetArguments", model: "Model") -> DatasetCollection:
+
+    if model.backend == "vllm":
+        args.batch_size = -1
+        logger.info("Setting batch_size to -1, since vllm can automatically planning the optimal batch and order.")
+
+    if model.args.prefix_caching and model.backend != "huggingface":
+        logger.warning(
+            "Prefix caching is only available for HuggingFaceModel. Automatically set prefix_caching to False"
+        )
+        model.args.prefix_caching = False
+
     datasets = []
     for d in args.dataset_names:
         datasets.extend(load_dataset(d, args, model, args.dataset_threading))

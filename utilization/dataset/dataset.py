@@ -14,7 +14,7 @@ from utilization.utils import dynamic_stride_tqdm
 
 from ..metric.utils import avg_metrics
 from ..utils.batch_sampler import DatasetCollectionBatchSampler
-from ..utils.log_predictions import PredictionWriter, log_final_predictions, repeat_iter
+from ..utils.log_results import PredictionWriter, log_final_results, repeat_iter
 from .enum import GAOKAO_CHINESE_TASKS_SCORE, GAOKAO_ENGLISH_TASKS_SCORE, GAOKAO_TASKS_SCORE
 from .icl_strategies import ape, global_entropy_ordering_strategy, knn_construct_examples
 from .utils import DatasetUtilMixin, get_raw_dataset_loader
@@ -65,13 +65,13 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
     evaluation_type: Literal["ranking", "generation", "user-defined"]
     r"""The type of evaluation for the dataset."""
 
-    evaluation_set: str
+    evaluation_set: str = None
     r"""The evaluation split of dataset. Evaluation data will be automatically loaded."""
 
-    example_set: Optional[str]
+    example_set: Optional[str] = None
     r"""The example split of dataset. Example data will be automatically loaded if this is not None."""
 
-    load_args: Union[Tuple[str], Tuple[str, str], Tuple[()]]
+    load_args: Union[Tuple[str], Tuple[str, str], Tuple[()]] = ()
     r"""Arguments for loading the dataset with huggingface `load_dataset`.
 
     Supported formats:
@@ -159,6 +159,8 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
             evaluation_set=self.evaluation_set,
             example_set=self.example_set,
         )
+        if self.args.max_evaluation_instances:
+            self.evaluation_data = self.evaluation_data[:self.args.max_evaluation_instances]
 
         self.evaluation_instances, self.option_nums = self.construct_instances()
         logger.debug(self)
@@ -251,6 +253,7 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
                 f"Self-consistency only supports generation with temperature > 0, automatically set temperature = 1."
             )
 
+        logger.info(self.model.args)
         logger.info(self.args)
 
     def load_raw_dataset(
@@ -351,7 +354,7 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
             self.prefix_caching = False
         return evaluation_instances, option_nums
 
-    def _construct_instances_ppl(self):
+    def _construct_instances_ppl(self) -> Tuple[List[Tuple[str, ...]], List[int]]:
         evaluation_instances = []
         option_nums = []
         for formatted_instance in self.formatted_evaluation_data:
@@ -378,7 +381,7 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
                 option_nums.append(len(contexts))
         return evaluation_instances, option_nums
 
-    def _construct_instances_prob(self):
+    def _construct_instances_prob(self) -> Tuple[_InputsWithOptionNum, List[int]]:
         evaluation_instances = []
         option_nums = []
         for formatted_instance in self.formatted_evaluation_data:
@@ -391,7 +394,7 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
                 evaluation_instances.append(tuple(instance_with_examples) + (option_num,))
         return evaluation_instances, option_nums
 
-    def _construct_instances_generation(self):
+    def _construct_instances_generation(self) -> Tuple[List[Tuple[str, ...]], List[Literal[1]]]:
         evaluation_instances = []
         option_nums = []
         for formatted_instance in self.formatted_evaluation_data:
@@ -450,6 +453,9 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
         Returns:
             Union[str, List[str]]: The final formatted instance. Return a list of formatted instances if the source is a list (in cases like winogrande).
         """
+        if split_prefix is None:
+            split_prefix = self.prefix_caching
+
         if self.examples == "" or self.kate or self.globale:
             self.examples = self.construct_examples(instance)
 
@@ -624,13 +630,13 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
                 length *= 2
         return length
 
-    def log_final_predictions(
+    def log_final_results(
         self,
         raw_predictions: List[str],
         processed_predictions: List[Union[str, float]],
         score_lists: Dict[str, List[float]],
     ) -> Optional[pd.Series]:
-        return log_final_predictions(
+        return log_final_results(
             raw_predictions, processed_predictions, score_lists, self.name == "winogrande",
             self.model_evaluation_method, self.use_normalization, self.option_nums, self.evaluation_data,
             self.evaluation_instances, self.sample_num, self.references
@@ -718,7 +724,7 @@ class DatasetCollection(torch.utils.data.Dataset):
                 yield {k: v[st:st + dlen] for k, v in obj.items()}
                 st += dlen
 
-    def log_final_predictions(
+    def log_final_results(
         self,
         raw_predictions: List[str],
         processed_predictions: List[Union[str, float]],
@@ -733,7 +739,7 @@ class DatasetCollection(torch.utils.data.Dataset):
             def set_subset(l: dict):
                 l["subset"] = d.subset_name
 
-            series = d.log_final_predictions(r, p, s)  # type: ignore
+            series = d.log_final_results(r, p, s)  # type: ignore
             if series is None:
                 return
             series.apply(set_subset)
@@ -802,7 +808,7 @@ class DatasetCollection(torch.utils.data.Dataset):
         if reload_tokenizer:
             self._datasets[0].model._remove_tokenizer()
         return DatasetCollectionBatchSampler(
-            self, self.args.batch_size, self._datasets[0].model.backend == "vllm", self.args.dynamic_batching
+            self, self.args.batch_size, self._datasets[0].model.backend == "vllm", self.args.auto_batch_size
         )
 
     def step(
@@ -817,7 +823,7 @@ class DatasetCollection(torch.utils.data.Dataset):
             if batch_size > 0:
                 tqdm.set_description(self.dataset_names[self._cur_idx])
         if batch_size > 0:
-            writer.log_batch_predictions(batch_raw_predictions, self._lines_iter)
+            writer.log_batch_results(batch_raw_predictions, self._lines_iter)
 
     def __repr__(self):
         reprs = []
