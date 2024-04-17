@@ -1,4 +1,4 @@
-**LLMBox** | [Training](training/README.md) | [Utilization](utilization/README.md)
+**LLMBox** | [Training](training) | [Utilization](utilization)
 
 # LLMBox
 
@@ -111,6 +111,15 @@ For more details, view the [training](./training/README.md) documentation.
 
 We provide a broad support on Huggingface models, OpenAI, Anthropic, QWen and  models for further utilization. Currently a total of 51 commonly used datasets are supported, including: `HellaSwag`, `MMLU`, `GSM8K`, `AGIEval`, `CEval`, and `CMMLU`. For a full list of supported models and datasets, view the [utilization](./utilization/README.md) documentation.
 
+```bash
+CUDA_VISIBLE_DEVICES=0 python inference.py \
+  -m llama-2-7b-hf \
+  -d mmlu agieval:[English] \
+  --model_type instruction \
+  --num_shot 5 \
+  --ranking_type ppl_no_option
+```
+
 <table>
     <tr>
         <td colspan=4 align="center"><b>Performance</b></td>
@@ -175,9 +184,9 @@ We by default enable prefix caching for efficient evaluation. vLLM is also suppo
     </tr>
     <tr>
         <td><b>Prefix Caching</b></td>
-        <td>0:06:04</td>
-        <td>0:06:02</td>
-        <td>0:23:17</td>
+        <td>0:05:48</td>
+        <td>0:05:51</td>
+        <td>0:17:13</td>
     </tr>
 </table>
 

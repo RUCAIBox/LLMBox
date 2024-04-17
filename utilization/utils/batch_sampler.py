@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Any, Callable, Iterator, List, Tuple
 
 from torch.utils.data.sampler import Sampler
 
-from .prefix_caching import CachePrefixSampler
+from .prefix_caching import CachePrefixSampler, round_down
 
 if TYPE_CHECKING:
     from ..dataset.dataset import Dataset, DatasetCollection
@@ -28,9 +28,40 @@ def info_dataset_group(
     logger.debug(f"Datasets: {d.name}{subset_names}")
 
 
-def sample_dataset(total: int, batch_size: int) -> Iterator[List[int]]:
-    for i in range(0, total, batch_size):
-        yield list(range(i, min(i + batch_size, total)))
+class AutoBatchSizeSampler(Sampler[List[int]]):
+
+    def __init__(self, data, total: int, batch_size: int, auto_batch_size):
+        self.data = list(data)
+        self.batch_size = batch_size
+        self.auto_batch_size = auto_batch_size
+        self.first_max_len = None
+        self.data_order = [[]]
+        for i in range(total):
+            self.data_order[-1].append(i)
+            if self.check_new_batch(self.data_order[-1], i + 1):
+                self.data_order.append([])
+
+    def check_new_batch(self, queries: List[int], next_data: int) -> bool:
+        """Check the condition to start a new batch."""
+
+        current_batch = len(queries)
+        if not self.auto_batch_size:
+            return current_batch > self.batch_size
+        max_len = max(len(self.data[q]) for q in queries)
+        if next_data < len(self.data):
+            max_len = max(len(self.data[next_data]), max_len)
+
+        if self.first_max_len is None:
+            self.first_max_len = max_len
+
+        available_space = self.batch_size * self.first_max_len
+
+        batch_size = available_space // max_len
+        batch_size = round_down(batch_size)
+        return current_batch >= batch_size
+
+    def __iter__(self) -> Iterator[List[int]]:
+        yield from self.data_order
 
 
 class DatasetCollectionBatchSampler(Sampler[List[int]]):
@@ -101,7 +132,9 @@ class DatasetCollectionBatchSampler(Sampler[List[int]]):
                 # disaable prefix_caching
                 model.use_cache = False
                 # dynamic batch size for vLLM
-                yield from sample_dataset(total, self.batch_size if not self.vllm else total)
+                yield from AutoBatchSizeSampler(
+                    iterator, total, self.batch_size if not self.vllm else total, self.auto_batch_size
+                )
 
     def call_model(self, *args, **kwargs) -> List[Any]:
         return self._forward_call(*args, **kwargs)  # type: ignore

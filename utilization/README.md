@@ -1,4 +1,4 @@
-[LLMBox](../README.md) | [Training](../training/README.md) | **Utilization**
+[LLMBox](..) | [Training](../training) | **Utilization**
 
 # Utilization
 
@@ -14,7 +14,7 @@
 
 ## Usage
 
-Evaluating davinci-002 on HellaSwag:
+Evaluating davinci-002 on HellaSwag, with prefix caching and flash attention enabled by default:
 
 ```bash
 python inference.py -m davinci-002 -d hellaswag
@@ -37,12 +37,17 @@ python inference.py -m microsoft/phi-2 -d gsm8k -shots 8 --sample_num 100 --load
 Evaluating LLaMA-2 (7b) on CMMLU and CEval with instruction using vllm:
 
 ```bash
-python inference.py -m llama-2-7b-hf -d cmmlu ceval --vllm True --model_type instruction
+CUDA_VISIBLE_DEVICES=0 python inference.py -m llama-2-7b-hf -d cmmlu ceval --vllm True --model_type instruction
 ```
+
+We use all cuda devices by default. You can specify the device with `CUDA_VISIBLE_DEVICES`.
 
 ### Model Arguments
 
-Specify the model, efficient evaluation, generation arguments, quantization, and other arguments.
+Define the model parameters, efficient evaluation settings, generation arguments, quantization, and additional configuration options.
+
+We provide an enumeration ([`enum`](model/enum.py)) for models corresponding to each `model_backend`. If a model is not listed within this enumeration, `--model_backend` should be specified directly.
+
 
 ```text
 --model_name_or_path MODEL_NAME_OR_PATH, --model MODEL_NAME_OR_PATH, -m MODEL_NAME_OR_PATH
@@ -51,6 +56,8 @@ Specify the model, efficient evaluation, generation arguments, quantization, and
 --model_type {base,instruction}
                       The type of the model, which can be chosen from `base`
                       or `instruction`. (default: base)
+--model_backend {anthropic,dashscope,huggingface,openai,qianfan,vllm}
+                      The model backend
 --device_map DEVICE_MAP
                       The device map for model and data (default: auto)
 --vllm [VLLM]         Whether to use vllm (default: False)
@@ -68,8 +75,12 @@ Specify the model, efficient evaluation, generation arguments, quantization, and
 --qianfan_secret_key QIANFAN_SECRET_KEY
                       The Qianfan secret key (default: None)
 --tokenizer_name_or_path TOKENIZER_NAME_OR_PATH, --tokenizer TOKENIZER_NAME_OR_PATH
-                      The tokenizer name or path, e.g., meta-
-                      llama/Llama-2-7b-hf (default: None)
+                      The tokenizer name or path, e.g., cl100k_base, meta-llama/Llama-2-7b-hf, ./mymodel
+```
+
+Generation arguments and quantization options::
+
+```txt
 --max_tokens MAX_TOKENS
                       The maximum number of tokens for output generation
                       (default: None)
@@ -109,9 +120,12 @@ Specify the model, efficient evaluation, generation arguments, quantization, and
 --early_stopping [EARLY_STOPPING]
                       Positive values encourage longer sequences, vice
                       versa. Used in beam search. (default: None)
+--system_prompt SYSTEM_PROMPT, -sys SYSTEM_PROMPT
+                      The system prompt for chat-based models
+--chat_template CHAT_TEMPLATE
+                      The chat template for huggingface chat-based models
 --bnb_config BNB_CONFIG
                       JSON string for BitsAndBytesConfig parameters.
-                      (default: None)
 --load_in_8bit [LOAD_IN_8BIT]
                       Whether to use bnb's 8-bit quantization to load the
                       model. (default: False)
@@ -123,11 +137,15 @@ Specify the model, efficient evaluation, generation arguments, quantization, and
 --vllm_gpu_memory_utilization VLLM_GPU_MEMORY_UTILIZATION
                       The maximum gpu memory utilization of vllm. (default:
                       None)
+--torch_dtype {float16,bfloat16,float32}
+                      The torch dtype for model input and output
 ```
 
-### DatasetArguments
+### Dataset Arguments
 
-Specify the dataset, batch size, example strategies, CoT strategies and other arguments.
+Configure dataset parameters such as the dataset identifiers, batch size, example strategies, chain-of-thought (CoT) strategies, and other relevant settings.
+
+You can evaluate datasets sequentially in a single run when they require similar evaluation parameters. Both `evaluation_set` and `example_set` support the Huggingface [String API](https://huggingface.co/docs/datasets/loading#slice-splits) for defining dataset slices.
 
 ```text
 --dataset_names DATASET [DATASET ...], -d DATASET [DATASET ...], --dataset DATASET [DATASET ...]
@@ -136,7 +154,10 @@ Specify the dataset, batch size, example strategies, CoT strategies and other ar
                       'dataset:[cat1],[cat2]', e.g., 'copa race', 'race:high', 'wmt16:en-ro,en-fr', or
                       'mmlu:[stem],[humanities]'. (default: None)
 --batch_size BATCH_SIZE, -bsz BATCH_SIZE, -b BATCH_SIZE
-                      The evaluation batch size (default: 1)
+                      The evaluation batch size. Specify an integer (e.g., '10') to use a fixed batch size for
+                      all iterations. Alternatively, append ':auto' (e.g., '10:auto') to start with the specified
+                      batch size and automatically adjust it in subsequent iterations to maintain constant CUDA
+                      memory usage (default: 1)
 --dataset_path DATASET_PATH
                       The path of dataset if loading from local. Supports
                       repository cloned from huggingface, dataset saved by
@@ -148,8 +169,6 @@ Specify the dataset, batch size, example strategies, CoT strategies and other ar
 --example_set EXAMPLE_SET
                       The set name for demonstration, supporting slice,
                       e.g., train, dev, train[:10] (default: None)
---system_prompt SYSTEM_PROMPT, -sys SYSTEM_PROMPT
-                      The system prompt of the model (default: )
 --instance_format INSTANCE_FORMAT, -fmt INSTANCE_FORMAT
                       The format to format the `source` and `target` for
                       each instance (default: {source}{target})
@@ -160,7 +179,7 @@ Specify the dataset, batch size, example strategies, CoT strategies and other ar
                       1024)
 ```
 
-Evaluation methods and ranking types:
+Different types of datasets support different evaluation methods. The following table lists the supported evaluation methods and prompting methods for each dataset type.
 
 <table>
     <tr>
@@ -202,7 +221,7 @@ A: The first
     </tr>
     <tr>
         <td><p style="text-align: center;"><code>ppl</code></p>
-<p><pre><code>Q: What is ...?
+<p><pre><code style="border-style: solid;">Q: What is ...?
 A. The first
 B. The second
 C. ...
@@ -262,6 +281,11 @@ Specify the random seed, logging directory, evaluation results directory, and ot
                       The directory to save evaluation results, which
                       includes source and target texts, generated texts, and
                       the references. (default: evaluation_results)
+--log_results [LOG_RESULTS]
+                      Whether to log the evaluation results. Notes that the generated JSON file will be the same
+                      size as the evaluation dataset itself
+--no_log_results      Whether to log the evaluation results. Notes that the generated JSON file will be the same
+                      size as the evaluation dataset itself
 --dry_run [DRY_RUN]   Test the evaluation pipeline without actually calling
                       the model. (default: False)
 --proxy_port PROXY_PORT
@@ -270,13 +294,15 @@ Specify the random seed, logging directory, evaluation results directory, and ot
                       Load dataset with threading
 --no_dataset_threading
                       Load dataset with threading
+--dataloader_workers DATALOADER_WORKERS
+                      The number of workers for dataloader
 ```
 
 ## Supported Models
 
 <table>
   <tr>
-      <td><b>Provider</b></td>
+      <td><b>Backend</b></td>
       <td><b>Entrypoint</b></td>
       <td><b>Example Model</b></td>
       <td><b>Supported Methods</b></td>
@@ -865,5 +891,38 @@ Then, format the instance by implementing the `format_instance` method. The inst
 - `target` (`str`, optional): The target text. Either `target` or `target_idx` should be provided.
 - `target_idx` (`int`, optional): The index of the target in the options (for ranking). This will generate the `target` text in `_format_instance`.
 - `options` (`List[str]`, optional): The options for ranking.
+
+MultipleChoiceDataset:
+
+```python
+def format_instance(self, instance):
+    dict(
+        source=self.source_prefix + instance["question"].strip(),
+        source_postfix="\nAnswer:",
+        target_idx=instance["answer"],
+        options=options,
+    )
+```
+
+MultipleChoiceDataset (Multiple-context) like winogrande:
+
+```python
+def format_instance(self, instance):
+    dict(
+        source=contexts,
+        source_idx=int(instance["answer"]) - 1,
+        target=completion,
+    )
+```
+
+GenerationDataset:
+
+```python
+def format_instance(self, instance):
+    dict(
+        source=instance["question"],
+        target=instance["answer"],
+    )
+```
 
 See [`Dataset`](dataset/dataset.py) for more details.

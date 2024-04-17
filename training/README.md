@@ -1,4 +1,4 @@
-[LLMBox](../README.md) | **Training** | [Utilization](../utilization/README.md)
+[LLMBox](..) | **Training** | [Utilization](../utilization)
 
 <!-- ## Supervised Fine-tuning and Continual Pre-training -->
 # LLMBox-Training

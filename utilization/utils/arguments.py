@@ -38,6 +38,10 @@ class ModelArguments:
         help="The type of the model, which can be chosen from `base` or `instruction`.",
         metadata={"choices": ["base", "instruction", "chat"]},
     )
+    model_backend: Literal["anthropic", "dashscope", "huggingface", "openai", "qianfan", "vllm"] = HfArg(
+        default=None,
+        help="The model backend",
+    )
     device_map: str = HfArg(
         default="auto",
         help="The device map for model and data",
@@ -75,13 +79,11 @@ class ModelArguments:
         default=None,
         help="The Qianfan secret key",
     )
-    model_backend: Literal["anthropic", "dashscope", "huggingface", "openai", "qianfan", "vllm"] = HfArg(
-        default=None,
-        help="The model backend",
-    )
 
     tokenizer_name_or_path: str = HfArg(
-        default=None, aliases=["--tokenizer"], help="The tokenizer name or path, e.g., meta-llama/Llama-2-7b-hf"
+        default=None,
+        aliases=["--tokenizer"],
+        help="The tokenizer name or path, e.g., cl100k_base, meta-llama/Llama-2-7b-hf, ./mymodel"
     )
 
     max_tokens: Optional[int] = HfArg(
