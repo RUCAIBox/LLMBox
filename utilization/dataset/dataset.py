@@ -454,7 +454,8 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
             Union[str, List[str]]: The final formatted instance. Return a list of formatted instances if the source is a list (in cases like winogrande).
         """
         if split_prefix is None:
-            split_prefix = self.prefix_caching
+            # vllm also supports prefix_caching but does not need to split the prefix
+            split_prefix = self.prefix_caching and self.model.is_huggingface_model()
 
         if self.examples == "" or self.kate or self.globale:
             self.examples = self.construct_examples(instance)
@@ -808,7 +809,7 @@ class DatasetCollection(torch.utils.data.Dataset):
         if reload_tokenizer:
             self._datasets[0].model._remove_tokenizer()
         return DatasetCollectionBatchSampler(
-            self, self.args.batch_size, self._datasets[0].model.backend == "vllm", self.args.auto_batch_size
+            self, self.args.batch_size, self._datasets[0].model.model_backend == "vllm", self.args.auto_batch_size
         )
 
     def step(

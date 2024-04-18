@@ -129,7 +129,7 @@ class DatasetCollectionBatchSampler(Sampler[List[int]]):
                 model.set_cacher(sampler)
                 yield from sampler
             else:
-                # disaable prefix_caching
+                # disable prefix_caching
                 model.use_cache = False
                 # dynamic batch size for vLLM
                 yield from AutoBatchSizeSampler(

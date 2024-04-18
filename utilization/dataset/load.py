@@ -216,11 +216,11 @@ def load_dataset(dataset_name: str,
 @catch_error
 def load_datasets(args: "DatasetArguments", model: "Model") -> DatasetCollection:
 
-    if model.backend == "vllm":
+    if model.model_backend == "vllm":
         args.batch_size = -1
         logger.info("Setting batch_size to -1, since vllm can automatically planning the optimal batch and order.")
 
-    if model.args.prefix_caching and model.backend != "huggingface":
+    if model.args.prefix_caching and not model.is_local_model():
         logger.warning(
             "Prefix caching is only available for HuggingFaceModel. Automatically set prefix_caching to False"
         )

@@ -106,12 +106,12 @@ def load_hf_model(args: ModelArguments) -> Tuple[PreTrainedModel, Union[PreTrain
 
 class HuggingFaceModel(Model):
 
-    backend = "huggingface"
+    model_backend = "huggingface"
 
     model: PreTrainedModel
 
     _repr = [
-        "type", "backend", "model_max_input", "model_max_input_and_output", "system_prompt", "multi_turn",
+        "type", "model_backend", "model_max_input", "model_max_input_and_output", "system_prompt", "multi_turn",
         "candidate_ids", "use_cache"
     ]
 

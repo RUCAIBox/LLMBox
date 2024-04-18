@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Tuple, Uni
 from tiktoken import Encoding
 from transformers import PreTrainedModel, PreTrainedTokenizer, PreTrainedTokenizerFast
 
+from ..utils.arguments import ModelBackendMixin
 from ..utils.prefix_caching import Cacher
 
 if TYPE_CHECKING:
@@ -14,7 +15,7 @@ if TYPE_CHECKING:
 logger = getLogger(__name__)
 
 
-class Model:
+class Model(ModelBackendMixin):
     r"""The base model object for all models.
 
     Args:
@@ -30,7 +31,7 @@ class Model:
     """
     name = ""
     type = ""
-    backend: Literal["anthropic", "dashscope", "huggingface", "openai", "qianfan", "vllm"]
+    model_backend: Literal["anthropic", "dashscope", "huggingface", "openai", "qianfan", "vllm"]
 
     model: Union[PreTrainedModel, "LLM", None] = None
     tokenizer: Union[PreTrainedTokenizer, PreTrainedTokenizerFast, Encoding]
