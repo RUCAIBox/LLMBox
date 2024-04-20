@@ -171,11 +171,12 @@ class ModelArguments:
     )
 
     vllm_gpu_memory_utilization: float = HfArg(
+        aliases=["--vllm_mem"],
         default=None,
         help="The maximum gpu memory utilization of vllm.",
     )
 
-    torch_dtype: Literal["float16", "bfloat16", "float32"] = HfArg(
+    torch_dtype: Literal["float16", "bfloat16", "float32", "auto"] = HfArg(
         default="float16",
         help="The torch dtype for model input and output",
     )

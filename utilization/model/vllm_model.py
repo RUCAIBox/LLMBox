@@ -49,6 +49,7 @@ class vllmModel(Model):
             model=args.model_name_or_path,
             tokenizer=args.tokenizer_name_or_path,
             tensor_parallel_size=torch.cuda.device_count(),
+            dtype=args.torch_dtype,
             gpu_memory_utilization=args.vllm_gpu_memory_utilization,
             quantization="gptq" if args.gptq else None,
             trust_remote_code=True,

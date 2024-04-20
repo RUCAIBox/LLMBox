@@ -346,7 +346,10 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
         # for self-consistency
         evaluation_instances = evaluation_instances * self.sample_num
         option_nums = option_nums * self.sample_num
-        self.total_prefix_num = len([1 for i in evaluation_instances[0] if isinstance(i, str)])
+        if isinstance(evaluation_instances[0], str):
+            self.total_prefix_num = 1
+        else:
+            self.total_prefix_num = len([1 for i in evaluation_instances[0] if isinstance(i, str)])
         if self.total_prefix_num <= 1 and self.prefix_caching:
             logger.warning(
                 f"Setting prefix_caching to False, since the total prefix number is {self.total_prefix_num}."
@@ -535,6 +538,10 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
             max_tokens=self.max_example_tokens,
             side="right",
         )
+        if self.real_num_shots < self.max_num_shots:
+            logger.warning(
+                f"Only {self.real_num_shots} examples ({self.real_example_tokens} tokens) are constructed because of `--max_example_tokens {self.max_example_tokens}`, but the few-shot number is set to {self.max_num_shots}."
+            )
         return example_text
 
     def _init_model(self) -> Optional[Dict[str, typing.Any]]:
