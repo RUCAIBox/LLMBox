@@ -773,7 +773,7 @@ class DatasetCollection(torch.utils.data.Dataset):
     def calculate_metric(self, predictions) -> Tuple[Dict[str, Dict[str, float]], List[Dict[str, List[float]]]]:
         results = OrderedDict()
         score_lists = []
-        splitted = self._split_by_subset(predictions, option_num=False, normalization=False)
+        splitted = self._split_by_subset(predictions, option_num=False, normalization=False, sample_num=False)
         grouped_dataset_names = defaultdict(list)  # group by dataset
         for n, d, p in zip(self.dataset_names, self._datasets, splitted):
             subset_results, score_list = d.calculate_metric(p)
