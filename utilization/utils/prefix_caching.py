@@ -18,7 +18,7 @@ class SequenceCache(DynamicCache):
     states and reducing redundancy.
 
     The cache structure for keys and values is organized as follows:
-    Shape: `[BatchNum, LayerNum, SeqLength, HiddenDim]`
+    Shape: `[BatchSize, NumHeads, SeqLength, EmbedSizePerHead]`
     """
 
     def __init__(self) -> None:
@@ -237,8 +237,8 @@ class SequenceCache(DynamicCache):
             kv_tensors.append((key, value))
 
         cache.key_cache, cache.value_cache = map(list, zip(*kv_tensors))
-        assert len(cache.key_cache) == len(cache.value_cache)\
-            == cache.key_cache[0].shape[1] == cache.value_cache[0].shape[1]
+        assert len(cache.key_cache) == len(cache.value_cache)
+        assert cache.key_cache[0].shape[1] == cache.value_cache[0].shape[1]
 
         return cache
 

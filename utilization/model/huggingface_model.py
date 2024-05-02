@@ -35,7 +35,7 @@ def load_tokenizer(tokenizer_name_or_path: str, use_fast: bool, max_length: int 
 
     # TODO: [Important]!!! check for each tokenizer
     if tokenizer.pad_token is None:
-        if "llama2" in tokenizer_name_or_path.lower().replace("_", "").replace("-", ""):
+        if "llama" in tokenizer_name_or_path.lower().replace("_", "").replace("-", ""):
             # https://github.com/meta-llama/llama/issues/380#issuecomment-1729077205
             tokenizer.pad_token = tokenizer.bos_token
         else:
