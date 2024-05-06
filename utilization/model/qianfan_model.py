@@ -20,9 +20,9 @@ class Qianfan(Model):
                    `ERNIE-Lite-8K-0308`, `ERNIE Tiny`, `ERNIE Speed-AppBuilder`.
     """
 
-    backend = "qianfan"
+    model_backend = "qianfan"
 
-    _repr = ["type", "backend", "multi_turn"]
+    _repr = ["type", "model_backend", "multi_turn"]
 
     def __init__(self, args: ModelArguments):
         super().__init__(args)

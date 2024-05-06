@@ -20,9 +20,9 @@ class Dashscope(Model):
                    `qwen-1.8b-longcontext-chat`, `qwen-1.8b-chat`.
     """
 
-    backedn = "dashscope"
+    model_backend = "dashscope"
 
-    _repr = ["type", "backend", "multi_turn"]
+    _repr = ["type", "model_backend", "multi_turn"]
 
     def __init__(self, args: ModelArguments):
         super().__init__(args)

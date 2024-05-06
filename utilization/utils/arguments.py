@@ -26,8 +26,35 @@ else:
     batch_size_type = str
 
 
+class ModelBackendMixin:
+
+    model_backend: Literal["anthropic", "dashscope", "huggingface", "openai", "qianfan", "vllm"]
+
+    def is_openai_model(self) -> bool:
+        return self.model_backend == "openai"
+
+    def is_anthropic_model(self) -> bool:
+        return self.model_backend == "anthropic"
+
+    def is_dashscope_model(self) -> bool:
+        return self.model_backend == "dashscope"
+
+    def is_qianfan_model(self) -> bool:
+        return self.model_backend == "qianfan"
+
+    def is_huggingface_model(self) -> bool:
+        return self.model_backend == "huggingface"
+
+    def is_vllm_model(self) -> bool:
+        return self.model_backend == "vllm"
+
+    def is_local_model(self) -> bool:
+        """Backed by Huggingface or vLLM model."""
+        return self.is_huggingface_model() or self.is_vllm_model()
+
+
 @dataclass
-class ModelArguments:
+class ModelArguments(ModelBackendMixin):
     model_name_or_path: str = HfArg(
         default=MISSING,
         aliases=["--model", "-m"],
@@ -47,7 +74,7 @@ class ModelArguments:
         help="The device map for model and data",
     )
     prefix_caching: bool = HfArg(
-        default=True,
+        default=None,
         help="Whether to cache prefix in get_ppl mode",
     )
     vllm: bool = HfArg(
@@ -148,7 +175,7 @@ class ModelArguments:
         default="",
         help="The system prompt for chat-based models",
     )
-    chat_template: str = HfArg(
+    chat_template: Optional[str] = HfArg(
         default=None,
         help="The chat template for huggingface chat-based models",
     )
@@ -198,33 +225,12 @@ class ModelArguments:
         "dashscope": {"dashscope_api_key"},
         "openai": set(),  # openai model is used for gpt-eval metrics, not specific arguments
         "qianfan": {"qianfan_access_key", "qianfan_secret_key"},
-        "vllm": {"vllm", "flash_attention", "gptq", "vllm_gpu_memory_utilization"},
+        "vllm": {"vllm", "prefix_caching", "flash_attention", "gptq", "vllm_gpu_memory_utilization", "chat_template"},
         "huggingface": {
-            "device_map", "prefix_caching", "vllm", "flash_attention", "bnb_config", "load_in_8bit", "load_in_4bit",
-            "gptq", "vllm_gpu_memory_utilization", "chat_template"
+            "device_map", "vllm", "prefix_caching", "flash_attention", "bnb_config", "load_in_8bit", "load_in_4bit",
+            "gptq", "chat_template"
         },
     }
-
-    def is_openai_model(self) -> bool:
-        return self.model_backend == "openai"
-
-    def is_anthropic_model(self) -> bool:
-        return self.model_backend == "anthropic"
-
-    def is_dashscope_model(self) -> bool:
-        return self.model_backend == "dashscope"
-
-    def is_qianfan_model(self) -> bool:
-        return self.model_backend == "qianfan"
-
-    def is_huggingface_model(self) -> bool:
-        return self.model_backend == "huggingface"
-
-    def is_vllm_model(self) -> bool:
-        return self.model_backend == "vllm"
-
-    def is_local_model(self) -> bool:
-        return self.is_huggingface_model() or self.is_vllm_model()
 
     def __post_init__(self):
         # set _model_impl first
@@ -306,6 +312,10 @@ class ModelArguments:
 
         if self.vllm:
             self.vllm_gpu_memory_utilization = 0.9
+
+        if self.prefix_caching is None:
+            # prefix caching of vllm is still experimental
+            self.prefix_caching = not self.vllm
 
         if self.model_type != "chat":
             if self.system_prompt:
@@ -527,7 +537,9 @@ def check_args(model_args: ModelArguments, dataset_args: DatasetArguments, evalu
         )
 
     # vllm has its own prefix caching mechanism
-    if model_args.prefix_caching and "expandable_segments" not in os.environ.get("PYTORCH_CUDA_ALLOC_CONF", ""):
+    if model_args.prefix_caching and "expandable_segments" not in os.environ.get(
+        "PYTORCH_CUDA_ALLOC_CONF", ""
+    ) and model_args.is_huggingface_model():
         logger.warning(
             f"Prefix caching might results in cuda memory fragmentation, which can be mitigated by setting `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True`. See https://pytorch.org/docs/stable/notes/cuda.html#environment-variables for details."
         )

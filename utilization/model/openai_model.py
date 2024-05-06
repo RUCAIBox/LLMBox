@@ -21,11 +21,11 @@ class Openai(Model):
     We now support GPT-3 (`babbage-002` and `davinci-002`) and GPT-3.5 series models (`gpt-3.5-turbo-instruct`, `gpt-3.5-turbo`, `gpt-3.5-turbo-1106`, and `gpt-3.5-turbo-16k`).
     """
 
-    backend = "openai"
+    model_backend = "openai"
 
     tokenizer: tiktoken.Encoding
 
-    _repr = ["type", "backend", "multi_turn", "candidate_ids"]
+    _repr = ["type", "model_backend", "multi_turn", "candidate_ids"]
 
     def __init__(self, args: ModelArguments):
         super().__init__(args)

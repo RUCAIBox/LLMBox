@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from ..utils import ModelArguments
 
 try:
+    import vllm
     from vllm import LLM, SamplingParams
 except ModuleNotFoundError:
     LLM = None
@@ -35,16 +36,25 @@ class LabelProcessor:
 
 class vllmModel(Model):
 
-    backend = "vllm"
+    model_backend = "vllm"
 
-    _repr = ["type", "backend", "candidate_ids"]
+    _repr = ["type", "model_backend", "candidate_ids"]
 
-    def __init__(self, args: "ModelArguments"):
+    def __init__(self, args: "ModelArguments", **kwargs):
         super().__init__(args)
         self.args = args
 
         logger.info(f"Trying to load {args.model_name_or_path} using vllm...")
         self.type = args.model_type
+        self.vllm_version = vllm.__version__
+        if args.prefix_caching:
+            if self.is_legacy_vllm():
+                logger.warning(
+                    f"vllm version ({vllm.__version__}) is lower than 0.4.0, prefix_caching is not supported."
+                )
+            else:
+                kwargs["enable_prefix_caching"] = True
+
         self.model = LLM(
             model=args.model_name_or_path,
             tokenizer=args.tokenizer_name_or_path,
@@ -54,13 +64,19 @@ class vllmModel(Model):
             quantization="gptq" if args.gptq else None,
             trust_remote_code=True,
             seed=args.seed,
-        )
+            **kwargs
+        )  # type: ignore
         self.tokenizer = self.model.get_tokenizer()
         self.tokenizer.truncation_side = "left"
         self.tokenizer.model_max_length = min(
             self.model.llm_engine.model_config.max_model_len,
             getattr(args, "max_length") or 1e10
         )
+        if args.chat_template is not None:
+            self.tokenizer.chat_template = args.chat_template
+
+    def is_legacy_vllm(self):
+        return self.vllm_version < "0.4.0"
 
     def set_ppl_args(self, **extra_model_args):
         self.ppl_kwargs = SamplingParams(max_tokens=1, prompt_logprobs=0)
@@ -70,15 +86,15 @@ class vllmModel(Model):
 
     def get_ppl(self, batched_inputs):
         prompt = [src + tgt for src, tgt in batched_inputs]
-        return_offsets_mapping = True if isinstance(self.tokenizer, PreTrainedTokenizerFast) else False
         batched_encodings = self.tokenizer(
-            prompt, truncation=True, return_offsets_mapping=return_offsets_mapping, return_attention_mask=False
+            prompt, truncation=True, return_offsets_mapping=self.tokenizer.is_fast, return_attention_mask=False
         )
         results = self.model.generate(prompt_token_ids=batched_encodings.input_ids, sampling_params=self.ppl_kwargs)
 
         ppls = []
         tgt_st_eds = []
-        if return_offsets_mapping:
+        if self.tokenizer.is_fast:
+            # TODO: use `batched_encodings.char_to_token()` instead of `offset_mapping`
             for (src, _), offset in zip(batched_inputs, batched_encodings.offset_mapping):
                 # for GPT-NeoX, Pythia, and MPT, their offset of "I am" is (0, 1), (2, 4) rather than (0, 1), (1, 4)
                 offset = [
@@ -95,7 +111,10 @@ class vllmModel(Model):
                 tgt_st_eds.append((len(src_input_ids), len(input_ids)))
 
         for result, (tgt_start, tgt_end) in zip(results, tgt_st_eds):
-            ppl = [next(iter(r.values())) if r else None for r in result.prompt_logprobs]
+            if self.is_legacy_vllm():
+                ppl = [next(iter(r.values())) if r else None for r in result.prompt_logprobs]
+            else:
+                ppl = [next(iter(r.values())).logprob if r else None for r in result.prompt_logprobs]
             ppl = -sum(ppl[tgt_start:])
             ppls.append((ppl, tgt_end - tgt_start))
         return ppls

@@ -18,9 +18,9 @@ class Anthropic(Model):
     We now support Claude (`claude-2.1`) and Claude Instant (`claude-instant-1.2`).
     """
 
-    backend = "anthropic"
+    model_backend = "anthropic"
 
-    _repr = ["type", "backend", "multi_turn"]
+    _repr = ["type", "model_backend", "multi_turn"]
 
     def __init__(self, args: ModelArguments):
         super().__init__(args)
