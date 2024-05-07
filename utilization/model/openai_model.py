@@ -36,7 +36,10 @@ class Openai(Model):
         self.args = args
         self.name = args.model_name_or_path
         self.is_chat_model = self.name in OPENAI_CHAT_MODELS
-        self.tokenizer = tiktoken.get_encoding(args.tokenizer_name_or_path)
+        try:
+            self.tokenizer = tiktoken.get_encoding(args.tokenizer_name_or_path)
+        except Exception as e:
+            logger.warning(f"Failed to load tokenizer from `{args.tokenizer_name_or_path}`. Please specify a valid tokenizer through `--tokenizer`.")
         self.max_try_times = 5
 
     def set_ppl_args(self, **extra_model_args):
