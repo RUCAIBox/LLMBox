@@ -1,6 +1,7 @@
 import argparse
 import json
 import os
+import re
 import sys
 import typing
 from copy import copy
@@ -12,7 +13,8 @@ import tiktoken
 from transformers import BitsAndBytesConfig
 from transformers.hf_argparser import HfArg, HfArgumentParser
 
-from ..model.enum import ANTHROPIC_MODELS, DASHSCOPE_MODELS, OPENAI_CHAT_MODELS, OPENAI_MODELS, QIANFAN_MODELS, OPENAI_INSTRUCTION_MODELS
+from ..model.enum import (ANTHROPIC_MODELS, DASHSCOPE_MODELS, OPENAI_CHAT_MODELS, OPENAI_INSTRUCTION_MODELS,
+                          OPENAI_MODELS, QIANFAN_MODELS)
 from .logging import filter_none_repr, get_redacted, list_datasets, log_levels, passed_in_commandline, set_logging
 
 logger = getLogger(__name__)
