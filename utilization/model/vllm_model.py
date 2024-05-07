@@ -38,14 +38,13 @@ class vllmModel(Model):
 
     model_backend = "vllm"
 
-    _repr = ["type", "model_backend", "candidate_ids"]
+    _repr = ["model_type", "model_backend", "candidate_ids"]
 
     def __init__(self, args: "ModelArguments", **kwargs):
         super().__init__(args)
         self.args = args
 
         logger.info(f"Trying to load {args.model_name_or_path} using vllm...")
-        self.type = args.model_type
         self.vllm_version = vllm.__version__
         if args.prefix_caching:
             if self.is_legacy_vllm():
@@ -151,7 +150,7 @@ class vllmModel(Model):
         return self.generation_kwargs
 
     def generation(self, batched_inputs) -> List[str]:
-        if self.type == "chat":
+        if self.model_type == "chat":
             chats = [[{"role": "user", "content": prompt}] for prompt in batched_inputs]
             batched_inputs = [
                 self.tokenizer.apply_chat_template(chat, tokenize=False, add_generation_prompt=True) for chat in chats

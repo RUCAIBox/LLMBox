@@ -22,7 +22,7 @@ class Dashscope(Model):
 
     model_backend = "dashscope"
 
-    _repr = ["type", "model_backend", "multi_turn"]
+    _repr = ["model_type", "model_backend", "multi_turn"]
 
     def __init__(self, args: ModelArguments):
         super().__init__(args)
@@ -36,7 +36,7 @@ class Dashscope(Model):
 
         self.args = args
         self.name = args.model_name_or_path
-        self.type = "instruction"
+        self.model_type = "instruction"
         self.tokenizer = dashscope.get_tokenizer(args.tokenizer_name_or_path)
         self.max_try_times = 10
 

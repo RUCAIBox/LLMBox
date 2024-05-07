@@ -135,7 +135,7 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
         self.globale = args.globale
         self.ape = args.ape
         self.ranking_type = args.ranking_type
-        self.model_type = self.model.type
+        self.model_type = self.model.model_type
         self.prefix_caching = self.model.args.prefix_caching
         self.instance_format = "{source}{target}"
         if args.instruction:

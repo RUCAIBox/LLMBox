@@ -12,7 +12,7 @@ import tiktoken
 from transformers import BitsAndBytesConfig
 from transformers.hf_argparser import HfArg, HfArgumentParser
 
-from ..model.enum import ANTHROPIC_MODELS, DASHSCOPE_MODELS, OPENAI_CHAT_MODELS, OPENAI_MODELS, QIANFAN_MODELS
+from ..model.enum import ANTHROPIC_MODELS, DASHSCOPE_MODELS, OPENAI_CHAT_MODELS, OPENAI_MODELS, QIANFAN_MODELS, OPENAI_INSTRUCTION_MODELS
 from .logging import filter_none_repr, get_redacted, list_datasets, log_levels, passed_in_commandline, set_logging
 
 logger = getLogger(__name__)
@@ -260,6 +260,7 @@ class ModelArguments(ModelBackendMixin):
                 )
             if self.tokenizer_name_or_path is None:
                 self.tokenizer_name_or_path = tiktoken.encoding_name_for_model(self.model_name_or_path)
+            auto_model_type = "instruction" if self.model_name_or_path in OPENAI_INSTRUCTION_MODELS else "base"
 
         # set `self.anthropic_api_key` from environment variables
         if "ANTHROPIC_API_KEY" in os.environ and self.anthropic_api_key is None:
@@ -271,6 +272,7 @@ class ModelArguments(ModelBackendMixin):
                 )
             if self.tokenizer_name_or_path is None:
                 self.tokenizer_name_or_path = "cl100k_base"
+            auto_model_type = "instruction"
 
         # set `self.dashscope_api_key` from environment variables
         if "DASHSCOPE_API_KEY" in os.environ and self.dashscope_api_key is None:
@@ -282,6 +284,7 @@ class ModelArguments(ModelBackendMixin):
                 )
             if self.tokenizer_name_or_path is None:
                 self.tokenizer_name_or_path = self.model_name_or_path
+            auto_model_type = "instruction"
 
         # set `self.qianfan_access_key` and `self.qianfan_secret_key` from environment variables
         if "QIANFAN_ACCESS_KEY" in os.environ and self.qianfan_access_key is None:
@@ -295,15 +298,31 @@ class ModelArguments(ModelBackendMixin):
                 )
             if self.tokenizer_name_or_path is None:
                 self.tokenizer_name_or_path = "cl100k_base"
+            auto_model_type = "instruction"
 
-        if self.is_huggingface_model():
-            if "chat" in self.model_name_or_path and self.model_type != "chat":
-                logger.warning(
-                    f"Model {self.model_name_or_path} seems to be a chat-based model, you can set --model_type to `chat` to use chat format."
-                )
+        if self.is_local_model():
+            if self.model_type == "chat":
+                if not re.serach(r"chat|instruct", self.model_name_or_path.lower()):
+                    logger.warning(
+                        f"Model {self.model_name_or_path} seems to be a base model, you can set --model_type to `base` or `instruction` to use base format."
+                    )
+            else:
+                if re.search(r"chat|instruct", self.model_name_or_path.lower()):
+                    logger.warning(
+                        f"Model {self.model_name_or_path} seems to be a chat-based model, you can set --model_type to `chat` to use chat format."
+                    )
+            auto_model_type = "base"
 
         if self.tokenizer_name_or_path is None:
             self.tokenizer_name_or_path = self.model_name_or_path
+
+        if self.model_type is None:
+            self.model_type = auto_model_type
+
+        if self.model_type != auto_model_type and not self.is_local_model():
+            logger.warning(
+                f"Model {self.model_name_or_path} seems to be a {auto_model_type} model, but get model_type {self.model_type}."
+            )
 
         if not self.is_local_model():
             self.vllm = False

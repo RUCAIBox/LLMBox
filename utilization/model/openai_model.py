@@ -35,7 +35,6 @@ class Openai(Model):
 
         self.args = args
         self.name = args.model_name_or_path
-        self.model_type = args.model_type
         self.is_chat_model = self.name in OPENAI_CHAT_MODELS
         self.tokenizer = tiktoken.get_encoding(args.tokenizer_name_or_path)
         self.max_try_times = 5
@@ -229,13 +228,17 @@ class Openai(Model):
         **kwargs
     ) -> List[dict]:
         # reference: https://platform.openai.com/docs/api-reference/completions/create
-        return openai.completions.create(
+        results = openai.completions.create(
             model=self.name,
             prompt=prompt,
             logit_bias=logit_bias,
             logprobs=logprobs,
             **kwargs,
-        ).choices
+        )
+        if hasattr(results, "choices"):
+            return results.choices
+        else:
+            raise ValueError(f"Unexpected response from OpenAI API: {results}")
 
     def request(
         self,
