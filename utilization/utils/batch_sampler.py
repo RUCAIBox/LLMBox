@@ -46,10 +46,19 @@ class AutoBatchSizeSampler(Sampler[List[int]]):
         self.auto_batch_size = auto_batch_size
         self.first_max_len = None
         self.data_order = [[]]
-        for i in range(total):
-            self.data_order[-1].append(i)
-            if self.check_new_batch(self.data_order[-1], i + 1):
-                self.data_order.append([])
+
+        if not self.auto_batch_size:
+            for i in range(0, total, self.batch_size):
+                self.data_order[-1].extend(range(i, min(i + self.batch_size, total)))
+                if len(self.data_order[-1]) == self.batch_size:
+                    self.data_order.append([])
+        else:
+            for i in range(total):
+                self.data_order[-1].append(i)
+                if self.check_new_batch(self.data_order[-1], i + 1):
+                    self.data_order.append([])
+        if self.data_order[-1] == []:
+            self.data_order.pop()
 
     def check_new_batch(self, queries: List[int], next_data: int) -> bool:
         """Check the condition to start a new batch."""

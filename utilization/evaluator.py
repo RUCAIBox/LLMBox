@@ -25,7 +25,8 @@ class Evaluator:
         dataset (Dataset): Our class for dataset.
     """
 
-    def __init__(self, args: Tuple[ModelArguments, DatasetArguments, EvaluationArguments]):
+    def __init__(self, args: Tuple[ModelArguments, DatasetArguments,
+                                   EvaluationArguments]):
         model_args, dataset_args, evaluation_args = args
         self.model_args = model_args
         self.dataset_args = dataset_args
@@ -34,7 +35,8 @@ class Evaluator:
         set_seed(self.evaluation_args.seed)
 
         self.model = load_model(self.model_args)
-        self.writer = PredictionWriter(self.dataset_args.evaluation_results_path)
+        self.writer = PredictionWriter(
+            self.dataset_args.evaluation_results_path)
         self.dataset = load_datasets(self.dataset_args, self.model)
 
     @catch_error
@@ -52,7 +54,8 @@ class Evaluator:
             self.model.generation = lambda x: [""] * len(x)
             self.model.get_prob = lambda x: [[1 / p[1]] * p[1] for p in x]
 
-        batch_sampler = self.dataset.get_batch_sampler(self.evaluation_args.dataloader_workers > 0)
+        batch_sampler = self.dataset.get_batch_sampler(
+            self.evaluation_args.dataloader_workers > 0)
         dataloader = DataLoader(
             self.dataset,
             collate_fn=lambda x: x,
@@ -91,20 +94,27 @@ class Evaluator:
 
         # post processing and self-consistency
         predictions = self.dataset.post_processing(raw_predictions)
-        if len(predictions) != self.dataset.len(option_num=False, normalization=False):
+        if len(predictions) != self.dataset.len(option_num=False,
+                                                normalization=False):
             raise RuntimeError(
                 f"The number of results {len(predictions)} should be equal to the number of samples in the dataset {self.dataset.len(option_num=False, normalization=False)}."
             )
 
-        step = self.dataset.len(option_num=False, sample_num=False, normalization=False)
+        step = self.dataset.len(option_num=False,
+                                sample_num=False,
+                                normalization=False)
         if self.dataset_args.pass_at_k:
             mode_predictions = [predictions[i::step] for i in range(step)]
         else:
-            mode_predictions = [mode(predictions[i::step]) for i in range(step)]
+            mode_predictions = [
+                mode(predictions[i::step]) for i in range(step)
+            ]
 
         # calculate metric
-        metric_results, last_score_lists = self.dataset.calculate_metric(mode_predictions)
-        self.dataset.log_final_results(raw_predictions, predictions, last_score_lists)
+        metric_results, last_score_lists = self.dataset.calculate_metric(
+            mode_predictions)
+        self.dataset.log_final_results(raw_predictions, predictions,
+                                       last_score_lists)
         msg = f"Evaluation finished successfully:\nevaluation results: {self.dataset_args.evaluation_results_path}"
         for dataset_name, result in metric_results.items():
             if result is None:

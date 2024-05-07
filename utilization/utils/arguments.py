@@ -8,7 +8,6 @@ from dataclasses import MISSING, dataclass
 from logging import getLogger
 from typing import ClassVar, Dict, List, Literal, Optional, Set, Tuple, Union
 
-import openai
 import tiktoken
 from transformers import BitsAndBytesConfig
 from transformers.hf_argparser import HfArg, HfArgumentParser
@@ -61,7 +60,7 @@ class ModelArguments(ModelBackendMixin):
         help="The model name or path, e.g., davinci-002, meta-llama/Llama-2-7b-hf, ./mymodel",
     )
     model_type: str = HfArg(
-        default="base",
+        default="instruction",
         help="The type of the model, which can be chosen from `base` or `instruction`.",
         metadata={"choices": ["base", "instruction", "chat"]},
     )
@@ -252,6 +251,7 @@ class ModelArguments(ModelBackendMixin):
         if "OPENAI_API_KEY" in os.environ and self.openai_api_key is None:
             self.openai_api_key = os.environ["OPENAI_API_KEY"]
         if self.openai_api_key is not None:
+            import openai
             openai.api_key = self.openai_api_key
         if self.is_openai_model():
             if self.openai_api_key is None:
@@ -369,9 +369,8 @@ class DatasetArguments:
         help="The set name for demonstration, supporting slice, e.g., train, dev, train[:10]",
     )
 
-    instance_format: str = HfArg(
-        aliases=["-fmt"],
-        default="{source}{target}",
+    instruction: Optional[str] = HfArg(
+        default=None,
         help="The format to format the `source` and `target` for each instance",
     )
 
@@ -436,7 +435,8 @@ class DatasetArguments:
                 self.subset_names = set(subset_names.split(","))
 
         # argparse encodes string with unicode_escape, decode it to normal string, e.g., "\\n" -> "\n"
-        self.instance_format = self.instance_format.encode('utf-8').decode('unicode_escape')
+        if isinstance(self.instruction, str):
+            self.instruction = self.instruction.encode('utf-8').decode('unicode_escape')
 
         if isinstance(self.batch_size, str):
             if self.batch_size.endswith(":auto") and self.batch_size[:-len(":auto")].isdigit():
@@ -513,6 +513,9 @@ def check_args(model_args: ModelArguments, dataset_args: DatasetArguments, evalu
     dataset_args.dataset_threading = evaluation_args.dataset_threading
 
     model_args.seed = evaluation_args.seed
+
+    if dataset_args.batch_size == 1:
+        model_args.prefix_caching = False
 
     # check models
     if model_args.model_name_or_path.lower() in OPENAI_CHAT_MODELS and dataset_args.batch_size > 1:
