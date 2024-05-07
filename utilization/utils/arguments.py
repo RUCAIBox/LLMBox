@@ -1,6 +1,7 @@
 import argparse
 import json
 import os
+import re
 import sys
 import typing
 from copy import copy
@@ -8,12 +9,12 @@ from dataclasses import MISSING, dataclass
 from logging import getLogger
 from typing import ClassVar, Dict, List, Literal, Optional, Set, Tuple, Union
 
-import openai
 import tiktoken
 from transformers import BitsAndBytesConfig
 from transformers.hf_argparser import HfArg, HfArgumentParser
 
-from ..model.enum import ANTHROPIC_MODELS, DASHSCOPE_MODELS, OPENAI_CHAT_MODELS, OPENAI_MODELS, QIANFAN_MODELS
+from ..model.enum import (ANTHROPIC_MODELS, DASHSCOPE_MODELS, OPENAI_CHAT_MODELS, OPENAI_INSTRUCTION_MODELS,
+                          OPENAI_MODELS, QIANFAN_MODELS)
 from .logging import filter_none_repr, get_redacted, list_datasets, log_levels, passed_in_commandline, set_logging
 
 logger = getLogger(__name__)
@@ -26,15 +27,42 @@ else:
     batch_size_type = str
 
 
+class ModelBackendMixin:
+
+    model_backend: Literal["anthropic", "dashscope", "huggingface", "openai", "qianfan", "vllm"]
+
+    def is_openai_model(self) -> bool:
+        return self.model_backend == "openai"
+
+    def is_anthropic_model(self) -> bool:
+        return self.model_backend == "anthropic"
+
+    def is_dashscope_model(self) -> bool:
+        return self.model_backend == "dashscope"
+
+    def is_qianfan_model(self) -> bool:
+        return self.model_backend == "qianfan"
+
+    def is_huggingface_model(self) -> bool:
+        return self.model_backend == "huggingface"
+
+    def is_vllm_model(self) -> bool:
+        return self.model_backend == "vllm"
+
+    def is_local_model(self) -> bool:
+        """Backed by Huggingface or vLLM model."""
+        return self.is_huggingface_model() or self.is_vllm_model()
+
+
 @dataclass
-class ModelArguments:
+class ModelArguments(ModelBackendMixin):
     model_name_or_path: str = HfArg(
         default=MISSING,
         aliases=["--model", "-m"],
         help="The model name or path, e.g., davinci-002, meta-llama/Llama-2-7b-hf, ./mymodel",
     )
     model_type: str = HfArg(
-        default="base",
+        default="instruction",
         help="The type of the model, which can be chosen from `base` or `instruction`.",
         metadata={"choices": ["base", "instruction", "chat"]},
     )
@@ -47,7 +75,7 @@ class ModelArguments:
         help="The device map for model and data",
     )
     prefix_caching: bool = HfArg(
-        default=True,
+        default=None,
         help="Whether to cache prefix in get_ppl mode",
     )
     vllm: bool = HfArg(
@@ -148,7 +176,7 @@ class ModelArguments:
         default="",
         help="The system prompt for chat-based models",
     )
-    chat_template: str = HfArg(
+    chat_template: Optional[str] = HfArg(
         default=None,
         help="The chat template for huggingface chat-based models",
     )
@@ -171,11 +199,12 @@ class ModelArguments:
     )
 
     vllm_gpu_memory_utilization: float = HfArg(
+        aliases=["--vllm_mem"],
         default=None,
         help="The maximum gpu memory utilization of vllm.",
     )
 
-    torch_dtype: Literal["float16", "bfloat16", "float32"] = HfArg(
+    torch_dtype: Literal["float16", "bfloat16", "float32", "auto"] = HfArg(
         default="float16",
         help="The torch dtype for model input and output",
     )
@@ -197,33 +226,12 @@ class ModelArguments:
         "dashscope": {"dashscope_api_key"},
         "openai": set(),  # openai model is used for gpt-eval metrics, not specific arguments
         "qianfan": {"qianfan_access_key", "qianfan_secret_key"},
-        "vllm": {"vllm", "flash_attention", "gptq", "vllm_gpu_memory_utilization"},
+        "vllm": {"vllm", "prefix_caching", "flash_attention", "gptq", "vllm_gpu_memory_utilization", "chat_template"},
         "huggingface": {
-            "device_map", "prefix_caching", "vllm", "flash_attention", "bnb_config", "load_in_8bit", "load_in_4bit",
-            "gptq", "vllm_gpu_memory_utilization", "chat_template"
+            "device_map", "vllm", "prefix_caching", "flash_attention", "bnb_config", "load_in_8bit", "load_in_4bit",
+            "gptq", "chat_template"
         },
     }
-
-    def is_openai_model(self) -> bool:
-        return self.model_backend == "openai"
-
-    def is_anthropic_model(self) -> bool:
-        return self.model_backend == "anthropic"
-
-    def is_dashscope_model(self) -> bool:
-        return self.model_backend == "dashscope"
-
-    def is_qianfan_model(self) -> bool:
-        return self.model_backend == "qianfan"
-
-    def is_huggingface_model(self) -> bool:
-        return self.model_backend == "huggingface"
-
-    def is_vllm_model(self) -> bool:
-        return self.model_backend == "vllm"
-
-    def is_local_model(self) -> bool:
-        return self.is_huggingface_model() or self.is_vllm_model()
 
     def __post_init__(self):
         # set _model_impl first
@@ -245,6 +253,7 @@ class ModelArguments:
         if "OPENAI_API_KEY" in os.environ and self.openai_api_key is None:
             self.openai_api_key = os.environ["OPENAI_API_KEY"]
         if self.openai_api_key is not None:
+            import openai
             openai.api_key = self.openai_api_key
         if self.is_openai_model():
             if self.openai_api_key is None:
@@ -253,6 +262,7 @@ class ModelArguments:
                 )
             if self.tokenizer_name_or_path is None:
                 self.tokenizer_name_or_path = tiktoken.encoding_name_for_model(self.model_name_or_path)
+            auto_model_type = "instruction" if self.model_name_or_path in OPENAI_INSTRUCTION_MODELS else "base"
 
         # set `self.anthropic_api_key` from environment variables
         if "ANTHROPIC_API_KEY" in os.environ and self.anthropic_api_key is None:
@@ -264,6 +274,7 @@ class ModelArguments:
                 )
             if self.tokenizer_name_or_path is None:
                 self.tokenizer_name_or_path = "cl100k_base"
+            auto_model_type = "instruction"
 
         # set `self.dashscope_api_key` from environment variables
         if "DASHSCOPE_API_KEY" in os.environ and self.dashscope_api_key is None:
@@ -275,6 +286,7 @@ class ModelArguments:
                 )
             if self.tokenizer_name_or_path is None:
                 self.tokenizer_name_or_path = self.model_name_or_path
+            auto_model_type = "instruction"
 
         # set `self.qianfan_access_key` and `self.qianfan_secret_key` from environment variables
         if "QIANFAN_ACCESS_KEY" in os.environ and self.qianfan_access_key is None:
@@ -288,15 +300,31 @@ class ModelArguments:
                 )
             if self.tokenizer_name_or_path is None:
                 self.tokenizer_name_or_path = "cl100k_base"
+            auto_model_type = "instruction"
 
-        if self.is_huggingface_model():
-            if "chat" in self.model_name_or_path and self.model_type != "chat":
-                logger.warning(
-                    f"Model {self.model_name_or_path} seems to be a chat-based model, you can set --model_type to `chat` to use chat format."
-                )
+        if self.is_local_model():
+            if self.model_type == "chat":
+                if not re.serach(r"chat|instruct", self.model_name_or_path.lower()):
+                    logger.warning(
+                        f"Model {self.model_name_or_path} seems to be a base model, you can set --model_type to `base` or `instruction` to use base format."
+                    )
+            else:
+                if re.search(r"chat|instruct", self.model_name_or_path.lower()):
+                    logger.warning(
+                        f"Model {self.model_name_or_path} seems to be a chat-based model, you can set --model_type to `chat` to use chat format."
+                    )
+            auto_model_type = "base"
 
         if self.tokenizer_name_or_path is None:
             self.tokenizer_name_or_path = self.model_name_or_path
+
+        if self.model_type is None:
+            self.model_type = auto_model_type
+
+        if self.model_type != auto_model_type and not self.is_local_model():
+            logger.warning(
+                f"Model {self.model_name_or_path} seems to be a {auto_model_type} model, but get model_type {self.model_type}."
+            )
 
         if not self.is_local_model():
             self.vllm = False
@@ -305,6 +333,10 @@ class ModelArguments:
 
         if self.vllm:
             self.vllm_gpu_memory_utilization = 0.9
+
+        if self.prefix_caching is None:
+            # prefix caching of vllm is still experimental
+            self.prefix_caching = not self.vllm
 
         if self.model_type != "chat":
             if self.system_prompt:
@@ -358,9 +390,8 @@ class DatasetArguments:
         help="The set name for demonstration, supporting slice, e.g., train, dev, train[:10]",
     )
 
-    instance_format: str = HfArg(
-        aliases=["-fmt"],
-        default="{source}{target}",
+    instruction: Optional[str] = HfArg(
+        default=None,
         help="The format to format the `source` and `target` for each instance",
     )
 
@@ -425,7 +456,8 @@ class DatasetArguments:
                 self.subset_names = set(subset_names.split(","))
 
         # argparse encodes string with unicode_escape, decode it to normal string, e.g., "\\n" -> "\n"
-        self.instance_format = self.instance_format.encode('utf-8').decode('unicode_escape')
+        if isinstance(self.instruction, str):
+            self.instruction = self.instruction.encode('utf-8').decode('unicode_escape')
 
         if isinstance(self.batch_size, str):
             if self.batch_size.endswith(":auto") and self.batch_size[:-len(":auto")].isdigit():
@@ -503,6 +535,9 @@ def check_args(model_args: ModelArguments, dataset_args: DatasetArguments, evalu
 
     model_args.seed = evaluation_args.seed
 
+    if dataset_args.batch_size == 1:
+        model_args.prefix_caching = False
+
     # check models
     if model_args.model_name_or_path.lower() in OPENAI_CHAT_MODELS and dataset_args.batch_size > 1:
         dataset_args.batch_size = 1
@@ -526,7 +561,9 @@ def check_args(model_args: ModelArguments, dataset_args: DatasetArguments, evalu
         )
 
     # vllm has its own prefix caching mechanism
-    if model_args.prefix_caching and "expandable_segments" not in os.environ.get("PYTORCH_CUDA_ALLOC_CONF", ""):
+    if model_args.prefix_caching and "expandable_segments" not in os.environ.get(
+        "PYTORCH_CUDA_ALLOC_CONF", ""
+    ) and model_args.is_huggingface_model():
         logger.warning(
             f"Prefix caching might results in cuda memory fragmentation, which can be mitigated by setting `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True`. See https://pytorch.org/docs/stable/notes/cuda.html#environment-variables for details."
         )

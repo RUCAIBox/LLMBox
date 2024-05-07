@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Tuple, Uni
 from tiktoken import Encoding
 from transformers import PreTrainedModel, PreTrainedTokenizer, PreTrainedTokenizerFast
 
+from ..utils.arguments import ModelBackendMixin
 from ..utils.prefix_caching import Cacher
 
 if TYPE_CHECKING:
@@ -14,7 +15,7 @@ if TYPE_CHECKING:
 logger = getLogger(__name__)
 
 
-class Model:
+class Model(ModelBackendMixin):
     r"""The base model object for all models.
 
     Args:
@@ -22,15 +23,14 @@ class Model:
 
     Attributes:
         name (str): The name of this model.
-        type (str): The type of this model, which can be chosen from `base` and `instruction`.
+        model_type (str): The type of this model, which can be chosen from `base` and `instruction`.
         tokenizer (Union[transformers.PreTrainedTokenizer, PreTrainedTokenizerFast, tiktoken.Encoding]): The tokenizer of this model.
         max_tokens (int): The maximum token length of this model.
         generation_kwargs (dict): The configurations for open-ended generation.
         ppl_kwargs (dict, *optional*): The configurations for computing PPL score.
     """
     name = ""
-    type = ""
-    backend: Literal["anthropic", "dashscope", "huggingface", "openai", "qianfan", "vllm"]
+    model_backend: Literal["anthropic", "dashscope", "huggingface", "openai", "qianfan", "vllm"]
 
     model: Union[PreTrainedModel, "LLM", None] = None
     tokenizer: Union[PreTrainedTokenizer, PreTrainedTokenizerFast, Encoding]
@@ -41,6 +41,7 @@ class Model:
     def __init__(self, args: "ModelArguments"):
         self.args = args
         self.name = args.model_name_or_path
+        self.model_type = args.model_type
 
     def set_cacher(self, cacher: Any = None):
         r"""Set the cacher for this model. The cacher is used to cache the generated results for the model."""

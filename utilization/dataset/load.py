@@ -5,7 +5,6 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from logging import getLogger
 from typing import TYPE_CHECKING, Dict, Iterator, List, Set, Type
 
-import openai
 from datasets import DownloadConfig, get_dataset_config_names
 from tqdm import tqdm
 
@@ -82,10 +81,12 @@ def get_subsets(
                 s = []
 
             for m in getattr(dataset_cls, "metrics", []):
-                if isinstance(m, GPTEval) and openai.api_key is None:
-                    raise ValueError(
-                        "OpenAI API key is required for GPTEval metrics. Please set it by passing a `--openai_api_key` or through environment variable `OPENAI_API_KEY`."
-                    )
+                if isinstance(m, GPTEval):
+                    import openai
+                    if openai.api_key is None:
+                        raise ValueError(
+                            "OpenAI API key is required for GPTEval metrics. Please set it by passing a `--openai_api_key` or through environment variable `OPENAI_API_KEY`."
+                        )
                 if isinstance(m, PassAtK) and args.pass_at_k is None:
                     raise ValueError(
                         "PassAtK metric requires `--pass_at_k` argument to be set. Please set it to a valid integer."
@@ -216,11 +217,11 @@ def load_dataset(dataset_name: str,
 @catch_error
 def load_datasets(args: "DatasetArguments", model: "Model") -> DatasetCollection:
 
-    if model.backend == "vllm":
+    if model.model_backend == "vllm":
         args.batch_size = -1
         logger.info("Setting batch_size to -1, since vllm can automatically planning the optimal batch and order.")
 
-    if model.args.prefix_caching and model.backend != "huggingface":
+    if model.args.prefix_caching and model.model_backend != "huggingface":
         logger.warning(
             "Prefix caching is only available for HuggingFaceModel. Automatically set prefix_caching to False"
         )

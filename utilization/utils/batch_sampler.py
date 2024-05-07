@@ -22,8 +22,18 @@ def info_dataset_group(
         instances += d.len(False, False, False)
         logger.debug(d)
     kwargs_name = d.model_evaluation_method.split("_")[-1] + "_kwargs"
+    real_shots = [d.real_num_shots for d in dataset_group if d.real_num_shots is not None]
+    if real_shots:
+        min_num_shots = min(real_shots)
+        max_num_shots = max(real_shots)
+        if min_num_shots != max_num_shots:
+            num_shots = f"{min_num_shots}-{max_num_shots}"
+        else:
+            num_shots = str(min_num_shots)
+    else:
+        num_shots = "None"
     logger.info(
-        f"Evaluating {d.model_evaluation_method} on {d.name}{subset_str} (model_attr={model_attr}, {kwargs_name}={model_kwargs}, len={group_length}, num_instances={instances}, use_cache={use_cache})"
+        f"Evaluating {d.model_evaluation_method} on {d.name}{subset_str} (model_attr={model_attr}, {kwargs_name}={model_kwargs}, num_shots={num_shots}, len={group_length}, num_instances={instances}, use_cache={use_cache})"
     )
     logger.debug(f"Datasets: {d.name}{subset_names}")
 
@@ -36,10 +46,19 @@ class AutoBatchSizeSampler(Sampler[List[int]]):
         self.auto_batch_size = auto_batch_size
         self.first_max_len = None
         self.data_order = [[]]
-        for i in range(total):
-            self.data_order[-1].append(i)
-            if self.check_new_batch(self.data_order[-1], i + 1):
-                self.data_order.append([])
+
+        if not self.auto_batch_size:
+            for i in range(0, total, self.batch_size):
+                self.data_order[-1].extend(range(i, min(i + self.batch_size, total)))
+                if len(self.data_order[-1]) == self.batch_size:
+                    self.data_order.append([])
+        else:
+            for i in range(total):
+                self.data_order[-1].append(i)
+                if self.check_new_batch(self.data_order[-1], i + 1):
+                    self.data_order.append([])
+        if self.data_order[-1] == []:
+            self.data_order.pop()
 
     def check_new_batch(self, queries: List[int], next_data: int) -> bool:
         """Check the condition to start a new batch."""
@@ -91,6 +110,7 @@ class DatasetCollectionBatchSampler(Sampler[List[int]]):
         last_hash = None
         model = dataset_collection._datasets[0].model
         for dataset in dataset_collection._datasets:
+            # check if the model arguments has changed
             cur_hash = (dataset._extra_model_args.items(), dataset.model_evaluation_method, dataset.total_prefix_num)
             if cur_hash != last_hash:
 
@@ -129,7 +149,7 @@ class DatasetCollectionBatchSampler(Sampler[List[int]]):
                 model.set_cacher(sampler)
                 yield from sampler
             else:
-                # disaable prefix_caching
+                # disable prefix_caching
                 model.use_cache = False
                 # dynamic batch size for vLLM
                 yield from AutoBatchSizeSampler(

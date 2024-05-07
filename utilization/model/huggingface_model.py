@@ -35,7 +35,7 @@ def load_tokenizer(tokenizer_name_or_path: str, use_fast: bool, max_length: int 
 
     # TODO: [Important]!!! check for each tokenizer
     if tokenizer.pad_token is None:
-        if "llama2" in tokenizer_name_or_path.lower().replace("_", "").replace("-", ""):
+        if "llama" in tokenizer_name_or_path.lower().replace("_", "").replace("-", ""):
             # https://github.com/meta-llama/llama/issues/380#issuecomment-1729077205
             tokenizer.pad_token = tokenizer.bos_token
         else:
@@ -106,22 +106,22 @@ def load_hf_model(args: ModelArguments) -> Tuple[PreTrainedModel, Union[PreTrain
 
 class HuggingFaceModel(Model):
 
-    backend = "huggingface"
+    model_backend = "huggingface"
 
     model: PreTrainedModel
 
     _repr = [
-        "type", "backend", "model_max_input", "model_max_input_and_output", "system_prompt", "multi_turn",
+        "model_type", "model_backend", "model_max_input", "model_max_input_and_output", "system_prompt", "multi_turn",
         "candidate_ids", "use_cache"
     ]
 
     def __init__(self, args: ModelArguments):
         super().__init__(args)
         self.args = args
-        self.type = args.model_type
-        if self.type not in {"base", "instruction", "chat"}:
+        self.model_type = args.model_type
+        if self.model_type not in {"base", "instruction", "chat"}:
             raise ValueError(
-                f"Invalid model type: {self.type}. Please use `--model_type` to specify the"
+                f"Invalid model type: {self.model_type}. Please use `--model_type` to specify the"
                 " model type, which can be chosen from `base` and `instruction`."
             )
 
@@ -544,7 +544,7 @@ class HuggingFaceModel(Model):
 
         self.multi_turn = extra_model_args.pop("multi_turn", False)
 
-        if self.type != "chat":
+        if self.model_type != "chat":
             if self.multi_turn:
                 raise ValueError(
                     "The multi_turn is only available for chat-based model. Please use a chat model and set `--model_type chat`."
@@ -600,7 +600,7 @@ class HuggingFaceModel(Model):
             prompts = ["".join(pg[i] for pg in grouped_prompts) for i in range(len(grouped_prompts[0]))]
             cache_level = len(grouped_prompts)
 
-        if self.type == "chat" and self.multi_turn:
+        if self.model_type == "chat" and self.multi_turn:
             batched_mt_inputs = [s.split("__SEPARATOR__") for s in batched_inputs]
             return self._multi_turn_generation(batched_mt_inputs)
         elif use_cache and self.use_cache:
@@ -659,7 +659,7 @@ class HuggingFaceModel(Model):
     def _generation(self, batched_inputs: Union[List[str], List[Conversation]]) -> Union[List[str], List[Conversation]]:
 
         batched_conversations = None
-        if self.type == "chat" and isinstance(batched_inputs[0], Conversation):
+        if self.model_type == "chat" and isinstance(batched_inputs[0], Conversation):
             batched_conversations = batched_inputs
             batched_inputs = [
                 self.tokenizer.apply_chat_template(
@@ -687,7 +687,7 @@ class HuggingFaceModel(Model):
         max_input_length = batched_encodings["input_ids"].size(1)
         answers = self._process_generation_results(batch_outputs[:, max_input_length:])
 
-        if self.type == "chat" and batched_conversations is not None:
+        if self.model_type == "chat" and batched_conversations is not None:
             for conv, answer in zip(batched_conversations, answers):
                 conv.add_message({"role": "assistant", "content": answer})
             answers = batched_conversations

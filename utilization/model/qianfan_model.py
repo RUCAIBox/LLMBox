@@ -20,9 +20,9 @@ class Qianfan(Model):
                    `ERNIE-Lite-8K-0308`, `ERNIE Tiny`, `ERNIE Speed-AppBuilder`.
     """
 
-    backend = "qianfan"
+    model_backend = "qianfan"
 
-    _repr = ["type", "backend", "multi_turn"]
+    _repr = ["model_type", "model_backend", "multi_turn"]
 
     def __init__(self, args: ModelArguments):
         super().__init__(args)
@@ -37,7 +37,6 @@ class Qianfan(Model):
 
         self.args = args
         self.name = args.model_name_or_path
-        self.type = "instruction"
         self.tokenizer = tiktoken.get_encoding(args.tokenizer_name_or_path)
         self.max_try_times = 10
 
