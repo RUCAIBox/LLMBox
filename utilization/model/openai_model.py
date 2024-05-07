@@ -25,22 +25,17 @@ class Openai(Model):
 
     tokenizer: tiktoken.Encoding
 
-    _repr = ["type", "model_backend", "multi_turn", "candidate_ids"]
+    _repr = ["model_type", "model_backend", "multi_turn", "candidate_ids"]
 
     def __init__(self, args: ModelArguments):
         super().__init__(args)
 
-        if openai.__version__ != "0.28.1":
-            logger.warning(
-                f"OpenAI version is {openai.__version__}, not 0.28.1. Please make sure the version is correct."
-            )
-
-        logger.info(f"Trying to load OpenAI model with api_base='{openai.api_base}'")
+        logger.info(f"Trying to load OpenAI model with OPENAI_BASE_URL='{openai.base_url}'")
         self.api_key = openai.api_key  # the actual api key is used in icl
 
         self.args = args
         self.name = args.model_name_or_path
-        self.type = "instruction" if self.name in OPENAI_INSTRUCTION_MODELS else "base"
+        self.model_type = args.model_type
         self.is_chat_model = self.name in OPENAI_CHAT_MODELS
         self.tokenizer = tiktoken.get_encoding(args.tokenizer_name_or_path)
         self.max_try_times = 5
@@ -138,9 +133,9 @@ class Openai(Model):
 
         ppls = []
         for result, (src, _) in zip(results, batched_inputs):
-            tgt_start = max(1, result["logprobs"]["text_offset"].index(len(src)))  # designed for src=''
-            tgt_end = len(result["logprobs"]["text_offset"])
-            ppl = -sum(result["logprobs"]["token_logprobs"][tgt_start:])
+            tgt_start = max(1, result.logprobs.text_offset.index(len(src)))  # designed for src=''
+            tgt_end = len(result.logprobs.text_offset)
+            ppl = -sum(result.logprobs.token_logprobs[tgt_start:])
             ppls.append((ppl, tgt_end - tgt_start))
         return ppls
 
@@ -149,9 +144,9 @@ class Openai(Model):
         answers = []
         for result in results:
             if self.is_chat_model:
-                answer = result[0]["message"]["content"]
+                answer = result[0].message.content
             else:
-                answer = result["text"]
+                answer = result.text
             answers.append(answer)
         return [tuple(answers)] if self.multi_turn else answers
 
@@ -185,12 +180,12 @@ class Openai(Model):
 
                 probs = [-9999.] * (option_num * 2)
                 if self.is_chat_model:
-                    top_logprobs = result["logprobs"]["content"][0]["top_logprobs"]
+                    top_logprobs = result.logprobs.content[0].top_logprobs
                     for token in top_logprobs:
-                        if token["token"] in label:
-                            probs[label.index(token["token"])] = token["logprob"]
+                        if token.token in label:
+                            probs[label.index(token.token)] = token.logprob
                 else:
-                    top_logprobs = result["logprobs"]["top_logprobs"][0]
+                    top_logprobs = result.logprobs.top_logprobs[0]
                     for l, p in top_logprobs.items():
                         if l in label:
                             probs[label.index(l)] = p
@@ -198,9 +193,9 @@ class Openai(Model):
             else:
                 probs = [-9999.] * (option_num * 2)
                 if self.is_chat_model:
-                    text = result["message"]["content"]
+                    text = result.message.content
                 else:
-                    text = result["text"]
+                    text = result.text
                 probs[label.index(text)] = 20.0
 
             answers.append(probs)
@@ -216,14 +211,14 @@ class Openai(Model):
         **kwargs
     ) -> List[dict]:
         # reference: https://platform.openai.com/docs/api-reference/chat/create
-        return openai.ChatCompletion.create(
+        return openai.chat.completions.create(
             model=self.name,
             messages=messages,
             logit_bias=logit_bias,
             logprobs=logprobs,
             top_logprobs=top_logprobs,
             **kwargs,
-        )["choices"]
+        ).choices
 
     def _completion(
         self,
@@ -234,13 +229,13 @@ class Openai(Model):
         **kwargs
     ) -> List[dict]:
         # reference: https://platform.openai.com/docs/api-reference/completions/create
-        return openai.Completion.create(
+        return openai.completions.create(
             model=self.name,
             prompt=prompt,
             logit_bias=logit_bias,
             logprobs=logprobs,
             **kwargs,
-        )["choices"]
+        ).choices
 
     def request(
         self,
@@ -284,7 +279,7 @@ class Openai(Model):
                         )
 
                         results.append(msg)
-                        messages.append({"role": "assistant", "content": msg[0]["message"]["content"]})
+                        messages.append({"role": "assistant", "content": msg[0].message.content})
                     return results
                 else:
                     if same_logit_bias:
@@ -295,12 +290,13 @@ class Openai(Model):
                             self._completion(p, logit_bias=lb, **openai_kwargs)[0] for p, lb in zip(prompt, logit_bias)
                         ]
                     return results
-            except openai.error.RateLimitError:
+            # https://platform.openai.com/docs/guides/error-codes/python-library-error-types
+            except openai.RateLimitError:
                 logger.warning("Receive openai.error.RateLimitError, retrying...")
                 time.sleep(10)
-            except openai.error.AuthenticationError as e:
+            except openai.AuthenticationError as e:
                 raise e
-            except openai.error.InvalidRequestError as e:
+            except openai.BadRequestError as e:
                 raise e
             except Exception as e:
                 logger.warning(f"Receive {e.__class__.__name__}: {str(e)}")
