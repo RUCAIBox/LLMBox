@@ -3,8 +3,6 @@ import time
 from logging import getLogger
 
 import numpy as np
-import openai
-from openai.error import InvalidRequestError
 from tqdm import tqdm
 
 from ..model import load_model
@@ -34,6 +32,8 @@ class GPTEval(Metric):
             "GPT-Eval": float
         """
 
+    import openai
+
     def __init__(self, multi_turn=False, type="single"):
         self.multi_turn = multi_turn
         self.type = type
@@ -41,8 +41,7 @@ class GPTEval(Metric):
             model_name_or_path="gpt-3.5-turbo",  # use it to judge the model.
             max_tokens=1024,
             temperature=0,
-            openai_api_key=openai.api_key
-        )
+            openai_api_key=openai.api_key)
         self.min_scoring = 1
         self.max_scoring = 10
 
@@ -57,7 +56,8 @@ class GPTEval(Metric):
         elif self.type == "pairwise":
             ratings = self._get_pairwise_ratings(predictions, references)
         else:
-            raise ValueError(f"{self.type} does not exists, please check the type")
+            raise ValueError(
+                f"{self.type} does not exists, please check the type")
         score_list = np.array(ratings)
         self._last_score_lists = {'GPT-Eval': score_list}
         return {'GPT-Eval': np.mean(score_list)}
@@ -65,17 +65,23 @@ class GPTEval(Metric):
     def _generation(self, prompt):
         try:
             return self.model.generation([prompt])
-        except InvalidRequestError as e:  # continue to generate the response
+        except openai.BadRequestError as e:  # continue to generate the response
             logger.warning(f"Failed to generate GPTEval response: {e}")
             return [str(self.min_scoring)]
 
     def _get_single_ratings(self, predictions, references):
         responses = []
-        for pred, refer in tqdm(zip(predictions, references), desc="Judging", total=len(predictions)):
+        for pred, refer in tqdm(zip(predictions, references),
+                                desc="Judging",
+                                total=len(predictions)):
             if "ref_answer_1" not in refer:
                 user_prompt = SINGLE_JUDGE_PROMPT_MT.format(
-                    question_1=refer["question_1"], answer_1=pred[0], question_2=refer["question_2"], answer_2=pred[1]
-                ) if self.multi_turn else SINGLE_JUDGE_PROMPT.format(question=refer["turns"][0], answer=pred)
+                    question_1=refer["question_1"],
+                    answer_1=pred[0],
+                    question_2=refer["question_2"],
+                    answer_2=pred[1]
+                ) if self.multi_turn else SINGLE_JUDGE_PROMPT.format(
+                    question=refer["turns"][0], answer=pred)
             else:
                 user_prompt = SINGLE_JUDGE_PROMPT_MATH_MT.format(
                     question_1=refer["question_1"],
@@ -85,8 +91,9 @@ class GPTEval(Metric):
                     answer_2=pred[1],
                     ref_answer_2=refer["ref_answer_2"]
                 ) if self.multi_turn else SINGLE_JUDGE_PROMPT_MATH.format(
-                    question=refer["turns"][0], ref_answer_1=refer["ref_answer_1"], answer=pred
-                )
+                    question=refer["turns"][0],
+                    ref_answer_1=refer["ref_answer_1"],
+                    answer=pred)
             responses.extend(self._generation(user_prompt))
 
         ratings = []
@@ -99,18 +106,23 @@ class GPTEval(Metric):
                     break
 
             if rating is not None:
-                ratings.append(min(max(rating, self.min_scoring), self.max_scoring))
+                ratings.append(
+                    min(max(rating, self.min_scoring), self.max_scoring))
             else:
                 ratings.append(self.min_scoring)
-                logger.warning(f"Failed to extract rating from response: {response}")
+                logger.warning(
+                    f"Failed to extract rating from response: {response}")
         return ratings
 
     def _get_pairwise_ratings(self, predictions, references):
         responses = []
-        for pred, refer in tqdm(zip(predictions, references), desc="Judging", total=len(predictions)):
+        for pred, refer in tqdm(zip(predictions, references),
+                                desc="Judging",
+                                total=len(predictions)):
             current_prompt = PAIRWISE_JUDGE_PROMPT.format(
-                question=refer["instruction"], answer_a=refer["output"], answer_b=pred
-            )
+                question=refer["instruction"],
+                answer_a=refer["output"],
+                answer_b=pred)
             responses.extend(self._generation(current_prompt))
             time.sleep(5)
 
@@ -126,6 +138,7 @@ class GPTEval(Metric):
                 else:
                     ratings.append(0.5)
             else:
-                logger.warning(f"Failed to extract rating from response: {response}")
+                logger.warning(
+                    f"Failed to extract rating from response: {response}")
                 ratings.append(0.5)
         return ratings
