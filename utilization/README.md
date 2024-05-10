@@ -350,6 +350,14 @@ Specify the random seed, logging directory, evaluation results directory, and ot
   </tr>
 </table>
 
+For openai-compatible models like [Perplexity](https://docs.perplexity.ai/docs/getting-started), you can use the `--model_backend openai` argument to use openai python library and `OPENAI_BASE_URL` to specify the base URL.
+
+```bash
+OPENAI_BASE_URL=https://api.perplexity.ai python inference.py -m llama-3-sonar-small-32k-chat -d hellaswag --openai_api_key PERPLEXITY_API_KEY --model_backend openai
+```
+
+In some cases (e.g. evaluating with `get_prob`), you may need to specify the `--tokenizer` to load the correct tokenizer
+
 
 ## Customize Model
 

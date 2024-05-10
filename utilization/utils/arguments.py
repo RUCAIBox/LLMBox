@@ -13,8 +13,9 @@ import tiktoken
 from transformers import BitsAndBytesConfig
 from transformers.hf_argparser import HfArg, HfArgumentParser
 
-from ..model.enum import (ANTHROPIC_MODELS, DASHSCOPE_MODELS, OPENAI_CHAT_MODELS, OPENAI_INSTRUCTION_MODELS,
-                          OPENAI_MODELS, QIANFAN_MODELS)
+from ..model.model_enum import (
+    ANTHROPIC_CHAT_COMPLETIONS_ARGS, API_MODELS, DASHSCOPE_CHAT_COMPLETIONS_ARGS, QIANFAN_CHAT_COMPLETIONS_ARGS
+)
 from .logging import filter_none_repr, get_redacted, list_datasets, log_levels, passed_in_commandline, set_logging
 
 logger = getLogger(__name__)
@@ -79,7 +80,7 @@ class ModelArguments(ModelBackendMixin):
         help="Whether to cache prefix in get_ppl mode",
     )
     vllm: bool = HfArg(
-        default=False,
+        default=True,
         help="Whether to use vllm",
     )
     flash_attention: bool = HfArg(
@@ -106,6 +107,10 @@ class ModelArguments(ModelBackendMixin):
     qianfan_secret_key: str = HfArg(
         default=None,
         help="The Qianfan secret key",
+    )
+    api_endpoint: Optional[str] = HfArg(
+        default=None,
+        help="The API endpoint",
     )
 
     tokenizer_name_or_path: str = HfArg(
@@ -171,9 +176,9 @@ class ModelArguments(ModelBackendMixin):
         help="Positive values encourage longer sequences, vice versa. Used in beam search.",
     )
 
-    system_prompt: str = HfArg(
+    system_prompt: Optional[str] = HfArg(
         aliases=["-sys"],
-        default="",
+        default=None,
         help="The system prompt for chat-based models",
     )
     chat_template: Optional[str] = HfArg(
@@ -222,10 +227,10 @@ class ModelArguments(ModelBackendMixin):
 
     # simplify logging with model-specific arguments
     _model_specific_arguments: ClassVar[Dict[str, Set[str]]] = {
-        "anthropic": {"anthropic_api_key"},
-        "dashscope": {"dashscope_api_key"},
+        "anthropic": {"anthropic_api_key"} | set(ANTHROPIC_CHAT_COMPLETIONS_ARGS),
+        "dashscope": {"dashscope_api_key"} | set(DASHSCOPE_CHAT_COMPLETIONS_ARGS),
         "openai": set(),  # openai model is used for gpt-eval metrics, not specific arguments
-        "qianfan": {"qianfan_access_key", "qianfan_secret_key"},
+        "qianfan": {"qianfan_access_key", "qianfan_secret_key"} | set(QIANFAN_CHAT_COMPLETIONS_ARGS),
         "vllm": {"vllm", "prefix_caching", "flash_attention", "gptq", "vllm_gpu_memory_utilization", "chat_template"},
         "huggingface": {
             "device_map", "vllm", "prefix_caching", "flash_attention", "bnb_config", "load_in_8bit", "load_in_4bit",
@@ -236,14 +241,8 @@ class ModelArguments(ModelBackendMixin):
     def __post_init__(self):
         # set _model_impl first
         if self.model_backend is None:
-            if self.model_name_or_path.lower() in OPENAI_MODELS:
-                self.model_backend = "openai"
-            elif self.model_name_or_path.lower() in ANTHROPIC_MODELS:
-                self.model_backend = "anthropic"
-            elif self.model_name_or_path.lower() in DASHSCOPE_MODELS:
-                self.model_backend = "dashscope"
-            elif self.model_name_or_path.lower() in QIANFAN_MODELS:
-                self.model_backend = "qianfan"
+            if self.model_name_or_path in API_MODELS:
+                self.model_backend = API_MODELS[self.model_name_or_path]["model_backend"]
             elif self.vllm:
                 self.model_backend = "vllm"
             else:
@@ -262,7 +261,6 @@ class ModelArguments(ModelBackendMixin):
                 )
             if self.tokenizer_name_or_path is None:
                 self.tokenizer_name_or_path = tiktoken.encoding_name_for_model(self.model_name_or_path)
-            auto_model_type = "instruction" if self.model_name_or_path in OPENAI_INSTRUCTION_MODELS else "base"
 
         # set `self.anthropic_api_key` from environment variables
         if "ANTHROPIC_API_KEY" in os.environ and self.anthropic_api_key is None:
@@ -274,7 +272,6 @@ class ModelArguments(ModelBackendMixin):
                 )
             if self.tokenizer_name_or_path is None:
                 self.tokenizer_name_or_path = "cl100k_base"
-            auto_model_type = "instruction"
 
         # set `self.dashscope_api_key` from environment variables
         if "DASHSCOPE_API_KEY" in os.environ and self.dashscope_api_key is None:
@@ -286,7 +283,6 @@ class ModelArguments(ModelBackendMixin):
                 )
             if self.tokenizer_name_or_path is None:
                 self.tokenizer_name_or_path = self.model_name_or_path
-            auto_model_type = "instruction"
 
         # set `self.qianfan_access_key` and `self.qianfan_secret_key` from environment variables
         if "QIANFAN_ACCESS_KEY" in os.environ and self.qianfan_access_key is None:
@@ -300,11 +296,10 @@ class ModelArguments(ModelBackendMixin):
                 )
             if self.tokenizer_name_or_path is None:
                 self.tokenizer_name_or_path = "cl100k_base"
-            auto_model_type = "instruction"
 
         if self.is_local_model():
             if self.model_type == "chat":
-                if not re.serach(r"chat|instruct", self.model_name_or_path.lower()):
+                if not re.search(r"chat|instruct", self.model_name_or_path.lower()):
                     logger.warning(
                         f"Model {self.model_name_or_path} seems to be a base model, you can set --model_type to `base` or `instruction` to use base format."
                     )
@@ -313,19 +308,36 @@ class ModelArguments(ModelBackendMixin):
                     logger.warning(
                         f"Model {self.model_name_or_path} seems to be a chat-based model, you can set --model_type to `chat` to use chat format."
                     )
-            auto_model_type = "base"
 
         if self.tokenizer_name_or_path is None:
             self.tokenizer_name_or_path = self.model_name_or_path
 
-        if self.model_type is None:
-            self.model_type = auto_model_type
+        if self.model_name_or_path in API_MODELS:
+            auto_model_type = API_MODELS[self.model_name_or_path]["model_type"]
+        else:
+            auto_model_type = None
 
-        if self.model_type != auto_model_type and not self.is_local_model():
+        if self.model_type is None and auto_model_type is not None:
+            self.model_type = auto_model_type
+        elif self.model_type is None and auto_model_type is None:
+            self.model_type = "base" if self.is_local_model() else "instruction"
+        elif auto_model_type is not None and self.model_type != auto_model_type:
             logger.warning(
                 f"Model {self.model_name_or_path} seems to be a {auto_model_type} model, but get model_type {self.model_type}."
             )
 
+        if self.model_name_or_path in API_MODELS:
+            auto_endpoint = API_MODELS[self.model_name_or_path]["endpoint"]
+        elif not self.is_local_model():
+            auto_endpoint = "chat/completions"
+        else:
+            auto_endpoint = None
+
+        if self.api_endpoint is None:
+            self.api_endpoint = auto_endpoint
+
+        # try to load as vllm model. If failed, fallback to huggingface model.
+        # See `model/load.py` for details.
         if not self.is_local_model():
             self.vllm = False
         else:
@@ -405,7 +417,7 @@ class DatasetArguments:
         help="The maximum token number of demonstration",
     )
 
-    ranking_type: Literal["ppl", "prob", "ppl_no_option"] = HfArg(
+    ranking_type: Literal["generation", "ppl", "prob", "ppl_no_option"] = HfArg(
         default="ppl_no_option",
         help="The evaluation and prompting method for ranking task",
     )
@@ -539,25 +551,11 @@ def check_args(model_args: ModelArguments, dataset_args: DatasetArguments, evalu
         model_args.prefix_caching = False
 
     # check models
-    if model_args.model_name_or_path.lower() in OPENAI_CHAT_MODELS and dataset_args.batch_size > 1:
+    if model_args.model_name_or_path in API_MODELS and API_MODELS[
+        model_args.model_name_or_path]["model_type"] == "instruction" and dataset_args.batch_size > 1:
         dataset_args.batch_size = 1
         logger.warning(
-            f"OpenAI chat-based model {model_args.model_name_or_path} doesn't support batch_size > 1, automatically set batch_size to 1."
-        )
-    if model_args.model_name_or_path.lower() in ANTHROPIC_MODELS and dataset_args.batch_size > 1:
-        dataset_args.batch_size = 1
-        logger.warning(
-            f"Claude model {model_args.model_name_or_path} doesn't support batch_size > 1, automatically set batch_size to 1."
-        )
-    if model_args.model_name_or_path.lower() in DASHSCOPE_MODELS and dataset_args.batch_size > 1:
-        dataset_args.batch_size = 1
-        logger.warning(
-            f"Dashscope model {model_args.model_name_or_path} doesn't support batch_size > 1, automatically set batch_size to 1."
-        )
-    if model_args.model_name_or_path.lower() in QIANFAN_MODELS and dataset_args.batch_size > 1:
-        dataset_args.batch_size = 1
-        logger.warning(
-            f"Qianfan model {model_args.model_name_or_path} doesn't support batch_size > 1, automatically set batch_size to 1."
+            f"chat/completions endpoint model {model_args.model_name_or_path} doesn't support batch_size > 1, automatically set batch_size to 1."
         )
 
     # vllm has its own prefix caching mechanism

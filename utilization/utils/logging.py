@@ -81,6 +81,8 @@ def filter_none_repr(self) -> str:
 
 
 def passed_in_commandline(self, key: str) -> bool:
+    if key not in self.__dataclass_fields__:
+        return False
     return self.__dataclass_fields__[key].hash
 
 
