@@ -79,7 +79,7 @@ class ModelArguments(ModelBackendMixin):
         help="Whether to cache prefix in get_ppl mode",
     )
     vllm: bool = HfArg(
-        default=False,
+        default=True,
         help="Whether to use vllm",
     )
     flash_attention: bool = HfArg(
@@ -171,9 +171,9 @@ class ModelArguments(ModelBackendMixin):
         help="Positive values encourage longer sequences, vice versa. Used in beam search.",
     )
 
-    system_prompt: str = HfArg(
+    system_prompt: Optional[str] = HfArg(
         aliases=["-sys"],
-        default="",
+        default=None,
         help="The system prompt for chat-based models",
     )
     chat_template: Optional[str] = HfArg(
