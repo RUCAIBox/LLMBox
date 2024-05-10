@@ -117,14 +117,6 @@ class HuggingFaceModel(Model):
 
     def __init__(self, args: ModelArguments):
         super().__init__(args)
-        self.args = args
-        self.model_type = args.model_type
-        if self.model_type not in {"base", "instruction", "chat"}:
-            raise ValueError(
-                f"Invalid model type: {self.model_type}. Please use `--model_type` to specify the"
-                " model type, which can be chosen from `base` and `instruction`."
-            )
-
         self.model, self._tokenizer = load_hf_model(args)
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.model_max_input_and_output = self.tokenizer.model_max_length
