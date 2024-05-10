@@ -167,9 +167,10 @@ class ApiModel(Model):
 
     def __init__(self, args: ModelArguments):
         super().__init__(args)
-        if getattr(self, "tokenizer", None) is not None:
+        if getattr(self, "tokenizer", None) is None:
             try:
                 self.tokenizer = tiktoken.get_encoding(args.tokenizer_name_or_path)
+                logger.debug(f"Tokenizer: {self.tokenizer}")
             except Exception as e:
                 logger.warning(
                     f"Failed to load tokenizer from `{args.tokenizer_name_or_path}`. Please specify a valid tokenizer through `--tokenizer`."
