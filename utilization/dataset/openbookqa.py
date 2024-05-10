@@ -22,7 +22,7 @@ class OpenBookQA(MultipleChoiceDataset):
         'answerKey': 'B'
     """
 
-    instruction = ""
+    instruction = "Q: {{question_stem}}{{'\n' + options if options}}\nAnswer:"
     evaluation_set = "test"
     example_set = "train"
     load_args = ("openbookqa", "main")
@@ -34,15 +34,9 @@ class OpenBookQA(MultipleChoiceDataset):
         self.prefix_caching = False
 
     def format_instance(self, instance):
-        source_text = "Q: " + instance['question_stem']
-        options = instance["choices"]['text']
-        options = list(map(lambda _s: " " + _s, options))
-        return dict(
-            source=source_text,
-            source_postfix="\nA:",
-            target_idx=ord(instance["answerKey"]) - 65,
-            options=options,
-        )
+        instance["target_idx"] = ord(instance["answerKey"]) - 65
+        instance["options"] = instance["choices"]['text']
+        return instance
 
     def post_processing(self, predictions):
         labels = []

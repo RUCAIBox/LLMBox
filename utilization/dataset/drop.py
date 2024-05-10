@@ -20,7 +20,7 @@ class Drop(GenerationDataset):
             'the Raiders'],
     """
 
-    instruction = "Answer the question based on the given passage."
+    instruction = "Answer the question based on the given passage.\n\nPassage: {passage}\nQuestion: {question}\nAnswer:"
     example_set = "train"
     evaluation_set = "validation"
     load_args = ("drop",)
@@ -28,9 +28,8 @@ class Drop(GenerationDataset):
     extra_model_args = dict(max_tokens=64, temperature=0, stop=["\n"])
 
     def format_instance(self, instance):
-        source_text = "Passage: " + instance["passage"] + "\nQuestion: " + instance["question"] + "\nAnswer:"
-        target_text = " " + instance["answers_spans"]["spans"][0]
-        return dict(source=source_text, target=target_text)
+        instance["target"] = instance["answers_spans"]["spans"][0]
+        return instance
 
     @staticmethod
     def post_processing(predictions):

@@ -37,45 +37,6 @@ MMLU_SUBJECTS = {
     'other': MMLU_OTHER_SUBJECTS
 }
 
-BBH_PROMPTS = {
-    'boolean_expressions': "Evaluate the result of a random Boolean expression.",
-    'causal_judgement': "Answer questions about causal attribution.",
-    'date_understanding': "Infer the date from context.",
-    'disambiguation_qa': "Clarify the meaning of sentences with ambiguous pronouns.",
-    'dyck_languages': "Correctly close a Dyck-n word.",
-    'formal_fallacies': "Distinguish deductively valid arguments from formal fallacies.",
-    'geometric_shapes': "Name geometric shapes from their SVG paths.",
-    'hyperbaton': "Order adjectives correctly in English sentences.",
-    'logical_deduction_five_objects':
-    "A logical deduction task which requires deducing the order of a sequence of objects.",
-    'logical_deduction_seven_objects':
-    "A logical deduction task which requires deducing the order of a sequence of objects.",
-    'logical_deduction_three_objects':
-    "A logical deduction task which requires deducing the order of a sequence of objects.",
-    'movie_recommendation': "Recommend movies similar to the given list of movies.",
-    'multistep_arithmetic_two': "Solve multi-step arithmetic problems.",
-    'navigate':
-    "Given a series of navigation instructions, determine whether one would end up back at the starting point.",
-    'object_counting': "Questions that involve enumerating objects and asking the model to count them.",
-    'penguins_in_a_table': "Answer questions about a table of penguins and their attributes.",
-    'reasoning_about_colored_objects': "Answer extremely simple questions about the colors of objects on a surface.",
-    'ruin_names': "Select the humorous edit that 'ruins' the input movie or musical artist name.",
-    'salient_translation_error_detection':
-    "Detect the type of error in an English translation of a German source sentence.",
-    'snarks': "Determine which of two sentences is sarcastic.",
-    'sports_understanding':
-    "Determine whether an artificially constructed sentence relating to sports is plausible or not.",
-    'temporal_sequences': "Task description: Answer questions about which times certain events could have occurred.",
-    'tracking_shuffled_objects_five_objects':
-    "A task requiring determining the final positions of a set of objects given their initial positions and a description of a sequence of swaps.",
-    'tracking_shuffled_objects_seven_objects':
-    "A task requiring determining the final positions of a set of objects given their initial positions and a description of a sequence of swaps.",
-    'tracking_shuffled_objects_three_objects':
-    "A task requiring determining the final positions of a set of objects given their initial positions and a description of a sequence of swaps.",
-    'web_of_lies': "Evaluate a random boolean function expressed as a word problem.",
-    'word_sorting': "Sort a list of words."
-}
-
 BBH_NO_CHOICE = ['dyck_languages', 'multistep_arithmetic_two', 'object_counting', 'word_sorting']
 
 BBH_LETTER_CHOICE = [
@@ -107,13 +68,6 @@ AGIEVAL_ZH_CLOZE_TASKS = ['gaokao-mathcloze']
 AGIEVAL_MULTI_ANSWERS_TASKS = ['jec-qa-kd', 'jec-qa-ca', 'gaokao-physics']
 
 AGIEVAL_NO_LETTER_CHOICE_TASKS = AGIEVAL_EN_CLOZE_TASKS + AGIEVAL_ZH_CLOZE_TASKS
-
-AGIEVAL_WORDS = [["问题：", "Q: "], ["选项：", "Answer Choices: "],
-                 ["答案：从A到{}, 我们应选择", "A: Among A through {}, the answer is"],
-                 ["从A到{}, 我们应选择什么？让我们逐步思考：", "Let's think step by step."], ["问题的解析:", "Explanation for Problem:"],
-                 ["答案是", "The answer is therefore"], ["问题. ", "Problem. "],
-                 ["从以下选项中选择: ", "Choose from the following options: "], ["答案：", "A: The answer is"],
-                 ["答案：让我们逐步思考：", "A: Let's think step by step."]]
 
 AGIEVAL_ZH_PROMPT_TASKS = AGIEVAL_ZH_CLOZE_TASKS + AGIEVAL_ZH_QA_TASKS
 
@@ -267,37 +221,6 @@ CEVAL_SUBJECTS = {
         'environmental_impact_assessment_engineer', 'fire_engineer', 'physician', 'plant_protection', 'sports_science',
         'tax_accountant', 'urban_and_rural_planner'
     ]
-}
-
-GAOKAO_PROMPTS = {
-    '2010-2022_Math_II_MCQs':
-    '请你做一道数学选择题\n请你一步一步思考并将思考过程写在【解析】和<eoe>之间。你将从A，B，C，D中选出正确的答案，并写在【答案】和<eoa>之间。\n例如：【答案】: A <eoa>\n完整的题目回答的格式如下：\n【解析】 ... <eoe>\n【答案】 ... <eoa>\n请你严格按照上述格式作答。\n题目如下：',
-    '2010-2022_Math_I_MCQs':
-    '请你做一道数学选择题\n请你一步一步思考并将思考过程写在【解析】和<eoe>之间。你将从A，B，C，D中选出正确的答案，并写在【答案】和<eoa>之间。\n例如：【答案】: A <eoa>\n完整的题目回答的格式如下：\n【解析】 ... <eoe>\n【答案】 ... <eoa>\n请你严格按照上述格式作答。\n题目如下：',
-    '2010-2022_History_MCQs':
-    '请你做一道历史选择题\n请你一步一步思考并将思考过程写在【解析】和<eoe>之间。你将从A，B，C，D中选出正确的答案，并写在【答案】和<eoa>之间。\n例如：【答案】: A <eoa>\n完整的题目回答的格式如下：\n【解析】 ... <eoe>\n【答案】 ... <eoa>\n请你严格按照上述格式作答。\n题目如下：',
-    '2010-2022_Biology_MCQs':
-    '请你做一道生物选择题\n请你一步一步思考并将思考过程写在【解析】和<eoe>之间。你将从A，B，C，D中选出正确的答案，并写在【答案】和<eoa>之间。\n例如：【答案】: A <eoa>\n完整的题目回答的格式如下：\n【解析】 ... <eoe>\n【答案】 ... <eoa>\n请你严格按照上述格式作答。\n题目如下：',
-    '2010-2022_Political_Science_MCQs':
-    '请你做一道政治选择题\n请你一步一步思考并将思考过程写在【解析】和<eoe>之间。你将从A，B，C，D中选出正确的答案，并写在【答案】和<eoa>之间。\n例如：【答案】: A <eoa>\n完整的题目回答的格式如下：\n【解析】 ... <eoe>\n【答案】 ... <eoa>\n请你严格按照上述格式作答。\n题目如下：',
-    '2010-2022_Physics_MCQs':
-    '请你做一道物理选择题。\n请你一步一步思考并将思考过程写在【解析】和<eoe>之间。你将从A，B，C，D中选出所有符合题意的答案，并写在【答案】和<eoa>之间。\n例如：【答案】 AB <eoa>\n完整的题目回答的格式如下：\n【解析】 ... <eoe>\n【答案】... <eoa>\n请你严格按照上述格式作答。\n',
-    '2010-2022_Chemistry_MCQs':
-    '请你做一道化学选择题\n请你一步一步思考并将思考过程写在【解析】和<eoe>之间。你将从A，B，C，D中选出正确的答案，并写在【答案】和<eoa>之间。\n例如：【答案】: A <eoa>\n完整的题目回答的格式如下：\n【解析】 ... <eoe>\n【答案】 ... <eoa>\n请你严格按照上述格式作答。\n题目如下：',
-    '2010-2013_English_MCQs':
-    '请你做一道英语选择题\n请你一步一步思考并将思考过程写在【解析】和<eoe>之间。你将从A，B，C，D中选出正确的答案，并写在【答案】和<eoa>之间。\n例如：【答案】: A <eoa>\n完整的题目回答的格式如下：\n【解析】 ... <eoe>\n【答案】 ... <eoa>\n请你严格按照上述格式作答。\n题目如下：',
-    '2010-2022_Chinese_Modern_Lit':
-    '请你做一道语文阅读理解题，其中包含三个小题。\n请你一步一步思考。每一题你将从A，B，C，D中选出正确的答案，并写在【答案】和<eoa>之间。\n例如：（1）【答案】 A <eoa>\n（2）【答案】 B <eoa>\n请你严格按照上述格式作答。\n',
-    '2010-2022_English_Fill_in_Blanks':
-    '请你做一道英语完形填空题,其中包含二十个小题。\n请你一步一步思考。每一题你将从A，B，C，D中选出正确的答案，并写在【答案】和<eoa>之间。\n例如：（1）【答案】 A <eoa>\n（2）【答案】 B <eoa>\n请你严格按照上述格式作答。\n',
-    '2012-2022_English_Cloze_Test':
-    '请回答下面的问题，将符合题意的五个选项的字母写在【答案】和<eoa>之间，例如“【答案】 A B C D E <eoa>\n请严格按照上述格式作答。\n',
-    '2010-2022_Geography_MCQs':
-    '请你做一道地理选择题，其中包含两到三个小题。\n请你一步一步思考。每一题你将从A，B，C，D中选出正确的答案，并写在【答案】和<eoa>之间。\n例如：（1）【答案】 A <eoa>\n（2）【答案】 B <eoa>\n请你严格按照上述格式作答。\n',
-    '2010-2022_English_Reading_Comp':
-    '请你做一道英语阅读理解题，其中包含三到五个小题。\n请你一步一步思考。每一题你将从A，B，C，D中选出正确的答案，并写在【答案】和<eoa>之间。\n例如：（1）【答案】 A <eoa>\n（2）【答案】 B <eoa>\n请你严格按照上述格式作答。\n',
-    '2010-2022_Chinese_Lang_and_Usage_MCQs':
-    '请你做一道语文选择题\n请你一步一步思考并将思考过程写在【解析】和<eoe>之间。你将从A，B，C，D中选出正确的答案，并写在【答案】和<eoa>之间。\n例如：【答案】: A <eoa>\n完整的题目回答的格式如下：\n（1）【解析】 ... <eoe>\n【答案】 ... <eoa>\n（2）【解析】 ... <eoe>\n【答案】 ... <eoa>\n请你严格按照上述格式作答。如果不止一道题，请分别作答\n题目如下：'
 }
 
 # See Gaokao.extract_choice_answer for the details

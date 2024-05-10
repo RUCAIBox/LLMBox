@@ -33,7 +33,7 @@ class Race(MultipleChoiceDataset):
         ]
     """
 
-    instruction = ""
+    instruction = "Article:\n{{article}}\n\nQ: {{question}}{{'\n' + options if options}}\nA:"
     evaluation_set = "validation"
     example_set = "train"
     load_args = ("ehovy/race",)  # specify subset from command line, remove "all" by default
@@ -46,15 +46,8 @@ class Race(MultipleChoiceDataset):
         self.prefix_caching = False
 
     def format_instance(self, instance):
-        source_text = "Article:\n" + instance["article"] + "\n\n" + "Q: " + instance["question"]
-        options = instance["options"]
-        options = list(map(lambda _s: " " + _s, options))
-        return dict(
-            source=source_text,
-            source_postfix="\nA:",
-            target_idx=ord(instance["answer"]) - 65,
-            options=options,
-        )
+        instance["target_idx"] = ord(instance["answer"]) - 65
+        return instance
 
     def post_processing(self, predictions):
         labels = []

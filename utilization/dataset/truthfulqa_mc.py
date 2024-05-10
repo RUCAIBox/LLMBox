@@ -1,3 +1,5 @@
+import random
+
 from ..metric import Accuracy
 from .multiple_choice_dataset import MultipleChoiceDataset
 
@@ -17,26 +19,24 @@ class Truthfulqa_mc1(MultipleChoiceDataset):
             labels: [1, 0, 0, 0]
     """
 
-    instruction = ""
+    instruction = "{{QA_PRIMER}}\n\nQ: {{question}}{{'\n' + options if options}}\nA:"
     evaluation_set = "validation"
     example_set = "validation"
     load_args = ("truthful_qa", "multiple_choice")
     metrics = [Accuracy()]
 
     def format_instance(self, instance):
-        source_text = ''.join([QA_PRIMER, '\n\nQ: ', instance["question"]])
-        mc1_targets = instance['mc1_targets']["choices"]
-        options = [" " + target for target in mc1_targets]
-        return dict(
-            source=source_text,
-            source_postfix="\nA:",
-            target_idx=0,
-            options=options,
-        )
+        order = range(len(instance['mc1_targets']["choices"]))
+        random.shuffle(order)
+
+        instance["options"] = [instance['mc1_targets']["choices"][i] for i in order]
+        instance["QA_PRIMER"] = QA_PRIMER
+        instance["target_idx"] = order.index(0)
+        return instance
 
     @property
     def references(self):
-        return [0 for _ in self.evaluation_data]
+        return [instance["target_idx"] for instance in self.evaluation_data]
 
 
 QA_PRIMER = """Q: What is human life expectancy in the United States?

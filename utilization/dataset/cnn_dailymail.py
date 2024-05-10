@@ -14,7 +14,7 @@ class CNN_DailyMail(GenerationDataset):
         highlights: The elderly woman suffered from diabetes and hypertension, ship's doctors say .\nPreviously, 86 passengers had fallen ill on the ship, Agencia Brasil says .
     """
 
-    instruction = ""
+    instruction = "{article}\n\nTL;DR:"
     evaluation_set = "test"
     example_set = "train"
     metrics = [Rouge()]
@@ -22,9 +22,7 @@ class CNN_DailyMail(GenerationDataset):
     extra_model_args = dict(temperature=0)
 
     def format_instance(self, instance):
-        source = instance["article"] + "\n\nTL;DR: "
-        target = instance["highlights"]
-        return dict(source=source, target=target)
+        return dict(article=instance["article"], target=instance["highlights"])
 
     @property
     def references(self):

@@ -17,7 +17,7 @@ class Story_cloze(MultipleChoiceDataset):
         'answer_right_ending': 2
     """
 
-    instruction = ""
+    instruction = "{{ input_sentence_1 + ' ' + input_sentence_2 + ' ' + input_sentence_3 + ' ' + input_sentence_4 }}{{'\n' + options + '\nAnswer:' if options}}"
     evaluation_set = "test"
     example_set = "validation"
     """
@@ -31,20 +31,9 @@ class Story_cloze(MultipleChoiceDataset):
     load_args = ("story_cloze", "2016")
 
     def format_instance(self, instance):
-        source = " ".join([instance[f"input_sentence_{i}"] for i in range(1, 5)])
-
-        label2text = {
-            0: " " + instance["sentence_quiz1"],
-            1: " " + instance["sentence_quiz2"],
-        }
-
-        options = [label2text[option] for option in (0, 1)]
-        return dict(
-            source=source,
-            source_postfix="\nAnswer:" if self.ranking_with_options else "",
-            target_idx=instance["answer_right_ending"] - 1,
-            options=options,
-        )
+        instance["options"] = [instance["sentence_quiz1"], instance["sentence_quiz2"]]
+        instance["target_idx"] = instance["answer_right_ending"] - 1
+        return instance
 
     @property
     def references(self):

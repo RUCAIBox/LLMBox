@@ -33,7 +33,7 @@ class Humaneval(GenerationDataset):
         "entry_point": "return1"
     """
 
-    instruction = ""
+    instruction = "{source}"
     example_set = None
     evaluation_set = "test"
     load_args = ("openai_humaneval",)

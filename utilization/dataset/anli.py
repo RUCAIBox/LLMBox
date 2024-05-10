@@ -12,25 +12,14 @@ class Anli(MultipleChoiceDataset):
         premise: "\"Idris Sultan (born January 1993) is a Tanzanian Actor and comedian, actor and radio host who won the Big Brother Africa-Hotshot...",
     """
 
-    instruction = ""
+    instruction = "{{premise}}\nQuestion: {{hypothesis}} True, False, or Neither?{{'\n' + options if options}}\nAnswer:"
     evaluation_set = "dev_r2"
     example_set = "train_r2"
     load_args = ("anli",)
 
     def format_instance(self, instance):
-        source = (
-            instance["premise"] + "\nQuestion: " + instance["hypothesis"] + " True, False, or Neither?"
-        )
-
-        label2text = {0: " True", 1: " Neither", 2: " False"}
-
-        options = [label2text[option] for option in [0, 1, 2]]
-        return dict(
-            source=source,
-            source_postfix="\nAnswer:",
-            target_idx=instance["label"],
-            options=options,
-        )
+        instance["options"] = ["True", "Neither", "False"]
+        return instance
 
     @property
     def references(self):

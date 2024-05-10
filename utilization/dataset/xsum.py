@@ -12,7 +12,7 @@ class Xsum(GenerationDataset):
         summary: Queen's University Belfast is cutting 236 jobs and 290 student places due to a funding reduction.
     """
 
-    instruction = ""
+    instruction = "{document}\n\nTL;DR:"
     evaluation_set = "train"
     example_set = None
     metrics = [Rouge()]
@@ -20,9 +20,8 @@ class Xsum(GenerationDataset):
     extra_model_args = dict(temperature=0)
 
     def format_instance(self, instance):
-        source = instance["document"] + "\n\nTL;DR: "
-        target = instance["summary"]
-        return dict(source=source, target=target)
+        instance["target"] = instance["summary"]
+        return instance
 
     @property
     def references(self):

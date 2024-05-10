@@ -37,7 +37,7 @@ class Ifeval(GenerationDataset):
             'nth_paragraph': None},...]
     """
 
-    instruction = ""
+    instruction = "{source}"
     example_set = "train"
     evaluation_set = "train"
     load_args = ("HuggingFaceH4/ifeval",)

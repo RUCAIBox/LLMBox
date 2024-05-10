@@ -15,27 +15,15 @@ class Siqa(MultipleChoiceDataset):
         label: 2
     """
 
-    instruction = ""
+    instruction = "{{context}}\nQuestion: {{question}}{{'\n' + options if options}}\nAnswer:"
     evaluation_set = "validation"
     example_set = "train"
     load_args = ("lighteval/siqa",)
 
     def format_instance(self, instance):
-        source = instance["context"] + "\nQuestion: " + instance["question"]
-
-        label2text = {
-            "1": " " + instance["answerA"],
-            "2": " " + instance["answerB"],
-            "3": " " + instance["answerC"],
-        }
-
-        options = [label2text[option] for option in ["1", "2", "3"]]
-        return dict(
-            source=source,
-            source_postfix="\nAnswer:",
-            target_idx=int(instance["label"]) - 1,
-            options=options,
-        )
+        instance["options"] = [instance["answerA"], instance["answerB"], instance["answerC"]]
+        instance["target_idx"] = int(instance["label"]) - 1
+        return instance
 
     @property
     def references(self):

@@ -14,10 +14,10 @@ class TranslationDataset(GenerationDataset):
         reference: Obama welcomes Netanyahu
     """
 
+    instruction = "Q: Translate to {{lang}}. {{translation[self.subset_name[:2]]}}\nA:"
     evaluation_set = "test"
     example_set = "train"
     metrics = [Bleu()]
-    instruction = ""
     load_args = ()
     extra_model_args = dict(temperature=0, stop=["\n"])
 
@@ -25,10 +25,9 @@ class TranslationDataset(GenerationDataset):
         self.language = Language(self.subset_name[3:5]).language_name("en")
 
     def format_instance(self, instance):
-        instance = instance["translation"]
-        source_text = f"Q: Translate to {self.language}. {instance[self.subset_name[:2]]}\nA:"
-        target_text = " " + instance[self.subset_name[3:5]]
-        return dict(source=source_text, target=target_text)
+        instance["lang"] = self.language
+        instance["target"] = instance[self.subset_name[3:5]]
+        return instance
 
     @staticmethod
     def post_processing(preds):

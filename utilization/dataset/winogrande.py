@@ -20,7 +20,7 @@ class WinoGrande(MultipleChoiceDataset):
         'sentence': 'Sarah was a much better surgeon than Maria so _ always got the easier cases.'
     """
 
-    instruction = ""
+    instruction = "{source}"
     evaluation_set = "validation"
     example_set = "train"
     load_args = ("winogrande", "winogrande_debiased")  # specify subset from command line

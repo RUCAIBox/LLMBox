@@ -21,26 +21,15 @@ class Cmmlu(MultipleChoiceDataset):
         "Answer": "B"
     """
 
-    instruction = "以下是关于({})的单项选择题，请直接给出正确答案的选项。"
+    instruction = "以下是关于({{subset_name}})的请单项选择题，直接给出正确答案的选项。\n\n题目：{{Question|trim}}{{'\n' + options if options}}\n答案："
     evaluation_set = "test"
     example_set = "dev"
     load_args = ("haonan-li/cmmlu",)
 
-    def init_arguments(self):
-        self.instruction = self.instruction.format(CMMLU_NAME_TRANS[self.subset_name])
-        if self.args.ranking_type.startswith("ppl"):  # ppl or ppl_no_option
-            self.source_prefix = "题目："
-        elif self.args.ranking_type == "prob":
-            self.source_prefix = ""
-
     def format_instance(self, instance):
-        options = list(map(lambda op: " " + op, [instance[chr(ord('A') + _)] for _ in range(4)]))
-        return dict(
-            source=self.source_prefix + instance["Question"].strip(),
-            source_postfix="\n答案是",
-            target_idx=ord(instance["Answer"]) - ord('A'),
-            options=options,
-        )
+        instance["target_idx"] = ord(instance["Answer"]) - ord('A')
+        instance["options"] = [instance[op] for op in ("A", "B", "C", "D")]
+        return instance
 
     def calculate_metric(self, predictions):
         results, score_lists = super().calculate_metric(predictions)

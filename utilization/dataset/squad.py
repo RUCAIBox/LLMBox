@@ -18,7 +18,7 @@ class Squad(GenerationDataset):
         answer: ['France', 'France', 'France', 'France']
     """
 
-    instruction = 'Answer each question using information in the preceding background paragraph.\nIf there is not enough information provided, answer with "Not in background."'
+    instruction = 'Answer each question using information in the preceding background paragraph.\nIf there is not enough information provided, answer with "Not in background."\n\nTitle: {title}\nBackground: {context}\n\nQ: {question}\n\nA:'
     example_set = "train"
     evaluation_set = "validation"
     load_args = ()  # in order to support squad_v2, load_args is set in load.py
@@ -26,17 +26,8 @@ class Squad(GenerationDataset):
     extra_model_args = dict(max_tokens=64, temperature=0, stop=["\n"])
 
     def format_instance(self, instance):
-        source_text = (
-            "Title: " + instance["title"] + "\n\nBackground: " + instance["context"] + "\n\nQ: " +
-            instance["question"] + "\n\nA:"
-        )
-        text = instance["answers"]["text"]
-        if not text:
-            text = "Not in background."
-        else:
-            text = text[0]
-        target_text = " " + text
-        return dict(source=source_text, target=target_text)
+        instance["target"] = instance["answers"]["text"][0] if instance["answers"]["text"] else "Not in background."
+        return instance
 
     def construct_examples(self, instance=None) -> str:
         r"""Format one instance with the instruction and demonstration.
@@ -51,7 +42,7 @@ class Squad(GenerationDataset):
             return ""
         elif len(self.example_data) == 0:
             raise ValueError(
-                f"Receive num_shots={self.max_num_shots}, but cannot construct examples for dataset {self.name} without example data."
+                f"Receive num_shots={self.max_num_shots}, but cannot construct examples for dataset {self.dataset_name} without example data."
             )
 
         generation_example_text = ""
