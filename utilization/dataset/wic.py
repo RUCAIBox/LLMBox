@@ -17,23 +17,14 @@ class Wic(MultipleChoiceDataset):
         label: 0
     """
 
-    instruction = ""
+    instruction = "{{sentence1}}\n{{sentence2}}\nquestion: Is the word '{{word}}' used in the same way in the two sentences above?{{'\n' + options if options}}\nanswer:"
     evaluation_set = "validation"
     example_set = "train"
     load_args = ("super_glue", "wic")
 
     def format_instance(self, instance):
-        source = (
-            instance["sentence1"] + "\n" + instance["sentence2"] + "\n" +
-            f"question: Is the word '{instance['word']}' used in the same way in the two sentences above?"
-        )
-        options = [" no", " yes"]
-        return dict(
-            source=source,
-            source_postfix="\nanswer:",
-            target_idx=instance["label"],
-            options=options,
-        )
+        instance["options"] = [" no", " yes"]
+        return instance
 
     @property
     def references(self):

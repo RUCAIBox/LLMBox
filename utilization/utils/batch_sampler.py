@@ -33,9 +33,9 @@ def info_dataset_group(
     else:
         num_shots = "None"
     logger.info(
-        f"Evaluating {d.model_evaluation_method} on {d.name}{subset_str} (model_attr={model_attr}, {kwargs_name}={model_kwargs}, num_shots={num_shots}, len={group_length}, num_instances={instances}, use_cache={use_cache})"
+        f"Evaluating {d.model_evaluation_method} on {d.dataset_name}{subset_str} (model_attr={model_attr}, {kwargs_name}={model_kwargs}, num_shots={num_shots}, len={group_length}, num_instances={instances}, use_cache={use_cache})"
     )
-    logger.debug(f"Datasets: {d.name}{subset_names}")
+    logger.debug(f"Datasets: {d.dataset_name}{subset_names}")
 
 
 class AutoBatchSizeSampler(Sampler[List[int]]):

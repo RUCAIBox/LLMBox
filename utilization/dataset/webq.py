@@ -18,7 +18,7 @@ class WebQ(GenerationDataset):
         'url': 'http://www.freebase.com/view/en/jamaica'
     """
 
-    instruction = ""
+    instruction = "Q: {question}\nA:"
     example_set = "train"
     evaluation_set = "test"
     load_args = ("web_questions",)
@@ -26,9 +26,8 @@ class WebQ(GenerationDataset):
     extra_model_args = dict(max_tokens=64, temperature=0, stop=["\n"])
 
     def format_instance(self, instance):
-        source_text = "Q: " + instance["question"] + "\n\nA:"
-        target_text = " " + instance["answers"][0]
-        return dict(source=source_text, target=target_text)
+        instance["target"] = instance["answers"][0]
+        return instance
 
     @staticmethod
     def post_processing(predictions):

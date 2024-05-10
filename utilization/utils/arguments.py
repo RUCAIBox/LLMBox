@@ -443,7 +443,7 @@ class DatasetArguments:
     )
     max_evaluation_instances: int = HfArg(
         aliases=["-i"],
-        default=None,
+        default=0,
         help="The maximum number of evaluation instances per dataset (subset)",
     )
 

@@ -12,25 +12,14 @@ class Rte(MultipleChoiceDataset):
         label: 0
     """
 
-    instruction = ""
+    instruction = "{{premise}}\nquestion: {{hypothesis}} True or False?{{'\n' + options if options}}\nanswer:"
     evaluation_set = "validation"
     example_set = "train"
     load_args = ("super_glue", "rte")
 
     def format_instance(self, instance):
-        source = instance["premise"] + "\nquestion: " + instance["hypothesis"] + " True or False?"
-        label2text = {
-            0: " True",
-            1: " False",
-        }
-
-        options = [label2text[option] for option in [0, 1]]
-        return dict(
-            source=source,
-            source_postfix="\nanswer:",
-            target_idx=instance["label"],
-            options=options,
-        )
+        instance["options"] = ["True", "False"]
+        return instance
 
     @property
     def references(self):

@@ -13,7 +13,7 @@ class TLDR(GenerationDataset):
         label: Progress is still happening, even when you think it might not be! Don't get discouraged, even if your journey seems to be going slowly. Don't give up, warriors.
     """
 
-    instruction = ""
+    instruction = "{source}"
     evaluation_set = "train"
     example_set = None
     metrics = [Rouge()]

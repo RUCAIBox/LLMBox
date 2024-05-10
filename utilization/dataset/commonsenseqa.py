@@ -12,28 +12,15 @@ class Commonsenseqa(MultipleChoiceDataset):
         answerKey: A
     """
 
-    instruction = ""
+    instruction = "Question: {{question}}{{'\n' + options if options}}\nAnswer:"
     evaluation_set = "validation"
     example_set = "train"
     load_args = ("commonsense_qa",)
 
     def format_instance(self, instance):
-        source = "Question: " + instance["question"]
-        label2text = {
-            "A": " " + instance["choices"]["text"][0],
-            "B": " " + instance["choices"]["text"][1],
-            "C": " " + instance["choices"]["text"][2],
-            "D": " " + instance["choices"]["text"][3],
-            "E": " " + instance["choices"]["text"][4],
-        }
-
-        options = [label2text[option] for option in ["A", "B", "C", "D", "E"]]
-        return dict(
-            source=source,
-            source_postfix="\nAnswer:",
-            target_idx=ord(instance["answerKey"]) - 65,
-            options=options,
-        )
+        instance["options"] = instance["choices"]["text"]
+        instance["target_idx"] = ord(instance["answerKey"]) - 65
+        return instance
 
     @property
     def references(self):

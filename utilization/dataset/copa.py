@@ -14,30 +14,17 @@ class Copa(MultipleChoiceDataset):
         label: 1
     """
 
-    instruction = "Complete the following the sentence."
+    instruction = "Complete the following the sentence.\n\n{{premise[:-1]}}{{' because' if question == 'cause' else ' therefore'}}{{'\n'+options+'\nAnswer:' if options}}"
     evaluation_set = "validation"
     example_set = "train"
     load_args = ("super_glue", "copa")
 
     def format_instance(self, instance):
-        source = instance["premise"][:-1]
-        if instance["question"] == "cause":
-            source += " because"
-        elif instance["question"] == "effect":
-            source += " therefore"
-
-        label2text = {
-            0: " " + instance["choice1"][0].lower() + instance["choice1"][1:],
-            1: " " + instance["choice2"][0].lower() + instance["choice2"][1:],
-        }
-
-        options = [label2text[option] for option in [0, 1]]
-        return dict(
-            source=source,
-            source_postfix="\nAnswer:" if self.ranking_with_options else "",
-            target_idx=instance["label"],
-            options=options,
-        )
+        instance["options"] = [
+            instance["choice1"][0].lower() + instance["choice1"][1:],
+            instance["choice2"][0].lower() + instance["choice2"][1:],
+        ]
+        return instance
 
     @property
     def references(self):

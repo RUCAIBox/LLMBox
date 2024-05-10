@@ -35,7 +35,7 @@ class Quac(GenerationDataset):
                 'Jackson would "rent" Paige out to other ball clubs for a game or two to draw a decent crowd, with both Jackson and Paige taking a cut.']
     """
 
-    instruction = """Answer each question using information in the preceding background paragraph. If there is not enough information provided, answer with "I don't know." """
+    instruction = """Answer each question using information in the preceding background paragraph. If there is not enough information provided, answer with "I don't know."\n\nTITLE: {title}\nPARAGRAPH: {paragraph}\n\nQUESTION: {question}\n\nANSWER:"""
     example_set = "train"
     evaluation_set = "validation"
     load_args = ("quac",)
@@ -60,17 +60,8 @@ class Quac(GenerationDataset):
         self.evaluation_data = _evaluation_data
 
     def format_instance(self, instance):
-        source_text = (
-            "TITLE: " + instance["title"] + "\nPARAGRAPH: " + instance["paragraph"] + "\n\nQ: " + instance["question"] +
-            "\n\nA:"
-        )
-        text = instance["answer"]
-        if "CANNOTANSWER" in text:
-            text = "I don't know."
-        else:
-            text = text[0]
-        target_text = " " + text
-        return dict(source=source_text, target=target_text)
+        instance["target"] = "I don't know." if "CANNOTANSWER" in instance["answer"] else instance["answer"][0]
+        return instance
 
     def construct_examples(self, instance=None) -> str:
         r"""Format one instance with the instruction and demonstration.
@@ -85,7 +76,7 @@ class Quac(GenerationDataset):
             return ""
         elif len(self.example_data) == 0:
             raise ValueError(
-                f"Receive num_shots={self.max_num_shots}, but cannot construct examples for dataset {self.name} without example data."
+                f"Receive num_shots={self.max_num_shots}, but cannot construct examples for dataset {self.dataset_name} without example data."
             )
 
         example_text = ""

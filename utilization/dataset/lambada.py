@@ -13,7 +13,7 @@ class Lambada(GenerationDataset):
 
     """
 
-    instruction = ""
+    instruction = "{source}"
     evaluation_set = "test"
     example_set = None
     load_args = ("EleutherAI/lambada_openai", "default")
@@ -23,17 +23,12 @@ class Lambada(GenerationDataset):
         self.metrics = [Word_Accuracy(self.tokenizer)]
 
     def format_instance(self, instance):
-        """
 
-        According to the README of the dataset, for dev and test set, the last word of the passage is the target, and the rest of the passage is the source.
-        """
-        instance["text"] = instance["text"].split()
-        # get the last word of the passage
-        target = " " + instance["text"][-1]
-        # get the rest of the passage
-        source = " ".join(instance["text"][:-1])
-        return dict(source=source, target=target)
+        # According to the README of the dataset, for dev and test set, the last word
+        # of the passage is the target, and the rest of the passage is the source.
+        instance["source"], instance["target"] = instance["text"].rsplit(" ", 1)
+        return instance
 
     @property
     def references(self):
-        return [" " + instance["text"][-1] for instance in self.evaluation_data]
+        return [" " + instance["target"] for instance in self.evaluation_data]

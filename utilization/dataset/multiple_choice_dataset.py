@@ -42,7 +42,7 @@ class MultipleChoiceDataset(Dataset):
                 if num <= 0:
                     labels.append(-1)
                     logger.warning(
-                        f"Empty options detected in {self.dataset_name}. Please contact the author of the dataset."
+                        f"Empty options detected in {self.display_name}. Please contact the author of the dataset."
                     )
                 else:
                     labels.append(predictions[st:st + num].argmin())
@@ -55,7 +55,7 @@ class MultipleChoiceDataset(Dataset):
                 if option_num <= 0:
                     labels.append(-1)
                     logger.warning(
-                        f"Empty options detected in {self.dataset_name}. Please contact the author of the dataset."
+                        f"Empty options detected in {self.display_name}. Please contact the author of the dataset."
                     )
                 elif logit is None:
                     labels.append(-1)

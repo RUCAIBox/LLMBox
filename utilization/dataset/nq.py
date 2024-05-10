@@ -16,7 +16,7 @@ class Nq(GenerationDataset):
         'question': 'when was the last time anyone was on the moon'
     """
 
-    instruction = ""
+    instruction = "Q: {question}\nA:"
     example_set = "train"
     evaluation_set = "validation"
     load_args = ("nq_open",)
@@ -24,9 +24,7 @@ class Nq(GenerationDataset):
     extra_model_args = dict(max_tokens=64, temperature=0, stop=["\n"])
 
     def format_instance(self, instance):
-        source_text = "Q: " + instance["question"] + "\n\nA:"
-        target_text = " " + instance["answer"][0]
-        return dict(source=source_text, target=target_text)
+        return dict(question=instance["question"], target=instance["answer"][0])
 
     @staticmethod
     def post_processing(predictions):

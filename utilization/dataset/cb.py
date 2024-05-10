@@ -12,27 +12,14 @@ class Cb(MultipleChoiceDataset):
         label: 0
     """
 
-    instruction = ""
+    instruction = "{{premise}}\nquestion: {{hypothesis}}. true, false, or neither?{{'\n' + options if options}}\nanswer:"
     evaluation_set = "validation"
     example_set = "train"
     load_args = ("super_glue", "cb")
 
     def format_instance(self, instance):
-        source = instance["premise"] + "\nquestion: " + instance["hypothesis"] + ". true, false, or neither?"
-
-        label2text = {
-            0: " true",
-            1: " false",
-            2: " neither",
-        }
-
-        options = [label2text[option] for option in [0, 1, 2]]
-        return dict(
-            source=source,
-            source_postfix="\nanswer:",
-            target_idx=instance["label"],
-            options=options,
-        )
+        instance["options"] = ["true", "false", "neither"]
+        return instance
 
     @property
     def references(self):

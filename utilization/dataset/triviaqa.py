@@ -24,7 +24,7 @@ class TriviaQA(GenerationDataset):
         'question': 'Which Lloyd Webber musical premiered in the US on 10th December 1993?',
     """
 
-    instruction = ""
+    instruction = "Q: {question}\n\nA:"
     example_set = "train"
     evaluation_set = "validation"
     load_args = ("trivia_qa", "rc.wikipedia.nocontext")
@@ -32,9 +32,8 @@ class TriviaQA(GenerationDataset):
     extra_model_args = dict(max_tokens=64, temperature=0, stop=["\n"])
 
     def format_instance(self, instance):
-        source_text = "Q: " + instance["question"] + "\n\nA:"
-        target_text = " " + instance["answer"]["value"]
-        return dict(source=source_text, target=target_text)
+        instance["target"] = instance["answer"]["value"]
+        return instance
 
     @staticmethod
     def post_processing(predictions):
