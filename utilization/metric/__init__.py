@@ -2,12 +2,22 @@ import importlib
 
 from .utils import avg_metrics
 
+
 def lazy_import(module, instance):
     try:
         module = importlib.import_module(f".{module}", __package__)
         instance = getattr(module, instance)
-    except (ImportError, ModuleNotFoundError):
-        instance = None
+    except (ImportError, ModuleNotFoundError) as e:
+
+        class ErrorMetric:
+
+            def __init__(self, *args, **kwargs):
+                self.error = e
+
+            def __call__(self, *args, **kwargs):
+                raise self.error
+
+        instance = ErrorMetric
     return instance
 
 Accuracy = lazy_import("accuracy", "Accuracy")
