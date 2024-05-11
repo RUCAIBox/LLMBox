@@ -15,7 +15,7 @@ class IFEval(Metric):
             all_following_list = IFEval._get_loose_score_list(predictions, references)
         else:
             raise ValueError(f"{self.type} does not exists, please check the type")
-        self._last_score_lists = {f'IFEval({self.type})': all_following_list}
+        self.last_score_lists = {f'IFEval({self.type})': all_following_list}
         score_list = []
         for score in all_following_list:
             score_list.extend(score)

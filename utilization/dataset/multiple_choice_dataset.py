@@ -35,9 +35,12 @@ class MultipleChoiceDataset(Dataset):
         if self.model_evaluation_method == "get_ppl":
             labels = []
             st = 0
-            predictions = np.array([
-                result / length if length > 0 else LARGE_POSITIVE for result, length in predictions
-            ])
+            if self.use_normalization:
+                predictions = np.array([rc[0] - ra[0] for rc, ra in zip(predictions[::2], predictions[1::2])])
+            else:
+                predictions = np.array([
+                    result / length if length > 0 else LARGE_POSITIVE for result, length in predictions
+                ])
             for num in self.option_nums:
                 if num <= 0:
                     labels.append(-1)
