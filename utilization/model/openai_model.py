@@ -1,19 +1,21 @@
-import time
+import os
+import re
 from copy import copy
 from logging import getLogger
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, List, Optional, Tuple, Union
 
 import openai
-import tiktoken
+from openai.types import CompletionChoice
+from openai.types.chat.chat_completion import Choice
 
 from ..utils import ModelArguments
-from .enum import OPENAI_CHAT_MODELS, OPENAI_INSTRUCTION_MODELS
-from .model import Model
+from .model import ApiModel
+from .model_enum import OPENAI_CHAT_COMPLETIONS_ARGS, OPENAI_COMPLETIONS_ARGS
 
 logger = getLogger(__name__)
 
 
-class Openai(Model):
+class Openai(ApiModel):
     r"""The model for calling OpenAI APIs.
 
     Please refer to https://platform.openai.com/docs/models.
@@ -23,68 +25,52 @@ class Openai(Model):
 
     model_backend = "openai"
 
-    tokenizer: tiktoken.Encoding
+    _retry_errors = (openai.APITimeoutError, openai.InternalServerError, openai.RateLimitError)
+    _raise_errors = (
+        openai.APIConnectionError, openai.AuthenticationError, openai.BadRequestError, openai.ConflictError,
+        openai.NotFoundError, openai.PermissionDeniedError, openai.UnprocessableEntityError
+    )
+    _skip_errors = ()
 
     _repr = ["model_type", "model_backend", "multi_turn", "candidate_ids"]
 
     def __init__(self, args: ModelArguments):
         super().__init__(args)
 
-        logger.info(f"Trying to load OpenAI model with OPENAI_BASE_URL='{openai.base_url}'")
-        self.api_key = openai.api_key  # the actual api key is used in icl
+        base_url = os.getenv("OPENAI_BASE_URL", None)
+        logger.info(f"Trying to load OpenAI model with OPENAI_BASE_URL='{base_url}'")
 
-        self.args = args
-        self.name = args.model_name_or_path
-        self.is_chat_model = self.name in OPENAI_CHAT_MODELS
-        self.tokenizer = tiktoken.get_encoding(args.tokenizer_name_or_path)
-        self.max_try_times = 5
+        self.model = openai.OpenAI(api_key=openai.api_key, base_url=base_url)
+
+    def _chat_completions(self, *, messages, model, **kwargs):
+        results = openai.chat.completions.create(messages=messages, model=model, **kwargs)
+        if hasattr(results, "choices"):
+            return results.choices
+        else:
+            raise ValueError(f"Unexpected response from OpenAI API: {results}")
+
+    def _completions(self, **kwargs):
+        results = openai.completions.create(**kwargs)
+        if hasattr(results, "choices"):
+            return results.choices
+        else:
+            raise ValueError(f"Unexpected response from OpenAI API: {results}")
+
+    @staticmethod
+    def _get_assistant(msg: Union[List[Choice], CompletionChoice]) -> str:
+        if isinstance(msg, CompletionChoice):
+            return msg.text
+        else:
+            return msg[0].message.content
 
     def set_ppl_args(self, **extra_model_args):
         r"""Set the configurations for PPL score calculation."""
-        # TODO: GPT-3.5 series models don't support echo and logprobs
-        if "gpt-3.5" in self.name:
-            raise ValueError(
-                f"{self.name} doesn't support PPL score calculation. Please use get_prob mode by setting `--ranking_type prob` instead"
-            )
+
         self.ppl_kwargs = dict(echo=True, max_tokens=0, logprobs=0)
 
         if len(extra_model_args) > 0:
             logger.warning(f"Unused generation arguments: {extra_model_args}")
         return self.ppl_kwargs
-
-    def set_generation_args(self, **extra_model_args):
-        r"""Set the configurations for open-ended generation. This is useful because different datasets may have different requirements for generation."""
-        generation_kwargs = {}
-        for key in [
-            "temperature",
-            "top_p",
-            "max_tokens",
-            "best_of",
-            "frequency_penalty",
-            "presence_penalty",
-            "stop",
-        ]:
-            # ModelArguments (cmd) > extra_model_args > ModelArguments (default)
-            if not self.args.passed_in_commandline(key):
-                value = extra_model_args.pop(key, None)
-            if value is None:
-                value = getattr(self.args, key, None)
-
-            if key == "max_tokens" and value is None:
-                value = 1024
-            if value is not None:
-                generation_kwargs[key] = value
-
-        if generation_kwargs.get("temperature", 1) == 0:
-            generation_kwargs["seed"] = self.args.seed
-
-        self.generation_kwargs = generation_kwargs
-
-        self.multi_turn = extra_model_args.pop("multi_turn", False)
-
-        if len(extra_model_args) > 0:
-            logger.warning(f"Unused generation arguments: {extra_model_args}")
-        return self.generation_kwargs
 
     def set_prob_args(self, **extra_model_args):
 
@@ -92,6 +78,7 @@ class Openai(Model):
         self._token_label_ids = []
         self._word_label_texts = []
         self._token_label_texts = []
+        self._option_regex = []
         self.candidate_ids = extra_model_args.pop("candidate_ids", None)
         self._candidate_texts = self.tokenizer.decode_batch(self.candidate_ids) if self.candidate_ids else None
 
@@ -104,18 +91,22 @@ class Openai(Model):
 
     def _get_label_ids(self, option_num: Optional[int]) -> Tuple[List[int], List[str]]:
         """Return the tokenized labels of options and labels themselves."""
+        matches = r"\b([A-{op}])\b|\b([A-{op}])[\u2E80-\u9FFF]|[\u2E80-\u9FFF]([A-{op}])\b|[\u2E80-\u9FFF]([A-{op}])[\u2E80-\u9FFF]"
         if option_num is not None:
             if len(self._word_label_ids) < option_num:
                 labels = []
+                regexs = []
                 for i in range(len(self._word_label_ids), option_num):
                     word = chr(i + 65)
                     token = " " + chr(i + 65)
                     self._word_label_texts.append(word)
                     self._token_label_texts.append(token)
+                    regexs.append(re.compile(matches.format(op=chr(ord("A") + i))))
                     labels.append(word + token)
                 word_labels, token_labels = zip(*self.tokenizer.encode_batch(labels))
                 self._word_label_ids.extend(word_labels)
                 self._token_label_ids.extend(token_labels)
+                self._option_regex.extend(regexs)
 
             ids = self._word_label_ids[:option_num] + self._token_label_ids[:option_num]
             texts = self._word_label_texts[:option_num] + self._token_label_texts[:option_num]
@@ -128,7 +119,7 @@ class Openai(Model):
     def get_ppl(self, batched_inputs: List[Tuple[str, ...]]) -> List[Tuple[float, int]]:
         prompt = ["".join(parts) for parts in batched_inputs]
 
-        results = self.request(prompt, self.ppl_kwargs)
+        results: List[CompletionChoice] = self.request(prompt, **self.ppl_kwargs)
 
         ppls = []
         for result, (src, _) in zip(results, batched_inputs):
@@ -137,17 +128,6 @@ class Openai(Model):
             ppl = -sum(result.logprobs.token_logprobs[tgt_start:])
             ppls.append((ppl, tgt_end - tgt_start))
         return ppls
-
-    def generation(self, batched_inputs: List[str]) -> Union[List[Tuple[str]], List[str]]:
-        results = self.request(batched_inputs, self.generation_kwargs, multi_turn=self.multi_turn)
-        answers = []
-        for result in results:
-            if self.is_chat_model:
-                answer = result[0].message.content
-            else:
-                answer = result.text
-            answers.append(answer)
-        return [tuple(answers)] if self.multi_turn else answers
 
     def get_prob(self, batched_inputs: List[Tuple[str, int]]) -> List[List[int]]:
 
@@ -163,146 +143,46 @@ class Openai(Model):
             label_texts = [l[1] for l in labels]
             logit_bias = [dict.fromkeys(l[0], 100) for l in labels]
 
-        kwargs = copy(self.prob_kwargs)
-        if self.is_chat_model:
-            kwargs["logprobs"] = True
-            kwargs["top_logprobs"] = len(label_texts)
-        else:
-            kwargs["logprobs"] = len(label_texts)
+        self.prob_kwargs["logprobs"] = len(label_texts)
 
-        results = self.request(batched_prompts, self.prob_kwargs, logit_bias=logit_bias)
+        if isinstance(logit_bias, list):
+            results = [self.request(batched_prompts, logit_bias=lb, **self.prob_kwargs) for lb in logit_bias]
+        else:
+            results = self.request(batched_prompts, logit_bias=logit_bias, **self.prob_kwargs)
 
         answers = []
         for result, option_num, label in zip(results, batched_option_nums, label_texts):
-            result = result[0] if self.is_chat_model else result
-            if result["logprobs"] is not None:
+            result: Union[CompletionChoice, Choice] = result[0] if isinstance(result, list) else result
+            if isinstance(
+                result, CompletionChoice
+            ) and result.logprobs is not None and result.logprobs.top_logprobs is not None:
+
+                # get the probabilities of each option
+                probs = [-9999.] * (option_num * 2)
+                top_logprobs = result.logprobs.top_logprobs[0]
+                for l, p in top_logprobs.items():
+                    text = l.strip()
+                    if text in label:
+                        probs[label.index(text)] = p
+
+            elif isinstance(result, Choice) and result.logprobs is not None and result.logprobs.content is not None:
 
                 probs = [-9999.] * (option_num * 2)
-                if self.is_chat_model:
-                    top_logprobs = result.logprobs.content[0].top_logprobs
-                    for token in top_logprobs:
-                        if token.token in label:
-                            probs[label.index(token.token)] = token.logprob
-                else:
-                    top_logprobs = result.logprobs.top_logprobs[0]
-                    for l, p in top_logprobs.items():
-                        if l in label:
-                            probs[label.index(l)] = p
+                top_logprobs = result.logprobs.content[0].top_logprobs
+                for top_logprob in top_logprobs:
+                    text = top_logprob.token.strip()
+                    if text in label:
+                        probs[label.index(text)] = top_logprob.logprob
 
             else:
+
+                # if probabilities are not available, set the probability of the correct answer to 20.0
+                # because of logit_bias, the response text will be shown in `label`
                 probs = [-9999.] * (option_num * 2)
-                if self.is_chat_model:
-                    text = result.message.content
-                else:
-                    text = result.text
-                probs[label.index(text)] = 20.0
+                text = result.text if isinstance(result, CompletionChoice) else result.message.content
+                text = self._option_regex[option_num - 1].findall(text.strip().split("\n")[0])
+                if len(text) > 0 and text[-1] in label:
+                    probs[label.index(text[-1])] = 20.0
 
             answers.append(probs)
         return answers
-
-    def _chat_completion(
-        self,
-        messages: List[Dict[str, str]],
-        *,
-        logit_bias: Optional[Dict[int, float]] = None,
-        logprobs: bool = False,
-        top_logprobs: Optional[int] = None,
-        **kwargs
-    ) -> List[dict]:
-        # reference: https://platform.openai.com/docs/api-reference/chat/create
-        return openai.chat.completions.create(
-            model=self.name,
-            messages=messages,
-            logit_bias=logit_bias,
-            logprobs=logprobs,
-            top_logprobs=top_logprobs,
-            **kwargs,
-        ).choices
-
-    def _completion(
-        self,
-        prompt: List[str],
-        *,
-        logit_bias: Optional[Dict[int, float]] = None,
-        logprobs: Optional[int] = None,
-        **kwargs
-    ) -> List[dict]:
-        # reference: https://platform.openai.com/docs/api-reference/completions/create
-        results = openai.completions.create(
-            model=self.name,
-            prompt=prompt,
-            logit_bias=logit_bias,
-            logprobs=logprobs,
-            **kwargs,
-        )
-        if hasattr(results, "choices"):
-            return results.choices
-        else:
-            raise ValueError(f"Unexpected response from OpenAI API: {results}")
-
-    def request(
-        self,
-        prompt: List[str],
-        openai_kwargs: Dict[str, Any],
-        *,
-        multi_turn: bool = False,
-        logit_bias: Union[Dict[int, float], List[Dict[int, float]], None] = None,
-    ) -> Union[List[dict], List[List[dict]]]:
-        r"""Call the OpenAI API.
-
-        Args:
-            prompt (List[str]): The list of input prompts.
-            openai_kwargs (dict): The additional calling configurations.
-            multi_turn (bool): Default is False. Set to True if multi-turns needed.
-
-        Returns:
-            List[dict]: The list of results.
-        """
-        same_logit_bias = not isinstance(logit_bias, list)
-        if not same_logit_bias:
-            assert len(prompt) == len(logit_bias), "The length of prompt and logit_bias should be the same."
-
-        for _ in range(self.max_try_times):
-            try:
-                # openai chat-based model does not support batch size > 1
-                if self.is_chat_model:
-                    messages = []
-                    results = []
-                    parts = prompt[0].split("__SEPARATOR__") if multi_turn else prompt
-                    for idx, query in enumerate(parts):
-                        if len(query) == 0:
-                            continue
-                        messages.append({"role": "user", "content": query})
-                        lb = logit_bias if same_logit_bias else logit_bias[idx]
-
-                        msg = self._chat_completion(
-                            messages=messages,
-                            logit_bias=lb,
-                            **openai_kwargs,
-                        )
-
-                        results.append(msg)
-                        messages.append({"role": "assistant", "content": msg[0].message.content})
-                    return results
-                else:
-                    if same_logit_bias:
-                        lb = logit_bias if same_logit_bias else logit_bias[idx]
-                        results = self._completion(prompt, logit_bias=logit_bias, **openai_kwargs)
-                    else:
-                        results = [
-                            self._completion(p, logit_bias=lb, **openai_kwargs)[0] for p, lb in zip(prompt, logit_bias)
-                        ]
-                    return results
-            # https://platform.openai.com/docs/guides/error-codes/python-library-error-types
-            except openai.RateLimitError:
-                logger.warning("Receive openai.error.RateLimitError, retrying...")
-                time.sleep(10)
-            except openai.AuthenticationError as e:
-                raise e
-            except openai.BadRequestError as e:
-                raise e
-            except Exception as e:
-                logger.warning(f"Receive {e.__class__.__name__}: {str(e)}")
-                logger.warning("retrying...")
-                time.sleep(1)
-        raise ConnectionError("OpenAI API error")

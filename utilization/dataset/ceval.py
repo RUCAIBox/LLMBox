@@ -22,7 +22,7 @@ class Ceval(MultipleChoiceDataset):
         "explanation": "1. E47是一个单链DNA分子，而双螺旋结构是由两条互补的DNA链通过碱基配对形成的，所以E47不具有双螺旋结构，B选项错误。"
     """
 
-    instruction = "以下是中国关于{}考试的单项选择题，请选出其中的正确答案。"
+    instruction = "以下是中国关于{{subset_name}}考试的单项选择题，请选出其中的正确答案。\n\n{{question|trim}}{{'\n'+options if options}}\n答案："
     example_set = "dev"
     evaluation_set = "val"
     load_args = ("ceval/ceval-exam",)
@@ -32,13 +32,9 @@ class Ceval(MultipleChoiceDataset):
         self.instruction = self.instruction.format(CEVAL_TRANS[self.subset_name])
 
     def format_instance(self, instance):
-        options = list(map(lambda op: " " + op, [instance[chr(ord('A') + _)] for _ in range(4)]))
-        return dict(
-            source=instance["question"].strip(),
-            source_postfix="\n答案：",
-            target_idx=ord(instance["answer"]) - ord('A'),
-            options=options,
-        )
+        instance["options"] = ["A", "B", "C", "D"]
+        instance["target_idx"] = ord(instance["answer"]) - ord('A')
+        return instance
 
     def calculate_metric(self, predictions):
         results, score_lists = super().calculate_metric(predictions)

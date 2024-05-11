@@ -36,6 +36,7 @@ class Mt_bench(GenerationDataset):
         self.evaluation_data = new_evaluation_data
 
     def format_instance(self, instance):
+        # TODO return a list of questions instead of using __SEPARATOR__
         return dict(
             source=instance["question_1"].strip() + "__SEPARATOR__" + instance["question_2"].strip(),
             target="",

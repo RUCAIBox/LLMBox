@@ -15,7 +15,7 @@ class Gsm8k(GenerationDataset):
         answer: Natalia sold 48/2 = <<48/2=24>>24 clips in May. Natalia sold 48+24 = <<48+24=72>>72 clips altogether in April and May. #### 72
     """
 
-    instruction = "Answer the following question."
+    instruction = "Answer the following question.\n\nQuestion: {{question.replace('\n', ' ')}}\nAnswer:"
     evaluation_set = "test"
     example_set = "train"
     load_args = ("gsm8k", "main")
@@ -68,17 +68,14 @@ class Gsm8k(GenerationDataset):
         return new_predictions
 
     def format_instance(self, instance):
-        instance["question"] = instance["question"].replace("\n", " ")
-        question = f'Question: {instance["question"]}\nAnswer:'
 
-        instance["answer"] = ' ' + self._decimal_separator.sub(r"\1\2", instance["answer"])  # for example
-        if "####" in instance["answer"]:
-            instance['short_answer'] = instance["answer"].split("####")[1].strip()  # for reference
+        # remove decimal seperators
+        instance["answer"] = ' ' + self._decimal_separator.sub(r"\1\2", instance["answer"])
+        assert "####" in instance["answer"]
 
-        return dict(
-            source=question,
-            target=instance["answer"],
-        )
+        instance['short_answer'] = instance["answer"].split("####")[1].strip()  # for reference
+        instance["target"] = instance["answer"]  # for few-shots example
+        return instance
 
     @property
     def references(self):

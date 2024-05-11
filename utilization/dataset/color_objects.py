@@ -21,7 +21,7 @@ class Color_objects(GenerationDataset):
     evaluation_set = "validation"
     example_set = "train"
     metrics = [Accuracy()]
-    instruction = ""
+    instruction = "{inputs}"
     load_args = ("tasksource/bigbench", "reasoning_about_colored_objects")
     extra_model_args = dict(temperature=0, stop=["\n"])
 
@@ -30,9 +30,7 @@ class Color_objects(GenerationDataset):
         self.prefix_caching = False
 
     def format_instance(self, instance):
-        source_text = instance["inputs"]
-        target_text = " " + instance["targets"][0]
-        return dict(source=source_text, target=target_text)
+        return dict(inputs=instance["inputs"], target=instance["targets"][0])
 
     def post_processing(self, predictions):
         new_predictions = []

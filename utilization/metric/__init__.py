@@ -1,14 +1,33 @@
 import importlib
+from typing import Type
+
+from .metric import Metric
+
+__all__ = [
+    "avg_metrics", "Accuracy", "Bleu", "F1", "Em", "Gaokao_bench_metric", "GPTEval", "IFEval", "PassAtK",
+    "Perspective_api", "Rouge", "Word_Accuracy"
+]
 
 from .utils import avg_metrics
 
-def lazy_import(module, instance):
+
+def lazy_import(module, instance) -> Type[Metric]:
     try:
         module = importlib.import_module(f".{module}", __package__)
         instance = getattr(module, instance)
-    except (ImportError, ModuleNotFoundError):
-        instance = None
+    except (ImportError, ModuleNotFoundError) as e:
+
+        class ErrorMetric(Metric):
+
+            def __init__(self, *args, **kwargs):
+                self.error = e
+
+            def __call__(self, *args, **kwargs):
+                raise self.error
+
+        instance = ErrorMetric
     return instance
+
 
 Accuracy = lazy_import("accuracy", "Accuracy")
 Bleu = lazy_import("bleu", "Bleu")

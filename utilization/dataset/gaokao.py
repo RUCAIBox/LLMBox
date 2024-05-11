@@ -1,12 +1,42 @@
+import re
 from logging import getLogger
 
 from ..metric import Gaokao_bench_metric
-from .enum import GAOKAO_CHINESE_TASKS_SCORE, GAOKAO_ENGLISH_TASKS_SCORE, GAOKAO_PROMPTS, GAOKAO_TASKS
+from .enum import GAOKAO_TASKS
 from .generation_dataset import GenerationDataset
 
 logger = getLogger(__name__)
 
-import re
+GAOKAO_PROMPTS = {
+    '2010-2022_Math_II_MCQs':
+    '请你做一道数学选择题\n请你一步一步思考并将思考过程写在【解析】和<eoe>之间。你将从A，B，C，D中选出正确的答案，并写在【答案】和<eoa>之间。\n例如：【答案】: A <eoa>\n完整的题目回答的格式如下：\n【解析】 ... <eoe>\n【答案】 ... <eoa>\n请你严格按照上述格式作答。\n题目如下：',
+    '2010-2022_Math_I_MCQs':
+    '请你做一道数学选择题\n请你一步一步思考并将思考过程写在【解析】和<eoe>之间。你将从A，B，C，D中选出正确的答案，并写在【答案】和<eoa>之间。\n例如：【答案】: A <eoa>\n完整的题目回答的格式如下：\n【解析】 ... <eoe>\n【答案】 ... <eoa>\n请你严格按照上述格式作答。\n题目如下：',
+    '2010-2022_History_MCQs':
+    '请你做一道历史选择题\n请你一步一步思考并将思考过程写在【解析】和<eoe>之间。你将从A，B，C，D中选出正确的答案，并写在【答案】和<eoa>之间。\n例如：【答案】: A <eoa>\n完整的题目回答的格式如下：\n【解析】 ... <eoe>\n【答案】 ... <eoa>\n请你严格按照上述格式作答。\n题目如下：',
+    '2010-2022_Biology_MCQs':
+    '请你做一道生物选择题\n请你一步一步思考并将思考过程写在【解析】和<eoe>之间。你将从A，B，C，D中选出正确的答案，并写在【答案】和<eoa>之间。\n例如：【答案】: A <eoa>\n完整的题目回答的格式如下：\n【解析】 ... <eoe>\n【答案】 ... <eoa>\n请你严格按照上述格式作答。\n题目如下：',
+    '2010-2022_Political_Science_MCQs':
+    '请你做一道政治选择题\n请你一步一步思考并将思考过程写在【解析】和<eoe>之间。你将从A，B，C，D中选出正确的答案，并写在【答案】和<eoa>之间。\n例如：【答案】: A <eoa>\n完整的题目回答的格式如下：\n【解析】 ... <eoe>\n【答案】 ... <eoa>\n请你严格按照上述格式作答。\n题目如下：',
+    '2010-2022_Physics_MCQs':
+    '请你做一道物理选择题。\n请你一步一步思考并将思考过程写在【解析】和<eoe>之间。你将从A，B，C，D中选出所有符合题意的答案，并写在【答案】和<eoa>之间。\n例如：【答案】 AB <eoa>\n完整的题目回答的格式如下：\n【解析】 ... <eoe>\n【答案】... <eoa>\n请你严格按照上述格式作答。\n',
+    '2010-2022_Chemistry_MCQs':
+    '请你做一道化学选择题\n请你一步一步思考并将思考过程写在【解析】和<eoe>之间。你将从A，B，C，D中选出正确的答案，并写在【答案】和<eoa>之间。\n例如：【答案】: A <eoa>\n完整的题目回答的格式如下：\n【解析】 ... <eoe>\n【答案】 ... <eoa>\n请你严格按照上述格式作答。\n题目如下：',
+    '2010-2013_English_MCQs':
+    '请你做一道英语选择题\n请你一步一步思考并将思考过程写在【解析】和<eoe>之间。你将从A，B，C，D中选出正确的答案，并写在【答案】和<eoa>之间。\n例如：【答案】: A <eoa>\n完整的题目回答的格式如下：\n【解析】 ... <eoe>\n【答案】 ... <eoa>\n请你严格按照上述格式作答。\n题目如下：',
+    '2010-2022_Chinese_Modern_Lit':
+    '请你做一道语文阅读理解题，其中包含三个小题。\n请你一步一步思考。每一题你将从A，B，C，D中选出正确的答案，并写在【答案】和<eoa>之间。\n例如：（1）【答案】 A <eoa>\n（2）【答案】 B <eoa>\n请你严格按照上述格式作答。\n',
+    '2010-2022_English_Fill_in_Blanks':
+    '请你做一道英语完形填空题,其中包含二十个小题。\n请你一步一步思考。每一题你将从A，B，C，D中选出正确的答案，并写在【答案】和<eoa>之间。\n例如：（1）【答案】 A <eoa>\n（2）【答案】 B <eoa>\n请你严格按照上述格式作答。\n',
+    '2012-2022_English_Cloze_Test':
+    '请回答下面的问题，将符合题意的五个选项的字母写在【答案】和<eoa>之间，例如“【答案】 A B C D E <eoa>\n请严格按照上述格式作答。\n',
+    '2010-2022_Geography_MCQs':
+    '请你做一道地理选择题，其中包含两到三个小题。\n请你一步一步思考。每一题你将从A，B，C，D中选出正确的答案，并写在【答案】和<eoa>之间。\n例如：（1）【答案】 A <eoa>\n（2）【答案】 B <eoa>\n请你严格按照上述格式作答。\n',
+    '2010-2022_English_Reading_Comp':
+    '请你做一道英语阅读理解题，其中包含三到五个小题。\n请你一步一步思考。每一题你将从A，B，C，D中选出正确的答案，并写在【答案】和<eoa>之间。\n例如：（1）【答案】 A <eoa>\n（2）【答案】 B <eoa>\n请你严格按照上述格式作答。\n',
+    '2010-2022_Chinese_Lang_and_Usage_MCQs':
+    '请你做一道语文选择题\n请你一步一步思考并将思考过程写在【解析】和<eoe>之间。你将从A，B，C，D中选出正确的答案，并写在【答案】和<eoa>之间。\n例如：【答案】: A <eoa>\n完整的题目回答的格式如下：\n（1）【解析】 ... <eoe>\n【答案】 ... <eoa>\n（2）【解析】 ... <eoe>\n【答案】 ... <eoa>\n请你严格按照上述格式作答。如果不止一道题，请分别作答\n题目如下：'
+}
 
 
 class Gaokao(GenerationDataset):
@@ -24,7 +54,7 @@ class Gaokao(GenerationDataset):
         "score": 1
     """
 
-    instruction = "{}"
+    instruction = "{{gaokao_instruction}}\n\n{{question|trim}}"
     example_set = None
     evaluation_set = "test"
     load_args = ("RUCAIBox/gaokao-bench",)
@@ -32,14 +62,15 @@ class Gaokao(GenerationDataset):
     categorized_subsets = None  # weighted average score
 
     def init_arguments(self):
-        self.instruction = self.instruction.format(GAOKAO_PROMPTS[self.subset_name])
+        self.gaokao_instruction = GAOKAO_PROMPTS[self.subset_name]
         self.extra_model_args = dict(temperature=0.3, max_tokens=4096)
         # According to https://github.com/OpenLMLab/GAOKAO-Bench/blob/main/Models/openai_gpt4.py
         # We use temperature=0.3 and max_tokens=4096
 
     def format_instance(self, instance):
-        target = instance["answer"].__str__()
-        return dict(source=instance["question"].strip(), target=" " + target)
+        instance["gaokao_instruction"] = self.gaokao_instruction
+        instance["target"] = str(instance["answer"])
+        return instance
 
     def post_processing(self, predictions):
         new_predictions = []

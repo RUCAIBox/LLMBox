@@ -145,7 +145,7 @@ def load_dataset(dataset_name: str,
         model (Model): Our class for model.
 
     Returns:
-        Dataset: Our class for dataset.
+        An iterator of dictionaries grouped by dataset classes, each containing a mapping of display_names to dataset instances.
     """
 
     dataset_classes = import_dataset_classes(dataset_name)

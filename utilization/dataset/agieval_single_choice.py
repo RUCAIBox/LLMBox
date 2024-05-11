@@ -1,12 +1,19 @@
 import re
 from logging import getLogger
 
-from .enum import AGIEVAL_SUBJECTS, AGIEVAL_WORDS, AGIEVAL_ZH_PROMPT_TASKS
+from .enum import AGIEVAL_SUBJECTS, AGIEVAL_ZH_PROMPT_TASKS
 from .multiple_choice_dataset import MultipleChoiceDataset
 
 logger = getLogger(__name__)
 
 uncleaned_label = re.compile(r"^(\([ABCDEFGHIJ]\)|[ABCDEFGHIJ] *\.) *")
+
+INSTRUCTIONS = {
+    "zh_zero_shot": "{passage}问题：{question}\n{options_text}答案：从A到{max_option_letter}，我们应选择",
+    "zh_few_shot": "问题. {passage} {question}\n{options_text}从以下选项中选择：",
+    "en_zero_shot": "{passage}Q: {question}\n{options_text}Answer: Among A through {max_option_letter}, the answer is",
+    "en_few_shot": "Question. {passage} {question}\n{options_text}Choose from the following options: ",
+}
 
 
 class Agieval_single_choice(MultipleChoiceDataset):
@@ -33,17 +40,17 @@ class Agieval_single_choice(MultipleChoiceDataset):
         # FIXME
         self.prefix_caching = False
 
+        text = ""
+        text += "_zh" if self.subset_name in AGIEVAL_ZH_PROMPT_TASKS else "_en"
+        text += "_few_shot" if self.max_num_shots > 0 else "_zero_shot"
+        self.instruction = INSTRUCTIONS[text]
+
     def format_instance(self, instance):
-        WORDS = [w[0 if self.subset_name in AGIEVAL_ZH_PROMPT_TASKS else 1] for w in AGIEVAL_WORDS]
-        passage = "" if instance["passage"] is None else instance["passage"]
-        if self.max_num_shots == 0:
-            source = passage + WORDS[0] + instance["question"] + "\n" + WORDS[2].format(
-                self._max_choice_letter(instance["options"])
-            )
-        else:
-            source = WORDS[6] + passage + " " + instance["question"] + "\n" + WORDS[7]
-        options = list(map(lambda op: " " + uncleaned_label.split(op.strip())[-1], instance["options"]))
-        return dict(source=source, target_idx=int(ord(instance["label"].strip()[0]) - ord('A')), options=options)
+        instance["max_option_letter"] = self._max_choice_letter(instance["options"])
+        instance["target_idx"] = int(ord(instance["label"].strip()[0]) - ord('A'))
+        # remove reduntant label prefix (e.g. "(A) xxx" -> "xxx")
+        instance["options"] = list(map(lambda op: uncleaned_label.split(op.strip())[-1], instance["options"]))
+        return instance
 
     def calculate_metric(self, predictions):
         results, score_lists = super().calculate_metric(predictions)

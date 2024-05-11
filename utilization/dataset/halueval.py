@@ -5,6 +5,15 @@ from .generation_dataset import GenerationDataset
 
 logger = getLogger(__name__)
 
+INSTRUCTIONS = {
+    "qa_samples":
+    "{instruction_qa}\n\n#Question#: {question}\n#Answer#: {answer}\n#Your Judgement#:",
+    "dialogue_samples":
+    "{instruction_dial}\n\n#Dialogue History#: {dialogue_history}\n#Response#: {response}\n#Your Judgement#:",
+    "summarization_samples":
+    "{instruction_summarization}\n\n#Document#: {document}\n#Summary#: {summary}\n#Your Judgement#:"
+}
+
 
 class Halueval(GenerationDataset):
     """The dataset of HaluEval_qa.
@@ -23,23 +32,14 @@ class Halueval(GenerationDataset):
     extra_model_args = dict(temperature=0, stop='\n')
     banned_subsets = ["qa", "dialogue", "summarization", "general"]
 
+    def init_arguments(self):
+        self.instruction = INSTRUCTIONS[self.subset_name]
+
     def format_instance(self, instance):
-        if "qa_samples" == self.subset_name:
-            source = instruction_qa + "\n\n#Question#: " + instance["question"] + "\n#Answer#: " + instance[
-                "answer"] + "\n#Your Judgement#:"
-        elif "dialogue_samples" == self.subset_name:
-            source = instruction_dial + "\n\n#Dialogue History#: " + instance[
-                "dialogue_history"] + "\n#Response#: " + instance["response"] + "\n#Your Judgement#:"
-        elif "summarization_samples" == self.subset_name:
-            prompt1 = instruction_summarization + "\n\n#Document#: " + instance["document"]
-            prompt2 = "\n#Summary#: " + instance["summary"] + "\n#Your Judgement#:"
-            source = self.truncate_message(prompt1, prompt2)
-        else:
-            raise ValueError(f"{self.subset_name} does not exists, please check the dataset")
-        return dict(
-            source=source,
-            target="",
-        )
+        instance["instruction_qa"] = instruction_qa
+        instance["instruction_dial"] = instruction_dial
+        instance["instruction_summarization"] = instruction_summarization
+        return instance
 
     @staticmethod
     def post_processing(predictions):

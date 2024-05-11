@@ -21,10 +21,13 @@ class Hellaswag(MultipleChoiceDataset):
         'label': '3'
     """
 
-    instruction = ""
+    instruction = "{{ preprocess(activity_label + ': ' + ctx_a + ' ' + ctx_b.capitalize()) }}{{'\n' + options + '\nAnswer:' if options}}"
     evaluation_set = "validation"
     example_set = "train"
     load_args = ("Rowan/hellaswag",)
+
+    def init_arguments(self):
+        self.jinja2_env.globals["preprocess"] = self.preprocess
 
     @staticmethod
     def preprocess(text):
@@ -35,18 +38,8 @@ class Hellaswag(MultipleChoiceDataset):
         return text.strip()
 
     def format_instance(self, instance):
-        source = self.preprocess(
-            instance["activity_label"] + ": " + instance["ctx_a"] + " " + instance["ctx_b"].capitalize()
-        )
-
-        label2text = {i: " " + self.preprocess(instance["endings"][i]) for i in [0, 1, 2, 3]}
-        options = [label2text[option] for option in [0, 1, 2, 3]]
-        return dict(
-            source=source,
-            source_postfix="\nAnswer:" if self.ranking_with_options else "",
-            target_idx=int(instance["label"]),
-            options=options,
-        )
+        instance["options"] = [self.preprocess(instance["endings"][i]) for i in range(4)]
+        return instance
 
     @property
     def references(self):

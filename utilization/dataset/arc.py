@@ -26,7 +26,7 @@ class Arc(MultipleChoiceDataset):
             'answerKey': 'C'
         """
 
-    instruction = ""
+    instruction = "Question: {{question}}{{'\n' + options if options}}\nAnswer:"
     evaluation_set = "test"
     example_set = "train"
     load_args = ("allenai/ai2_arc",)
@@ -38,16 +38,14 @@ class Arc(MultipleChoiceDataset):
         self.prefix_caching = False
 
     def format_instance(self, instance):
-        options = list(map(lambda _s: " " + _s, instance["choices"]["text"]))
         if instance["answerKey"].isdigit():
-            instance["answerKey"] = ord(instance["answerKey"]) - 49
+            target_idx = ord(instance["answerKey"]) - ord("1")
         else:
-            instance["answerKey"] = ord(instance["answerKey"]) - 65
+            target_idx = ord(instance["answerKey"]) - ord("A")
         return dict(
-            source="Question: " + instance["question"],
-            source_postfix="\nAnswer:",
-            target_idx=instance["answerKey"],
-            options=options,
+            question=instance["question"],
+            target_idx=target_idx,
+            options=instance["choices"]["text"],
         )
 
     def post_processing(self, predictions: List[Tuple[float, int]]) -> List[int]:

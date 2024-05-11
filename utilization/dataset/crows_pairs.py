@@ -19,6 +19,7 @@ class Crows_pairs(MultipleChoiceDataset):
     load_args = ("crows_pairs",)
 
     def format_instance(self, instance):
+        # source text is empty
         options = [" " + instance["sent_more"], " " + instance["sent_less"]]
         return dict(
             source="",

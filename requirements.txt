@@ -6,6 +6,7 @@ datasets>=2.16.1
 accelerate
 coloredlogs
 tqdm>=4.58.0
+jinja2
 
 # Efficient inference
 packaging

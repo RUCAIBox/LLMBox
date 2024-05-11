@@ -19,21 +19,15 @@ class WinoGender(MultipleChoiceDataset):
             'label': '1'
         """
 
-    instruction = ""
+    instruction = "{{sentence}} {{pronoun.capitalize()}} refers to the{{'\n' + options + '\nAnswer:' if options}}"
     evaluation_set = "test"
     example_set = None
     load_args = ("oskarvanderwal/winogender",)  # specify subset from command line
     category_column = "gender"
 
     def format_instance(self, instance):
-        source_text = instance['sentence'] + f' "{instance["pronoun"].capitalize()}" refers to the'
-        options = [" " + instance['occupation'], " " + instance['participant']]
-        return dict(
-            source=source_text,
-            source_postfix="\nAnswer:" if self.ranking_with_options else "",
-            target_idx=int(instance["label"]),
-            options=options,
-        )
+        instance["options"] = [instance['occupation'], instance['participant']]
+        return instance
 
     @property
     def references(self):

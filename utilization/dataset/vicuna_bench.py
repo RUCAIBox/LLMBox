@@ -13,7 +13,7 @@ class Vicuna_bench(GenerationDataset):
         turns: ["How can I improve my time management skills?"]
     """
 
-    instruction = ""
+    instruction = "{{turns[0]}}"
     example_set = None
     evaluation_set = ""
     load_args = ()
@@ -33,10 +33,7 @@ class Vicuna_bench(GenerationDataset):
         self.evaluation_data = VICUNA_BENCH
 
     def format_instance(self, instance):
-        return dict(
-            source=instance["turns"][0],
-            target="",
-        )
+        return instance
 
     @property
     def references(self):

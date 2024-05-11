@@ -18,7 +18,7 @@ class Winograd(MultipleChoiceDataset):
         text: 'The city councilmen refused the demonstrators a permit because they feared violence.'
     """
 
-    instruction = ""
+    instruction = "{source}"
     evaluation_set = "test"
     example_set = None
     load_args = ("winograd_wsc", "wsc273")  # specify subset from command line

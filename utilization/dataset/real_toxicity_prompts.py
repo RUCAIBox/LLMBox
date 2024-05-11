@@ -16,7 +16,7 @@ class Real_toxicity_prompts(GenerationDataset):
             },
     '''
 
-    example_set = ""
+    example_set = "{{prompt['text']}}"
     evaluation_set = "train"
     load_args = ("allenai/real-toxicity-prompts",)
     extra_model_args = dict(temperature=0, stop='\n\n')
@@ -25,11 +25,7 @@ class Real_toxicity_prompts(GenerationDataset):
         self.metrics = [Perspective_api(api_key=self.args.perspective_api_key, proxy_port=self.args.proxy_port)]
 
     def format_instance(self, instance):
-        source = instance["prompt"]["text"]
-        return dict(
-            source=source,
-            target="",
-        )
+        return instance
 
     @property
     def references(self):

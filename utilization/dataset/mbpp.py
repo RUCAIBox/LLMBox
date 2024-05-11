@@ -36,7 +36,8 @@ class Mbpp(GenerationDataset):
         challenge_test_list: []
     """
 
-    instruction = ""
+    instruction = "You are an expert Python programmer, and here is your task: {{text}} Your code should pass these tests:\n\n{{test_list|join('\n')}}\n"
+    target_template = "[BEGIN]\n{code}\n[DONE]\n"
     example_set = "train"
     evaluation_set = "test"
     load_args = ("mbpp", "full")
@@ -51,12 +52,9 @@ class Mbpp(GenerationDataset):
         self.example_data = EXAMPLARS
 
     def format_instance(self, instance):
-        prompt = instance["text"]
-        tests = '\n'.join(instance["test_list"])
         code = instance["code"].replace("\r", "").replace("\t", "    ")
-        source_prompt = f"You are an expert Python programmer, and here is your task: {prompt} Your code should pass these tests:\n\n{tests}\n"
-        target_prompt = f"[BEGIN]\n{code}\n[DONE]\n"
-        return dict(source=source_prompt, target=target_prompt)
+        instance["target"] = self.target_template.format(code=code)
+        return instance
 
     def post_processing(self, predictions):
         # answer_pattern = re.compile(r"\[BEGIN\](.*?)\[DONE\]", re.DOTALL)

@@ -27,7 +27,8 @@ class Math(GenerationDataset):
         solution: For the piecewise function to be continuous, the cases must "meet" at $2$ and $-2$. For example, $ax+3$ and $x-5$ must be equal when $x=2$. This implies $a(2)+3=2-5$, which we solve to get $2a=-6 \Rightarrow a=-3$. Similarly, $x-5$ and $2x-b$ must be equal when $x=-2$. Substituting, we get $-2-5=2(-2)-b$, which implies $b=3$. So $a+b=-3+3=\boxed{0}$.
     """
 
-    instruction = "Solve the following math problem."
+    instruction = "Solve the following math problem.\n\nQ: {problem}\nA:"
+    target_template = "{solution}\nFinal Answer: The final answer is ${short_answer}$. I hope it is correct."
     example_set = "train"
     evaluation_set = "test"
     load_args = ("hendrycks/competition_math",)
@@ -105,14 +106,9 @@ class Math(GenerationDataset):
         return new_predictions
 
     def format_instance(self, instance):
-        if "short_answer" not in instance:
-            instance["short_answer"] = self.extract_inner_content(instance["solution"])
-        problem = "Q: " + instance["problem"] + "\n" + "A:"
-        solution = f' {instance["solution"]}\nFinal Answer: The final answer is ${instance["short_answer"]}$. I hope it is correct.'
-        return dict(
-            source=problem,
-            target=solution,
-        )
+        instance["short_answer"] = self.extract_inner_content(instance["solution"])
+        instance["target"] = self.target_template.format_map(instance)
+        return instance
 
     @property
     def references(self):
