@@ -56,5 +56,5 @@ class Gaokao_bench_metric(Metric):
             total_score += reference[0]["score"] * len(reference[0]["answer"])
             scores = [self._calculate_score(prediction, ref) for ref in reference]
             score_list.append(multi_ref_aggregation(scores, self.multiref_strategy))
-        self._last_score_lists = {'Scoring rate': score_list}
+        self.last_score_lists = {'Scoring rate': score_list}
         return {'Scoring rate': np.sum(score_list) / total_score * 100}

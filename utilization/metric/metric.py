@@ -1,6 +1,8 @@
 from logging import getLogger
 from typing import Dict, List
 
+import numpy as np
+
 logger = getLogger(__name__)
 
 
@@ -26,8 +28,16 @@ class Metric:
     def __repr__(self) -> str:
         return self.__class__.__name__ + "()"
 
+    @property
     def last_score_lists(self) -> Dict[str, List[float]]:
         if self._last_score_lists is None:
             logger.warning(f"Metric {self.__class__.__name__} have not been called yet. Return empty score lists.")
             return dict()
         return {m: list(l) for m, l in self._last_score_lists.items()}
+
+    @last_score_lists.setter
+    def last_score_lists(self, value: Dict[str, List[float]]):
+        assert all(
+            isinstance(k, (list, np.ndarray)) for k in value.values()
+        ), f"Score lists should be a list or np.ndarray. Got {value}"
+        self._last_score_lists = value

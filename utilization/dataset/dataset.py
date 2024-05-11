@@ -663,7 +663,6 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
             return results
 
         score_lists = {}
-        print(predictions, self.references)
         overall_results = _calculate_metric(predictions, self.references)
         for metric_func in self.metrics:
             score_lists.update(metric_func.last_score_lists)
