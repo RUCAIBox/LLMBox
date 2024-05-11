@@ -22,16 +22,17 @@ class Ceval(MultipleChoiceDataset):
         "explanation": "1. E47是一个单链DNA分子，而双螺旋结构是由两条互补的DNA链通过碱基配对形成的，所以E47不具有双螺旋结构，B选项错误。"
     """
 
-    instruction = "以下是中国关于{{subset_name}}考试的单项选择题，请选出其中的正确答案。\n\n{{question|trim}}{{'\n'+options if options}}\n答案："
+    instruction = "以下是中国关于{{subset_zh}}考试的单项选择题，请选出其中的正确答案。\n\n{{question|trim}}{{'\n'+options if options}}\n答案："
     example_set = "dev"
     evaluation_set = "val"
     load_args = ("ceval/ceval-exam",)
     categorized_subsets = CEVAL_SUBJECTS
 
     def init_arguments(self):
-        self.instruction = self.instruction.format(CEVAL_TRANS[self.subset_name])
+        self.subset_zh = CEVAL_TRANS[self.subset_name]
 
     def format_instance(self, instance):
+        instance["subset_zh"] = self.subset_zh
         instance["options"] = ["A", "B", "C", "D"]
         instance["target_idx"] = ord(instance["answer"]) - ord('A')
         return instance
