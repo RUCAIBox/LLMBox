@@ -1,6 +1,7 @@
 import importlib
 import inspect
 import logging
+import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from logging import getLogger
 from typing import TYPE_CHECKING, Dict, Iterator, List, Set, Type
@@ -75,6 +76,7 @@ def get_subsets(
                 )
             except Exception as e:
                 logger.info(f"Failed when trying to get_dataset_config_names: {e}")
+                os.environ["HF_DATASETS_OFFLINE"] = 1
                 s = []
 
             if s == ["default"]:

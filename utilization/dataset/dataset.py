@@ -97,7 +97,7 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
     use_normalization: bool = False
 
     _repr = [
-        "name",
+        "dataset_name",
         "subset_name",
         "instruction",
         "metrics",
@@ -149,6 +149,11 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
         self.real_example_tokens = None
         self.examples = ""
         self.instruction_template = self.jinja2_env.from_string(self.instruction)
+        logger.debug(
+            "Instruction template type: %s %s",
+            "jinja2" if self.instruction_template.debug_info else "f-string",
+            self.instruction_template.debug_info,
+        )
 
         # load `self.evaluation_data` and `self.example_data`
         self.evaluation_set = args.evaluation_set or self.evaluation_set

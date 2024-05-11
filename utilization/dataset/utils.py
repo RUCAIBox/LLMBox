@@ -5,7 +5,7 @@ from bisect import bisect_left, bisect_right
 from dataclasses import dataclass
 from importlib.machinery import SourceFileLoader
 from logging import getLogger
-from os.path import abspath
+from os.path import abspath, relpath
 from typing import Callable, List, Literal, Optional, Tuple, Union
 
 import datasets as ds
@@ -220,21 +220,50 @@ def get_raw_dataset_loader(
         # for those datasets that is in huggingface but should be downloaded manually
         elif os.path.isdir(dataset_path):
 
-            logger.debug(f"Loading from a manually-downloaded dataset: {dataset_name}, {subset_name}")
-
             if ".cache" in dataset_path:
+
+                _path = load_args[0] if len(load_args) >= 1 else dataset_name
+                logger.debug(f"Loading from a cache dir: {_path}, {subset_name}")
 
                 def load_fn(split):
                     return ds.load_dataset(
-                        dataset_name,
+                        _path,
                         subset_name,
                         split=split,
                         cache_dir=dataset_path,
                         trust_remote_code=True,
+                        save_infos=True,
                         download_config=download_config,
                     )
+            elif os.environ.get("HF_DATASETS_OFFLINE") == 1:
+
+                logger.warning(
+                    "Loading dataset in a non-Hugging Face format! We strongly advise converting it to Hugging Face format using `save_to_disk` to prevent potential issues."
+                )
+
+                config_name = subset_name
+                if not os.path.exists(dataset_path + "/" + dataset_path.split("/")[-1] + ".py"):
+                    config_name = "default"
+
+                logger.debug(f"Loading from a downloaded dataset: {dataset_path}, {config_name}")
+
+                # example command: ceval (cloned from huggingface repo, in .csv format)
+                def load_fn(split):
+                    return ds.load_dataset(
+                        dataset_path,
+                        config_name,
+                        split=split,
+                        data_dir=relpath(dataset_path),
+                        download_config=download_config,
+                        save_infos=True,
+                        trust_remote_code=True,
+                    )
+
             else:
 
+                logger.debug(f"Loading from a manually-downloaded dataset: {dataset_path}, {subset_name}")
+
+                # example command: story_cloze
                 def load_fn(split):
                     return ds.load_dataset(
                         dataset_name,
@@ -242,6 +271,8 @@ def get_raw_dataset_loader(
                         split=split,
                         data_dir=dataset_path,
                         download_config=download_config,
+                        save_infos=True,
+                        trust_remote_code=True,
                     )
 
         # load from a file
