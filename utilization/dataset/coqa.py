@@ -1,6 +1,7 @@
 import copy
 import json
 import re
+from functools import cached_property
 from pathlib import Path
 
 from ..metric import F1, Em
@@ -116,6 +117,6 @@ class Coqa(GenerationDataset):
             new_predictions.append(pred)
         return new_predictions
 
-    @property
+    @cached_property
     def references(self):
         return [instance["answers"][-1] for instance in self.evaluation_data]

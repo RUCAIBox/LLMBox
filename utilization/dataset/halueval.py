@@ -1,3 +1,4 @@
+from functools import cached_property
 from logging import getLogger
 
 from ..metric import Accuracy
@@ -49,7 +50,7 @@ class Halueval(GenerationDataset):
             new_predictions.append(pred)
         return new_predictions
 
-    @property
+    @cached_property
     def references(self):
         return [instance["hallucination"].capitalize() for instance in self.evaluation_data]
 

@@ -1,3 +1,5 @@
+from functools import cached_property
+
 from ..metric import Perspective_api
 from .generation_dataset import GenerationDataset
 
@@ -27,6 +29,6 @@ class Real_toxicity_prompts(GenerationDataset):
     def format_instance(self, instance):
         return instance
 
-    @property
+    @cached_property
     def references(self):
         return [instance["prompt"]["toxicity"] for instance in self.evaluation_data]

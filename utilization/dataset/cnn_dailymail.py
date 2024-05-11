@@ -1,3 +1,5 @@
+from functools import cached_property
+
 from ..metric import Rouge
 from .generation_dataset import GenerationDataset
 
@@ -24,6 +26,6 @@ class CNN_DailyMail(GenerationDataset):
     def format_instance(self, instance):
         return dict(article=instance["article"], target=instance["highlights"])
 
-    @property
+    @cached_property
     def references(self):
         return [instance["highlights"][:] for instance in self.evaluation_data]

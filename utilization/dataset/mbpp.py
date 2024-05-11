@@ -1,4 +1,4 @@
-import re
+from functools import cached_property
 
 from ..metric import PassAtK
 from .generation_dataset import GenerationDataset
@@ -63,7 +63,7 @@ class Mbpp(GenerationDataset):
         # ]
         return [p.split("[DONE]")[0].split("[BEGIN]\n")[-1] for p in predictions]
 
-    @property
+    @cached_property
     def references(self):
         return [
             "\n".join(IMPORT_HELPER) + '\n' + "{pred}" + "\n" + "\n".join(instance["test_list"])

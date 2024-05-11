@@ -1,5 +1,6 @@
 import random
 import re
+from functools import cached_property
 
 import numpy as np
 
@@ -77,7 +78,7 @@ class Squad(GenerationDataset):
                 generation_example_token_nums += cur_token_num
         return generation_example_text
 
-    @property
+    @cached_property
     def references(self):
         return [
             instance["answers"]["text"] if instance["answers"]["text"] else ["Not in background."]

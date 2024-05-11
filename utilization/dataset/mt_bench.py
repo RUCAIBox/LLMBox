@@ -1,3 +1,5 @@
+from functools import cached_property
+
 from ..metric import GPTEval
 from .generation_dataset import GenerationDataset
 
@@ -42,6 +44,6 @@ class Mt_bench(GenerationDataset):
             target="",
         )
 
-    @property
+    @cached_property
     def references(self):
         return self.evaluation_data

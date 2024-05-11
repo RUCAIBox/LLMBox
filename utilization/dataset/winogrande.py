@@ -1,3 +1,4 @@
+from functools import cached_property
 from logging import getLogger
 
 from .multiple_choice_dataset import MultipleChoiceDataset
@@ -45,6 +46,6 @@ class WinoGrande(MultipleChoiceDataset):
             target=completion,
         )
 
-    @property
+    @cached_property
     def references(self):
         return [int(instance["answer"]) - 1 for instance in self.evaluation_data]

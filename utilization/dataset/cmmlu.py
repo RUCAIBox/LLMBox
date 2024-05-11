@@ -1,7 +1,6 @@
+from functools import cached_property
 from logging import getLogger
-from typing import List, Tuple
 
-from .enum import CMMLU_NAME_TRANS
 from .multiple_choice_dataset import MultipleChoiceDataset
 
 logger = getLogger(__name__)
@@ -35,6 +34,6 @@ class Cmmlu(MultipleChoiceDataset):
         results, score_lists = super().calculate_metric(predictions)
         return results, score_lists
 
-    @property
+    @cached_property
     def references(self):
         return [ord(instance["Answer"]) - ord('A') for instance in self.evaluation_data]

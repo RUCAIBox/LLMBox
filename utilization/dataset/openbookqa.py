@@ -1,6 +1,5 @@
+from functools import cached_property
 from logging import getLogger
-
-import numpy as np
 
 from .multiple_choice_dataset import MultipleChoiceDataset
 
@@ -38,17 +37,6 @@ class OpenBookQA(MultipleChoiceDataset):
         instance["options"] = instance["choices"]['text']
         return instance
 
-    def post_processing(self, predictions):
-        labels = []
-        st = 0
-        predictions = list(map(lambda _r: _r[0], predictions))
-        predictions = np.array([rc - ra for rc, ra in zip(predictions[::2], predictions[1::2])])
-        for num in self.option_nums:
-            labels.append(predictions[st:st + num].argmin())
-            st += num
-        predictions = labels
-        return predictions
-
-    @property
+    @cached_property
     def references(self):
         return [ord(instance["answerKey"]) - 65 for instance in self.evaluation_data]

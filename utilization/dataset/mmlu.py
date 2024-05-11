@@ -1,3 +1,4 @@
+from functools import cached_property
 from logging import getLogger
 
 from .enum import MMLU_SUBJECTS
@@ -36,6 +37,6 @@ class Mmlu(MultipleChoiceDataset):
             options=instance["choices"],
         )
 
-    @property
+    @cached_property
     def references(self):
         return [instance["answer"] for instance in self.evaluation_data]

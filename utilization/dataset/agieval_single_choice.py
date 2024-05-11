@@ -1,4 +1,5 @@
 import re
+from functools import cached_property
 from logging import getLogger
 
 from .enum import AGIEVAL_SUBJECTS, AGIEVAL_ZH_PROMPT_TASKS
@@ -60,7 +61,7 @@ class Agieval_single_choice(MultipleChoiceDataset):
     def _max_choice_letter(choices):
         return chr(ord('A') + len(choices) - 1)
 
-    @property
+    @cached_property
     def references(self):
         return [
             ord(instance["label"].strip()[0]) - ord('A')  # type: ignore

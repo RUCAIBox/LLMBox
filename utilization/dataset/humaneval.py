@@ -1,3 +1,5 @@
+from functools import cached_property
+
 from ..metric import PassAtK
 from .generation_dataset import GenerationDataset
 
@@ -63,7 +65,7 @@ class Humaneval(GenerationDataset):
 
         return [_truncate_code_at_stopwords(prediction, stop_words) for prediction in predictions]
 
-    @property
+    @cached_property
     def references(self):
         return [
             "\n".join(IMPORT_HELPER) + '\n' + instance["prompt"] + "{pred}" + "\n" + instance["test"] + "\n" +

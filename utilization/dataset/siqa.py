@@ -1,3 +1,5 @@
+from functools import cached_property
+
 from .multiple_choice_dataset import MultipleChoiceDataset
 
 
@@ -25,6 +27,6 @@ class Siqa(MultipleChoiceDataset):
         instance["target_idx"] = int(instance["label"]) - 1
         return instance
 
-    @property
+    @cached_property
     def references(self):
         return [int(instance["label"]) - 1 for instance in self.evaluation_data]

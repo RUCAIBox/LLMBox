@@ -1,3 +1,5 @@
+from functools import cached_property
+
 from .multiple_choice_dataset import MultipleChoiceDataset
 
 
@@ -21,6 +23,6 @@ class Cb(MultipleChoiceDataset):
         instance["options"] = ["true", "false", "neither"]
         return instance
 
-    @property
+    @cached_property
     def references(self):
         return [instance["label"] for instance in self.evaluation_data]
