@@ -1,4 +1,3 @@
-import re
 import typing
 from collections import OrderedDict, defaultdict
 from copy import copy
@@ -478,11 +477,14 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
         target = formatted_instance.pop("target", None)
         target_idx = formatted_instance.pop("target_idx", None)
         if target_idx is None:
-            target_idx = formatted_instance.pop("label", None)
-        if target_idx is not None:
-            target_idx = int(target_idx)
+            target_idx = formatted_instance.get("label", None)
+        if not isinstance(target_idx, int):
+            if isinstance(target_idx, str) and target_idx.isdigit():
+                target_idx = int(target_idx)
+            else:
+                target_idx = None
         options = formatted_instance.pop("options", None)
-        options_text = ""
+        options_text = None
 
         if self.evaluation_type == "ranking" and target_idx is not None:
             if self.ranking_with_options:
@@ -509,6 +511,8 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
         formatted_instance["source"] = source
         formatted_instance["target"] = target
         formatted_instance["options"] = options_text
+        formatted_instance["source_idx"] = source_idx
+        formatted_instance["target_idx"] = target_idx
         dataset_extensions = ["dataset_name", "subset_name", "display_name", "real_num_shots"]
         for key in dataset_extensions:
             if key in formatted_instance:
@@ -659,9 +663,10 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
             return results
 
         score_lists = {}
+        print(predictions, self.references)
         overall_results = _calculate_metric(predictions, self.references)
         for metric_func in self.metrics:
-            score_lists.update(metric_func.last_score_lists())
+            score_lists.update(metric_func.last_score_lists)
 
         subject_results = {}
         # datasets like winogrander can be categorized by gender
@@ -679,10 +684,11 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
         metric_results[self.display_name] = overall_results
         return metric_results, score_lists
 
+    @property
     def last_score_lists(self) -> Dict[str, List[float]]:
         results = {}
         for metric in self.metrics:
-            results.update(metric.last_score_lists())
+            results.update(metric.last_score_lists)
         return results
 
     def len(self, sample_num: bool = True, option_num: bool = True, normalization: bool = True) -> int:

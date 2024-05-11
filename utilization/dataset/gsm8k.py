@@ -26,7 +26,7 @@ class Gsm8k(GenerationDataset):
     _extract_numbers = re.compile(r"[-+]?\d*\.\d+|\d+")
 
     def init_arguments(self):
-        if self.model.type == 'base':
+        if self.model_type == 'base':
             self.extra_model_args['stop'] = ['\n']
 
     def load_raw_dataset(self, dataset_path, subset_name, evaluation_set, example_set):

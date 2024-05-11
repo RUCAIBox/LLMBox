@@ -235,7 +235,7 @@ def get_raw_dataset_loader(
                         save_infos=True,
                         download_config=download_config,
                     )
-            elif os.environ.get("HF_DATASETS_OFFLINE") == 1:
+            elif os.environ.get("HF_DATASETS_OFFLINE") == "1":
 
                 logger.warning(
                     "Loading dataset in a non-Hugging Face format! We strongly advise converting it to Hugging Face format using `save_to_disk` to prevent potential issues."

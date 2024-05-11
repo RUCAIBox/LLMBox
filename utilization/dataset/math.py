@@ -36,7 +36,7 @@ class Math(GenerationDataset):
     extra_model_args = dict(temperature=0)
 
     def init_arguments(self):
-        if self.model.type == 'base':
+        if self.model_type == 'base':
             self.extra_model_args['stop'] = ['\n\n']
 
     @staticmethod

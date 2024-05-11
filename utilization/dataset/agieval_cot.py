@@ -14,24 +14,24 @@ logger = getLogger(__name__)
 # `options_text` does not follow the standard MultipleChoiceDataset format,
 # because there might be multiple correct answers in the AGIEval dataset.
 INSTRUCTIONS = {
-    "mcq_en_nocot_zero_shot": "{passage}问题：{question} 选项：{options_text}\n答案：从A到{max_option_letter}，我们应选择",
+    "mcq_zh_nocot_zero_shot": "{passage}问题：{question} 选项：{options_text}\n答案：从A到{max_option_letter}，我们应选择",
+    "mcq_zh_nocot_few_shot": "问题. {passage} {question}\n从以下选项中选择：{options_text}\n答案是",
+    "mcq_zh_cot_zero_shot": "{passage}问题：{question} 选项：{options_text}\n答案：从A到{max_option_letter}，我们应选择什么？让我们逐步思考：",
+    "mcq_zh_cot_few_shot": "问题. {passage} {question}\n从以下选项中选择：{options_text}\n问题的解析：",
     "mcq_en_nocot_zero_shot":
     "{passage}Q: {question} Answer Choices: {options_text}\nA: Among A through {max_option_letter}, the answer is",
-    "mcq_zh_cot_zero_shot": "{passage}问题：{question} 选项：{options_text}\n答案：从A到{max_option_letter}，我们应选择什么？让我们逐步思考：",
-    "mcq_en_cot_zero_shot": "{passage}Q: {question} Answer Choices: {options_text}\nLet's think step by step.",
-    "mcq_zh_nocot_few_shot": "问题. {passage} {question}\n从以下选项中选择：{options_text}\n答案是",
     "mcq_en_nocot_few_shot":
     "Question. {passage} {question}\Choose from the following options: {options_text}\nThe answer is therefore",
-    "mcq_zh_cot_few_shot": "问题. {passage} {question}\n从以下选项中选择：{options_text}\n问题的解析：",
+    "mcq_en_cot_zero_shot": "{passage}Q: {question} Answer Choices: {options_text}\nLet's think step by step.",
     "mcq_en_cot_few_shot":
     "Question. {passage} {question}\nChoose from the following options: {options_text}\nExplanation for Problem:",
     "gen_zh_nocot_zero_shot": "{passage}问题：{question}\n答案：",
-    "gen_zh_cot_zero_shot": "{passage}问题：{question}\n答案：让我们逐步思考",
-    "gen_en_nocot_zero_shot": "{passage}Q: {question}\nA: The answer is",
-    "gen_en_cot_zero_shot": "{passage}Q: {question}\nA: Let's think step by step",
     "gen_zh_nocot_few_shot": "问题. {passage} {question}\n答案是",
+    "gen_zh_cot_zero_shot": "{passage}问题：{question}\n答案：让我们逐步思考",
     "gen_zh_cot_few_shot": "问题. {passage} {question}\n问题的解析：",
+    "gen_en_nocot_zero_shot": "{passage}Q: {question}\nA: The answer is",
     "gen_en_nocot_few_shot": "Question. {passage} {question}\nThe answer is therefore",
+    "gen_en_cot_zero_shot": "{passage}Q: {question}\nA: Let's think step by step",
     "gen_en_cot_few_shot": "Question. {passage} {question}\nExplanation for Problem:",
 }
 
@@ -73,8 +73,9 @@ class Agieval_cot(GenerationDataset):
         self.target_template = TARGETS.get(text[4:], " {label}")
 
     def format_instance(self, instance):
-        instance["options_text"] = self._choice_to_str(instance["options"])
-        instance["max_option_letter"] = self._max_choice_letter(instance["options"])
+        if instance.get("options") is not None:
+            instance["options_text"] = self._choice_to_str(instance["options"])
+            instance["max_option_letter"] = self._max_choice_letter(instance["options"])
         return instance
 
     def post_processing(self, predictions):
