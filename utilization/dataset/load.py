@@ -1,17 +1,19 @@
+import difflib
 import importlib
 import inspect
 import logging
+import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from logging import getLogger
 from typing import TYPE_CHECKING, Dict, Iterator, List, Set, Type
 
 from datasets import DownloadConfig, get_dataset_config_names
-from tqdm import tqdm
 
 from utilization.metric.pass_at_k import PassAtK
 
 from ..metric import GPTEval
 from ..utils.catch_error import catch_error
+from ..utils.logging import list_datasets
 from .dataset import Dataset, DatasetCollection
 from .enum import DATASET_ALIASES
 from .utils import accepts_subset
@@ -29,7 +31,14 @@ ABSTRACT_DATASET = {"Dataset", "GenerationDataset", "MultipleChoiceDataset"}
 def _import_dataset_class(dataset_name: str) -> Type[Dataset]:
 
     module_path = __package__ + "." + dataset_name
-    module = importlib.import_module(module_path)
+    try:
+        module = importlib.import_module(module_path)
+    except ModuleNotFoundError as e:
+        all_datasets = list_datasets()
+        fuzzy_match = difflib.get_close_matches(dataset_name, list(all_datasets), cutoff=0.6)
+        if len(fuzzy_match) == 0:
+            fuzzy_match = all_datasets
+        raise ValueError(f"Invalid dataset: {dataset_name}. Possible choices are: {fuzzy_match}.") from e
     clsmembers = inspect.getmembers(module, inspect.isclass)
 
     for name, obj in clsmembers:
@@ -75,6 +84,7 @@ def get_subsets(
                 )
             except Exception as e:
                 logger.info(f"Failed when trying to get_dataset_config_names: {e}")
+                os.environ["HF_DATASETS_OFFLINE"] = "1"
                 s = []
 
             if s == ["default"]:

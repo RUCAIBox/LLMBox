@@ -64,7 +64,7 @@ class Em(Metric):
         for prediction, reference in zip(predictions, references):
             scores = [self._calculate_em_score(ref, prediction) for ref in reference]
             score_list.append(multi_ref_aggregation(scores, self.multiref_strategy))
-        self._last_score_lists = {'EM': score_list}
+        self.last_score_lists = {'EM': score_list}
         return {'EM': np.mean(score_list) * 100}
 
 
@@ -106,5 +106,5 @@ class F1(Metric):
         for prediction, reference in zip(predictions, references):
             scores = [self._calculate_f1_score(ref, prediction, self.force_number_match) for ref in reference]
             score_list.append(multi_ref_aggregation(scores, self.multiref_strategy))
-        self._last_score_lists = {'F1': score_list}
+        self.last_score_lists = {'F1': score_list}
         return {"F1": np.mean(score_list) * 100}

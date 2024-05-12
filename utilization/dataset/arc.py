@@ -39,26 +39,15 @@ class Arc(MultipleChoiceDataset):
 
     def format_instance(self, instance):
         if instance["answerKey"].isdigit():
-            target_idx = ord(instance["answerKey"]) - ord("1")
+            instance["target_idx"] = ord(instance["answerKey"]) - ord("1")
         else:
-            target_idx = ord(instance["answerKey"]) - ord("A")
+            instance["target_idx"] = ord(instance["answerKey"]) - ord("A")
         return dict(
             question=instance["question"],
-            target_idx=target_idx,
+            target_idx=instance["target_idx"],
             options=instance["choices"]["text"],
         )
 
-    def post_processing(self, predictions: List[Tuple[float, int]]) -> List[int]:
-        labels = []
-        st = 0
-        predictions = list(map(lambda _r: _r[0], predictions))
-        predictions = np.array([rc - ra for rc, ra in zip(predictions[::2], predictions[1::2])])
-        for num in self.option_nums:
-            labels.append(predictions[st:st + num].argmin())
-            st += num
-        predictions = labels
-        return predictions
-
     @property
     def references(self):
-        return [instance["answerKey"] for instance in self.evaluation_data]
+        return [instance["target_idx"] for instance in self.evaluation_data]

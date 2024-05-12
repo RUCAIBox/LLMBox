@@ -18,5 +18,5 @@ class Bleu(Metric):
             sentence_bleu = sacrebleu.sentence_bleu(prediction, [reference], tokenize="intl")
             scores.append(sentence_bleu.score)
         corpus_bleu = sacrebleu.corpus_bleu(predictions, [references], tokenize='intl')
-        self._last_score_lists = {'Sentence_BLEU': scores}
+        self.last_score_lists = {'Sentence_BLEU': scores}
         return {'Sentence_BLEU': np.mean(scores), 'Corpus_BLEU': corpus_bleu.score}

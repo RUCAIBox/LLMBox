@@ -1,5 +1,5 @@
 
-datasets=("agieval" "alpaca_eval" "anli" "arc" "bbh" "boolq" "cb" "ceval" "cmmlu" "cnn_dailymail" "color_objects" "commonsenseqa" "copa" "coqa" "crows_pairs" "drop" "gaokao" "gsm8k" "halueval" "hellaswag" "humaneval" "ifeval" "lambada" "math" "mbpp" "mmlu" "mt_bench" "nq" "openbookqa" "penguins_in_a_table" "piqa" "quac" "race" "real_toxicity_prompts" "rte" "siqa" "squad" "squad_v2" "story_cloze" "tldr" "triviaqa" "truthfulqa_mc" "vicuna_bench" "webq" "wic" "winogender" "winograd" "winogrande" "wmt16:en-ro" "wsc" "xsum")
+datasets=("agieval" "alpaca_eval" "anli" "arc" "bbh" "boolq" "cb" "ceval" "cmmlu" "cnn_dailymail" "color_objects" "commonsenseqa" "copa" "coqa" "crows_pairs" "drop" "gaokao" "gsm8k" "halueval" "hellaswag" "humaneval" "ifeval" "lambada" "math" "mbpp" "mmlu" "mt_bench" "nq" "openbookqa" "penguins_in_a_table" "piqa" "quac" "race" "real_toxicity_prompts" "rte" "siqa" "squad" "squad_v2" "story_cloze" "tldr" "triviaqa" "truthfulqa_mc" "vicuna_bench" "webq" "wic" "winogender" "winograd" "winogrande" "wmt16:de-en" "wsc" "xsum")
 
 
 
@@ -42,7 +42,7 @@ function dry_test() {
         fi
 
         echo "Running on $dataset"
-        python inference.py -m gpt2 -d "$dataset" --dry_run $args 2>&1 /dev/null
+        python inference.py -m gpt2 -i 10 -d "$dataset" --dry_run True $args > /dev/null
         if [ $? -ne 0 ]; then
             echo " ❎"
         else

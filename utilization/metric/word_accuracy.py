@@ -35,5 +35,5 @@ class Word_Accuracy(Metric):
         trunced_preds = [p.strip() for p in trunced_preds]
         references = [r.strip() for r in references]
         score_list = np.asarray(trunced_preds) == np.asarray(references)
-        self._last_score_lists = {'Accuracy': score_list}
+        self.last_score_lists = {'Accuracy': score_list}
         return {'Accuracy': np.mean(score_list) * 100}

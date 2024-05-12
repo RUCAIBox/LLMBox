@@ -9,10 +9,10 @@ logger = getLogger(__name__)
 uncleaned_label = re.compile(r"^(\([ABCDEFGHIJ]\)|[ABCDEFGHIJ] *\.) *")
 
 INSTRUCTIONS = {
-    "zh_zero_shot": "{passage}问题：{question}\n{options_text}答案：从A到{max_option_letter}，我们应选择",
-    "zh_few_shot": "问题. {passage} {question}\n{options_text}从以下选项中选择：",
-    "en_zero_shot": "{passage}Q: {question}\n{options_text}Answer: Among A through {max_option_letter}, the answer is",
-    "en_few_shot": "Question. {passage} {question}\n{options_text}Choose from the following options: ",
+    "zh_zero_shot": "{passage}问题：{question}\n{options}答案：从A到{max_option_letter}，我们应选择",
+    "zh_few_shot": "问题. {passage} {question}\n{options}从以下选项中选择：",
+    "en_zero_shot": "{passage}Q: {question}\n{options}Answer: Among A through {max_option_letter}, the answer is",
+    "en_few_shot": "Question. {passage} {question}\n{options}Choose from the following options: ",
 }
 
 
@@ -41,7 +41,7 @@ class Agieval_single_choice(MultipleChoiceDataset):
         self.prefix_caching = False
 
         text = ""
-        text += "_zh" if self.subset_name in AGIEVAL_ZH_PROMPT_TASKS else "_en"
+        text += "zh" if self.subset_name in AGIEVAL_ZH_PROMPT_TASKS else "en"
         text += "_few_shot" if self.max_num_shots > 0 else "_zero_shot"
         self.instruction = INSTRUCTIONS[text]
 
