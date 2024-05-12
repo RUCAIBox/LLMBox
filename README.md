@@ -35,8 +35,10 @@ Utilization
 
 ```python
 git clone https://github.com/RUCAIBox/LLMBox.git && cd LLMBox
-pip install -r requirements.txt
+pip install -r requirements.txt  # or `requirements-openai.txt`
 ```
+
+If you are only evaluating the OpenAI (or OpenAI compatible) models, you can install the minimal requirements.
 
 ### Quick Start with Training
 

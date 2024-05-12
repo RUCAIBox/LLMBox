@@ -1,0 +1,9 @@
+torch
+transformers
+datasets>=2.16.1
+coloredlogs
+tqdm>=4.58.0
+jinja2
+
+openai>=1.0.0
+tiktoken>=0.5.0
