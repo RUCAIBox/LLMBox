@@ -1,4 +1,5 @@
 import re
+from functools import cached_property
 from logging import getLogger
 
 from ..metric import Gaokao_bench_metric
@@ -140,7 +141,7 @@ class Gaokao(GenerationDataset):
 
         return model_answer
 
-    @property
+    @cached_property
     def references(self):
         references = []
         for instance in self.evaluation_data:

@@ -1,4 +1,4 @@
-import re
+from functools import cached_property
 
 from ..metric import GPTEval
 from .generation_dataset import GenerationDataset
@@ -26,6 +26,6 @@ class Alpaca_eval(GenerationDataset):
     def post_processing(predictions):
         return [prediction.strip() for prediction in predictions]
 
-    @property
+    @cached_property
     def references(self):
         return self.evaluation_data

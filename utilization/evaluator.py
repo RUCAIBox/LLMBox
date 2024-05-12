@@ -2,13 +2,13 @@ from logging import getLogger
 from statistics import mode
 from typing import Dict, Tuple
 
-from accelerate.utils import set_seed
 from torch.utils.data import DataLoader
 
 from .dataset import load_datasets
 from .model import load_model
 from .utils import DatasetArguments, EvaluationArguments, ModelArguments, catch_error, dynamic_stride_tqdm
 from .utils.log_results import PredictionWriter
+from .utils.random import set_seed
 
 logger = getLogger(__name__)
 

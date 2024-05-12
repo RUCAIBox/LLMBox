@@ -1,4 +1,4 @@
-from langcodes import Language
+from functools import cached_property
 
 from ..metric import Bleu
 from .generation_dataset import GenerationDataset
@@ -22,6 +22,7 @@ class TranslationDataset(GenerationDataset):
     extra_model_args = dict(temperature=0, stop=["\n"])
 
     def init_arguments(self):
+        from langcodes import Language
         self.language = Language(self.subset_name[3:5]).language_name("en")
 
     def format_instance(self, instance):
@@ -33,6 +34,6 @@ class TranslationDataset(GenerationDataset):
     def post_processing(preds):
         return [pred.strip().split("\n")[0] for pred in preds]
 
-    @property
+    @cached_property
     def references(self):
         return [instance["translation"][self.subset_name[3:]] for instance in self.evaluation_data]

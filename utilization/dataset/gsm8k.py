@@ -1,5 +1,6 @@
 import re
 import signal
+from functools import cached_property
 
 from ..metric import Accuracy
 from .generation_dataset import GenerationDataset
@@ -77,7 +78,7 @@ class Gsm8k(GenerationDataset):
         instance["target"] = instance["answer"]  # for few-shots example
         return instance
 
-    @property
+    @cached_property
     def references(self):
         return [instance["short_answer"] for instance in self.evaluation_data]
 

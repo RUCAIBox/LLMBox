@@ -1,3 +1,5 @@
+from functools import cached_property
+
 from ..metric import Rouge
 from .generation_dataset import GenerationDataset
 
@@ -23,6 +25,6 @@ class Xsum(GenerationDataset):
         instance["target"] = instance["summary"]
         return instance
 
-    @property
+    @cached_property
     def references(self):
         return [instance["summary"] for instance in self.evaluation_data]

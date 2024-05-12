@@ -1,3 +1,5 @@
+from functools import cached_property
+
 from .multiple_choice_dataset import MultipleChoiceDataset
 
 
@@ -35,6 +37,6 @@ class Story_cloze(MultipleChoiceDataset):
         instance["target_idx"] = instance["answer_right_ending"] - 1
         return instance
 
-    @property
+    @cached_property
     def references(self):
         return [instance["answer_right_ending"] - 1 for instance in self.evaluation_data]

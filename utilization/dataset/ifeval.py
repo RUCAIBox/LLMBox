@@ -1,3 +1,5 @@
+from functools import cached_property
+
 from ..metric import IFEval
 from .generation_dataset import GenerationDataset
 
@@ -47,7 +49,7 @@ class Ifeval(GenerationDataset):
     def format_instance(self, instance):
         return dict(source=instance["prompt"], target="")
 
-    @property
+    @cached_property
     def references(self):
         processed_evaluation = []
         for evaluation in self.evaluation_data:

@@ -1,3 +1,5 @@
+from functools import cached_property
+
 from ..metric import Word_Accuracy
 from .generation_dataset import GenerationDataset
 
@@ -29,6 +31,6 @@ class Lambada(GenerationDataset):
         instance["source"], instance["target"] = instance["text"].rsplit(" ", 1)
         return instance
 
-    @property
+    @cached_property
     def references(self):
         return [" " + instance["target"] for instance in self.evaluation_data]

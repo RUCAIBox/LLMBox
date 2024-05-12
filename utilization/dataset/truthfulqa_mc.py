@@ -1,4 +1,5 @@
 import random
+from functools import cached_property
 
 from ..metric import Accuracy
 from .multiple_choice_dataset import MultipleChoiceDataset
@@ -34,7 +35,7 @@ class Truthfulqa_mc1(MultipleChoiceDataset):
         instance["target_idx"] = order.index(0)
         return instance
 
-    @property
+    @cached_property
     def references(self):
         return [instance["target_idx"] for instance in self.evaluation_data]
 

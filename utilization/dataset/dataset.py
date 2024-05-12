@@ -1,6 +1,7 @@
 import typing
 from collections import OrderedDict, defaultdict
 from copy import copy
+from functools import cached_property
 from itertools import chain
 from logging import getLogger
 from pprint import pformat
@@ -215,7 +216,7 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
         """
         raise NotImplementedError(f"{self.dataset_name} dataset must implement the `format_instance` function.")
 
-    @property
+    @cached_property
     def references(self):
         r"""Get the references for `evaluation_data`.
 

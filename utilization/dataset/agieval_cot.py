@@ -1,4 +1,5 @@
 import re
+from functools import cached_property
 from logging import getLogger
 
 from ..metric import Em
@@ -115,7 +116,7 @@ class Agieval_cot(GenerationDataset):
     def _max_choice_letter(choices):
         return chr(ord('A') + len(choices) - 1)
 
-    @property
+    @cached_property
     def references(self):
         if self.subset_name not in AGIEVAL_NO_LETTER_CHOICE_TASKS:
             return [[str(instance["label"])] for instance in self.evaluation_data]  # type: ignore

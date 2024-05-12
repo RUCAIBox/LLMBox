@@ -1,3 +1,5 @@
+from functools import cached_property
+
 from .multiple_choice_dataset import MultipleChoiceDataset
 
 
@@ -27,6 +29,6 @@ class Crows_pairs(MultipleChoiceDataset):
             options=options,
         )
 
-    @property
+    @cached_property
     def references(self):
         return [instance["stereo_antistereo"] for instance in self.evaluation_data]
