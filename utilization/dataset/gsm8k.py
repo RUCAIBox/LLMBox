@@ -72,9 +72,11 @@ class Gsm8k(GenerationDataset):
 
         # remove decimal seperators
         instance["answer"] = ' ' + self._decimal_separator.sub(r"\1\2", instance["answer"])
-        assert "####" in instance["answer"]
 
-        instance['short_answer'] = instance["answer"].split("####")[1].strip()  # for reference
+        # few-shot examples might not contain "####"
+        if "####" in instance["answer"]:
+            instance['short_answer'] = instance["answer"].split("####")[1].strip()  # for reference
+
         instance["target"] = instance["answer"]  # for few-shots example
         return instance
 
