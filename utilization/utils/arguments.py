@@ -80,7 +80,7 @@ class ModelArguments(ModelBackendMixin):
         help="Whether to cache prefix in get_ppl mode",
     )
     vllm: bool = HfArg(
-        default=True,
+        default=None,
         help="Whether to use vllm",
     )
     flash_attention: bool = HfArg(
@@ -340,8 +340,10 @@ class ModelArguments(ModelBackendMixin):
         # See `model/load.py` for details.
         if not self.is_local_model():
             self.vllm = False
-        else:
-            self.vllm = self.is_vllm_model()
+        elif self.is_vllm_model():
+            self.vllm = True
+        elif self.vllm is None:
+            self.vllm = not self.prefix_caching
 
         if self.vllm:
             self.vllm_gpu_memory_utilization = 0.9
