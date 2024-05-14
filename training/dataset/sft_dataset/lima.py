@@ -12,8 +12,6 @@ class LimaDataset(SFTDataset):
     5% are sampled from the Super-Natural Instructions dataset.
     """
 
-    instruction_template = "\n\n### Human:\n"
-    response_template = "\n\n### Assistant:\n"
     def process(self, tokenizer):
         input_ids = []
         labels = []
@@ -22,7 +20,8 @@ class LimaDataset(SFTDataset):
             tmp1 = []
             tmp2 = []
             for s, t in zip(example['conversations'][::2], example['conversations'][1::2]):
-                s = self.instruction_template + s + '\n' + self.response_template
+                s = tokenizer.apply_chat_template([{'role':'user','content':s}],tokenize=False)
+                t = tokenizer.apply_chat_template([{'role':'assistant','content':t}],tokenize=False)
                 input_id, label = self.encode_src_tgt(s, t, tokenizer)
                 tmp1.append(input_id)
                 tmp2.append(label)
