@@ -1,4 +1,5 @@
 import re
+from functools import cached_property
 
 from ..metric import F1, Em
 from .generation_dataset import GenerationDataset
@@ -43,6 +44,6 @@ class Drop(GenerationDataset):
             new_predictions.append(pred)
         return new_predictions
 
-    @property
+    @cached_property
     def references(self):
         return [instance["answers_spans"]["spans"] for instance in self.evaluation_data]

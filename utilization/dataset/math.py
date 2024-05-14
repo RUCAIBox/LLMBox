@@ -1,4 +1,5 @@
 import re
+from functools import cached_property
 
 from ..metric import Accuracy
 from .generation_dataset import GenerationDataset
@@ -110,6 +111,6 @@ class Math(GenerationDataset):
         instance["target"] = self.target_template.format_map(instance)
         return instance
 
-    @property
+    @cached_property
     def references(self):
         return [instance["short_answer"] for instance in self.evaluation_data]

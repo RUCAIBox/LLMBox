@@ -1,5 +1,4 @@
 import gc
-from bisect import bisect_left
 from logging import getLogger
 from typing import Any, Iterator, List, Optional, Tuple, Union
 
@@ -345,6 +344,8 @@ class HuggingFaceModel(Model):
             pos_kwargs = {"position_ids": input_pos}
         if prefix_cache is not None:
             past_key_values = prefix_cache.to_legacy_cache()
+            if attention_mask.shape[1] == input_ids.shape[1]:
+                past_key_values = None
         else:
             past_key_values = None
 

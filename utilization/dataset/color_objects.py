@@ -1,4 +1,5 @@
 import re
+from functools import cached_property
 
 import numpy as np
 
@@ -47,6 +48,6 @@ class Color_objects(GenerationDataset):
             new_predictions.append(True if pred in refer else False)
         return new_predictions
 
-    @property
+    @cached_property
     def references(self):
         return [True for _ in self.evaluation_data]

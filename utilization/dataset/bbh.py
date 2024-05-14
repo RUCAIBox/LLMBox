@@ -1,4 +1,5 @@
 import re
+from functools import cached_property
 from logging import getLogger
 
 from ..metric import Em
@@ -91,7 +92,7 @@ class Bbh(GenerationDataset):
             new_predictions.append(new_pred)
         return new_predictions
 
-    @property
+    @cached_property
     def references(self):
         references = []
         for instance in self.evaluation_data:

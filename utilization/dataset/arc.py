@@ -1,7 +1,5 @@
+from functools import cached_property
 from logging import getLogger
-from typing import List, Tuple, Union
-
-import numpy as np
 
 from .multiple_choice_dataset import MultipleChoiceDataset
 
@@ -48,6 +46,6 @@ class Arc(MultipleChoiceDataset):
             options=instance["choices"]["text"],
         )
 
-    @property
+    @cached_property
     def references(self):
         return [instance["target_idx"] for instance in self.evaluation_data]

@@ -1,3 +1,4 @@
+from functools import cached_property
 from logging import getLogger
 
 from .enum import CEVAL_SUBJECTS, CEVAL_TRANS
@@ -41,6 +42,6 @@ class Ceval(MultipleChoiceDataset):
         results, score_lists = super().calculate_metric(predictions)
         return results, score_lists
 
-    @property
+    @cached_property
     def references(self):
         return [ord(instance["answer"]) - ord('A') for instance in self.evaluation_data]

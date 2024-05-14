@@ -1,4 +1,5 @@
 import re
+from functools import cached_property
 from typing import Optional
 
 import numpy as np
@@ -99,7 +100,7 @@ class Quac(GenerationDataset):
                 example_token_nums += cur_token_num
         return example_text
 
-    @property
+    @cached_property
     def references(self):
         return [["I don't know."] if "CANNOTANSWER" in instance["answer"] else instance["answer"]
                 for instance in self.evaluation_data]

@@ -1,3 +1,5 @@
+from functools import cached_property
+
 from ..metric import Rouge
 from .generation_dataset import GenerationDataset
 
@@ -25,6 +27,6 @@ class TLDR(GenerationDataset):
         target = instance["label"]
         return dict(source=source, target=target)
 
-    @property
+    @cached_property
     def references(self):
         return [instance["label"][:] for instance in self.evaluation_data]

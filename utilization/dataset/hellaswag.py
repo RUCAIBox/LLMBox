@@ -1,4 +1,5 @@
 import re
+from functools import cached_property
 
 from .multiple_choice_dataset import MultipleChoiceDataset
 
@@ -41,6 +42,6 @@ class Hellaswag(MultipleChoiceDataset):
         instance["options"] = [self.preprocess(instance["endings"][i]) for i in range(4)]
         return instance
 
-    @property
+    @cached_property
     def references(self):
         return [int(instance["label"]) for instance in self.evaluation_data]

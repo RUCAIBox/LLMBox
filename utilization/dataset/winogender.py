@@ -1,3 +1,5 @@
+from functools import cached_property
+
 from .multiple_choice_dataset import MultipleChoiceDataset
 
 
@@ -29,6 +31,6 @@ class WinoGender(MultipleChoiceDataset):
         instance["options"] = [instance['occupation'], instance['participant']]
         return instance
 
-    @property
+    @cached_property
     def references(self):
         return [int(instance["label"]) for instance in self.evaluation_data]

@@ -1,3 +1,5 @@
+from functools import cached_property
+
 import numpy as np
 
 from ..metric import Accuracy
@@ -26,6 +28,6 @@ class Penguins_in_a_table(MultipleChoiceDataset):
         instance["options"] = instance["multiple_choice_targets"]
         return instance
 
-    @property
+    @cached_property
     def references(self):
         return [int(np.argmax(instance["multiple_choice_scores"])) for instance in self.evaluation_data]
