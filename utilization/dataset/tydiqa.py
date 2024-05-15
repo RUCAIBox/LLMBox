@@ -21,7 +21,7 @@ class Tydiqa(GenerationDataset):
     example_set = "train"
     evaluation_set = "validation"
     load_args = ("tydiqa", "secondary_task")  
-    metrics = [F1(), Em()]
+    metrics = [F1()]
     extra_model_args = dict(max_tokens=64, temperature=0, stop=["\n"])
 
     def format_instance(self, instance):
