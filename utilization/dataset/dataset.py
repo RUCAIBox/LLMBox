@@ -2,7 +2,7 @@ import typing
 from collections import OrderedDict, defaultdict
 from copy import copy
 from functools import cached_property
-from itertools import chain
+from itertools import chain, islice
 from logging import getLogger
 from pprint import pformat
 from typing import Dict, Iterator, List, Literal, Optional, Tuple, Union
@@ -719,9 +719,17 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
         score_lists: Dict[str, List[float]],
     ) -> Optional[pd.Series]:
         return log_final_results(
-            raw_predictions, processed_predictions, score_lists, self.dataset_name == "winogrande",
-            self.model_evaluation_method, self.use_normalization, self.option_nums, self.evaluation_data,
-            self.evaluation_instances, self.sample_num, self.references
+            raw_predictions=raw_predictions,
+            processed_predictions=processed_predictions,
+            score_lists=score_lists,
+            multiple_source=(self.dataset_name == "winogrande"),
+            model_evaluation_method=self.model_evaluation_method,
+            use_normalization=self.use_normalization,
+            option_nums=self.option_nums,
+            len_evaluation_data=len(self.evaluation_data),
+            evaluation_instances=self.evaluation_instances,
+            sample_num=self.sample_num,
+            references=self.references,
         )
 
     def __repr__(self):
@@ -743,6 +751,9 @@ class DatasetCollection(torch.utils.data.Dataset):
         self._lines_iter = chain.from_iterable(
             zip(range(d.len()), d.evaluation_instances, repeat_iter(d.references, d.sample_num)) for d in self._datasets
         )
+        self._idx_mapping = []
+        for i, d in enumerate(self._datasets):
+            self._idx_mapping.extend([(i, j) for j in range(d.len())])
 
         self.categorized_subsets = {}
         for d in self._datasets:
@@ -837,17 +848,22 @@ class DatasetCollection(torch.utils.data.Dataset):
         return sum((d.post_processing(p) for d, p in zip(self._datasets, self._split_by_subset(predictions))), [])
 
     def __getitem__(self, idx):
-        if idx > self.__len__():
+        if self.args.continue_from:
+            idx += self.args.continue_from
+        if idx >= len(self._idx_mapping):
             raise IndexError(f"Index {idx} out of range")
-        self._cur_idx = 0
-        while idx >= self._datasets[self._cur_idx].len():
-            idx -= self._datasets[self._cur_idx].len()
-            self._cur_idx += 1
+        self._cur_idx, idx = self._idx_mapping[idx]
         return self._datasets[self._cur_idx][idx]
 
-    def __iter__(self):
-        for self._cur_idx, d in enumerate(self._datasets):
+    def _dataset_iter(self):
+        for d in self._datasets:
             yield from d.__iter__()
+
+    def __iter__(self):
+        if self.args.continue_from:
+            yield from islice(self._dataset_iter(), self.args.continue_from, None)
+        else:
+            yield from self._dataset_iter()
 
     def __getattr__(self, attr):
         return getattr(self._datasets[self._cur_idx], attr)

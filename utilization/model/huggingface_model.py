@@ -122,6 +122,7 @@ class HuggingFaceModel(Model):
 
         self.system_prompt = self.args.system_prompt
         self.chat_template = self.args.chat_template
+        self.support_char_to_token = True
         if self.system_prompt:
             self._system = lambda: Conversation([{"role": "system", "content": self.system_prompt}])
         else:
@@ -466,13 +467,15 @@ class HuggingFaceModel(Model):
             probs = self.loss_fct(shift_logits.view(-1, self.model.config.vocab_size),
                                   shift_labels.view(-1)).view(shift_labels.size(0), -1).cpu()
 
-        if self.tokenizer.is_fast:
+        tgt_starts = [None] * len(batched_inputs)
+        if self.tokenizer.is_fast and self.support_char_to_token:
             src_lengths = [len("".join(pg[:-1])) for pg in batched_inputs]
             tgt_starts = [batched_encodings.char_to_token(i, l) for i, l in enumerate(src_lengths)]
-        else:
+        if tgt_starts[0] is None:
             src_prompts = ["".join(pg[:-1]) for pg in batched_inputs]
             src_batched_encodings = self.tokenizer(src_prompts, truncation=True, return_attention_mask=False)
             tgt_starts = [len(src_input_ids) for src_input_ids in src_batched_encodings.input_ids]
+            self.support_char_to_token = False
         ed = len(batched_encodings["input_ids"][0])
 
         if exact_match:

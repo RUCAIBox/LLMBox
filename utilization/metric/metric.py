@@ -11,6 +11,10 @@ class Metric:
 
     _last_score_lists = {}
 
+    def __init__(self, *args, **kwargs):
+        r"""Initialize the metric."""
+        pass
+
     def __call__(self, predictions, references) -> Dict[str, float]:
         r""" Compute specific metric scores between predictions and references.
 

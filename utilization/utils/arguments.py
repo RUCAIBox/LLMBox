@@ -447,6 +447,7 @@ class DatasetArguments:
         help="The maximum number of evaluation instances per dataset (subset)",
     )
 
+    continue_from: ClassVar[int] = 0
     proxy_port: ClassVar[int] = None
     dataset_threading: ClassVar[bool] = True
 
@@ -519,6 +520,10 @@ class EvaluationArguments:
     )
     dataset_threading: bool = HfArg(default=True, help="Load dataset with threading")
     dataloader_workers: int = HfArg(default=0, help="The number of workers for dataloader")
+    continue_from: Optional[str] = HfArg(
+        default=None,
+        help="The path to the evaluation results to continue from",
+    )
 
     _argument_group_name = "evaluation arguments"
 
@@ -529,6 +534,14 @@ class EvaluationArguments:
     def __post_init__(self):
         os.makedirs(self.logging_dir, exist_ok=True)
         os.makedirs(self.evaluation_results_dir, exist_ok=True)
+        if self.proxy_port is not None:
+            try:
+                import httpx
+                import openai
+
+                openai.http_client = httpx.Client(proxies=f"http://localhost:{self.proxy_port}")
+            except Exception:
+                pass
 
 
 def check_args(model_args: ModelArguments, dataset_args: DatasetArguments, evaluation_args: EvaluationArguments):
