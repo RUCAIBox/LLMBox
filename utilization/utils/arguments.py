@@ -235,7 +235,7 @@ class ModelArguments(ModelBackendMixin):
         "vllm": {"vllm", "prefix_caching", "flash_attention", "gptq", "vllm_gpu_memory_utilization", "chat_template"},
         "huggingface": {
             "device_map", "vllm", "prefix_caching", "flash_attention", "bnb_config", "load_in_8bit", "load_in_4bit",
-            "gptq", "chat_template"
+            "gptq", "chat_template", "stop"
         },
     }
 
