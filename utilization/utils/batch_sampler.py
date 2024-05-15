@@ -1,4 +1,4 @@
-from itertools import chain
+from itertools import chain, islice
 from logging import getLogger
 from typing import TYPE_CHECKING, Any, Callable, Iterator, List, Tuple
 
@@ -57,7 +57,7 @@ class AutoBatchSizeSampler(Sampler[List[int]]):
                 self.data_order[-1].append(i)
                 if self.check_new_batch(self.data_order[-1], i + 1):
                     self.data_order.append([])
-        if self.data_order[-1] == []:
+        while self.data_order[-1] == []:
             self.data_order.pop()
 
     def check_new_batch(self, queries: List[int], next_data: int) -> bool:
@@ -109,7 +109,11 @@ class DatasetCollectionBatchSampler(Sampler[List[int]]):
         call_models = []
         last_hash = None
         model = dataset_collection._datasets[0].model
+        skip = dataset_collection.args.continue_from
         for dataset in dataset_collection._datasets:
+            if dataset.len() <= skip:
+                skip -= dataset.len()
+                continue
             # check if the model arguments has changed
             cur_hash = (dataset._extra_model_args.items(), dataset.model_evaluation_method, dataset.total_prefix_num)
             if cur_hash != last_hash:
@@ -126,6 +130,9 @@ class DatasetCollectionBatchSampler(Sampler[List[int]]):
                             use_cache
                         )
                         iterator = chain.from_iterable(group_datasets[group_idx])
+                        original_len = sum([d.len() for d in group_datasets[group_idx]])
+                        if group_lengths[group_idx] != original_len:
+                            iterator = islice(iterator, original_len - group_lengths[group_idx], None)
                         return iterator, total_prefix_num
 
                     return wrapper
@@ -135,7 +142,11 @@ class DatasetCollectionBatchSampler(Sampler[List[int]]):
                 init_fns.append(init_fn(len(group_lengths) - 1))
                 call_models.append(getattr(model, dataset.model_evaluation_method))
 
-            group_lengths[-1] += dataset.len()
+            if skip:
+                group_lengths[-1] += dataset.len() - skip
+                skip = 0
+            else:
+                group_lengths[-1] += dataset.len()
             group_datasets[-1].append(dataset)
             last_hash = cur_hash
         return group_lengths, init_fns, call_models
