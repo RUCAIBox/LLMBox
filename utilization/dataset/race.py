@@ -1,6 +1,7 @@
 from functools import cached_property
 from logging import getLogger
 
+from ..metric import Accuracy
 from .multiple_choice_dataset import MultipleChoiceDataset
 
 logger = getLogger(__name__)
@@ -39,6 +40,7 @@ class Race(MultipleChoiceDataset):
     banned_subsets = ["all"]
     use_normalization = True
     normalization_prompt = "Article:\n\nQ: \nA:"
+    metrics = [Accuracy("Norm")]
 
     def init_arguments(self):
         # TODO
