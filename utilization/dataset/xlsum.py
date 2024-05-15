@@ -1,3 +1,5 @@
+from functools import cached_property
+
 from ..metric import Rouge
 from .generation_dataset import GenerationDataset
 
@@ -12,18 +14,17 @@ class Xlsum(GenerationDataset):
         summary: Queen's University Belfast is cutting 236 jobs and 290 student places due to a funding reduction.
     """
 
-    instruction = ""
-    evaluation_set = "test"
-    example_set = "train"
+    instruction = "{text}\n\nTL;DR:"
+    evaluation_set = "train"
+    example_set = None
     metrics = [Rouge()]
     load_args = ("csebuetnlp/xlsum",)
     extra_model_args = dict(temperature=0)
 
     def format_instance(self, instance):
-        source = instance["text"] + "\n\nTL;DR: "
-        target = instance["summary"]
-        return dict(source=source, target=target)
+        instance["target"] = instance["summary"]
+        return instance
 
-    @property
+    @cached_property
     def references(self):
         return [instance["summary"] for instance in self.evaluation_data]
