@@ -13,6 +13,7 @@ import tiktoken
 from transformers import BitsAndBytesConfig
 from transformers.hf_argparser import HfArg, HfArgumentParser
 
+from ..dataset.dataset_enum import DEFAULT_VLLM_DATASETS
 from ..model.model_enum import (
     ANTHROPIC_CHAT_COMPLETIONS_ARGS, API_MODELS, DASHSCOPE_CHAT_COMPLETIONS_ARGS, QIANFAN_CHAT_COMPLETIONS_ARGS
 )
@@ -239,6 +240,9 @@ class ModelArguments(ModelBackendMixin):
     }
 
     def __post_init__(self):
+        if self.vllm is None:
+            self.vllm = not self.prefix_caching
+
         # set _model_impl first
         if self.model_backend is None:
             if self.model_name_or_path in API_MODELS:
@@ -342,8 +346,6 @@ class ModelArguments(ModelBackendMixin):
             self.vllm = False
         elif self.is_vllm_model():
             self.vllm = True
-        elif self.vllm is None:
-            self.vllm = not self.prefix_caching
 
         if self.vllm:
             self.vllm_gpu_memory_utilization = 0.9
@@ -431,9 +433,9 @@ class DatasetArguments:
     kate: bool = HfArg(default=False, aliases=["-kate"], help="Whether to use KATE as an ICL strategy")
     globale: bool = HfArg(default=False, aliases=["-globale"], help="Whether to use GlobalE as an ICL strategy")
     ape: bool = HfArg(default=False, aliases=["-ape"], help="Whether to use APE as an ICL strategy")
-    cot: Optional[Literal["base", "least_to_most", "pal"]] = HfArg(
+    cot: Optional[Literal["base", "least_to_most", "pal", "retrieval", "retrieval_content"]] = HfArg(
         default=None,
-        help="The method to prompt, eg. 'base', 'least_to_most', 'pal'. Only available for some specific datasets.",
+        help="The method to prompt. Only available for some specific datasets (e.g., GSM8K, GPQA).",
     )
     perspective_api_key: str = HfArg(
         default=None,
@@ -447,6 +449,10 @@ class DatasetArguments:
         aliases=["-i"],
         default=0,
         help="The maximum number of evaluation instances per dataset (subset)",
+    )
+    shuffle_choices: bool = HfArg(
+        default=False,
+        help="Whether to shuffle the choices for ranking task",
     )
 
     continue_from: ClassVar[int] = 0
@@ -520,6 +526,11 @@ class EvaluationArguments:
         default=None,
         help="The port of the proxy",
     )
+    cuda_visible_devices: Optional[str] = HfArg(
+        default=None,
+        aliases=["--cuda"],
+        help="Override the CUDA_VISIBLE_DEVICES environment variable",
+    )
     dataset_threading: bool = HfArg(default=True, help="Load dataset with threading")
     dataloader_workers: int = HfArg(default=0, help="The number of workers for dataloader")
     continue_from: Optional[str] = HfArg(
@@ -554,6 +565,11 @@ def check_args(model_args: ModelArguments, dataset_args: DatasetArguments, evalu
         dataset_args (DatasetArguments): The dataset configurations.
         evaluation_args (EvaluationArguments): The evaluation configurations.
     """
+    # vllm still has some bugs in ranking task
+    if all(d not in DEFAULT_VLLM_DATASETS for d in dataset_args.dataset_names) and not model_args.passed_in_commandline("vllm"):
+        model_args.vllm = False
+        model_args.model_backend = "huggingface"
+
     # copy arguments
     if evaluation_args.proxy_port:
         dataset_args.proxy_port = evaluation_args.proxy_port
@@ -580,6 +596,11 @@ def check_args(model_args: ModelArguments, dataset_args: DatasetArguments, evalu
         logger.warning(
             f"Prefix caching might results in cuda memory fragmentation, which can be mitigated by setting `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True`. See https://pytorch.org/docs/stable/notes/cuda.html#environment-variables for details."
         )
+
+    if evaluation_args.cuda_visible_devices:
+        if "CUDA_VISIBLE_DEVICES" in os.environ and os.environ["CUDA_VISIBLE_DEVICES"] != evaluation_args.cuda_visible_devices:
+            logger.warning(f"Override CUDA_VISIBLE_DEVICES from {os.environ['CUDA_VISIBLE_DEVICES']} to {evaluation_args.cuda_visible_devices}.")
+        os.environ["CUDA_VISIBLE_DEVICES"] = evaluation_args.cuda_visible_devices
 
     # check dataset
     if "vicuna_bench" in dataset_args.dataset_names and model_args.openai_api_key is None:
@@ -644,6 +665,12 @@ def parse_argument(args=None) -> Tuple[ModelArguments, DatasetArguments, Evaluat
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     model_args, dataset_args, evaluation_args = parser.parse_args_into_dataclasses(args)
+
+    try:
+        from dotenv import load_dotenv
+        load_dotenv()
+    except (ImportError, ModuleNotFoundError):
+        pass
 
     if model_args.bnb_config:
         bnb_config_dict = json.loads(model_args.bnb_config)
