@@ -18,7 +18,7 @@ from ..metric.utils import avg_metrics
 from ..model.model_enum import ENDPOINT_ARGS
 from ..utils.batch_sampler import DatasetCollectionBatchSampler
 from ..utils.log_results import PredictionWriter, log_final_results, repeat_iter
-from .enum import GAOKAO_CHINESE_TASKS_SCORE, GAOKAO_ENGLISH_TASKS_SCORE, GAOKAO_TASKS_SCORE
+from .dataset_enum import GAOKAO_CHINESE_TASKS_SCORE, GAOKAO_ENGLISH_TASKS_SCORE, GAOKAO_TASKS_SCORE
 from .icl_strategies import ape, global_entropy_ordering_strategy, knn_construct_examples
 from .utils import DatasetUtilMixin, get_raw_dataset_loader
 
@@ -96,6 +96,8 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
 
     use_normalization: bool = False
 
+    supported_cot: List[str] = []
+
     _repr = [
         "dataset_name",
         "subset_name",
@@ -133,6 +135,7 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
         self.kate = args.kate
         self.globale = args.globale
         self.ape = args.ape
+        self.cot = args.cot
         self.ranking_type = args.ranking_type
         self.model_type = self.model.model_type
         self.prefix_caching = self.model.args.prefix_caching
@@ -159,11 +162,7 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
         self.evaluation_set = args.evaluation_set or self.evaluation_set
         self.example_set = args.example_set or self.example_set
         if self.max_num_shots:
-            if not self.example_set:
-                raise ValueError(
-                    f"Please provide the example set for dataset {self.dataset_name} to construct few-shot examples."
-                )
-            if "val" in self.example_set or "test" in self.example_set:
+            if self.example_set and "val" in self.example_set or "test" in self.example_set:
                 logger.warning(
                     f"Example set is used for constructing few-shot examples, but `{self.example_set}` seems to be an evaluation set."
                 )
@@ -173,6 +172,10 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
             evaluation_set=self.evaluation_set,
             example_set=self.example_set,
         )
+        if self.max_num_shots and not self.example_data:
+            raise ValueError(
+                f"Please provide the example set for dataset {self.dataset_name} to construct few-shot examples."
+            )
         if self.args.max_evaluation_instances > 0:
             self.evaluation_data = self.evaluation_data[:self.args.max_evaluation_instances]
         elif self.args.max_evaluation_instances < 0:
@@ -219,6 +222,9 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
     @cached_property
     def references(self):
         r"""Get the references for `evaluation_data`.
+
+        Example:
+            `MultipleChoiceDataset`: `[instance["target_idx"] for instance in self.evaluation_data]`
 
         Returns:
             List[str]: The list of ground-truth answers.
@@ -274,10 +280,6 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
 
         You should NOT modify `self.args` or `self.model.args` because multiple datasets are sharing the same arguments."""
 
-        self.init_arguments()
-
-        self._extra_model_args = copy(self.extra_model_args)
-
         if self.model.args.api_endpoint is not None:
             endpoint_args = ENDPOINT_ARGS[self.model.args.model_backend + "/" + self.model.args.api_endpoint]
             methods = ["get_ppl", "get_prob", "generation"]
@@ -294,15 +296,24 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
                 )
                 self.model_evaluation_method = support[0]
 
+        if self.cot and self.cot not in self.supported_cot:
+            auto_cot = None if not self.supported_cot else self.supported_cot[0]
+            self.cot = auto_cot
+            logger.warning(f"Unsupported Chain-of-Thought strategy {self.cot} (choose from {self.supported_cot}), automatically set to {auto_cot}.")
+
         # sample num
         if self.sample_num > 1 and self.model_evaluation_method in {"get_ppl", "get_prob"}:
-            self.sample_num = 1
+            self.model_evaluation_method = "generation"
             logger.warning(
-                f"Self-consistency only supports evaluation using the generation mode, automatically set sample_num = 1."
+                f"Self-consistency only supports evaluation using the generation mode, automatically set ranking_type to generation."
             )
 
+        self.init_arguments()
+
+        self._extra_model_args = copy(self.extra_model_args)
+
         # temperature
-        if self.sample_num > 1 and getattr(self._extra_model_args, "temperature", 0) == 0:
+        if self.sample_num > 1 and self._extra_model_args.get("temperature", 0) == 0:
             self._extra_model_args["temperature"] = 1
             logger.warning(
                 f"Self-consistency only supports generation with temperature > 0, automatically set temperature = 1."
@@ -333,7 +344,9 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
         )
 
         self.evaluation_data = list(load_fn(evaluation_set))
-        self.example_data = list(load_fn(example_set)) if example_set else []
+        if example_set:
+            # avoid overwriting the example_data if it is already loaded
+            self.example_data = list(load_fn(example_set))
 
     def construct_instances(self):
         r"""Construct and format all the instances of `evaluation_data`.
@@ -351,7 +364,7 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
         if self.max_num_shots:
             if self.ape or self.kate or self.globale:
                 self.formatted_example_data = [
-                    self._format_instance(data, format_example=True) for data in self.example_data
+                    self._format_instance(data, example_idx=i) for i, data in enumerate(self.example_data)
                 ]
             if len(self.example_data) < self.max_num_shots:
                 logger.warning(
@@ -459,13 +472,13 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
             option_nums.append(option_num)
         return evaluation_instances, option_nums
 
-    def _format_instance(self, instance, format_example: bool = False):
+    def _format_instance(self, instance, example_idx: int = -1):
         """Format the dataset instance into task source text, target text, and options (for ranking).
 
         Args:
             `instance (Dict)`: an instance dict of multiple key-value pairs.
             `loose (bool, optional)`: Whether to add extra newline characters. Defaults to False.
-            `format_example (bool, optional):` Whether to format the example. This will only effect datasets like winogrande by returning the correct source only. Defaults to False.
+            `example_idx (Optional[int], optional):` The index of the example in the example data, from 0 to real_num_shots - 1. Equal to -1 if the instance is not a few-shot example.
         """
         # it is not recommended to modify instance, in case of multiple calls
         formatted_instance = self.format_instance(instance)
@@ -506,7 +519,7 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
             target = " " + target.lstrip()
 
         # source_idx is used to render the correct answer in few-shot examples
-        if format_example and self.evaluation_type == "ranking" and source_idx is not None:
+        if example_idx >= 0 and self.evaluation_type == "ranking" and source_idx is not None:
             source: str = source[source_idx]
 
         formatted_instance["source"] = source
@@ -514,6 +527,7 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
         formatted_instance["options"] = options_text
         formatted_instance["source_idx"] = source_idx
         formatted_instance["target_idx"] = target_idx
+        formatted_instance["example_idx"] = example_idx
         dataset_extensions = ["dataset_name", "subset_name", "display_name", "real_num_shots"]
         for key in dataset_extensions:
             if key in formatted_instance:
@@ -600,7 +614,9 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
         if hasattr(self, "formatted_example_data"):
             examples = [self.formatted_example_data[i] for i in indice]
         else:
-            examples = [self._format_instance(self.example_data[i], format_example=True) for i in indice]
+            examples = [
+                self._format_instance(self.example_data[i], example_idx=real_idx) for real_idx, i in enumerate(indice)
+            ]
         example_texts = [self.instance_format.format_map(example) + "\n\n" for example in examples]
         example_text, self.real_example_tokens, self.real_num_shots = self.truncate_by_word(
             words=example_texts,
@@ -621,7 +637,7 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
 
         if self.model_evaluation_method == "get_prob":
             self._extra_model_args["constant_option_num"] = all(n == self.option_nums[0] for n in self.option_nums)
-        elif self.model_evaluation_method == "generation" and self.evaluation_type == "ranking":
+        elif self.model_evaluation_method == "generation" and self.evaluation_type == "ranking" and not self._extra_model_args:
             self._extra_model_args = {}
             self._extra_model_args["max_tokens"] = 1
             self._extra_model_args["temperature"] = 0.0

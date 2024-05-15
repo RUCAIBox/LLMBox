@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, List, Optional, Set
 
 import coloredlogs
 
-from ..dataset.enum import DATASET_ALIASES
+from ..dataset.dataset_enum import DATASET_ALIASES
 
 if TYPE_CHECKING:
     # solve the circular import
