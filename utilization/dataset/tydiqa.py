@@ -20,7 +20,7 @@ class Tydiqa(GenerationDataset):
     instruction = 'Answer each question using information in the preceding background paragraph.\n\nTitle: {title}\nBackground: {context}\n\nQ: {question}\n\nA:'
     example_set = "train"
     evaluation_set = "validation"
-    load_args = ("tydiqa", "secondary_task")  # in order to support squad_v2, load_args is set in load.py
+    load_args = ("tydiqa", "secondary_task")  
     metrics = [F1(), Em()]
     extra_model_args = dict(max_tokens=64, temperature=0, stop=["\n"])
 
