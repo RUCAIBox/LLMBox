@@ -618,6 +618,9 @@ def check_args(model_args: ModelArguments, dataset_args: DatasetArguments, evalu
             "CoQA dataset requires manual download. View details at https://github.com/RUCAIBox/LLMBox/blob/main/utilization/README.md#supported-datasets."
         )
 
+    if dataset_args.instruction and "{" not in dataset_args.instruction:
+        logger.warning("Instruction does not include any variable, so the input remains unchanged across the insatnces. Try to use f-string or jinja2 format to include variables like `{source}` or `{problem}`. See dataset documentation for details.")
+
     if evaluation_args.dry_run and model_args.prefix_caching:
         model_args.prefix_caching = False
 
