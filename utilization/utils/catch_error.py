@@ -14,8 +14,16 @@ def catch_error(func):
     def wrapper(*args, **kwargs):
         try:
             return func(*args, **kwargs)
-        except Exception as e:
-            file_logger = getFileLogger(func.__module__)
+        except (Exception, KeyboardInterrupt) as e:
+            file_logger = getFileLogger()
+            if file_logger.handlers and hasattr(file_logger.handlers[0], "evaluation_results_path"):
+                from logging import getLogger
+
+                ckpt = file_logger.handlers[0].evaluation_results_path
+
+                logger = getLogger(__name__)
+                logger.warning(f"Error occurred during evaluation. You can continue evaluation by loading the checkpoint: --continue_from {ckpt}")
+
             file_logger.error(f"[{func.__name__}] {e.__class__.__name__}: {e}\n\n{format_exc()}")
             for error, msg in ERROR_OVERVIEW.items():
                 if error in str(e):

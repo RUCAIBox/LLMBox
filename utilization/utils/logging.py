@@ -162,6 +162,7 @@ def set_logging(
     else:
         int_file_log_level = log_levels[file_log_level]
     handler = _get_file_handler(log_path, int_file_log_level)
+    handler.evaluation_results_path = evaluation_results_path
     package_logger.addHandler(handler)
 
     file_package_logger = logging.getLogger("file_" + llmbox_package)

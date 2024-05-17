@@ -319,6 +319,9 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
                 f"Self-consistency only supports generation with temperature > 0, automatically set temperature = 1."
             )
 
+        if self.extra_model_args.get("multi_turn") and self.model.model_backend == "vllm":
+            raise ValueError(f"We do not support multi-turn generation using vllm currently. Please set --vllm to False.")
+
         logger.info(self.model.args)
         logger.info(self.args)
 
