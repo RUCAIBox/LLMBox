@@ -5,7 +5,7 @@ from .metric import Metric
 
 __all__ = [
     "avg_metrics", "Accuracy", "Bleu", "F1", "Em", "Gaokao_bench_metric", "GPTEval", "IFEval", "PassAtK",
-    "Perspective_api", "Rouge", "Word_Accuracy"
+    "Perspective_api", "Rouge", "Word_Accuracy", "Gorilla_eval"
 ]
 
 from .utils import avg_metrics
@@ -40,3 +40,4 @@ PassAtK = lazy_import("pass_at_k", "PassAtK")
 Perspective_api = lazy_import("perspective_api", "Perspective_api")
 Rouge = lazy_import("rouge", "Rouge")
 Word_Accuracy = lazy_import("word_accuracy", "Word_Accuracy")
+Gorilla_eval = lazy_import("gorilla_api_bench", "Gorilla_eval")

@@ -446,6 +446,10 @@ class DatasetArguments:
         default=0,
         help="The maximum number of evaluation instances per dataset (subset)",
     )
+    api_name: str = HfArg(
+        default="huggingface",
+        help="The type of apis used for gorilla evaluation",
+    )
 
     continue_from: ClassVar[int] = 0
     proxy_port: ClassVar[int] = None
