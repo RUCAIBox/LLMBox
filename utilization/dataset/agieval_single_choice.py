@@ -2,7 +2,7 @@ import re
 from functools import cached_property
 from logging import getLogger
 
-from .enum import AGIEVAL_SUBJECTS, AGIEVAL_ZH_PROMPT_TASKS
+from .dataset_enum import AGIEVAL_SUBJECTS, AGIEVAL_ZH_PROMPT_TASKS
 from .multiple_choice_dataset import MultipleChoiceDataset
 
 logger = getLogger(__name__)

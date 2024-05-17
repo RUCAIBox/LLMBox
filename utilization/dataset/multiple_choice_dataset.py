@@ -1,8 +1,9 @@
 import re
 from logging import getLogger
-from typing import List, Tuple, Union
+from typing import Any, List, Tuple, Union
 
 import numpy as np
+import random
 
 from ..metric import Accuracy
 from .dataset import Dataset
@@ -17,6 +18,17 @@ class MultipleChoiceDataset(Dataset):
 
     evaluation_type = "ranking"
     metrics = [Accuracy()]
+
+    @staticmethod
+    def shuffle_options(*values: List[Any]) -> List[int]:
+        assert all(len(values[0]) == len(value) for value in values)
+        order = list(range(len(values[0])))
+        random.shuffle(order)
+
+        for v in values:
+            v[:] = [v[i] for i in order]
+
+        return order
 
     @property
     def ranking_with_options(self):

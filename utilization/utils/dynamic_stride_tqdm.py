@@ -27,11 +27,18 @@ class dynamic_stride_tqdm(tqdm.tqdm):
             self.accumulated.append(self.accumulated[-1] + stride)
         self.continue_from = continue_from
         self._hold = False
+        n = 0
+        if continue_from is not None:
+            while continue_from > self.accumulated[int(n)]:
+                n += 1
+                if int(n) >= len(self.accumulated):
+                    break
         super().__init__(
             iterable=iterable,
             desc=desc,
             disable=disable,
             unit=unit,
+            initial=n,
             dynamic_ncols=dynamic_ncols,
             total=len(self.strides),
             miniters=miniters,

@@ -16,7 +16,7 @@ class Mt_bench(GenerationDataset):
         reference: ["You are in second place.", "Uncertain."]
     """
 
-    instruction = ""
+    instruction = "{source}"
     example_set = None
     evaluation_set = "train"
     load_args = ("HuggingFaceH4/mt_bench_prompts",)
