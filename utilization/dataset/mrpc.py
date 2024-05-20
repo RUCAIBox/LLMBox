@@ -14,14 +14,13 @@ class Mrpc(MultipleChoiceDataset):
         label: 1
     """
 
-    instruction = "Determine whether the following 2 sentences are semantically equivalent.\n\n{{source}}{{'\n'+options if options}}\nAnswer: "
+    instruction = "Determine whether the following 2 sentences are semantically equivalent.\n\nsentence1: {{sentence1.strip()}}\nsentenc2: {{sentence2.strip()}}{{'\n'+options if options}}\nAnswer: "
     evaluation_set = "validation"
     example_set = "train"
     load_args = ("nyu-mll/glue", "mrpc")
 
     def format_instance(self, instance):
         instance["options"] = ["not_equivalent", "equivalent"]
-        instance["source"] = "sentence1: " + instance["sentence1"].strip() + "\nsentence 2: " + instance["sentence2"].strip()
         return instance
 
     @cached_property
