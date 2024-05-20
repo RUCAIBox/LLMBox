@@ -10,24 +10,20 @@ class Cola(MultipleChoiceDataset):
 
     Example:
         sentence: The man turned on the faucet.
-        choice1: 0 (unacceptable)
-        choice2: 1 (acceptable)
         label: 1
     """
 
-    instruction = "Judge whether the following sentence is an acceptable grammatical English sentence or not.\nsentence: {{source}}{{'\n'+options+'\nAnswer:' if options}}"
+    instruction = "Determine whether the following sentence is an acceptable grammatical English sentence.\n\n{{sentence}}{{'\n'+options+'\nAnswer:' if options}}"
     evaluation_set = "validation"
     example_set = "train"
     load_args = ("nyu-mll/glue", "cola")
 
     def format_instance(self, instance):
-        options = ["acceptable", "unacceptable"]
-        return dict(
-            source=instance["sentence"].strip(),
-            target_id=instance["label"],
-            options=options,
-            idx=instance["idx"],
-        )
+        instance["options"] = [
+            "unacceptable",
+            "acceptable",
+        ]
+        return instance
 
     @cached_property
     def references(self):
