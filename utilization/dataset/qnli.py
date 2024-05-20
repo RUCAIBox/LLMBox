@@ -20,7 +20,7 @@ class Qnli(MultipleChoiceDataset):
     load_args = ("nyu-mll/glue", "qnli")
 
     def format_instance(self, instance):
-        instance["options"] = ["not_entailment", "entailment"]
+        instance["options"] = ["yes", "no"]
         return instance
 
     @cached_property
