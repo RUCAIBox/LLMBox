@@ -232,7 +232,6 @@ def get_raw_dataset_loader(
                         split=split,
                         cache_dir=dataset_path,
                         trust_remote_code=True,
-                        save_infos=True,
                         download_config=download_config,
                     )
             elif os.environ.get("HF_DATASETS_OFFLINE") == "1":
@@ -255,7 +254,6 @@ def get_raw_dataset_loader(
                         split=split,
                         data_dir=relpath(dataset_path),
                         download_config=download_config,
-                        save_infos=True,
                         trust_remote_code=True,
                     )
 
@@ -271,7 +269,6 @@ def get_raw_dataset_loader(
                         split=split,
                         data_dir=dataset_path,
                         download_config=download_config,
-                        save_infos=True,
                         trust_remote_code=True,
                     )
 

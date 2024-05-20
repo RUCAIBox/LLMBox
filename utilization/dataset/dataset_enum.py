@@ -1,5 +1,7 @@
 WMT_DATASETS = ["wmt10", "wmt13", "wmt14", "wmt15", "wmt16", "wmt17", "wmt18", "wmt19", "wmt21"]
 
+DEFAULT_VLLM_DATASETS = {"alpaca_eval", "bbh", "cnn_dailymail", "color_objects", "coqa", "drop", "gaokao", "gsm8k", "halueval", "humaneval", "ifeval", "lambada", "math", "mbpp", "mt_bench", "nq", "quac", "real_toxicity_prompts", "squad", "squad_v2", "tldr", "triviaqa", "vicuna_bench", "webq", "xsum"} | set(WMT_DATASETS)
+
 DATASET_ALIASES = {
     "agieval": ["agieval_single_choice", "agieval_cot"],  # try to use MultipleChoiceDataset first
     "squad_v2": ["squad"],

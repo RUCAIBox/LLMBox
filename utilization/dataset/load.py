@@ -15,7 +15,7 @@ from ..metric import GPTEval
 from ..utils.catch_error import catch_error
 from ..utils.logging import list_datasets
 from .dataset import Dataset, DatasetCollection
-from .enum import DATASET_ALIASES
+from .dataset_enum import DATASET_ALIASES
 from .utils import accepts_subset
 
 if TYPE_CHECKING:

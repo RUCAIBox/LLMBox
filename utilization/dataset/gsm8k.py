@@ -22,6 +22,7 @@ class Gsm8k(GenerationDataset):
     load_args = ("gsm8k", "main")
     metrics = [Accuracy()]
     extra_model_args = dict(temperature=0)
+    supported_cot = ["base", "least_to_most", "pal"]
 
     _decimal_separator = re.compile(r"(\d),(\d)")
     _extract_numbers = re.compile(r"[-+]?\d*\.\d+|\d+")
@@ -32,18 +33,18 @@ class Gsm8k(GenerationDataset):
 
     def load_raw_dataset(self, dataset_path, subset_name, evaluation_set, example_set):
         super().load_raw_dataset(dataset_path, subset_name, evaluation_set, example_set)
-        if self.args.cot == 'base' or self.args.cot is None:
+        if self.cot == 'base' or self.cot is None:
             self.example_data = BASE_EXAMPLARS
-        elif self.args.cot == 'least_to_most':
+        elif self.cot == 'least_to_most':
             self.example_data = LEAST_TO_MOST_EXAMPLARS
-        elif self.args.cot == 'pal':
+        elif self.cot == 'pal':
             self.example_data = PAL_EXAMPLARS
             self.instruction = "Let's use python to solve math problems. Here are some examples how to do it."
 
     def post_processing(self, predictions):
         new_predictions = []
         for pred in predictions:
-            if self.args.cot == 'pal':
+            if self.cot == 'pal':
                 if '```python' in pred:
                     pred = pred.split('```python')[1].split('```')[0]
                 elif '```' in pred:
@@ -72,9 +73,11 @@ class Gsm8k(GenerationDataset):
 
         # remove decimal seperators
         instance["answer"] = ' ' + self._decimal_separator.sub(r"\1\2", instance["answer"])
-        assert "####" in instance["answer"]
 
-        instance['short_answer'] = instance["answer"].split("####")[1].strip()  # for reference
+        # few-shot examples might not contain "####"
+        if "####" in instance["answer"]:
+            instance['short_answer'] = instance["answer"].split("####")[1].strip()  # for reference
+
         instance["target"] = instance["answer"]  # for few-shots example
         return instance
 

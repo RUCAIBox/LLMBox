@@ -1,4 +1,4 @@
-torch
+# install pytorch from https://pytorch.org
 transformers
 safetensors
 tokenizers

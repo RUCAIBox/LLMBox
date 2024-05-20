@@ -3,7 +3,6 @@ from logging import getLogger
 from typing import TYPE_CHECKING, List, Tuple
 
 import torch
-from transformers.tokenization_utils_fast import PreTrainedTokenizerFast
 
 from .model import Model
 
