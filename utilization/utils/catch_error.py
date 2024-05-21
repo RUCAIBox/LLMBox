@@ -4,7 +4,9 @@ from .logging import getFileLogger
 
 ERROR_OVERVIEW = {
     "probability tensor contains either `inf`, `nan` or element < 0":
-    "probability tensor contains either `inf`, `nan` or element < 0.\nSee https://github.com/meta-llama/llama/issues/380 for more details."
+    "probability tensor contains either `inf`, `nan` or element < 0.\nSee https://github.com/meta-llama/llama/issues/380 for more details.",
+    "trust_remote_code":
+    "Unsupported datasets library version. Please update the datasets library to the latest version.\n\n  pip install datasets --upgrade",
 }
 
 
@@ -22,7 +24,9 @@ def catch_error(func):
                 ckpt = file_logger.handlers[0].evaluation_results_path
 
                 logger = getLogger(__name__)
-                logger.warning(f"Error occurred during evaluation. You can continue evaluation by loading the checkpoint: --continue_from {ckpt}")
+                logger.warning(
+                    f"Error occurred during evaluation. You can continue evaluation by loading the checkpoint: --continue_from {ckpt}"
+                )
 
             file_logger.error(f"[{func.__name__}] {e.__class__.__name__}: {e}\n\n{format_exc()}")
             for error, msg in ERROR_OVERVIEW.items():

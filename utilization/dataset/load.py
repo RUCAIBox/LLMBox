@@ -70,51 +70,55 @@ def get_subsets(
     available_subsets = set()
     available_subsets_by_cls = []
 
-    if not offline:
-        for dataset_cls in dataset_classes:
+    for dataset_cls in dataset_classes:
 
-            # dynamically set load_args for squad and wmt datasets, in order to support squad_v2 and wmt series datasets
-            if not dataset_cls.load_args:
-                dataset_cls.load_args = (dataset_name,)
+        # dynamically set load_args for squad and wmt datasets, in order to support squad_v2 and wmt series datasets
+        if not dataset_cls.load_args:
+            dataset_cls.load_args = (dataset_name,)
 
-            download_config = DownloadConfig(use_etag=False)
+        download_config = DownloadConfig(use_etag=False)
+        if args.dataset_path is not None:
+            paths = [args.dataset_path, dataset_cls.load_args[0]]
+        else:
+            paths = [dataset_cls.load_args[0]]
+        found_config = False
+        for path in paths:
             try:
-                s = get_dataset_config_names(
-                    dataset_cls.load_args[0], download_config=download_config, trust_remote_code=True
-                )
+                s = get_dataset_config_names(path, download_config=download_config, trust_remote_code=True)
+                found_config = True
+                break
             except Exception as e:
                 logger.info(f"Failed when trying to get_dataset_config_names: {e}")
-                os.environ["HF_DATASETS_OFFLINE"] = "1"
-                s = []
+        if not found_config:
+            os.environ["HF_DATASETS_OFFLINE"] = "1"
+            s = []
 
-            if s == ["default"]:
-                s = []
+        if s == ["default"]:
+            s = []
 
-            for m in getattr(dataset_cls, "metrics", []):
-                if isinstance(m, GPTEval):
-                    import openai
-                    if openai.api_key is None:
-                        raise ValueError(
-                            "OpenAI API key is required for GPTEval metrics. Please set it by passing a `--openai_api_key` or through environment variable `OPENAI_API_KEY`."
-                        )
-                if isinstance(m, PassAtK) and args.pass_at_k is None:
+        for m in getattr(dataset_cls, "metrics", []):
+            if isinstance(m, GPTEval):
+                import openai
+                if openai.api_key is None:
                     raise ValueError(
-                        "PassAtK metric requires `--pass_at_k` argument to be set. Please set it to a valid integer."
+                        "OpenAI API key is required for GPTEval metrics. Please set it by passing a `--openai_api_key` or through environment variable `OPENAI_API_KEY`."
                     )
+            if isinstance(m, PassAtK) and args.pass_at_k is None:
+                raise ValueError(
+                    "PassAtK metric requires `--pass_at_k` argument to be set. Please set it to a valid integer."
+                )
 
-            s = set(s)
-            if dataset_cls.banned_subsets:
-                if isinstance(dataset_cls.banned_subsets, str):
-                    logger.warning(f"{dataset_cls}.banned_subsets should be a list of strings, not a string.")
-                    banned_subsets = {dataset_cls.banned_subsets}  # type: ignore
-                else:
-                    banned_subsets = set(dataset_cls.banned_subsets)
-                s -= banned_subsets
+        s = set(s)
+        if dataset_cls.banned_subsets:
+            if isinstance(dataset_cls.banned_subsets, str):
+                logger.warning(f"{dataset_cls}.banned_subsets should be a list of strings, not a string.")
+                banned_subsets = {dataset_cls.banned_subsets}  # type: ignore
+            else:
+                banned_subsets = set(dataset_cls.banned_subsets)
+            s -= banned_subsets
 
-            available_subsets.update(s)
-            available_subsets_by_cls.append(s)
-    else:
-        available_subsets_by_cls = [set() for _ in dataset_classes]
+        available_subsets.update(s)
+        available_subsets_by_cls.append(s)
 
     # for wmt, en-xx and xx-en are both supported
     if "wmt" in dataset_name:  # matches "wmt16", "wmt17", ...
