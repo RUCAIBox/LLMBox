@@ -12,7 +12,7 @@ class Alpaca_eval(GenerationDataset):
         output: Most US states were named after either Native American tribes, geographical features, or historical figures. For example, the state of Florida was named after the Spanish explorer Ponce de Leon, and the state of Texas was named after the Caddo word “tejas” meaning friends or allies.
     """
 
-    instruction = "Please answer the following question."
+    instruction = "{{instruction}}"
     evaluation_set = "eval"
     example_set = None
     metrics = [GPTEval(multi_turn=False, type="pairwise")]
@@ -20,7 +20,7 @@ class Alpaca_eval(GenerationDataset):
     extra_model_args = dict(temperature=0.7, max_tokens=1024)
 
     def format_instance(self, instance):
-        return dict(source=instance["instruction"], target="")
+        return instance
 
     @staticmethod
     def post_processing(predictions):
