@@ -16,14 +16,15 @@ def lazy_import(module, instance) -> Type[Metric]:
         module = importlib.import_module(f".{module}", __package__)
         instance = getattr(module, instance)
     except (ImportError, ModuleNotFoundError) as e:
+        error_msg = e.__class__.__name__ + ": " + str(e)
 
         class ErrorMetric(Metric):
 
             def __init__(self, *args, **kwargs):
-                self.error = e
+                self.error = error_msg
 
             def __call__(self, *args, **kwargs):
-                raise self.error
+                raise RuntimeError(self.error)
 
         instance = ErrorMetric
     return instance
