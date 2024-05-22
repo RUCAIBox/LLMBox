@@ -220,6 +220,10 @@ def get_raw_dataset_loader(
         # for those datasets that is in huggingface but should be downloaded manually
         elif os.path.isdir(dataset_path):
 
+            offline = os.environ.get("HF_DATASETS_OFFLINE") == "1"
+            if os.path.exists(dataset_path + "/" + dataset_path.split("/")[-1] + ".py"):
+                offline = True
+
             if ".cache" in dataset_path:
 
                 _path = load_args[0] if len(load_args) >= 1 else dataset_name
@@ -232,14 +236,9 @@ def get_raw_dataset_loader(
                         split=split,
                         cache_dir=dataset_path,
                         trust_remote_code=True,
-                        save_infos=True,
                         download_config=download_config,
                     )
-            elif os.environ.get("HF_DATASETS_OFFLINE") == "1":
-
-                logger.warning(
-                    "Loading dataset in a non-Hugging Face format! We strongly advise converting it to Hugging Face format using `save_to_disk` to prevent potential issues."
-                )
+            elif offline:
 
                 config_name = subset_name
                 if not os.path.exists(dataset_path + "/" + dataset_path.split("/")[-1] + ".py"):
@@ -255,7 +254,6 @@ def get_raw_dataset_loader(
                         split=split,
                         data_dir=relpath(dataset_path),
                         download_config=download_config,
-                        save_infos=True,
                         trust_remote_code=True,
                     )
 
@@ -271,7 +269,6 @@ def get_raw_dataset_loader(
                         split=split,
                         data_dir=dataset_path,
                         download_config=download_config,
-                        save_infos=True,
                         trust_remote_code=True,
                     )
 

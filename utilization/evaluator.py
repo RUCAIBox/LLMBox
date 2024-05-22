@@ -36,6 +36,7 @@ class Evaluator:
         self.model = load_model(self.model_args)
         self.writer = PredictionWriter(self.dataset_args.evaluation_results_path)
         self.dataset = load_datasets(self.dataset_args, self.model)
+        self.writer.write_metainfo(self.model_args, self.dataset_args, self.evaluation_args)
 
     @catch_error
     def evaluate(self) -> Dict[str, Dict[str, float]]:
@@ -71,10 +72,13 @@ class Evaluator:
                 desc=self.dataset.name,
                 dynamic_ncols=True,
                 unit=" instances",
+                continue_from=self.dataset_args.continue_from,
             )
 
         # call model
         raw_predictions = []
+        if self.evaluation_args.continue_from:
+            raw_predictions.extend(self.writer.load_continue())
         for batch in dataloader:
             batch_results = call_model(batch)
             if len(batch) != len(batch_results) and len(batch_results) != 0:
@@ -99,8 +103,10 @@ class Evaluator:
         step = self.dataset.len(option_num=False, sample_num=False, normalization=False)
         if self.dataset_args.pass_at_k:
             mode_predictions = [predictions[i::step] for i in range(step)]
-        else:
+        elif len(predictions) // step > 1:
             mode_predictions = [mode(predictions[i::step]) for i in range(step)]
+        else:
+            mode_predictions = predictions
 
         # calculate metric
         metric_results, last_score_lists = self.dataset.calculate_metric(mode_predictions)
@@ -110,7 +116,7 @@ class Evaluator:
             if result is None:
                 continue
             msg += f"\n##### {display_name} #####"
-            for key, value in result.items():
+            for key, value in sorted(result.items(), key=lambda x: x[0]):
                 msg += "\n{}: {:.2f}".format(key, value)
 
         logger.info(msg + "\n")

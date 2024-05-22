@@ -17,6 +17,7 @@ class dynamic_stride_tqdm(tqdm.tqdm):
         unit: str = "it",
         dynamic_ncols: bool = False,
         miniters: Optional[Union[int, float]] = 1,
+        continue_from: Optional[float] = None,
         **kwargs
     ):
         """Tqdm progress bar with dynamic strides. Use `strides` to specify the strides for each step and `stride_scale` to scale the strides. For example, if `strides` is `[1, 2, 3]` and `stride_scale` is `2`, then the fianl strides will be `[2, 4, 6]`, which require 12 iterations to stop. Different from `unit_scale` which changes the unit of the progress bar., `stride_scale` only changes the stride of each iteration. `total` is set to the length of `strides` list by default."""
@@ -24,12 +25,20 @@ class dynamic_stride_tqdm(tqdm.tqdm):
         self.accumulated = [0]
         for stride in self.strides:
             self.accumulated.append(self.accumulated[-1] + stride)
+        self.continue_from = continue_from
         self._hold = False
+        n = 0
+        if continue_from is not None:
+            while continue_from > self.accumulated[int(n)]:
+                n += 1
+                if int(n) >= len(self.accumulated):
+                    break
         super().__init__(
             iterable=iterable,
             desc=desc,
             disable=disable,
             unit=unit,
+            initial=n,
             dynamic_ncols=dynamic_ncols,
             total=len(self.strides),
             miniters=miniters,
@@ -52,7 +61,7 @@ class dynamic_stride_tqdm(tqdm.tqdm):
         min_start_t = self.start_t + self.delay
         self.delta_a = 1
         n = self.n
-        a = self.accumulated[self.n]
+        a = self.continue_from or self.accumulated[self.n]
         time = self._time
 
         try:
@@ -64,7 +73,10 @@ class dynamic_stride_tqdm(tqdm.tqdm):
                     continue
                 while a + self.delta_a > self.accumulated[int(n)]:
                     n += 1
+                    if int(n) >= len(self.accumulated):
+                        break
                 a += self.delta_a
+                self.delta_a = 1
                 n = min(n, len(self.strides))
 
                 if n - last_print_n >= self.miniters:
@@ -74,8 +86,8 @@ class dynamic_stride_tqdm(tqdm.tqdm):
                         self.update(int(n - last_print_n))
                         last_print_n = self.last_print_n
                         last_print_t = self.last_print_t
-        except IndexError:
-            print(len(self.accumulated), n)
+        # except IndexError as e:
+        #     print("Index Error", len(self.accumulated), n, e)
         finally:
             self.n = int(n)
             self.close()
