@@ -34,7 +34,7 @@ class Ceval(MultipleChoiceDataset):
 
     def format_instance(self, instance):
         instance["subset_zh"] = self.subset_zh
-        instance["options"] = ["A", "B", "C", "D"]
+        instance["options"] = [instance[_] for _ in ["A", "B", "C", "D"]]
         instance["target_idx"] = ord(instance["answer"]) - ord('A')
         return instance
 
