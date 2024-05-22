@@ -228,7 +228,7 @@ def load_dataset(dataset_name: str,
             yield {dataset_name: dataset_cls(dataset_name, args, model)}
 
 
-@catch_error
+@catch_error()
 def load_datasets(args: "DatasetArguments", model: "Model") -> DatasetCollection:
 
     if model.model_backend == "vllm":
