@@ -11,7 +11,7 @@ if TYPE_CHECKING:
 logger = getLogger(__name__)
 
 
-@catch_error
+@catch_error()
 def load_model(args: "ModelArguments") -> "Model":
     r"""Load corresponding model class.
 
