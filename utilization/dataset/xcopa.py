@@ -17,7 +17,7 @@ class Xcopa(MultipleChoiceDataset):
     instruction = "Complete the following the sentence.\n\n{{premise[:-1]}}{{' because' if question == 'cause' else ' therefore'}}{{'\n'+options+'\nAnswer:' if options}}"
     evaluation_set = "validation"
     example_set = "test"
-    load_args = ("xcopa","et")
+    load_args = ("xcopa",)
 
     def format_instance(self, instance):
         instance["options"] = [

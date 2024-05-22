@@ -14,7 +14,7 @@ class Xlsum(GenerationDataset):
         summary: Queen's University Belfast is cutting 236 jobs and 290 student places due to a funding reduction.
     """
 
-    instruction = "{text}\n\nTL;DR:"
+    instruction = "Summarize the text in {{language}}:\n\n{{text}}"
     evaluation_set = "train"
     example_set = None
     metrics = [Rouge()]
@@ -23,6 +23,7 @@ class Xlsum(GenerationDataset):
 
     def format_instance(self, instance):
         instance["target"] = instance["summary"]
+        instance["language"] = self.subset_name
         return instance
 
     @cached_property

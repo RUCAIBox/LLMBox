@@ -17,20 +17,20 @@ class Tydiqa(GenerationDataset):
         title: Charles Fort
     """
 
-    instruction = 'Answer each question using information in the preceding background paragraph.\n\nTitle: {title}\nBackground: {context}\n\nQ: {question}\n\nA:'
+    instruction = 'Answer each question using information in the preceding background paragraph.\n\nTitle: {document_title}\nBackground: {passage_text}\n\nQ: {question_text}\n\nA:'
     example_set = "train"
     evaluation_set = "validation"
-    load_args = ("tydiqa", "secondary_task")  
+    load_args = ("khalidalt/tydiqa-goldp",)
     metrics = [F1()]
     extra_model_args = dict(max_tokens=64, temperature=0, stop=["\n"])
 
     def format_instance(self, instance):
-        instance["target"] = instance["answers"]["text"][0] 
+        instance["target"] = instance["answers"]["text"][0]
         return instance
 
     @cached_property
     def references(self):
-        return [instance["answers"]["text"][0] for instance in self.evaluation_data]
+        return [instance["answers"]["text"] for instance in self.evaluation_data]
 
     def post_processing(self, preds):
         predictions = []
