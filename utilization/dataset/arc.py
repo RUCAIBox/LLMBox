@@ -1,7 +1,6 @@
 from functools import cached_property
 from logging import getLogger
 
-from ..metric import Accuracy
 from .multiple_choice_dataset import MultipleChoiceDataset
 
 logger = getLogger(__name__)
@@ -31,7 +30,6 @@ class Arc(MultipleChoiceDataset):
     load_args = ("allenai/ai2_arc",)
     use_normalization = True
     normalization_prompt = "Question: \nAnswer:"
-    metrics = [Accuracy("Norm")]
 
     def init_arguments(self):
         # TODO
