@@ -1,6 +1,7 @@
 import re
 from functools import cached_property
 from logging import getLogger
+from typing import List
 
 from ..metric import Em
 from .dataset_enum import BBH_LETTER_CHOICE, BBH_NO_CHOICE
@@ -76,7 +77,7 @@ class Bbh(GenerationDataset):
             target = instance["label"]
         return dict(input=instance["input"].strip(), target=" " + target, bbh_instruction=self.bbh_instruction)
 
-    def post_processing(self, predictions):
+    def post_processing(self, predictions: List[str]):
         new_predictions = []
         for pred in predictions:
             extracted_answer = re.search(r"[t|T]he answer is (.*?)\.", pred)

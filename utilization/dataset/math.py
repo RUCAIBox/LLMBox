@@ -16,7 +16,7 @@ REMOVED_EXPRESSIONS = [
 
 
 class Math(GenerationDataset):
-    """The dataset of MATH.
+    r"""The dataset of MATH.
 
     MATH(Hendrycks et al. 2021), a dataset of 12,500 challenging competition mathematics problems  with step-by-step solutions
     written in LATEX and natural language.

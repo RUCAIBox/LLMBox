@@ -32,8 +32,11 @@ def info_dataset_group(
             num_shots = str(min_num_shots)
     else:
         num_shots = "None"
+    model_evaluation_method = dataset_group[0].model_evaluation_method
+    if model_evaluation_method == "get_ppl":
+        model_evaluation_method += f" ({dataset_group[0].ranking_type})"
     logger.info(
-        f"Evaluating {d.model_evaluation_method} on {d.dataset_name}{subset_str} (model_attr={model_attr}, {kwargs_name}={model_kwargs}, num_shots={num_shots}, len={group_length}, num_instances={instances}, use_cache={use_cache})"
+        f"Evaluating {model_evaluation_method} on {d.name}{subset_str} (model_attr={model_attr}, {kwargs_name}={model_kwargs}, num_shots={num_shots}, len={group_length}, num_instances={instances}, use_cache={use_cache})"
     )
     logger.debug(f"Datasets: {d.dataset_name}{subset_names}")
 

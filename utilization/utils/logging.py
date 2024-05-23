@@ -172,4 +172,6 @@ def set_logging(
 
     # finish logging initialization
     logger.info(f"Saving logs to {os.path.abspath(log_path)}")
-    getFileLogger().info(f"LLMBox revision: {get_git_revision(os.path.join(os.path.dirname(__file__), '../..'))}")
+    git_revision = get_git_revision(os.path.join(os.path.dirname(__file__), '../..'))
+    evaluation_args.git_revision = git_revision
+    getFileLogger().info(f"LLMBox revision: {git_revision}")
