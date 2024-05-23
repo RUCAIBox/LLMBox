@@ -7,16 +7,15 @@ import typing
 from copy import copy
 from dataclasses import MISSING, dataclass
 from logging import getLogger
-from typing import ClassVar, Dict, List, Literal, Optional, Set, Tuple, Union
+from typing import Callable, ClassVar, Dict, List, Literal, Optional, Set, Tuple, Union
 
 import tiktoken
-from transformers import BitsAndBytesConfig
+from transformers import BitsAndBytesConfig, PreTrainedModel, PreTrainedTokenizer, PreTrainedTokenizerFast
 from transformers.hf_argparser import HfArg, HfArgumentParser
 
 from ..dataset.dataset_enum import DEFAULT_VLLM_DATASETS
-from ..model.model_enum import (
-    ANTHROPIC_CHAT_COMPLETIONS_ARGS, API_MODELS, DASHSCOPE_CHAT_COMPLETIONS_ARGS, QIANFAN_CHAT_COMPLETIONS_ARGS
-)
+from ..model.model_enum import (ANTHROPIC_CHAT_COMPLETIONS_ARGS, API_MODELS, DASHSCOPE_CHAT_COMPLETIONS_ARGS,
+                                QIANFAN_CHAT_COMPLETIONS_ARGS)
 from .logging import filter_none_repr, get_redacted, list_datasets, log_levels, passed_in_commandline, set_logging
 
 logger = getLogger(__name__)
@@ -27,6 +26,9 @@ if typing.TYPE_CHECKING:
     batch_size_type = int
 else:
     batch_size_type = str
+
+LOADER = Callable[["ModelArguments"], Tuple["PreTrainedModel", Union["PreTrainedTokenizer",
+                                                                         "PreTrainedTokenizerFast"]]]
 
 
 class ModelBackendMixin:
@@ -63,10 +65,9 @@ class ModelArguments(ModelBackendMixin):
         aliases=["--model", "-m"],
         help="The model name or path, e.g., davinci-002, meta-llama/Llama-2-7b-hf, ./mymodel",
     )
-    model_type: str = HfArg(
-        default="instruction",
-        help="The type of the model, which can be chosen from `base` or `instruction`.",
-        metadata={"choices": ["base", "instruction", "chat"]},
+    model_type: Literal["base", "instruction", "chat"] = HfArg(
+        default=None,
+        help="The type of the model",
     )
     model_backend: Literal["anthropic", "dashscope", "huggingface", "openai", "qianfan", "vllm"] = HfArg(
         default=None,
@@ -184,7 +185,7 @@ class ModelArguments(ModelBackendMixin):
     )
     chat_template: Optional[str] = HfArg(
         default=None,
-        help="The chat template for huggingface chat-based models",
+        help="The chat template for local chat-based models",
     )
 
     bnb_config: Optional[str] = HfArg(default=None, help="JSON string for BitsAndBytesConfig parameters.")
@@ -216,6 +217,8 @@ class ModelArguments(ModelBackendMixin):
     )
 
     seed: ClassVar[int] = None  # use class variable to facilitate type hint inference
+
+    load_hf_model: ClassVar[Optional["LOADER"]] = None
 
     _argument_group_name = "model arguments"
 
@@ -576,7 +579,7 @@ def check_args(model_args: ModelArguments, dataset_args: DatasetArguments, evalu
 
     dataset_args.dataset_threading = evaluation_args.dataset_threading
 
-    model_args.seed = evaluation_args.seed
+    model_args.seed = int(evaluation_args.seed)
 
     if dataset_args.batch_size == 1:
         model_args.prefix_caching = False
@@ -653,7 +656,8 @@ EXAMPLE_STRING = r"""example:
 """
 
 
-def parse_argument(args=None) -> Tuple[ModelArguments, DatasetArguments, EvaluationArguments]:
+def parse_argument(args: Optional[List[str]] = None,
+                   initalize: bool = True) -> Tuple[ModelArguments, DatasetArguments, EvaluationArguments]:
     r"""Parse arguments from command line. Using `argparse` for predefined ones, and an easy mannal parser for others (saved in `kwargs`).
 
     Returns:
@@ -683,8 +687,9 @@ def parse_argument(args=None) -> Tuple[ModelArguments, DatasetArguments, Evaluat
     for type_args in [model_args, dataset_args, evaluation_args]:
         for name, field in type_args.__dataclass_fields__.items():
             field.hash = name in commandline_args  # borrow `hash` attribute to indicate whether the argument is set
-    set_logging(model_args, dataset_args, evaluation_args)
-    check_args(model_args, dataset_args, evaluation_args)
+    if initalize:
+        set_logging(model_args, dataset_args, evaluation_args)
+        check_args(model_args, dataset_args, evaluation_args)
 
     # log arguments and environment variables
     redact_dict = {f"--{arg}": get_redacted(getattr(model_args, arg, "")) for arg in model_args._redact}

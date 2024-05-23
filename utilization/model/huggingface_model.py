@@ -1,4 +1,5 @@
 import gc
+import json
 from logging import getLogger
 from typing import Any, Iterator, List, Optional, Tuple, Union
 
@@ -45,10 +46,49 @@ def load_tokenizer(tokenizer_name_or_path: str, use_fast: bool, max_length: int 
     return tokenizer
 
 
+def get_model_max_length(
+    model: PreTrainedModel,
+    max_length: Optional[int] = None,
+    large_positive: int = LARGE_POSITIVE,
+    default_model_max_length: int = DEFAULT_MODEL_MAX_LENGTH,
+) -> int:
+    # TODO: [Important]!!! check for each tokenizer
+    max_length = max_length or large_positive
+    for key in [
+        "max_sequence_length",
+        "max_position_embeddings",
+        "model_max_length",
+        "seq_length",
+        "seq_len",
+        "n_positions",
+        "max_seq_len",
+        "max_seq_length",
+    ]:
+        value = getattr(model.config, key, None)
+        if value is not None:
+            max_length = min(max_length, value)
+
+    if not max_length or max_length >= large_positive:
+        max_length = default_model_max_length
+        logger.warning(
+            f"Cannot specify model's maximum length according to `args` or model config. Set to {default_model_max_length} by default."
+        )
+
+    return max_length
+
+
 def load_hf_model(args: ModelArguments) -> Tuple[PreTrainedModel, Union[PreTrainedTokenizer, PreTrainedTokenizerFast]]:
     logger.info(f"Loading {args.model_name_or_path} using Hugging Face Transformers...")
 
     # https://github.com/meta-llama/llama/issues/380#issuecomment-1656714118
+    if args.torch_dtype == "auto":
+        with open(args.model_name_or_path + "/config.json") as f:
+            config = json.load(f)
+        if "torch_dtype" in config:
+            if config["torch_dtype"] == "float32":
+                args.torch_dtype = "float16"
+            else:
+                args.torch_dtype = config["torch_dtype"]
     model_kwargs = dict(
         torch_dtype=getattr(torch, args.torch_dtype),
         device_map=args.device_map,
@@ -79,25 +119,7 @@ def load_hf_model(args: ModelArguments) -> Tuple[PreTrainedModel, Union[PreTrain
         else:
             raise e
 
-    # TODO: [Important]!!! check for each tokenizer
-    max_length = args.max_length or LARGE_POSITIVE
-    for key in [
-        "max_sequence_length",
-        "max_position_embeddings",
-        "model_max_length",
-        "seq_length",
-        "seq_len",
-        "n_positions",
-        "max_seq_len",
-        "max_seq_length",
-    ]:
-        max_length = min(max_length, getattr(model.config, key, LARGE_POSITIVE))
-    if not max_length or max_length >= LARGE_POSITIVE:
-        max_length = DEFAULT_MODEL_MAX_LENGTH
-        logger.warning(
-            f"Cannot specify model's maximum length according to `args` or model config. Set to {DEFAULT_MODEL_MAX_LENGTH} by default."
-        )
-
+    max_length = get_model_max_length(model)
     tokenizer = load_tokenizer(args.tokenizer_name_or_path, use_fast=True, max_length=max_length)
     logger.debug(f"Model: {model}\nTokenizer: {tokenizer}")
     return model, tokenizer
@@ -116,7 +138,16 @@ class HuggingFaceModel(Model):
 
     def __init__(self, args: ModelArguments):
         super().__init__(args)
-        self.model, self._tokenizer = load_hf_model(args)
+
+        if getattr(args, "load_hf_model", None) is not None:
+            _load_hf_model = args.load_hf_model
+        else:
+            _load_hf_model = load_hf_model
+        self.model, self._tokenizer = _load_hf_model(args)
+        if self._tokenizer.model_max_length is None:
+            logger.warning(f"`model_max_length` is not set for {self.name}. Set to default {DEFAULT_MODEL_MAX_LENGTH}.")
+            self._tokenizer.model_max_length = DEFAULT_MODEL_MAX_LENGTH
+
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.model_max_input_and_output = self.tokenizer.model_max_length
 
