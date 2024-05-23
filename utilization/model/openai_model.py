@@ -10,7 +10,6 @@ from openai.types.chat.chat_completion import Choice
 
 from ..utils import ModelArguments
 from .model import ApiModel
-from .model_enum import OPENAI_CHAT_COMPLETIONS_ARGS, OPENAI_COMPLETIONS_ARGS
 
 logger = getLogger(__name__)
 
@@ -25,12 +24,12 @@ class Openai(ApiModel):
 
     model_backend = "openai"
 
-    _retry_errors = (openai.APITimeoutError, openai.InternalServerError, openai.RateLimitError)
+    _retry_errors = (openai.APITimeoutError, openai.RateLimitError)
     _raise_errors = (
         openai.APIConnectionError, openai.AuthenticationError, openai.BadRequestError, openai.ConflictError,
         openai.NotFoundError, openai.PermissionDeniedError, openai.UnprocessableEntityError
     )
-    _skip_errors = ()
+    _skip_errors = (openai.InternalServerError,)
 
     _repr = ["model_type", "model_backend", "multi_turn", "candidate_ids"]
 

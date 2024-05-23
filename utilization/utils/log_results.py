@@ -77,7 +77,7 @@ class PredictionWriter:
                 json.dump(data, f, ensure_ascii=False)
                 f.write("\n")
         except Exception as e:
-            logger.warning(f"Failed to log_predictions: {e}\n{data}")
+            logger.warning(f"Failed to log batch predictions: {e}\n{data}")
             self._alive = False
 
     def log_batch_results(
@@ -89,6 +89,8 @@ class PredictionWriter:
             return len(raw_predictions)
 
         for raw_prediction, (idx, source, reference) in zip(raw_predictions, lines_iter):
+            if not isinstance(source, str):
+                source = str(source)
             lines = {
                 "index": idx,
                 "source": source,
@@ -163,8 +165,9 @@ def log_final_results(
         try:
             return pd.DataFrame(lines).groupby("index").apply(to_dict(merge=["index", "source", "metric", "reference"]))
         except Exception as e:
-            lines = {k: len(v) for k, v in lines.items()}
-            logger.warning(f"Failed to log_predictions: {e}\n{lines}")
+            get_len = lambda v: len(v) if hasattr(v, "__len__") else None
+            lines = {k: get_len(v) for k, v in lines.items()}
+            logger.warning(f"Failed to generate final predictions: {e}\n{lines}")
             return None
 
     elif model_evaluation_method == "get_ppl":  # ranking
@@ -202,7 +205,7 @@ def log_final_results(
             return pd.DataFrame(lines).groupby("index").apply(to_dict(merge, merge_by_option))
         except Exception as e:
             lines = {k: len(v) for k, v in lines.items()}
-            logger.warning(f"Failed to log_predictions: {e}\n{lines}")
+            logger.warning(f"Failed to log_pgenerate final predictions: {e}\n{lines}")
             return None
 
     elif model_evaluation_method == "get_prob":
@@ -219,7 +222,7 @@ def log_final_results(
             return pd.DataFrame(lines).groupby("index").apply(to_dict())
         except Exception as e:
             lines = {k: len(v) for k, v in lines.items()}
-            logger.warning(f"Failed to log_predictions: {e}\n{lines}")
+            logger.warning(f"Failed to generate final predictions: {e}\n{lines}")
             return None
 
     else:

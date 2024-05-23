@@ -308,7 +308,7 @@ Specify the random seed, logging directory, evaluation results directory, and ot
       <td><b>Supported Methods</b></td>
   </tr>
   <tr>
-      <td>(<code>Huggingface</code>)</td>
+      <td>Huggingface</td>
       <td>AutoModelForCasualLM</td>
       <td><code>Llama-2-7b-hf</code></td>
       <td><code>generation</code>, <code>get_ppl</code>, <code>get_prob</code></td>
@@ -316,34 +316,34 @@ Specify the random seed, logging directory, evaluation results directory, and ot
   <tr>
       <td rowspan=2>OpenAI</td>
       <td>Chat Completion Models</td>
-      <td><code>gpt-4-0125-preview</code>, <code>gpt-3.5-turbo</code></td>
-      <td><code>generation</code>, <code>get_prob</code> (adapted by generation)</td>
+      <td><code>gpt-4-0125-preview</code>, <code>deepseek-chat</code></td>
+      <td><code>generation</code>
   </tr>
   <tr>
-      <td>(<code>Completion Models (Legacy)</code>)</td>
+      <td>Completion Models (Legacy)</td>
       <td><code>davinci-002</code></td>
       <td><code>generation</code>, <code>get_ppl</code>, <code>get_prob</code></td>
   </tr>
   <tr>
-      <td>(<code>Qianfan</code>)</td>
+      <td>Qianfan</td>
       <td>Chat Completion Models</td>
       <td><code>ernie-speed-8k</code></td>
-      <td><code>generation</code>, <code>get_prob</code> (adapted by generation)</td>
+      <td><code>generation</code></td>
   </tr>
   <tr>
-      <td>(<code>Dashscope</code>)</td>
+      <td>Dashscope</td>
       <td>Generation</td>
       <td><code>qwen-turbo</code></td>
-      <td><code>generation</code>, <code>get_prob</code> (adapted by generation)</td>
+      <td><code>generation</code></td>
   </tr>
   <tr>
-      <td>(<code>Anthropic</code>)</td>
+      <td>Anthropic</td>
       <td>Chat Completion Models</td>
       <td><code>claude-3-haiku-20240307</code></td>
-      <td><code>generation</code>, <code>get_prob</code> (adapted by generation)</td>
+      <td><code>generation</code></td>
   </tr>
   <tr>
-      <td>(<code>vLLM</code>)</td>
+      <td>vLLM</td>
       <td>LLM</td>
       <td><code>Llama-2-7b-hf</code></td>
       <td><code>generation</code>, <code>get_ppl</code>, <code>get_prob</code></td>
@@ -368,6 +368,8 @@ By inheriting the [`Model`](model/model.py) class, you can customize support for
 
 ```python
 class NewModel(Model):
+
+    model_backend = "new_model"
 
     def call_model(self, batched_inputs: List[str]) -> List[Any]:
         return ...  # call to model, e.g., self.model.generate(...)
@@ -609,7 +611,7 @@ python inference.py -d race:middle,high --evaluation_set "test[:10]" --example_s
       <td>Mathematics Aptitude Test of Heuristics (<code>math</code>)</td>
       <td>/</td>
       <td>Generation</td>
-      <td></td>
+      <td>✅</td>
       <td></td>
   </tr>
   <tr>
@@ -910,10 +912,105 @@ class MyDataset(Dataset):
 
 Then, format the instance by implementing the `instruction` attribute and `format_instance` method. The returned instance should be a dictionary with keys accessible in the instruction string. Both jinja2 and f-string are supported for the instruction string.
 
-- `source_idx` (`int`, optional): The index of the correct source (for multiple contexts ranking dataset like winogrande).
-- `target` (`str`, optional): The target text. Either `target` or `target_idx` should be provided.
-- `target_idx` (`int`, optional): The index of the target in the options (for ranking). This will generate the `target` text in `_format_instance`.
-- `options` (`List[str]`, optional): The options for ranking.
+<table class="waffle" cellspacing="0" cellpadding="0">
+    <thead>
+        <tr>
+        <th class="column-headers-background"><code>format_instance</code></th>
+        <th class="column-headers-background">Type</th>
+        <th class="column-headers-background"><code>instruction</code></th>
+        <th class="column-headers-background">Type</th>
+        <th class="column-headers-background">Description</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+        <td class="s1" dir="ltr">customized</td>
+        <td class="s1" dir="ltr"><code>Any</code></td>
+        <td class="s1" dir="ltr">customized</td>
+        <td class="s1" dir="ltr"><code>Any</code></td>
+        <td class="s2 softmerge" dir="ltr">
+            <div class="softmerge-inner">Customized arguments that accessible in the instruction string</div>
+        </td>
+        </tr>
+        <tr>
+        <td class="s1" dir="ltr">source</td>
+        <td class="s1" dir="ltr"><code>str</code> or <code>list</code></td>
+        <td class="s1" dir="ltr">source</td>
+        <td class="s1" dir="ltr"><code>str</code></td>
+        <td class="s1" dir="ltr">Source text</td>
+        </tr>
+        <tr>
+        <td class="s1" dir="ltr">options</td>
+        <td class="s1" dir="ltr"><code>list</code></td>
+        <td class="s1" dir="ltr">options</td>
+        <td class="s1" dir="ltr"><code>str</code></td>
+        <td class="s1" dir="ltr">Options of MCQ</td>
+        </tr>
+        <tr>
+        <td class="s1" dir="ltr">source_idx</td>
+        <td class="s1" dir="ltr"><code>int</code></td>
+        <td class="s1" dir="ltr">source_idx</td>
+        <td class="s1" dir="ltr"><code>int</code></td>
+        <td class="s2 softmerge" dir="ltr">
+            <div class="softmerge-inner">The index of source text in options for datasets like winogrande</div>
+        </td>
+        </tr>
+        <tr>
+        <td class="s1" dir="ltr">target</td>
+        <td class="s1" dir="ltr"><code>str</code></td>
+        <td class="s1" dir="ltr" rowspan="2">target</td>
+        <td class="s1" dir="ltr" rowspan="2"><code>str</code></td>
+        <td class="s1" dir="ltr" rowspan="2">Target text. Either return <code>target</code> or <code>target_idx</code> in <code>format_instance</code></td>
+        </tr>
+        <tr>
+        <td class="s1" dir="ltr">target_idx</td>
+        <td class="s1" dir="ltr"><code>int</code></td>
+        </tr>
+        <tr>
+        <td class="s1" dir="ltr">target_idx</td>
+        <td class="s1" dir="ltr"><code>int</code></td>
+        <td class="s1" dir="ltr">target_idx</td>
+        <td class="s1" dir="ltr"><code>int</code></td>
+        <td class="s2 softmerge" dir="ltr">
+            <div class="softmerge-inner">The index of target text in options for general MCQs</div>
+        </td>
+        </tr>
+        <tr>
+        <td class="s1" dir="ltr" colspan="2" rowspan="5"><i>No need to return from format_instance</i></td>
+        <td class="s1" dir="ltr">example_idx</td>
+        <td class="s1" dir="ltr"><code>int</code></td>
+        <td class="s2 softmerge" dir="ltr">
+            <div class="softmerge-inner">The index of examples if greater or equal than 0. Equal to -1 if it is not formatting an example</div>
+        </td>
+        </tr>
+        <tr>
+        <td class="s1" dir="ltr">dataset_name</td>
+        <td class="s1" dir="ltr"><code>str</code></td>
+        <td class="s1" dir="ltr">Dataset name</td>
+        </tr>
+        <tr>
+        <td class="s1" dir="ltr">subset_name</td>
+        <td class="s1" dir="ltr"><code>str</code></td>
+        <td class="s2 softmerge" dir="ltr">
+            <div class="softmerge-inner">Subset name of current dataset</div>
+        </td>
+        </tr>
+        <tr>
+        <td class="s1" dir="ltr">display_name</td>
+        <td class="s1" dir="ltr"><code>str</code></td>
+        <td class="s2 softmerge" dir="ltr">
+            <div class="softmerge-inner">Display name of current dataset</div>
+        </td>
+        </tr>
+        <tr>
+        <td class="s1" dir="ltr">real_num_shots</td>
+        <td class="s1" dir="ltr"><code>int</code></td>
+        <td class="s2 softmerge" dir="ltr">
+            <div class="softmerge-inner">The num shots formatted as examples</div>
+        </td>
+        </tr>
+    </tbody>
+</table>
 
 MultipleChoiceDataset:
 

@@ -1,3 +1,5 @@
+from typing import Literal
+
 import numpy as np
 
 from .metric import Metric
@@ -5,7 +7,7 @@ from .metric import Metric
 
 class IFEval(Metric):
 
-    def __init__(self, type="strict"):
+    def __init__(self, type: Literal["strict", "loose"] = "strict"):
         self.type = type
 
     def __call__(self, predictions, references):
@@ -275,7 +277,6 @@ import re
 import string
 from typing import Dict, Optional, Sequence, Union
 
-import langdetect
 from absl import logging
 
 _InstructionArgsDtype = Optional[Dict[str, Union[int, str, Sequence[str]]]]
@@ -401,6 +402,7 @@ class ResponseLanguageChecker(Instruction):
     Returns:
       True if the language of `value` follows instruction; otherwise False.
     """
+        import langdetect
         assert isinstance(value, str)
 
         try:
@@ -1587,6 +1589,7 @@ class CapitalLettersEnglishChecker(Instruction):
 
     def check_following(self, value):
         """Checks that the response is in English and in all capital letters."""
+        import langdetect
         assert isinstance(value, str)
 
         try:
@@ -1617,6 +1620,7 @@ class LowercaseLettersEnglishChecker(Instruction):
 
     def check_following(self, value):
         """Checks that the response is in English and in all lowercase letters."""
+        import langdetect
         assert isinstance(value, str)
 
         try:
