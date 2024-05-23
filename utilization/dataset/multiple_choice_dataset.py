@@ -1,9 +1,9 @@
+import random
 import re
 from logging import getLogger
 from typing import Any, List, Tuple, Union
 
 import numpy as np
-import random
 
 from ..metric import Accuracy
 from .dataset import Dataset
@@ -43,55 +43,67 @@ class MultipleChoiceDataset(Dataset):
         else:
             self.ranking_type = "ppl_no_option"
 
+    def _post_processing_ppl(self, predictions: np.ndarray) -> List[int]:
+        labels = []
+        st = 0
+
+        for num in self.option_nums:
+            if num <= 0:
+                labels.append(-1)
+                logger.warning(
+                    f"Empty options detected in {self.display_name}. Please contact the author of the dataset."
+                )
+            else:
+                labels.append(predictions[st:st + num].argmin())
+            st += num
+        return labels
+
+    def _post_processing_prob(self, predictions: List[List[int]]) -> List[int]:
+        labels = []
+        for logit, option_num in zip(predictions, self.option_nums):
+            if option_num <= 0:
+                labels.append(-1)
+                logger.warning(
+                    f"Empty options detected in {self.display_name}. Please contact the author of the dataset."
+                )
+            elif logit is None:
+                labels.append(-1)
+            else:
+                labels.append(np.argmax(logit).item() % option_num)
+        return labels
+
+    def _post_processing_generation(self, predictions: List[str]) -> List[int]:
+        labels = []
+        max_option_num = max(self.option_nums)
+
+        # matches option labels in the text
+        matches = r"\b([A-{op}])\b|\b([A-{op}])[\u2E80-\u9FFF]|[\u2E80-\u9FFF]([A-{op}])\b|[\u2E80-\u9FFF]([A-{op}])[\u2E80-\u9FFF]"
+        option_regex = [re.compile(matches.format(op=chr(ord("A") + i))) for i in range(max_option_num)]
+
+        for text, option_num in zip(predictions, self.option_nums):
+            label_found = option_regex[option_num - 1].findall(text.strip().split("\n")[0])
+            if not label_found:
+                labels.append(-1)
+            else:
+                final_label = ""
+                for op in label_found[-1]:
+                    final_label = final_label or op
+                labels.append(ord(final_label) - ord("A"))
+        return labels
+
     def post_processing(self, predictions: Union[List[Tuple[float, int]], List[List[int]], List[str]]) -> List[int]:
         if self.model_evaluation_method == "get_ppl":
-            labels = []
-            st = 0
             if self.use_normalization:
-                predictions = np.array([rc[0] - ra[0] for rc, ra in zip(predictions[::2], predictions[1::2])])
+                for m in self.metrics:
+                    if isinstance(m, Accuracy):
+                        m.tag = "Norm"
+                normalized_predictions = np.array([rc[0] - ra[0] for rc, ra in zip(predictions[::2], predictions[1::2])])
             else:
-                predictions = np.array([
+                normalized_predictions = np.array([
                     result / length if length > 0 else LARGE_POSITIVE for result, length in predictions
                 ])
-            for num in self.option_nums:
-                if num <= 0:
-                    labels.append(-1)
-                    logger.warning(
-                        f"Empty options detected in {self.display_name}. Please contact the author of the dataset."
-                    )
-                else:
-                    labels.append(predictions[st:st + num].argmin())
-                st += num
-            predictions = labels
-            return predictions
+            return self._post_processing_ppl(normalized_predictions)
         elif self.model_evaluation_method == "get_prob":
-            labels = []
-            for logit, option_num in zip(predictions, self.option_nums):
-                if option_num <= 0:
-                    labels.append(-1)
-                    logger.warning(
-                        f"Empty options detected in {self.display_name}. Please contact the author of the dataset."
-                    )
-                elif logit is None:
-                    labels.append(-1)
-                else:
-                    labels.append(np.argmax(logit).item() % option_num)
-            return labels
+            return self._post_processing_prob(predictions)
         elif self.model_evaluation_method == "generation":
-            labels = []
-            max_option_num = max(self.option_nums)
-
-            # matches option labels in the text
-            matches = r"\b([A-{op}])\b|\b([A-{op}])[\u2E80-\u9FFF]|[\u2E80-\u9FFF]([A-{op}])\b|[\u2E80-\u9FFF]([A-{op}])[\u2E80-\u9FFF]"
-            option_regex = [re.compile(matches.format(op=chr(ord("A") + i))) for i in range(max_option_num)]
-
-            for text, option_num in zip(predictions, self.option_nums):
-                label_found = option_regex[option_num - 1].findall(text.strip().split("\n")[0])
-                if not label_found:
-                    labels.append(-1)
-                else:
-                    final_label = ""
-                    for op in label_found[-1]:
-                        final_label = final_label or op
-                    labels.append(ord(final_label) - ord("A"))
-            return labels
+            return self._post_processing_generation(predictions)
