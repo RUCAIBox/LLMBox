@@ -35,10 +35,10 @@ Utilization
 
 ```python
 git clone https://github.com/RUCAIBox/LLMBox.git && cd LLMBox
-pip install -r requirements.txt  # or `requirements-openai.txt`
+pip install -r requirements.txt
 ```
 
-If you are only evaluating the OpenAI (or OpenAI compatible) models, you can install the minimal requirements.
+If you are only evaluating the OpenAI (or OpenAI compatible like DeepSeek, Perplexity) models, you can install the minimal requirements `requirements-openai.txt`.
 
 ### Quick Start with Training
 
@@ -255,7 +255,7 @@ We welcome all contributions from bug fixes to new features and extensions.
 
 We expect all contributions discussed in the issue tracker and going through PRs.
 
-Make sure to format your code with `yapf --style style.cfg` and `isort` before submitting a PR.
+Make sure to format your code with `yapf --style .style.cfg` and `isort` before submitting a PR.
 
 
 ## The Team
