@@ -1,13 +1,15 @@
 from logging import getLogger
 from statistics import mode
-from typing import Dict, Tuple
+from typing import Callable, Dict, Optional
 
 from torch.utils.data import DataLoader
 
 from .dataset import load_datasets
 from .model import load_model
 from .utils import DatasetArguments, EvaluationArguments, ModelArguments, catch_error, dynamic_stride_tqdm
+from .utils.arguments import check_args
 from .utils.log_results import PredictionWriter
+from .utils.logging import set_logging
 from .utils.random import set_seed
 
 logger = getLogger(__name__)
@@ -25,11 +27,27 @@ class Evaluator:
         dataset (Dataset): Our class for dataset.
     """
 
-    def __init__(self, args: Tuple[ModelArguments, DatasetArguments, EvaluationArguments]):
-        model_args, dataset_args, evaluation_args = args
+    def __init__(
+        self,
+        *,
+        model_args: ModelArguments,
+        dataset_args: DatasetArguments,
+        evaluation_args: Optional[EvaluationArguments] = None,
+        initalize: bool = True,
+        load_hf_model: Optional[Callable] = None,
+    ):
+
         self.model_args = model_args
         self.dataset_args = dataset_args
+        evaluation_args = evaluation_args or EvaluationArguments()
         self.evaluation_args = evaluation_args
+        if load_hf_model is not None:
+            self.model_args.load_hf_model = load_hf_model
+
+        if initalize:
+            set_logging(self.model_args, self.dataset_args, self.evaluation_args)
+            check_args(self.model_args, self.dataset_args, self.evaluation_args)
+            logger.info(self.evaluation_args)
 
         set_seed(self.evaluation_args.seed)
 
