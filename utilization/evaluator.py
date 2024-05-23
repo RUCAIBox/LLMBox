@@ -38,7 +38,7 @@ class Evaluator:
         self.dataset = load_datasets(self.dataset_args, self.model)
         self.writer.write_metainfo(self.model_args, self.dataset_args, self.evaluation_args)
 
-    @catch_error
+    @catch_error(continue_from=True)
     def evaluate(self) -> Dict[str, Dict[str, float]]:
         r"""It conducts the evaluation on the dataset with corresponding models.
         We support two evaluation types:

@@ -566,7 +566,7 @@ def check_args(model_args: ModelArguments, dataset_args: DatasetArguments, evalu
         evaluation_args (EvaluationArguments): The evaluation configurations.
     """
     # vllm still has some bugs in ranking task
-    if all(d not in DEFAULT_VLLM_DATASETS for d in dataset_args.dataset_names) and not model_args.passed_in_commandline("vllm"):
+    if model_args.is_local_model() and all(d not in DEFAULT_VLLM_DATASETS for d in dataset_args.dataset_names) and not model_args.passed_in_commandline("vllm"):
         model_args.vllm = False
         model_args.model_backend = "huggingface"
 

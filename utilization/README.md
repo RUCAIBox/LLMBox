@@ -5,7 +5,7 @@
 - [Utilization](#utilization)
   - [Usage](#usage)
     - [Model Arguments](#model-arguments)
-    - [DatasetArguments](#datasetarguments)
+    - [Dataset Arguments](#dataset-arguments)
     - [Evaluation Arguments](#evaluation-arguments)
   - [Supported Models](#supported-models)
   - [Customize Model](#customize-model)
@@ -78,7 +78,7 @@ We provide an enumeration ([`enum`](model/enum.py)) for models corresponding to 
                       The tokenizer name or path, e.g., cl100k_base, meta-llama/Llama-2-7b-hf, ./mymodel
 ```
 
-Generation arguments and quantization options::
+Generation arguments and quantization options:
 
 ```txt
 --max_tokens MAX_TOKENS
@@ -403,7 +403,7 @@ python inference.py -d race:middle,high --evaluation_set "test[:10]" --example_s
   </tr>
   <tr>
       <td rowspan=3>AGIEval(<code>agieval</code>, alias of <code>agieval_single_choice</code> and <code>agieval_cot</code>)</td>
-      <td><b>English</b>: <code>sat-en</code>, <code>sat-math</code>, <code>lsat-ar</code>, <code>lsat-lr</code>, <code>lsat-rc</code>, <code>logiqa-en</code>, <code>aqua-rat</code>, <code>math</code></td>
+      <td><b>English</b>: <code>sat-en</code>, <code>sat-math</code>, <code>lsat-ar</code>, <code>lsat-lr</code>, <code>lsat-rc</code>, <code>logiqa-en</code>, <code>aqua-rat</code>, <code>sat-en-without-passage</code></td>
       <td rowspan=2>MultipleChoice</td>
       <td></td>
       <td rowspan=3></td>

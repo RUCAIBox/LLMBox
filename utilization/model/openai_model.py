@@ -181,8 +181,11 @@ class Openai(ApiModel):
                 probs = [-9999.] * (option_num * 2)
                 text = result.text if isinstance(result, CompletionChoice) else result.message.content
                 text = self._option_regex[option_num - 1].findall(text.strip().split("\n")[0])
-                if len(text) > 0 and text[-1] in label:
-                    probs[label.index(text[-1])] = 20.0
+                if len(text) > 0:
+                    for i in text[-1]:
+                        if len(i) > 0 and i in label:
+                            probs[label.index(i)] = 20.0
+                            break
 
             answers.append(probs)
         return answers

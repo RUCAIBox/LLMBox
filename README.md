@@ -4,7 +4,7 @@
 
 LLMBox is a comprehensive library for implementing LLMs, including **a unified training pipeline** and **comprehensive model evaluation**. LLMBox is designed to be a one-stop solution for training and utilizing LLMs. Through a pratical library design, we achieve a high-level of **flexibility** and **efficiency** in both training and utilization stages.
 
-<img style="display: block; margin: 25 auto;" src="assets/llmbox.svg" alt="" />
+<img style="display: block; margin: 25 auto;" src="assets/llmbox.png" alt="" />
 
 
 ## Key Features
