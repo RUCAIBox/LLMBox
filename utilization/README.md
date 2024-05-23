@@ -356,7 +356,10 @@ For openai-compatible models like [Perplexity](https://docs.perplexity.ai/docs/g
 OPENAI_BASE_URL=https://api.perplexity.ai python inference.py -m llama-3-sonar-small-32k-chat -d hellaswag --openai_api_key PERPLEXITY_API_KEY --model_backend openai
 ```
 
-In some cases (e.g. evaluating with `get_prob`), you may need to specify the `--tokenizer` to load the correct tokenizer
+In some cases (e.g. evaluating with `get_prob`), you may need to specify the `--tokenizer` to load the correct tokenizer (e.g. `cl100k_base`).
+
+> [!TIP]
+> Use dotenv `.env` file to store your API keys and other sensitive information. The `.env` file should be in the root directory of the project.
 
 
 ## Customize Model
@@ -905,11 +908,9 @@ class MyDataset(Dataset):
         self.example_data = load_raw_dataset_from_file("examples.json")
 ```
 
-Then, format the instance by implementing the `format_instance` method. The instance should be a dictionary with the following keys:
+Then, format the instance by implementing the `instruction` attribute and `format_instance` method. The returned instance should be a dictionary with keys accessible in the instruction string. Both jinja2 and f-string are supported for the instruction string.
 
-- `source` (`Union[str, List[str]]`): The source text. If this is a list, `source_idx` is required.
 - `source_idx` (`int`, optional): The index of the correct source (for multiple contexts ranking dataset like winogrande).
-- `source_postfix` (`str`, optional): The postfix of the source text. This will be appended to the source text after options when `ranking_with_options` is True.
 - `target` (`str`, optional): The target text. Either `target` or `target_idx` should be provided.
 - `target_idx` (`int`, optional): The index of the target in the options (for ranking). This will generate the `target` text in `_format_instance`.
 - `options` (`List[str]`, optional): The options for ranking.
@@ -917,34 +918,41 @@ Then, format the instance by implementing the `format_instance` method. The inst
 MultipleChoiceDataset:
 
 ```python
+instruction = "Answer the following question.\n\n{{question}}{{'\n' + options if options}}\nAnswer:"
+
 def format_instance(self, instance):
-    dict(
-        source=self.source_prefix + instance["question"].strip(),
-        source_postfix="\nAnswer:",
+    return dict(
+        question=instance["question"],
         target_idx=instance["answer"],
-        options=options,
+        options=[instance[label] for label in ["A", "B", "C", "D"]],
     )
 ```
 
 MultipleChoiceDataset (Multiple-context) like winogrande:
 
 ```python
+instruction = "Answer the following question.\n\n{source}\nAnswer:"
+
 def format_instance(self, instance):
-    dict(
-        source=contexts,
+    return dict(
+        source=[instance["ctx_a"], instance["ctx_b"]],
         source_idx=int(instance["answer"]) - 1,
-        target=completion,
+        target=instance["completion"],
     )
 ```
 
 GenerationDataset:
 
 ```python
+instruction = "Answer the following question.\n\n{question}\nAnswer:"
+
 def format_instance(self, instance):
-    dict(
-        source=instance["question"],
+    return dict(
+        question=instance["question"],
         target=instance["answer"],
     )
 ```
+
+To evaluate a pre-trained model that lacks instruction-following capabilities, you can provide an instruction explicitly by assigning a completion instruction to the model as follows: instruction = "{question}".
 
 See [`Dataset`](dataset/dataset.py) for more details.
