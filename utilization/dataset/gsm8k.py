@@ -24,7 +24,7 @@ class Gsm8k(GenerationDataset):
     extra_model_args = dict(temperature=0)
     supported_cot = ["base", "least_to_most", "pal"]
 
-    _decimal_separator = re.compile(r"(\d),(\d)")
+    _decimal_separator = re.compile(r"(?<=\d),(?=\d)")
     _extract_numbers = re.compile(r"[-+]?\d*\.\d+|\d+")
 
     def init_arguments(self):
@@ -60,11 +60,13 @@ class Gsm8k(GenerationDataset):
                     except:
                         new_predictions.append('')
             else:
-                # replace numbers like `x,xxx` with `xxxx`
-                pred = self._decimal_separator.sub(r"\1\2", pred)
+                # matches teh decimal separators like x,xxx,xxx
+                pred = self._decimal_separator.sub("", pred)
                 numbers = self._extract_numbers.findall(pred)
                 if numbers:
-                    new_predictions.append(numbers[-1])
+                    # remove trailing zeros
+                    number = re.sub(r"(?<=\d)\.0*$", "", numbers[-1])
+                    new_predictions.append(number)
                 else:
                     new_predictions.append(pred)
         return new_predictions
