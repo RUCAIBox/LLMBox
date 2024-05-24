@@ -19,7 +19,7 @@ class PIQA(MultipleChoiceDataset):
                 'a water bottle and a food dish.'
     """
 
-    instruction = "Question: {{goal}}{{'\n' + opitons if options}}\nAnswer:"
+    instruction = "Question: {{goal}}{{'\n' + options if options}}\nAnswer:"
     evaluation_set = "validation"
     example_set = "train"
     load_args = ("piqa",)
