@@ -27,6 +27,8 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install packaging
         run: pip install uv packaging
+      - name: Creating virtual environment
+        run: uv venv && source .venv/bin/activate
       - name: Install dependencies
         run: uv pip install -r tests/requirements-tests.txt
       - uses: pavelzw/pytest-action@v2
