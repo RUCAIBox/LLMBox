@@ -1,6 +1,8 @@
 name: Run pytest
 
-on: [push]
+on:
+  - pull_request:
+    types: [opened, reopened]
 
 jobs:
   build:
