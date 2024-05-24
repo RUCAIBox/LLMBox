@@ -344,8 +344,10 @@ class Conversation(_HFConversation):
         if other is None:
             messages = []
             if user:
+                assert isinstance(user, str)
                 messages.append({"role": "user", "content": user})
             if assistant:
+                assert isinstance(assistant, str)
                 messages.append({"role": "assistant", "content": assistant})
         else:
             messages = other.messages
@@ -364,11 +366,19 @@ class Conversation(_HFConversation):
         if other is None:
             messages = []
             if user:
+                assert isinstance(user, str)
                 messages.append({"role": "user", "content": user})
             if assistant:
+                assert isinstance(assistant, str)
                 messages.append({"role": "assistant", "content": assistant})
         else:
             messages = other.messages
         # add a copy of other messages
         self.messages.extend(messages)
         return self
+
+    def __repr__(self):
+        output = f"Conversation id: {self.uuid}\n"
+        for message in self.messages:
+            output += f" > {message['role']}: {message['content']}\n"
+        return output
