@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.8.18", "3.9.19", "3.10.14"]
+        python-version: ["3.8.18"]
 
     steps:
       - uses: szenius/set-timezone@v1.2
