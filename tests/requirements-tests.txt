@@ -12,10 +12,6 @@ coloredlogs
 tqdm>=4.58.0
 jinja2
 
-# Efficient inference
-packaging
-flash-attn  # https://github.com/Dao-AILab/flash-attention/issues/453#issuecomment-1692867770
-
 # API Models
 anthropic
 dashscope
