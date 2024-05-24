@@ -27,12 +27,10 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install uv
         run: pip install uv pip -U
-      - name: Creating virtual environment
-        run: uv venv && source .venv/bin/activate
       - name: Install dependencies
-        run: uv pip install -r tests/requirements-tests.txt
+        run: uv pip install -r tests/requirements-tests.txt --system
       - name: Install isolation dependencies
-        run: uv pip install vllm --no-build-isolation
+        run: uv pip install vllm --no-build-isolation --system
       - uses: pavelzw/pytest-action@v2
         with:
           emoji: true
