@@ -13,9 +13,11 @@ import tiktoken
 from transformers import BitsAndBytesConfig, PreTrainedModel, PreTrainedTokenizer, PreTrainedTokenizerFast
 from transformers.hf_argparser import HfArg, HfArgumentParser
 
+from ..chat_templates import DEFAULT_CHAT_CONFIGS
 from ..dataset.dataset_enum import DEFAULT_VLLM_DATASETS
-from ..model.model_enum import (ANTHROPIC_CHAT_COMPLETIONS_ARGS, API_MODELS, DASHSCOPE_CHAT_COMPLETIONS_ARGS,
-                                QIANFAN_CHAT_COMPLETIONS_ARGS)
+from ..model.model_enum import (
+    ANTHROPIC_CHAT_COMPLETIONS_ARGS, API_MODELS, DASHSCOPE_CHAT_COMPLETIONS_ARGS, QIANFAN_CHAT_COMPLETIONS_ARGS
+)
 from .logging import filter_none_repr, get_redacted, list_datasets, log_levels, passed_in_commandline, set_logging
 
 logger = getLogger(__name__)
@@ -27,8 +29,7 @@ if typing.TYPE_CHECKING:
 else:
     batch_size_type = str
 
-LOADER = Callable[["ModelArguments"], Tuple["PreTrainedModel", Union["PreTrainedTokenizer",
-                                                                         "PreTrainedTokenizerFast"]]]
+LOADER = Callable[["ModelArguments"], Tuple["PreTrainedModel", Union["PreTrainedTokenizer", "PreTrainedTokenizerFast"]]]
 
 
 class ModelBackendMixin:
@@ -65,7 +66,7 @@ class ModelArguments(ModelBackendMixin):
         aliases=["--model", "-m"],
         help="The model name or path, e.g., davinci-002, meta-llama/Llama-2-7b-hf, ./mymodel",
     )
-    model_type: Literal["base", "instruction", "chat"] = HfArg(
+    model_type: Literal["base", "chat"] = HfArg(
         default=None,
         help="The type of the model",
     )
@@ -185,7 +186,8 @@ class ModelArguments(ModelBackendMixin):
     )
     chat_template: Optional[str] = HfArg(
         default=None,
-        help="The chat template for local chat-based models",
+        help=
+        "The chat template for local chat-based models. Support model default chate template (choose from 'base', 'llama2', 'chatml', 'zephyr', 'phi3', 'llama3', 'alpaca', ...) or standard HuggingFace tokenizers chat template",
     )
 
     bnb_config: Optional[str] = HfArg(default=None, help="JSON string for BitsAndBytesConfig parameters.")
@@ -327,7 +329,7 @@ class ModelArguments(ModelBackendMixin):
         if self.model_type is None and auto_model_type is not None:
             self.model_type = auto_model_type
         elif self.model_type is None and auto_model_type is None:
-            self.model_type = "base" if self.is_local_model() else "instruction"
+            self.model_type = "chat"
         elif auto_model_type is not None and self.model_type != auto_model_type:
             logger.warning(
                 f"Model {self.model_name_or_path} seems to be a {auto_model_type} model, but get model_type {self.model_type}."
@@ -364,8 +366,16 @@ class ModelArguments(ModelBackendMixin):
                 )
             if self.chat_template:
                 raise ValueError(
-                    "The chat_template is only available for huggingface chat-based model. Please use a chat model and set `--model_type chat`."
+                    "The chat_template is only available for chat-based model. Please use a chat model and set `--model_type chat`."
                 )
+
+        model_name = self.model_name_or_path.lower().replace("-", "").replace("_", "")
+        if self.is_local_model() and self.chat_template is None and self.model_type == "chat":
+            for config_name in DEFAULT_CHAT_CONFIGS:
+                if config_name in model_name:
+                    self.chat_template = config_name
+                    logger.info(f"Automatically set chat_template to {config_name}.")
+                    break
 
         # argparse encodes string with unicode_escape, decode it to normal string, e.g., "\\n" -> "\n"
         if self.stop is not None:
@@ -373,6 +383,8 @@ class ModelArguments(ModelBackendMixin):
                 self.stop = [self.stop]
             for idx in range(len(self.stop)):
                 self.stop[idx] = self.stop[idx].encode('utf-8').decode('unicode_escape')
+        if self.system_prompt is not None:
+            self.system_prompt = self.system_prompt.encode('utf-8').decode('unicode_escape')
 
 
 @dataclass
@@ -569,7 +581,8 @@ def check_args(model_args: ModelArguments, dataset_args: DatasetArguments, evalu
         evaluation_args (EvaluationArguments): The evaluation configurations.
     """
     # vllm still has some bugs in ranking task
-    if model_args.is_local_model() and all(d not in DEFAULT_VLLM_DATASETS for d in dataset_args.dataset_names) and not model_args.passed_in_commandline("vllm"):
+    if model_args.is_local_model() and all(d not in DEFAULT_VLLM_DATASETS for d in dataset_args.dataset_names
+                                           ) and not model_args.passed_in_commandline("vllm"):
         model_args.vllm = False
         model_args.model_backend = "huggingface"
 
@@ -581,12 +594,13 @@ def check_args(model_args: ModelArguments, dataset_args: DatasetArguments, evalu
 
     model_args.seed = int(evaluation_args.seed)
 
-    if dataset_args.batch_size == 1:
+    if dataset_args.batch_size == 1 and model_args.prefix_caching:
+        logger.warning("Prefix caching is not supported for batch_size=1, automatically set prefix_caching to False.")
         model_args.prefix_caching = False
 
     # check models
     if model_args.model_name_or_path in API_MODELS and API_MODELS[
-        model_args.model_name_or_path]["model_type"] == "instruction" and dataset_args.batch_size > 1:
+        model_args.model_name_or_path]["model_type"] == "chat" and dataset_args.batch_size > 1:
         dataset_args.batch_size = 1
         logger.warning(
             f"chat/completions endpoint model {model_args.model_name_or_path} doesn't support batch_size > 1, automatically set batch_size to 1."
@@ -601,8 +615,11 @@ def check_args(model_args: ModelArguments, dataset_args: DatasetArguments, evalu
         )
 
     if evaluation_args.cuda_visible_devices:
-        if "CUDA_VISIBLE_DEVICES" in os.environ and os.environ["CUDA_VISIBLE_DEVICES"] != evaluation_args.cuda_visible_devices:
-            logger.warning(f"Override CUDA_VISIBLE_DEVICES from {os.environ['CUDA_VISIBLE_DEVICES']} to {evaluation_args.cuda_visible_devices}.")
+        if "CUDA_VISIBLE_DEVICES" in os.environ and os.environ["CUDA_VISIBLE_DEVICES"
+                                                               ] != evaluation_args.cuda_visible_devices:
+            logger.warning(
+                f"Override CUDA_VISIBLE_DEVICES from {os.environ['CUDA_VISIBLE_DEVICES']} to {evaluation_args.cuda_visible_devices}."
+            )
         os.environ["CUDA_VISIBLE_DEVICES"] = evaluation_args.cuda_visible_devices
 
     # check dataset
@@ -622,7 +639,9 @@ def check_args(model_args: ModelArguments, dataset_args: DatasetArguments, evalu
         )
 
     if dataset_args.instruction and "{" not in dataset_args.instruction:
-        logger.warning("Instruction does not include any variable, so the input remains unchanged across the insatnces. Try to use f-string or jinja2 format to include variables like `{source}` or `{problem}`. See dataset documentation for details.")
+        logger.warning(
+            "Instruction does not include any variable, so the input remains unchanged across the insatnces. Try to use f-string or jinja2 format to include variables like `{source}` or `{problem}`. See dataset documentation for details."
+        )
 
     if evaluation_args.dry_run and model_args.prefix_caching:
         model_args.prefix_caching = False
