@@ -7,6 +7,7 @@ from utilization import Evaluator, parse_argument
 
 @pytest.fixture
 def run_evaluate():
+
     def evaluate(args: List[str]):
         model_args, dataset_args, evaluation_args = parse_argument(
             args=args,
@@ -20,4 +21,5 @@ def run_evaluate():
             initalize=False,
         )
         return evaluator.evaluate()
+
     return evaluate
