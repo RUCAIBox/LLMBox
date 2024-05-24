@@ -204,7 +204,7 @@ def log_final_results(
                 merge_by_option = ["option"]
             return pd.DataFrame(lines).groupby("index").apply(to_dict(merge, merge_by_option))
         except Exception as e:
-            lines = {k: len(v) for k, v in lines.items()}
+            lines = {k: getattr(v, "__len__", lambda: None)() for k, v in lines.items()}
             logger.warning(f"Failed to log_pgenerate final predictions: {e}\n{lines}")
             return None
 
@@ -221,7 +221,7 @@ def log_final_results(
         try:
             return pd.DataFrame(lines).groupby("index").apply(to_dict())
         except Exception as e:
-            lines = {k: len(v) for k, v in lines.items()}
+            lines = {k: getattr(v, "__len__", lambda: None)() for k, v in lines.items()}
             logger.warning(f"Failed to generate final predictions: {e}\n{lines}")
             return None
 
