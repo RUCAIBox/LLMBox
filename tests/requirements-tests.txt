@@ -14,7 +14,6 @@ jinja2
 
 # Efficient inference
 packaging
-vllm
 flash-attn  # https://github.com/Dao-AILab/flash-attention/issues/453#issuecomment-1692867770
 
 # API Models
@@ -33,4 +32,3 @@ language_data
 google-api-python-client
 immutabledict
 langdetect
-
