@@ -54,7 +54,7 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
         - `tokenizer (Tokenizer)`: The tokenizer used for the dataset.
         - `num_shots (int)`: The number of few-shot examples to construct.
         - `max_example_tokens (int)`: The maximum number of tokens allowed for the few-shot examples.
-        - `examples (str)`: The constructed demonstration text.
+        - `examples (Conversation)`: The constructed demonstration text.
         - `evaluation_data (List[Dict])`: The loaded evaluation data.
         - `example_data (List[Dict])`: The loaded example data.
         - `evaluation_instances (List[str])`: The final formatted instances for evaluation.
@@ -561,7 +561,11 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
         if self.examples is None or self.kate or self.globale:
             self.examples = self.construct_examples(instance)
 
-        convers.add_(self.examples)
+        if isinstance(self.examples, Conversation):
+            convers.add_(self.examples)
+        else:
+            # FIXME new example format for quac, squad
+            logger.warning(f"{self.display_name} has legacy examples format. Skipping the examples.")
         option_num = len(instance["options"]) if instance.get("options", None) else 1
         if isinstance(instance["source"], list):
             if self.model_evaluation_method == "get_ppl":
