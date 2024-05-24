@@ -9,6 +9,7 @@ jinja2
 
 # Efficient inference
 packaging
+wheel
 vllm
 flash-attn  # https://github.com/Dao-AILab/flash-attention/issues/453#issuecomment-1692867770
 
