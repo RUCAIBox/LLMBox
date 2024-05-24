@@ -65,7 +65,10 @@ class Agieval_cot(GenerationDataset):
     supported_cot = ["base"]
 
     def init_arguments(self):
-        self.extra_model_args = dict(stop=["\n"]) if self.cot is None else dict()
+        if self.cot is None:
+            # when using chain-of-thought, responses might be in multiple lines
+            self.extra_model_args["stop"] = ["\n"]
+
         text = ""
         text += "gen" if self.subset_name in AGIEVAL_NO_LETTER_CHOICE_TASKS else "mcq"
         text += "_zh" if self.subset_name in AGIEVAL_ZH_PROMPT_TASKS else "_en"
