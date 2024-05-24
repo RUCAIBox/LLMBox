@@ -30,7 +30,7 @@ jobs:
       - name: Creating virtual environment
         run: uv venv && source .venv/bin/activate
       - name: Install packaging
-        run: uv pip install packaging
+        run: uv pip install packaging setuptools -U
       - name: Install dependencies
         run: uv pip install -r tests/requirements-tests.txt
       - uses: pavelzw/pytest-action@v2
