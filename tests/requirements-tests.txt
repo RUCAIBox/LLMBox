@@ -2,6 +2,9 @@
 pytest
 pytest-md
 pytest-emoji
+packaging
+setuptools
+wheel
 
 torch
 transformers
