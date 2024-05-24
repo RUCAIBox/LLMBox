@@ -69,7 +69,9 @@ class Bbh(GenerationDataset):
 
     def init_arguments(self):
         self.bbh_instruction = BBH_PROMPTS[self.subset_name]
-        self.extra_model_args = dict(stop=["\n"]) if self.cot is None else dict()
+        if self.cot is None:
+            # when using chain-of-thought, responses might be in multiple lines
+            self.extra_model_args["stop"] = ["\n"]
 
     def format_instance(self, instance):
         target = instance["answer"]
