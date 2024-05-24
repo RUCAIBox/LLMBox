@@ -689,9 +689,7 @@ class HuggingFaceModel(Model):
         if isinstance(batched_inputs[0], Conversation):
             # save the original conversation for chat-based model
             batched_conversations = batched_inputs
-            batched_inputs_nofilter = [
-                conv.to_model_prompt(max_turns=max_turns) for conv in batched_conversations
-            ]
+            batched_inputs_nofilter = [conv.to_model_prompt(max_turns=max_turns) for conv in batched_conversations]
             # deal with conversations with different number of turns
             batched_inputs = [i for i in batched_inputs_nofilter if i is not None]
 

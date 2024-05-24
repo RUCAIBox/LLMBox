@@ -11,3 +11,4 @@ jobs:
         with:
             sort-paths: "utilization"
             requirements-files: "requirements.txt requirements-openai.txt"
+            configuration: "--check-only --diff --settings-path .isort.cfg"

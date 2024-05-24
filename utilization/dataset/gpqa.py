@@ -1,9 +1,8 @@
-from functools import cached_property
 import json
+from functools import cached_property
 from logging import getLogger
-from typing import List, Optional, Tuple, Union
 from pathlib import Path
-
+from typing import List, Optional, Tuple, Union
 
 from .multiple_choice_dataset import MultipleChoiceDataset
 
@@ -12,14 +11,14 @@ logger = getLogger(__name__)
 FIVE_SHOT_INSTRUCTION = ""
 
 INSTRUCTIONS = {
-    "five_shot": """{{ 'Here are some example questions from experts. Answer the final question yourself, following the format of the previous questions exactly.\n' if example_idx == 0 }}Question: {{ question }}{{ '\nChoices:\n' + options if options }}\n{{ 'The correct answer is' if example_idx >= 0 else ('When you' + "'" + 're ready to answer, please use the format "The correct answer is (insert answer here)".') }}""",
-
-    "zero_shot": """What is the correct answer to this question: {{ question }}{{ '\n\nChoices:\n' + options if options }}\n\nFormat your response as follows: "The correct answer is (insert answer here)".""",
-
-    "five_shot_cot": """{{ 'Here are some example questions from experts. An explanation is given before the final answer. Answer the final question yourself, giving your reasoning beforehand.\n' if example_idx == 0 }}Question: {{ question }}{{ '\nChoices:\n' + options if options }}\n{{ 'The correct answer is' if example_idx >= 0 else ('Give step by step reasoning before you answer, and when you' + "'" + 're ready to answer, please use the format "The correct answer is (insert answer here)":\n') }}""",
-
-    "zero_shot_cot": """What is the correct answer to this question: {{ question }}{{ '\n\nChoices:\n' + options if options }}\nLet's think step by step: __SEPARATOR__\n\nBased on the above, what is the single, most likely answer choice? Answer in the format "The correct answer is (insert answer here)".""",
-
+    "five_shot":
+    """{{ 'Here are some example questions from experts. Answer the final question yourself, following the format of the previous questions exactly.\n' if example_idx == 0 }}Question: {{ question }}{{ '\nChoices:\n' + options if options }}\n{{ 'The correct answer is' if example_idx >= 0 else ('When you' + "'" + 're ready to answer, please use the format "The correct answer is (insert answer here)".') }}""",
+    "zero_shot":
+    """What is the correct answer to this question: {{ question }}{{ '\n\nChoices:\n' + options if options }}\n\nFormat your response as follows: "The correct answer is (insert answer here)".""",
+    "five_shot_cot":
+    """{{ 'Here are some example questions from experts. An explanation is given before the final answer. Answer the final question yourself, giving your reasoning beforehand.\n' if example_idx == 0 }}Question: {{ question }}{{ '\nChoices:\n' + options if options }}\n{{ 'The correct answer is' if example_idx >= 0 else ('Give step by step reasoning before you answer, and when you' + "'" + 're ready to answer, please use the format "The correct answer is (insert answer here)":\n') }}""",
+    "zero_shot_cot":
+    """What is the correct answer to this question: {{ question }}{{ '\n\nChoices:\n' + options if options }}\nLet's think step by step: __SEPARATOR__\n\nBased on the above, what is the single, most likely answer choice? Answer in the format "The correct answer is (insert answer here)".""",
     "retrieval": "{{ bing }}\n\nQuestion: {{ question }}{{ '\n\nChoices:\n' + options if options }}"
 }
 
@@ -38,7 +37,9 @@ class GPQA(MultipleChoiceDataset):
     def init_arguments(self):
 
         if self.sample_num > 1 and (self.max_num_shots == 0 or self.cot is None):
-            logger.warning("Self-consistency is only available for 5-shot CoT. Automatically set max_num_shots to 5 and cot to base.")
+            logger.warning(
+                "Self-consistency is only available for 5-shot CoT. Automatically set max_num_shots to 5 and cot to base."
+            )
             self.max_num_shots = 5
             self.cot = "base"
 
@@ -85,7 +86,9 @@ class GPQA(MultipleChoiceDataset):
         else:
             return open(examples_json, "r").read()
 
-    def load_raw_dataset(self, dataset_path: Optional[str], subset_name: Optional[str], evaluation_set: str, example_set: Optional[str]):
+    def load_raw_dataset(
+        self, dataset_path: Optional[str], subset_name: Optional[str], evaluation_set: str, example_set: Optional[str]
+    ):
 
         super().load_raw_dataset(dataset_path, subset_name, evaluation_set, None)
 
@@ -98,7 +101,9 @@ class GPQA(MultipleChoiceDataset):
                 SEARCH_PATH = ["prompts", "chain_of_thought_examples.json"]
                 data = self.read_file(example_set_path, SEARCH_PATH)
                 if data is None:
-                    raise FileNotFoundError("Example set not found. Please provide the correct path to the example set through `--example_set path/to/prompts`.")
+                    raise FileNotFoundError(
+                        "Example set not found. Please provide the correct path to the example set through `--example_set path/to/prompts`."
+                    )
                 self.example_data = json.loads(data)["questions"]
 
             elif self.max_num_shots == 0 and self.cot in ["retrieval", "retrieval_content"]:
@@ -108,7 +113,9 @@ class GPQA(MultipleChoiceDataset):
                     SEARCH_PATH = ["prompts", "bing-search-cot-content.txt"]
                 data = self.read_file(example_set_path, SEARCH_PATH)
                 if data is None:
-                    raise FileNotFoundError("Chain-of-thought propmts for open-book not found. Please provide the correct path to the example set through `--example_set path/to/prompts`.")
+                    raise FileNotFoundError(
+                        "Chain-of-thought propmts for open-book not found. Please provide the correct path to the example set through `--example_set path/to/prompts`."
+                    )
                 self.bing_data = data
 
     def format_instance(self, instance):
@@ -120,7 +127,10 @@ class GPQA(MultipleChoiceDataset):
         else:
             # https://huggingface.co/datasets/Idavidrein/gpqa
             instance["question"] = instance["Question"]
-            instance["options"] = [instance["Incorrect Answer 1"], instance["Incorrect Answer 2"], instance["Incorrect Answer 3"], instance["Correct Answer"]]
+            instance["options"] = [
+                instance["Incorrect Answer 1"], instance["Incorrect Answer 2"], instance["Incorrect Answer 3"],
+                instance["Correct Answer"]
+            ]
             order = self.shuffle_options(instance["options"])
             instance["target_idx"] = order.index(3)
         return instance

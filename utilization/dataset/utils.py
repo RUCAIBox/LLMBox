@@ -26,7 +26,9 @@ class DatasetUtilMixin:
 
     answer_prompt: str = "Answer:"
 
-    def set_tokenizer(self, tokenizer: Union[tiktoken.Encoding, PreTrainedTokenizer, PreTrainedTokenizerFast, None]) -> None:
+    def set_tokenizer(
+        self, tokenizer: Union[tiktoken.Encoding, PreTrainedTokenizer, PreTrainedTokenizerFast, None]
+    ) -> None:
         self.tokenizer = tokenizer
         if isinstance(tokenizer, tiktoken.Encoding):
             # Encoding.encode_ordinary is slightly faster than Encoding.encode
@@ -234,12 +236,7 @@ def get_raw_dataset_loader(
 
                 def load_fn(split):
                     return ds.load_dataset(
-                        _path,
-                        subset_name,
-                        split=split,
-                        cache_dir=dataset_path,
-                        trust_remote_code=True,
-                        **load_kwargs
+                        _path, subset_name, split=split, cache_dir=dataset_path, trust_remote_code=True, **load_kwargs
                     )
             elif offline:
 

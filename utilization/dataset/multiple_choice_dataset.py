@@ -97,7 +97,9 @@ class MultipleChoiceDataset(Dataset):
                 for m in self.metrics:
                     if isinstance(m, Accuracy):
                         m.tag = "Norm"
-                normalized_predictions = np.array([rc[0] - ra[0] for rc, ra in zip(predictions[::2], predictions[1::2])])
+                normalized_predictions = np.array([
+                    rc[0] - ra[0] for rc, ra in zip(predictions[::2], predictions[1::2])
+                ])
             else:
                 normalized_predictions = np.array([
                     result / length if length > 0 else LARGE_POSITIVE for result, length in predictions
