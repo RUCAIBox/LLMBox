@@ -1,7 +1,7 @@
+import re
 from functools import cached_property
 
-import re
-from ..metric import F1, Em
+from ..metric import F1
 from .generation_dataset import GenerationDataset
 
 

@@ -26,7 +26,7 @@ class Anthropic(ApiModel):
         anthropic.APIConnectionError, anthropic.AuthenticationError, anthropic.BadRequestError, anthropic.ConflictError,
         anthropic.NotFoundError, anthropic.PermissionDeniedError, anthropic.UnprocessableEntityError
     )
-    _skip_errors = (anthropic.InternalServerError, )
+    _skip_errors = (anthropic.InternalServerError,)
 
     _repr = ["model_type", "model_backend", "multi_turn"]
 
