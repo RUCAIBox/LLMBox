@@ -39,7 +39,7 @@ class DatasetUtilMixin:
             self.tokenizer_decode = tokenizer.decode
 
     def _apply_normalization(self, conversations: List[Conversation]):
-        normalized_conversations = [Conversation.from_chat(assistant=conv[-1]) for conv in conversations]
+        normalized_conversations = [Conversation.from_chat(assistant=conv[-1]["content"]) for conv in conversations]
         conversations.extend(normalized_conversations)
 
     def prompt_token_nums(self, prompt: str):

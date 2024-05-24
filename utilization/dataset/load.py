@@ -35,10 +35,17 @@ def _import_dataset_class(dataset_name: str) -> Type[Dataset]:
         module = importlib.import_module(module_path)
     except ModuleNotFoundError as e:
         all_datasets = list_datasets()
-        fuzzy_match = difflib.get_close_matches(dataset_name, list(all_datasets), cutoff=0.6)
-        if len(fuzzy_match) == 0:
-            fuzzy_match = all_datasets
-        raise ValueError(f"Invalid dataset: {dataset_name}. Possible choices are: {fuzzy_match}.") from e
+
+        if f"utilization.dataset.{dataset_name}" in str(e):
+            matches = difflib.get_close_matches(dataset_name, list(all_datasets), cutoff=0.6)
+            if len(matches) == 0:
+                fuzzy_match = f" Available choices are: {all_datasets}."
+            else:
+                fuzzy_match = f" Possible choices are: {matches}."
+        else:
+            fuzzy_match = ""
+
+        raise ValueError(f"Invalid dataset: {dataset_name}.{fuzzy_match}\n{e}") from e
     clsmembers = inspect.getmembers(module, inspect.isclass)
 
     for name, obj in clsmembers:
