@@ -3,7 +3,9 @@ from logging import getLogger
 from typing import TYPE_CHECKING, List, Tuple
 
 import torch
+from packaging import version
 
+from ..utils.conversation import Conversation
 from .model import Model
 
 if TYPE_CHECKING:
@@ -44,7 +46,7 @@ class vllmModel(Model):
         self.args = args
 
         logger.info(f"Trying to load {args.model_name_or_path} using vllm...")
-        self.vllm_version = vllm.__version__
+        self.vllm_version = version.parse(vllm.__version__)
         if args.prefix_caching:
             if self.is_legacy_vllm():
                 logger.warning(
@@ -52,6 +54,7 @@ class vllmModel(Model):
                 )
             else:
                 kwargs["enable_prefix_caching"] = True
+                self.use_cache = True
 
         self.model = LLM(
             model=args.model_name_or_path,
@@ -70,11 +73,10 @@ class vllmModel(Model):
             self.model.llm_engine.model_config.max_model_len,
             getattr(args, "max_length") or 1e10
         )
-        if args.chat_template is not None:
-            self.tokenizer.chat_template = args.chat_template
+        self.tokenizer.chat_template = args.chat_template
 
     def is_legacy_vllm(self):
-        return self.vllm_version < "0.4.0"
+        return self.vllm_version < version.parse("0.4.0")
 
     def set_ppl_args(self, **extra_model_args):
         self.ppl_kwargs = SamplingParams(max_tokens=1, prompt_logprobs=0)
@@ -137,6 +139,9 @@ class vllmModel(Model):
             if value is None:
                 value = extra_model_args.pop(key, None)
 
+            if key == "stop":
+                print(value)
+
             if key == "max_tokens" and value is None:
                 value = 1024
             if value is not None:
@@ -148,12 +153,8 @@ class vllmModel(Model):
             logger.warning(f"Unused generation arguments: {extra_model_args}")
         return self.generation_kwargs
 
-    def generation(self, batched_inputs) -> List[str]:
-        if self.model_type == "chat":
-            chats = [[{"role": "user", "content": prompt}] for prompt in batched_inputs]
-            batched_inputs = [
-                self.tokenizer.apply_chat_template(chat, tokenize=False, add_generation_prompt=True) for chat in chats
-            ]
+    def generation(self, batched_inputs: List[Conversation]) -> List[str]:
+        batched_inputs = [conv.to_model_prompt() for conv in batched_inputs]
         results = self.model.generate(batched_inputs, sampling_params=self.generation_kwargs)
         return [r.outputs[0].text for r in results]
 

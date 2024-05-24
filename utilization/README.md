@@ -9,8 +9,10 @@
     - [Evaluation Arguments](#evaluation-arguments)
   - [Supported Models](#supported-models)
   - [Customize Model](#customize-model)
+  - [Customize Chat Template](#customize-chat-template)
   - [Supported Datasets](#supported-datasets)
   - [Customize Dataset](#customize-dataset)
+  - [Change Log](#change-log)
 
 ## Usage
 
@@ -123,7 +125,7 @@ Generation arguments and quantization options:
 --system_prompt SYSTEM_PROMPT, -sys SYSTEM_PROMPT
                       The system prompt for chat-based models
 --chat_template CHAT_TEMPLATE
-                      The chat template for huggingface chat-based models
+                      The chat template for local chat-based models. Support model default chate template (choose from 'base', 'llama2', 'chatml', 'zephyr', 'phi3', 'llama3', ...) or standard HuggingFace tokenizers chat template
 --bnb_config BNB_CONFIG
                       JSON string for BitsAndBytesConfig parameters.
 --load_in_8bit [LOAD_IN_8BIT]
@@ -169,9 +171,8 @@ You can evaluate datasets sequentially in a single run when they require similar
 --example_set EXAMPLE_SET
                       The set name for demonstration, supporting slice,
                       e.g., train, dev, train[:10] (default: None)
---instance_format INSTANCE_FORMAT, -fmt INSTANCE_FORMAT
-                      The format to format the `source` and `target` for
-                      each instance (default: {source}{target})
+--instruction INSTRUCTION
+                      The format to format the instruction for each instance. Either f-string or jinja2 format is supported. E.g., 'Answer the following question: {question}\nAnswer:'"
 --num_shots NUM_SHOTS, -shots NUM_SHOTS
                       The few-shot number for demonstration (default: 0)
 --max_example_tokens MAX_EXAMPLE_TOKENS
@@ -385,6 +386,21 @@ class NewModel(Model):
 
 And then, you should register your model in the [`load`](model/load.py) file.
 
+## Customize Chat Template
+
+Chat templates are used to formatting conversational messages to text input for local chat-based models.
+
+```bash
+python inference.py -m Meta-Llama-3-8B-Instruct -d gsm8k --model_type chat --chat_template llama3 -shots 8 -sys "You are a helpful assistant."
+```
+
+You don't need to specify the chat template for hosted models.
+
+```bash
+python inference.py -m gpt-3.5-turbo -d gsm8k --model_type chat -shots 8 -sys "You are a helpful assistant."
+```
+
+You can customize the [chat template](https://github.com/RUCAIBox/LLMBox/blob/main/utilization/chat_templates.py) for local chat-based models. We provide a set of chat templates for different models. You can specify a jinja2 chat template with the `--chat_template` argument. It works in the same way as the [tokenizers](https://huggingface.co/docs/transformers/main/en/chat_templating).
 
 
 ## Supported Datasets
@@ -1053,3 +1069,11 @@ def format_instance(self, instance):
 To evaluate a pre-trained model that lacks instruction-following capabilities, you can provide an instruction explicitly by assigning a completion instruction to the model as follows: instruction = "{question}".
 
 See [`Dataset`](dataset/dataset.py) for more details.
+
+## Change Log
+
+- **May 24, 2024**: Chat format support including conversational few-shot and system prompts.
+- **May 10, 2024**: New instruction formatting using f-string and jinja2.
+- **May 7, 2024**: Bump openai and vllm version.
+- **Apr 16, 2024**: Full support for KV caching.
+- **March 18, 2024**: First release of LLMBox.

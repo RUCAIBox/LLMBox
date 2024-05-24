@@ -36,7 +36,7 @@ def info_dataset_group(
     if model_evaluation_method == "get_ppl":
         model_evaluation_method += f" ({dataset_group[0].ranking_type})"
     logger.info(
-        f"Evaluating {model_evaluation_method} on {d.name}{subset_str} (model_attr={model_attr}, {kwargs_name}={model_kwargs}, num_shots={num_shots}, len={group_length}, num_instances={instances}, use_cache={use_cache})"
+        f"Evaluating {model_evaluation_method} on {d.display_name}{subset_str} (model_attr={model_attr}, {kwargs_name}={model_kwargs}, num_shots={num_shots}, len={group_length}, num_instances={instances}, use_cache={use_cache})"
     )
     logger.debug(f"Datasets: {d.dataset_name}{subset_names}")
 
@@ -159,7 +159,10 @@ class DatasetCollectionBatchSampler(Sampler[List[int]]):
         for total, init_model, self._forward_call in zip(*self._splitted):
             iterator, total_prefix_num = init_model()
             if total_prefix_num > 1:
-                sampler = CachePrefixSampler(iterator, total, total_prefix_num, self.batch_size, self.auto_batch_size)
+                sampler = CachePrefixSampler(
+                    iterator, total, total_prefix_num, self.batch_size, self.dataset_collection.conversation_formatter,
+                    self.auto_batch_size
+                )
                 model.set_cacher(sampler)
                 yield from sampler
             else:
