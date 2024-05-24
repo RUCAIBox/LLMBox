@@ -1,4 +1,4 @@
-[LLMBox](..) | [Training](../training) | **Utilization**
+[LLMBox](https://github.com/RUCAIBox/LLMBox) | [Training](https://github.com/RUCAIBox/LLMBox/tree/main/training) | **Utilization**
 
 # Utilization
 
@@ -48,7 +48,7 @@ We use all cuda devices by default. You can specify the device with `CUDA_VISIBL
 
 Define the model parameters, efficient evaluation settings, generation arguments, quantization, and additional configuration options.
 
-We provide an enumeration ([`enum`](model/enum.py)) for models corresponding to each `model_backend`. If a model is not listed within this enumeration, `--model_backend` should be specified directly.
+We provide an enumeration ([`enum`](https://github.com/RUCAIBox/LLMBox/tree/main/model/enum.py)) for models corresponding to each `model_backend`. If a model is not listed within this enumeration, `--model_backend` should be specified directly.
 
 
 ```text
@@ -365,7 +365,13 @@ In some cases (e.g. evaluating with `get_prob`), you may need to specify the `--
 
 ## Customize Model
 
-By inheriting the [`Model`](model/model.py) class, you can customize support for more models. You can implement `generation`, `get_ppl`, and `get_prob` methods to support different models. For example, you can implement the `generation` method for a new model as follows:
+### Customizing HuggingFace Models
+
+If you are building on your own model, such as using a fine-tuned model, you can evaluate it easily from python script. Detailed steps and example code are provided in the [customize HuggingFace model guide](https://github.com/RUCAIBox/LLMBox/tree/main/docs/examples/customize_huggingface_model.py).
+
+### Adding a New Model Provider
+
+If you're integrating a new model provider, begin by extending the [`Model`](https://github.com/RUCAIBox/LLMBox/tree/main/model/model.py) class. Implement essential methods such as `generation`, `get_ppl` (get perplexity), and `get_prob` (get probability) to support different functionalities. For instance, here's how you might implement the `generation` method for a new model:
 
 ```python
 class NewModel(Model):
@@ -384,7 +390,7 @@ class NewModel(Model):
         return results
 ```
 
-And then, you should register your model in the [`load`](model/load.py) file.
+And then, you should register your model in the [`load`](https://github.com/RUCAIBox/LLMBox/tree/main/model/load.py) file.
 
 ## Customize Chat Template
 
@@ -890,7 +896,7 @@ class MyDataset(Dataset):
 
 ## Customize Dataset
 
-We provide two types of datasets: [`GenerationDataset`](dataset/generation_dataset.py), [`MultipleChoiceDataset`](dataset/multiple_choice_dataset.py). You can also customize support for a new dataset type by inheriting the [`Dataset`](dataset/dataset.py) class. For example, you can implement a new `GenerationDataset` as follows:
+We provide two types of datasets: [`GenerationDataset`](https://github.com/RUCAIBox/LLMBox/tree/main/dataset/generation_dataset.py), [`MultipleChoiceDataset`](https://github.com/RUCAIBox/LLMBox/tree/main/dataset/multiple_choice_dataset.py). You can also customize support for a new dataset type by inheriting the [`Dataset`](https://github.com/RUCAIBox/LLMBox/tree/main/dataset/dataset.py) class. For example, you can implement a new `GenerationDataset` as follows:
 
 ```python
 def NewDataset(GenerationDataset):
@@ -1058,7 +1064,7 @@ def format_instance(self, instance):
 
 To evaluate a pre-trained model that lacks instruction-following capabilities, you can provide an instruction explicitly by assigning a completion instruction to the model as follows: instruction = "{question}".
 
-See [`Dataset`](dataset/dataset.py) for more details.
+See [`Dataset`](https://github.com/RUCAIBox/LLMBox/tree/main/dataset/dataset.py) for more details.
 
 ## Change Log
 
