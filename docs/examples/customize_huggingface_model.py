@@ -8,7 +8,7 @@ from utilization.utils import DatasetArguments, ModelArguments
 
 def load_hf_model(model_args: ModelArguments):
 
-    # custom pytorch model
+    # load your own model
     model = LlamaForCausalLM.from_pretrained(
         model_args.model_name_or_path,
         torch_dtype=getattr(torch, model_args.torch_dtype),
@@ -17,6 +17,7 @@ def load_hf_model(model_args: ModelArguments):
         load_in_8bit=model_args.load_in_8bit,
         trust_remote_code=True,
     )
+
     max_length = get_model_max_length(model)
     tokenizer = load_tokenizer(model_args.tokenizer_name_or_path, use_fast=True, max_length=max_length)
 

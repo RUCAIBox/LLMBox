@@ -1,10 +1,10 @@
-**LLMBox** | [Training](training) | [Utilization](utilization)
+**LLMBox** | [Training](https://github.com/RUCAIBox/LLMBox/tree/main/training) | [Utilization](https://github.com/RUCAIBox/LLMBox/tree/main/utilization)
 
 # LLMBox
 
 LLMBox is a comprehensive library for implementing LLMs, including **a unified training pipeline** and **comprehensive model evaluation**. LLMBox is designed to be a one-stop solution for training and utilizing LLMs. Through a pratical library design, we achieve a high-level of **flexibility** and **efficiency** in both training and utilization stages.
 
-<img style="display: block; margin: 25 auto;" src="assets/llmbox.png" alt="" />
+<img style="display: block; margin: 25 auto;" src="docs/assets/llmbox.png" alt="" />
 
 
 ## Key Features
@@ -39,6 +39,8 @@ pip install -r requirements.txt
 ```
 
 If you are only evaluating the OpenAI (or OpenAI compatible like DeepSeek, Perplexity) models, you can install the minimal requirements `requirements-openai.txt`.
+
+For installation problem, see [trouble shooting](https://github.com/RUCAIBox/LLMBox/tree/main/docs/trouble_shooting/vllm_no_module_name_packaging.md).
 
 ### Quick Start with Training
 
@@ -111,7 +113,7 @@ For more details, view the [training](https://github.com/RUCAIBox/LLMBox/tree/ma
 
 ## Utilization
 
-We provide a broad support on Huggingface models (e.g. `LLaMA-3`, `Mistral`), OpenAI, Anthropic, QWen and  other OpenAI-compatible models for further utilization.
+We provide a broad support on Huggingface models (e.g. `LLaMA-3`, `Mistral`, or the model you are building on), OpenAI, Anthropic, QWen and other OpenAI-compatible models for further utilization.
 
 Currently a total of 56+ commonly used datasets are supported, including: `HellaSwag`, `MMLU`, `GSM8K`, `GPQA`, `AGIEval`, `CEval`, and `CMMLU`. For a full list of supported models and datasets, view the [utilization](https://github.com/RUCAIBox/LLMBox/tree/main/utilization) documentation.
 
