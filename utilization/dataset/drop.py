@@ -1,7 +1,10 @@
 import re
 from functools import cached_property
 
+import datasets as ds
+
 from ..metric import F1, Em
+from ..metric.drop_utils import get_answers
 from .generation_dataset import GenerationDataset
 
 
@@ -24,8 +27,9 @@ class Drop(GenerationDataset):
     instruction = "Answer the question based on the given passage.\n\nPassage: {passage}\nQuestion: {question}\nAnswer:"
     example_set = "train"
     evaluation_set = "validation"
-    load_args = ("drop",)
-    metrics = [F1(force_number_match=True), Em()]
+    load_args = ("EleutherAI/drop",)
+    load_kwargs = {"download_config": ds.DownloadConfig(extract_compressed_file=True)}
+    metrics = [F1(force_number_match=True, word_tokenize="regex", align_bag="counter"), Em()]
     extra_model_args = dict(max_tokens=64, temperature=0, stop=["\n"])
 
     def format_instance(self, instance):
@@ -46,4 +50,7 @@ class Drop(GenerationDataset):
 
     @cached_property
     def references(self):
-        return [instance["answers_spans"]["spans"] for instance in self.evaluation_data]
+        if "flatten_answers" in self.evaluation_data[0]:
+            return [instance["flatten_answers"] for instance in self.evaluation_data]
+        else:
+            return [get_answers(instance) for instance in self.evaluation_data]

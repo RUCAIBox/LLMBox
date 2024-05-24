@@ -1,13 +1,15 @@
 from logging import getLogger
 from statistics import mode
-from typing import Dict, Tuple
+from typing import Callable, Dict, Optional
 
 from torch.utils.data import DataLoader
 
 from .dataset import load_datasets
 from .model import load_model
 from .utils import DatasetArguments, EvaluationArguments, ModelArguments, catch_error, dynamic_stride_tqdm
+from .utils.arguments import check_args
 from .utils.log_results import PredictionWriter
+from .utils.logging import set_logging
 from .utils.random import set_seed
 
 logger = getLogger(__name__)
@@ -25,19 +27,36 @@ class Evaluator:
         dataset (Dataset): Our class for dataset.
     """
 
-    def __init__(self, args: Tuple[ModelArguments, DatasetArguments, EvaluationArguments]):
-        model_args, dataset_args, evaluation_args = args
+    def __init__(
+        self,
+        *,
+        model_args: ModelArguments,
+        dataset_args: DatasetArguments,
+        evaluation_args: Optional[EvaluationArguments] = None,
+        initalize: bool = True,
+        load_hf_model: Optional[Callable] = None,
+    ):
+
         self.model_args = model_args
         self.dataset_args = dataset_args
+        evaluation_args = evaluation_args or EvaluationArguments()
         self.evaluation_args = evaluation_args
+        if load_hf_model is not None:
+            self.model_args.load_hf_model = load_hf_model
+
+        if initalize:
+            set_logging(self.model_args, self.dataset_args, self.evaluation_args)
+            check_args(self.model_args, self.dataset_args, self.evaluation_args)
+            logger.info(self.evaluation_args)
 
         set_seed(self.evaluation_args.seed)
 
         self.model = load_model(self.model_args)
         self.writer = PredictionWriter(self.dataset_args.evaluation_results_path)
         self.dataset = load_datasets(self.dataset_args, self.model)
+        self.writer.write_metainfo(self.model_args, self.dataset_args, self.evaluation_args)
 
-    @catch_error
+    @catch_error(continue_from=True)
     def evaluate(self) -> Dict[str, Dict[str, float]]:
         r"""It conducts the evaluation on the dataset with corresponding models.
         We support two evaluation types:
@@ -71,10 +90,13 @@ class Evaluator:
                 desc=self.dataset.name,
                 dynamic_ncols=True,
                 unit=" instances",
+                continue_from=self.dataset_args.continue_from,
             )
 
         # call model
         raw_predictions = []
+        if self.evaluation_args.continue_from:
+            raw_predictions.extend(self.writer.load_continue())
         for batch in dataloader:
             batch_results = call_model(batch)
             if len(batch) != len(batch_results) and len(batch_results) != 0:
@@ -99,8 +121,10 @@ class Evaluator:
         step = self.dataset.len(option_num=False, sample_num=False, normalization=False)
         if self.dataset_args.pass_at_k:
             mode_predictions = [predictions[i::step] for i in range(step)]
-        else:
+        elif len(predictions) // step > 1:
             mode_predictions = [mode(predictions[i::step]) for i in range(step)]
+        else:
+            mode_predictions = predictions
 
         # calculate metric
         metric_results, last_score_lists = self.dataset.calculate_metric(mode_predictions)
@@ -110,7 +134,7 @@ class Evaluator:
             if result is None:
                 continue
             msg += f"\n##### {display_name} #####"
-            for key, value in result.items():
+            for key, value in sorted(result.items(), key=lambda x: x[0]):
                 msg += "\n{}: {:.2f}".format(key, value)
 
         logger.info(msg + "\n")

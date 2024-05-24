@@ -1,11 +1,15 @@
 import json
+import typing
+from dataclasses import asdict
 from logging import getLogger
-from multiprocessing import Process, Queue
 from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 
 import pandas as pd
 
 logger = getLogger(__name__)
+
+if typing.TYPE_CHECKING:
+    from .arguments import DatasetArguments, EvaluationArguments, ModelArguments
 
 
 def repeat_iter(obj, n: int):
@@ -37,11 +41,32 @@ class PredictionWriter:
         self.evaluation_path = evaluation_path
         self._alive = isinstance(evaluation_path, str)
 
-    def __enter__(self):
-        return self
+    def write_metainfo(
+        self,
+        model_args: "ModelArguments",
+        dataset_args: "DatasetArguments",
+        evaluation_args: "EvaluationArguments",
+    ):
+        self.model_args = model_args
+        self.dataset_args = dataset_args
+        self.evaluation_args = evaluation_args
+        if self.alive():
+            with open(self.evaluation_path, "w") as f:
+                metainfo = {
+                    "evaluation_results": "batch",
+                    "model_args": asdict(model_args),
+                    "dataset_args": asdict(dataset_args),
+                    "evaluation_args": asdict(evaluation_args),
+                }
+                f.write(json.dumps(metainfo, ensure_ascii=False) + "\n")
 
-    def __exit__(self, exc_type, exc_value, exc_tb):
-        pass
+        self.continue_from_instance = None
+        self.continue_from_path = self.evaluation_args.continue_from
+        if self.continue_from_path:
+            self.continue_from_instance = self.check_continue()
+
+        if self.continue_from_instance is not None:
+            self.dataset_args.continue_from = self.continue_from_instance
 
     def alive(self):
         return self._alive
@@ -52,7 +77,7 @@ class PredictionWriter:
                 json.dump(data, f, ensure_ascii=False)
                 f.write("\n")
         except Exception as e:
-            logger.warning(f"Failed to log_predictions: {e}\n{data}")
+            logger.warning(f"Failed to log batch predictions: {e}\n{data}")
             self._alive = False
 
     def log_batch_results(
@@ -64,6 +89,8 @@ class PredictionWriter:
             return len(raw_predictions)
 
         for raw_prediction, (idx, source, reference) in zip(raw_predictions, lines_iter):
+            if not isinstance(source, str):
+                source = str(source)
             lines = {
                 "index": idx,
                 "source": source,
@@ -72,6 +99,42 @@ class PredictionWriter:
             }
             self._write(lines)
         return len(raw_predictions)
+
+    def _parse_log_results(self, logline: Dict[str, typing.Any], write_back: bool = True) -> typing.Any:
+        if write_back:
+            self._write(logline)
+        return logline["raw_prediction"]
+
+    def check_continue(self) -> Optional[int]:
+
+        def _check_args(metainfo: Dict[str, typing.Any]):
+            pass
+
+        with open(self.continue_from_path, "r") as f:
+            iterator = iter(f)
+            metainfo = next(iterator)
+            if metainfo == "[":
+                return None
+            metainfo = json.loads(metainfo)
+            num_lines = 0
+            if "evaluation_results" in metainfo:
+                _check_args(metainfo)
+            else:
+                num_lines += 1
+            num_lines += sum(1 for _ in iterator)
+            logger.info(f"Continue from {self.continue_from_path} ({num_lines} lines)")
+            return num_lines
+
+    def load_continue(self) -> Iterator[typing.Any]:
+
+        assert self.continue_from_instance is not None
+        with open(self.continue_from_path, "r") as f:
+            iterator = iter(f)
+            metainfo = json.loads(next(iterator))
+            if "evaluation_results" not in metainfo:
+                yield self._parse_log_results(metainfo)
+            for line in f:
+                yield self._parse_log_results(json.loads(line))
 
 
 def log_final_results(
@@ -82,7 +145,7 @@ def log_final_results(
     model_evaluation_method: str,
     use_normalization: bool,
     option_nums: List[int],
-    evaluation_data: List[Dict[str, Any]],
+    len_evaluation_data: int,
     evaluation_instances: List[tuple],
     sample_num: int,
     references: List[Any],
@@ -92,7 +155,7 @@ def log_final_results(
     if model_evaluation_method == "generation":
         # only generation tasks support self-consistency
         lines = {
-            "index": repeat_iter(range(len(evaluation_data)), sample_num),
+            "index": repeat_iter(range(len_evaluation_data), sample_num),
             "source": evaluation_instances,
             "raw_prediction": raw_predictions,
             "processed_prediction": processed_predictions,
@@ -102,8 +165,9 @@ def log_final_results(
         try:
             return pd.DataFrame(lines).groupby("index").apply(to_dict(merge=["index", "source", "metric", "reference"]))
         except Exception as e:
-            lines = {k: len(v) for k, v in lines.items()}
-            logger.warning(f"Failed to log_predictions: {e}\n{lines}")
+            get_len = lambda v: len(v) if hasattr(v, "__len__") else None
+            lines = {k: get_len(v) for k, v in lines.items()}
+            logger.warning(f"Failed to generate final predictions: {e}\n{lines}")
             return None
 
     elif model_evaluation_method == "get_ppl":  # ranking
@@ -141,14 +205,14 @@ def log_final_results(
             return pd.DataFrame(lines).groupby("index").apply(to_dict(merge, merge_by_option))
         except Exception as e:
             lines = {k: len(v) for k, v in lines.items()}
-            logger.warning(f"Failed to log_predictions: {e}\n{lines}")
+            logger.warning(f"Failed to log_pgenerate final predictions: {e}\n{lines}")
             return None
 
     elif model_evaluation_method == "get_prob":
 
         lines = {
-            "index": list(range(len(evaluation_data))),
-            "source": map(lambda i: i[0], evaluation_instances),
+            "index": list(range(len_evaluation_data)),
+            "source": map(lambda i: i[:-1], evaluation_instances),
             "probabilites": raw_predictions,
             "prediction": processed_predictions,
             "reference": references,
@@ -158,7 +222,7 @@ def log_final_results(
             return pd.DataFrame(lines).groupby("index").apply(to_dict())
         except Exception as e:
             lines = {k: len(v) for k, v in lines.items()}
-            logger.warning(f"Failed to log_predictions: {e}\n{lines}")
+            logger.warning(f"Failed to generate final predictions: {e}\n{lines}")
             return None
 
     else:

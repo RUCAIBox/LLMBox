@@ -1,6 +1,6 @@
 import re
 from functools import cached_property
-from typing import Optional
+from typing import List, Optional
 
 import numpy as np
 
@@ -40,13 +40,15 @@ class Quac(GenerationDataset):
     example_set = "train"
     evaluation_set = "validation"
     load_args = ("quac",)
-    metrics = [F1(), Em()]
+    metrics = [F1(align_bag="set", normalize_level="token"), Em()]
     extra_model_args = dict(max_tokens=64, temperature=0, stop=["\n"])
 
     def load_raw_dataset(
         self, dataset_path: Optional[str], subset_name: Optional[str], evaluation_set: str, example_set: Optional[str]
     ):
         super().load_raw_dataset(dataset_path, subset_name, evaluation_set, example_set)
+
+        # expand the evaluation data
         _evaluation_data = []
         for data in self.evaluation_data:
             questions = data["questions"]
@@ -87,7 +89,7 @@ class Quac(GenerationDataset):
             instance = self.example_data[index]
             source_text = "TITLE: " + instance["section_title"] + "\n\nPARAGRAPH: " + instance["background"]
             for question, answers in zip(instance["questions"], instance["answers"]["texts"]):
-                source_text += "\n\nQ: " + question + "\n\nA:"
+                source_text += "\n\nQ: " + question + "\nA:"
                 text = answers[0]
                 if "CANNOTANSWER" in answers:
                     text = "I don't know."
@@ -101,14 +103,14 @@ class Quac(GenerationDataset):
         return example_text
 
     @cached_property
-    def references(self):
-        return [["I don't know."] if "CANNOTANSWER" in instance["answer"] else instance["answer"]
+    def references(self) -> List[List[str]]:
+        return [["I don't know."] if "CANNOTANSWER" in instance["answer"] else list(set(instance["answer"]))
                 for instance in self.evaluation_data]
 
     @staticmethod
     def post_processing(preds):
         predictions = []
-        pattern = r"[.!(\n)]"
+        pattern = r"[.!]"
         for pred in preds:
             match = re.search(pattern, pred)
             if match:

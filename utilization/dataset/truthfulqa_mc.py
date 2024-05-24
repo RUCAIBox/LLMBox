@@ -27,10 +27,8 @@ class Truthfulqa_mc1(MultipleChoiceDataset):
     metrics = [Accuracy()]
 
     def format_instance(self, instance):
-        order = list(range(len(instance['mc1_targets']["choices"])))
-        random.shuffle(order)
-
-        instance["options"] = [instance['mc1_targets']["choices"][i] for i in order]
+        order = self.shuffle_options(instance['mc1_targets']['choices'])
+        instance["options"] = instance['mc1_targets']["choices"]
         instance["QA_PRIMER"] = QA_PRIMER
         instance["target_idx"] = order.index(0)
         return instance

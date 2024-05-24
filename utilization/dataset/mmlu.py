@@ -1,7 +1,7 @@
 from functools import cached_property
 from logging import getLogger
 
-from .enum import MMLU_SUBJECTS
+from .dataset_enum import MMLU_SUBJECTS
 from .multiple_choice_dataset import MultipleChoiceDataset
 
 logger = getLogger(__name__)

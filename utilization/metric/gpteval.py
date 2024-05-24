@@ -1,6 +1,7 @@
 import re
 import time
 from logging import getLogger
+from typing import Literal
 
 import numpy as np
 import openai
@@ -33,7 +34,7 @@ class GPTEval(Metric):
             "GPT-Eval": float
         """
 
-    def __init__(self, multi_turn=False, type="single"):
+    def __init__(self, multi_turn=False, type: Literal["single", "pairwise"] = "single"):
         self.multi_turn = multi_turn
         self.type = type
         self.model_args = ModelArguments(

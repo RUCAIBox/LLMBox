@@ -5,6 +5,8 @@ import torch
 from torch.utils.data.sampler import Sampler
 from transformers import DynamicCache
 
+from utilization.utils.conversation import Conversation, ConversationFormatter
+
 _LegacyCache = Tuple[Tuple[torch.FloatTensor, torch.FloatTensor], ...]
 
 logger = getLogger(__name__)
@@ -298,10 +300,11 @@ class CachePrefixSampler(Sampler[List[int]], Cacher):
 
     def __init__(
         self,
-        data: Iterator[Tuple[str, ...]],
+        data: Iterator[Conversation],
         total: int,
         total_prefix_num: int,
         batch_size: int,
+        conversation_formatter: ConversationFormatter,
         auto_batch_size: bool = False,
     ):
 
@@ -309,6 +312,7 @@ class CachePrefixSampler(Sampler[List[int]], Cacher):
         self.total_prefix_num = total_prefix_num
         self.joined_data = [[] for _ in range(self.total_prefix_num)]
         self.cache_levels = [0] * total
+        self.conversation_formatter = conversation_formatter
 
         # the batch_size for the kvcache is smaller than the batch_size to avoid OOM
         cache_batch_size = (batch_size + 1) // 2
@@ -334,6 +338,8 @@ class CachePrefixSampler(Sampler[List[int]], Cacher):
 
         last_start_idx = [0 for _ in range(self.total_prefix_num)]
         for s_idx, src in enumerate(data):
+            if hasattr(src, "to_model_prompt"):
+                src = src.to_model_prompt()
             for p_idx in range(self.total_prefix_num):
                 joined_src = "".join(src[:p_idx + 1])
                 self.joined_data[p_idx].append(joined_src)

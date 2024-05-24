@@ -4,7 +4,7 @@ from logging import getLogger
 
 from ..metric import Em
 from ..utils import math_equiv
-from .enum import (
+from .dataset_enum import (
     AGIEVAL_EN_CLOZE_TASKS, AGIEVAL_EN_PROMPT_TASKS, AGIEVAL_EN_QA_TASKS, AGIEVAL_MULTI_ANSWERS_TASKS,
     AGIEVAL_NO_LETTER_CHOICE_TASKS, AGIEVAL_ZH_CLOZE_TASKS, AGIEVAL_ZH_PROMPT_TASKS, AGIEVAL_ZH_QA_TASKS
 )
@@ -62,13 +62,17 @@ class Agieval_cot(GenerationDataset):
     evaluation_set = "test"
     load_args = ("RUCAIBox/agieval",)
     metrics = [Em()]
+    supported_cot = ["base"]
 
     def init_arguments(self):
-        self.extra_model_args = dict(stop=["\n"]) if self.args.cot is None else dict()
+        if self.cot is None:
+            # when using chain-of-thought, responses might be in multiple lines
+            self.extra_model_args["stop"] = ["\n"]
+
         text = ""
         text += "gen" if self.subset_name in AGIEVAL_NO_LETTER_CHOICE_TASKS else "mcq"
         text += "_zh" if self.subset_name in AGIEVAL_ZH_PROMPT_TASKS else "_en"
-        text += "_cot" if self.args.cot else "_nocot"
+        text += "_cot" if self.cot else "_nocot"
         text += "_few_shot" if self.max_num_shots > 0 else "_zero_shot"
         self.instruction = INSTRUCTIONS[text]
         self.target_template = TARGETS.get(text[4:], " {label}")
@@ -150,7 +154,7 @@ class Agieval_cot(GenerationDataset):
         return string
 
     def try_parse_few_shot_qa_single_answer(self, string, language='en'):
-        if self.max_num_shots > 0 and self.args.cot is not None:
+        if self.max_num_shots > 0 and self.cot is not None:
             string = self.extract_last_line(string)
         if language == 'en':
             pattern = "answer is .*?([A-G])"
@@ -164,7 +168,7 @@ class Agieval_cot(GenerationDataset):
             return None
 
     def try_parse_few_shot_pattern(self, string: str):
-        if self.max_num_shots > 0 and self.args.cot is not None:
+        if self.max_num_shots > 0 and self.cot is not None:
             string = self.extract_last_line(string)
         if self.subset_name in AGIEVAL_ZH_CLOZE_TASKS:
             return string.startswith("答案是")
@@ -188,7 +192,7 @@ class Agieval_cot(GenerationDataset):
             return answer
 
     def parse_math_answer(self, raw_string):
-        if self.max_num_shots > 0 and self.args.cot is not None:
+        if self.max_num_shots > 0 and self.cot is not None:
             raw_string = self.extract_last_line(raw_string)
         if self.max_num_shots > 0:
             raw_string = self.remove_few_shot_prefix(raw_string)
@@ -265,7 +269,7 @@ class Agieval_cot(GenerationDataset):
         return answer
 
     def parse_qa_multiple_answer(self, string):
-        if self.max_num_shots > 0 and self.args.cot is not None:
+        if self.max_num_shots > 0 and self.cot is not None:
             string = self.extract_last_line(string)
         pattern = r"\(*([A-F])\)*"
         match = re.findall(pattern, string)

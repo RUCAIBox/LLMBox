@@ -6,11 +6,14 @@ from dataclasses import dataclass
 from importlib.machinery import SourceFileLoader
 from logging import getLogger
 from os.path import abspath, relpath
-from typing import Callable, List, Literal, Optional, Tuple, Union
+from pprint import pformat
+from typing import Any, Callable, Dict, List, Literal, Optional, Tuple, Union
 
 import datasets as ds
 import tiktoken
 from transformers import PreTrainedTokenizer, PreTrainedTokenizerFast
+
+from utilization.utils.conversation import Conversation, ConversationFormatter
 
 logger = getLogger(__name__)
 
@@ -21,22 +24,23 @@ slice_regex = re.compile(r"\[(\d*):(\d*)\]")
 @dataclass
 class DatasetUtilMixin:
 
-    normalization_prompt: str = "Q: \nA:"
+    answer_prompt: str = "Answer:"
 
-    def set_tokenizer(self, tokenizer: Union[tiktoken.Encoding, PreTrainedTokenizer, PreTrainedTokenizerFast]) -> None:
+    def set_tokenizer(
+        self, tokenizer: Union[tiktoken.Encoding, PreTrainedTokenizer, PreTrainedTokenizerFast, None]
+    ) -> None:
         self.tokenizer = tokenizer
         if isinstance(tokenizer, tiktoken.Encoding):
             # Encoding.encode_ordinary is slightly faster than Encoding.encode
             self.tokenizer_encode = tokenizer.encode_ordinary
-        else:
+        elif isinstance(tokenizer, (PreTrainedTokenizer, PreTrainedTokenizerFast)):
             self.tokenizer_encode = tokenizer.encode
-        self.tokenizer_decode = tokenizer.decode
+        if tokenizer is not None:
+            self.tokenizer_decode = tokenizer.decode
 
-    def _apply_normalization(self, options: List[Tuple[str, ...]], prefix_length: int) -> List[Tuple[str, ...]]:
-        normalized_option = ("",) * prefix_length + (self.normalization_prompt,)
-        normalized_options = [normalized_option + (option,) for *_, option in options]
-        options = [o for g in zip(options, normalized_options) for o in g]
-        return options
+    def _apply_normalization(self, conversations: List[Conversation]):
+        normalized_conversations = [Conversation.from_chat(assistant=conv[-1]) for conv in conversations]
+        conversations.extend(normalized_conversations)
 
     def prompt_token_nums(self, prompt: str):
         return len(self.tokenizer_encode(prompt))
@@ -76,6 +80,15 @@ class DatasetUtilMixin:
         real_token_nums = self.prompt_token_nums(prompt)
         return prompt, real_token_nums, ed - st
 
+    def _log_instance(self, log: Callable, instance: Conversation, idx: int):
+        formatter = getattr(self, "conversation_formatter", None)
+        if isinstance(formatter, ConversationFormatter):
+            istr = formatter.apply_prompt_template(instance, add_generation_prompt=True)
+            log(f"Formatted evaluation instance {idx}\n" + pformat(istr, width=100))
+        else:
+            for i, seg in enumerate(instance):
+                log(f"Formatted evaluation instance {idx} ({seg['role']}_{i})\n" + pformat(seg["content"], width=100))
+
 
 def accepts_subset(
     load_args: Union[Tuple[str], Tuple[str, str], Tuple[()]],
@@ -113,6 +126,7 @@ def get_raw_dataset_loader(
     dataset_path: Optional[str],
     subset_name: Optional[str],
     load_args: Optional[Union[Tuple[str], Tuple[str, str], Tuple[()]]],
+    load_kwargs: Optional[Dict[str, Any]],
     return_msg: bool = False,
     use_etag: bool = False,
 ) -> Union[_LoaderType, Tuple[_LoaderType, str]]:
@@ -140,7 +154,12 @@ def get_raw_dataset_loader(
     msg = f"Loading raw dataset `{dataset_msg}`"
     load_fn = None
 
-    download_config = ds.DownloadConfig(use_etag=use_etag)
+    load_kwargs = load_kwargs or {}
+    if "downalod_config" in load_kwargs:
+        assert isinstance(load_kwargs["download_config"], ds.DownloadConfig)
+        load_kwargs["download_config"].use_etag = use_etag
+    else:
+        load_kwargs["download_config"] = ds.DownloadConfig(use_etag=use_etag)
 
     # if `dataset_path` is not None, load from local path
     if dataset_path is not None:
@@ -160,11 +179,7 @@ def get_raw_dataset_loader(
 
                 def load_fn(split):
                     return ds.load_dataset(
-                        dataset_path,
-                        dataset_name,
-                        split=split,
-                        trust_remote_code=True,
-                        download_config=download_config
+                        dataset_path, dataset_name, split=split, trust_remote_code=True, **load_kwargs
                     )
 
             elif subset_name in infos:
@@ -173,11 +188,7 @@ def get_raw_dataset_loader(
 
                 def load_fn(split):
                     return ds.load_dataset(
-                        dataset_path,
-                        subset_name,
-                        split=split,
-                        trust_remote_code=True,
-                        download_config=download_config,
+                        dataset_path, subset_name, split=split, trust_remote_code=True, **load_kwargs
                     )
 
             else:
@@ -190,13 +201,7 @@ def get_raw_dataset_loader(
             logger.debug(f"Loading from a cloned or cached repository: {dataset_path}, {subset_name}")
 
             def load_fn(split):
-                return ds.load_dataset(
-                    dataset_path,
-                    "default",
-                    split=split,
-                    trust_remote_code=True,
-                    download_config=download_config,
-                )
+                return ds.load_dataset(dataset_path, "default", split=split, trust_remote_code=True, **load_kwargs)
 
         # load from a local directory
         elif os.path.exists(os.path.join(dataset_path, "dataset_dict.json")):
@@ -220,6 +225,10 @@ def get_raw_dataset_loader(
         # for those datasets that is in huggingface but should be downloaded manually
         elif os.path.isdir(dataset_path):
 
+            offline = os.environ.get("HF_DATASETS_OFFLINE") == "1"
+            if os.path.exists(dataset_path + "/" + dataset_path.split("/")[-1] + ".py"):
+                offline = True
+
             if ".cache" in dataset_path:
 
                 _path = load_args[0] if len(load_args) >= 1 else dataset_name
@@ -227,19 +236,9 @@ def get_raw_dataset_loader(
 
                 def load_fn(split):
                     return ds.load_dataset(
-                        _path,
-                        subset_name,
-                        split=split,
-                        cache_dir=dataset_path,
-                        trust_remote_code=True,
-                        save_infos=True,
-                        download_config=download_config,
+                        _path, subset_name, split=split, cache_dir=dataset_path, trust_remote_code=True, **load_kwargs
                     )
-            elif os.environ.get("HF_DATASETS_OFFLINE") == "1":
-
-                logger.warning(
-                    "Loading dataset in a non-Hugging Face format! We strongly advise converting it to Hugging Face format using `save_to_disk` to prevent potential issues."
-                )
+            elif offline:
 
                 config_name = subset_name
                 if not os.path.exists(dataset_path + "/" + dataset_path.split("/")[-1] + ".py"):
@@ -255,7 +254,6 @@ def get_raw_dataset_loader(
                         split=split,
                         data_dir=relpath(dataset_path),
                         download_config=download_config,
-                        save_infos=True,
                         trust_remote_code=True,
                     )
 
@@ -271,7 +269,6 @@ def get_raw_dataset_loader(
                         split=split,
                         data_dir=dataset_path,
                         download_config=download_config,
-                        save_infos=True,
                         trust_remote_code=True,
                     )
 
@@ -320,7 +317,7 @@ def get_raw_dataset_loader(
         msg += f" from huggingface ({', '.join(load_args)})"
 
         def load_fn(split):
-            return ds.load_dataset(*load_args, split=split, trust_remote_code=True, download_config=download_config)
+            return ds.load_dataset(*load_args, split=split, trust_remote_code=True, **load_kwargs)
 
     if load_fn is None:
         raise ValueError(

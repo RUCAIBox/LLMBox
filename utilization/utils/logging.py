@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, List, Optional, Set
 
 import coloredlogs
 
-from ..dataset.enum import DATASET_ALIASES
+from ..dataset.dataset_enum import DATASET_ALIASES
 
 if TYPE_CHECKING:
     # solve the circular import
@@ -162,6 +162,7 @@ def set_logging(
     else:
         int_file_log_level = log_levels[file_log_level]
     handler = _get_file_handler(log_path, int_file_log_level)
+    handler.evaluation_results_path = evaluation_results_path
     package_logger.addHandler(handler)
 
     file_package_logger = logging.getLogger("file_" + llmbox_package)
@@ -171,4 +172,6 @@ def set_logging(
 
     # finish logging initialization
     logger.info(f"Saving logs to {os.path.abspath(log_path)}")
-    getFileLogger().info(f"LLMBox revision: {get_git_revision(os.path.join(os.path.dirname(__file__), '../..'))}")
+    git_revision = get_git_revision(os.path.join(os.path.dirname(__file__), '../..'))
+    evaluation_args.git_revision = git_revision
+    getFileLogger().info(f"LLMBox revision: {git_revision}")

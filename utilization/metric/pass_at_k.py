@@ -49,7 +49,7 @@ class PassAtK(Metric):
         for sample_result in results:
             total.append(len(sample_result))
             correct.append(sample_result.count('passed'))
-        pass_at_k = self.estimate_pass_at_k(total, correct, self.k)
+        pass_at_k = self.estimate_pass_at_k(total, correct, self.k) * 100
         self.last_score_lists = {f"pass@{self.k}": pass_at_k}
         return {f"pass@{self.k}": np.mean(pass_at_k)}
 
@@ -92,7 +92,7 @@ class PassAtK(Metric):
             """
             if n - c < k:
                 return 1.0
-            return 1.0 - np.prod(1.0 - k / np.arange(n - c + 1, n + 1))
+            return 1.0 - float(np.prod(1.0 - k / np.arange(n - c + 1, n + 1)))
 
         if isinstance(num_samples, int):
             num_samples_it = itertools.repeat(num_samples, len(num_correct))

@@ -1,4 +1,4 @@
-from itertools import chain
+from itertools import chain, islice
 from logging import getLogger
 from typing import TYPE_CHECKING, Any, Callable, Iterator, List, Tuple
 
@@ -32,8 +32,11 @@ def info_dataset_group(
             num_shots = str(min_num_shots)
     else:
         num_shots = "None"
+    model_evaluation_method = dataset_group[0].model_evaluation_method
+    if model_evaluation_method == "get_ppl":
+        model_evaluation_method += f" ({dataset_group[0].ranking_type})"
     logger.info(
-        f"Evaluating {d.model_evaluation_method} on {d.dataset_name}{subset_str} (model_attr={model_attr}, {kwargs_name}={model_kwargs}, num_shots={num_shots}, len={group_length}, num_instances={instances}, use_cache={use_cache})"
+        f"Evaluating {model_evaluation_method} on {d.display_name}{subset_str} (model_attr={model_attr}, {kwargs_name}={model_kwargs}, num_shots={num_shots}, len={group_length}, num_instances={instances}, use_cache={use_cache})"
     )
     logger.debug(f"Datasets: {d.dataset_name}{subset_names}")
 
@@ -57,7 +60,7 @@ class AutoBatchSizeSampler(Sampler[List[int]]):
                 self.data_order[-1].append(i)
                 if self.check_new_batch(self.data_order[-1], i + 1):
                     self.data_order.append([])
-        if self.data_order[-1] == []:
+        while self.data_order[-1] == []:
             self.data_order.pop()
 
     def check_new_batch(self, queries: List[int], next_data: int) -> bool:
@@ -109,7 +112,11 @@ class DatasetCollectionBatchSampler(Sampler[List[int]]):
         call_models = []
         last_hash = None
         model = dataset_collection._datasets[0].model
+        skip = dataset_collection.args.continue_from
         for dataset in dataset_collection._datasets:
+            if dataset.len() <= skip:
+                skip -= dataset.len()
+                continue
             # check if the model arguments has changed
             cur_hash = (dataset._extra_model_args.items(), dataset.model_evaluation_method, dataset.total_prefix_num)
             if cur_hash != last_hash:
@@ -126,6 +133,9 @@ class DatasetCollectionBatchSampler(Sampler[List[int]]):
                             use_cache
                         )
                         iterator = chain.from_iterable(group_datasets[group_idx])
+                        original_len = sum([d.len() for d in group_datasets[group_idx]])
+                        if group_lengths[group_idx] != original_len:
+                            iterator = islice(iterator, original_len - group_lengths[group_idx], None)
                         return iterator, total_prefix_num
 
                     return wrapper
@@ -135,7 +145,11 @@ class DatasetCollectionBatchSampler(Sampler[List[int]]):
                 init_fns.append(init_fn(len(group_lengths) - 1))
                 call_models.append(getattr(model, dataset.model_evaluation_method))
 
-            group_lengths[-1] += dataset.len()
+            if skip:
+                group_lengths[-1] += dataset.len() - skip
+                skip = 0
+            else:
+                group_lengths[-1] += dataset.len()
             group_datasets[-1].append(dataset)
             last_hash = cur_hash
         return group_lengths, init_fns, call_models
@@ -145,7 +159,10 @@ class DatasetCollectionBatchSampler(Sampler[List[int]]):
         for total, init_model, self._forward_call in zip(*self._splitted):
             iterator, total_prefix_num = init_model()
             if total_prefix_num > 1:
-                sampler = CachePrefixSampler(iterator, total, total_prefix_num, self.batch_size, self.auto_batch_size)
+                sampler = CachePrefixSampler(
+                    iterator, total, total_prefix_num, self.batch_size, self.dataset_collection.conversation_formatter,
+                    self.auto_batch_size
+                )
                 model.set_cacher(sampler)
                 yield from sampler
             else:

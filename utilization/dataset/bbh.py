@@ -1,9 +1,10 @@
 import re
 from functools import cached_property
 from logging import getLogger
+from typing import List
 
 from ..metric import Em
-from .enum import BBH_LETTER_CHOICE, BBH_NO_CHOICE
+from .dataset_enum import BBH_LETTER_CHOICE, BBH_NO_CHOICE
 from .generation_dataset import GenerationDataset
 
 logger = getLogger(__name__)
@@ -64,18 +65,21 @@ class Bbh(GenerationDataset):
     evaluation_set = "test"
     load_args = ("RUCAIBox/bbh",)
     metrics = [Em()]
+    supported_cot = ["base"]
 
     def init_arguments(self):
         self.bbh_instruction = BBH_PROMPTS[self.subset_name]
-        self.extra_model_args = dict(stop=["\n"]) if self.args.cot is None else dict()
+        if self.cot is None:
+            # when using chain-of-thought, responses might be in multiple lines
+            self.extra_model_args["stop"] = ["\n"]
 
     def format_instance(self, instance):
         target = instance["answer"]
-        if target is None or self.args.cot is None:
+        if target is None or self.cot is None:
             target = instance["label"]
         return dict(input=instance["input"].strip(), target=" " + target, bbh_instruction=self.bbh_instruction)
 
-    def post_processing(self, predictions):
+    def post_processing(self, predictions: List[str]):
         new_predictions = []
         for pred in predictions:
             extracted_answer = re.search(r"[t|T]he answer is (.*?)\.", pred)

@@ -5,12 +5,14 @@
 - [Utilization](#utilization)
   - [Usage](#usage)
     - [Model Arguments](#model-arguments)
-    - [DatasetArguments](#datasetarguments)
+    - [Dataset Arguments](#dataset-arguments)
     - [Evaluation Arguments](#evaluation-arguments)
   - [Supported Models](#supported-models)
   - [Customize Model](#customize-model)
+  - [Customize Chat Template](#customize-chat-template)
   - [Supported Datasets](#supported-datasets)
   - [Customize Dataset](#customize-dataset)
+  - [Change Log](#change-log)
 
 ## Usage
 
@@ -78,7 +80,7 @@ We provide an enumeration ([`enum`](model/enum.py)) for models corresponding to 
                       The tokenizer name or path, e.g., cl100k_base, meta-llama/Llama-2-7b-hf, ./mymodel
 ```
 
-Generation arguments and quantization options::
+Generation arguments and quantization options:
 
 ```txt
 --max_tokens MAX_TOKENS
@@ -123,7 +125,7 @@ Generation arguments and quantization options::
 --system_prompt SYSTEM_PROMPT, -sys SYSTEM_PROMPT
                       The system prompt for chat-based models
 --chat_template CHAT_TEMPLATE
-                      The chat template for huggingface chat-based models
+                      The chat template for local chat-based models. Support model default chate template (choose from 'base', 'llama2', 'chatml', 'zephyr', 'phi3', 'llama3', ...) or standard HuggingFace tokenizers chat template
 --bnb_config BNB_CONFIG
                       JSON string for BitsAndBytesConfig parameters.
 --load_in_8bit [LOAD_IN_8BIT]
@@ -169,9 +171,8 @@ You can evaluate datasets sequentially in a single run when they require similar
 --example_set EXAMPLE_SET
                       The set name for demonstration, supporting slice,
                       e.g., train, dev, train[:10] (default: None)
---instance_format INSTANCE_FORMAT, -fmt INSTANCE_FORMAT
-                      The format to format the `source` and `target` for
-                      each instance (default: {source}{target})
+--instruction INSTRUCTION
+                      The format to format the instruction for each instance. Either f-string or jinja2 format is supported. E.g., 'Answer the following question: {question}\nAnswer:'"
 --num_shots NUM_SHOTS, -shots NUM_SHOTS
                       The few-shot number for demonstration (default: 0)
 --max_example_tokens MAX_EXAMPLE_TOKENS
@@ -316,8 +317,8 @@ Specify the random seed, logging directory, evaluation results directory, and ot
   <tr>
       <td rowspan=2>OpenAI</td>
       <td>Chat Completion Models</td>
-      <td><code>gpt-4-0125-preview</code>, <code>gpt-3.5-turbo</code></td>
-      <td><code>generation</code>, <code>get_prob</code> (adapted by generation)</td>
+      <td><code>gpt-4-0125-preview</code>, <code>deepseek-chat</code></td>
+      <td><code>generation</code>
   </tr>
   <tr>
       <td>Completion Models (Legacy)</td>
@@ -328,19 +329,19 @@ Specify the random seed, logging directory, evaluation results directory, and ot
       <td>Qianfan</td>
       <td>Chat Completion Models</td>
       <td><code>ernie-speed-8k</code></td>
-      <td><code>generation</code>, <code>get_prob</code> (adapted by generation)</td>
+      <td><code>generation</code></td>
   </tr>
   <tr>
       <td>Dashscope</td>
       <td>Generation</td>
       <td><code>qwen-turbo</code></td>
-      <td><code>generation</code>, <code>get_prob</code> (adapted by generation)</td>
+      <td><code>generation</code></td>
   </tr>
   <tr>
       <td>Anthropic</td>
       <td>Chat Completion Models</td>
       <td><code>claude-3-haiku-20240307</code></td>
-      <td><code>generation</code>, <code>get_prob</code> (adapted by generation)</td>
+      <td><code>generation</code></td>
   </tr>
   <tr>
       <td>vLLM</td>
@@ -356,7 +357,10 @@ For openai-compatible models like [Perplexity](https://docs.perplexity.ai/docs/g
 OPENAI_BASE_URL=https://api.perplexity.ai python inference.py -m llama-3-sonar-small-32k-chat -d hellaswag --openai_api_key PERPLEXITY_API_KEY --model_backend openai
 ```
 
-In some cases (e.g. evaluating with `get_prob`), you may need to specify the `--tokenizer` to load the correct tokenizer
+In some cases (e.g. evaluating with `get_prob`), you may need to specify the `--tokenizer` to load the correct tokenizer (e.g. `cl100k_base`).
+
+> [!TIP]
+> Use dotenv `.env` file to store your API keys and other sensitive information. The `.env` file should be in the root directory of the project.
 
 
 ## Customize Model
@@ -365,6 +369,8 @@ By inheriting the [`Model`](model/model.py) class, you can customize support for
 
 ```python
 class NewModel(Model):
+
+    model_backend = "new_model"
 
     def call_model(self, batched_inputs: List[str]) -> List[Any]:
         return ...  # call to model, e.g., self.model.generate(...)
@@ -380,6 +386,21 @@ class NewModel(Model):
 
 And then, you should register your model in the [`load`](model/load.py) file.
 
+## Customize Chat Template
+
+Chat templates are used to formatting conversational messages to text input for local chat-based models.
+
+```bash
+python inference.py -m Meta-Llama-3-8B-Instruct -d gsm8k --model_type chat --chat_template llama3 -shots 8 -sys "You are a helpful assistant."
+```
+
+You don't need to specify the chat template for hosted models.
+
+```bash
+python inference.py -m gpt-3.5-turbo -d gsm8k --model_type chat -shots 8 -sys "You are a helpful assistant."
+```
+
+You can customize the [chat template](https://github.com/RUCAIBox/LLMBox/blob/main/utilization/chat_templates.py) for local chat-based models. We provide a set of chat templates for different models. You can specify a jinja2 chat template with the `--chat_template` argument. It works in the same way as the [tokenizers](https://huggingface.co/docs/transformers/main/en/chat_templating).
 
 
 ## Supported Datasets
@@ -402,8 +423,8 @@ python inference.py -d race:middle,high --evaluation_set "test[:10]" --example_s
       <td><b>Notes</b></td>
   </tr>
   <tr>
-      <td rowspan=3>agieval<br>(alias of <i>agieval_single_choice</i> and <i>agieval_cot</i>)</td>
-      <td><b>English</b>: <code>sat-en</code>, <code>sat-math</code>, <code>lsat-ar</code>, <code>lsat-lr</code>, <code>lsat-rc</code>, <code>logiqa-en</code>, <code>aqua-rat</code>, <code>math</code></td>
+      <td rowspan=3>AGIEval(<code>agieval</code>, alias of <code>agieval_single_choice</code> and <code>agieval_cot</code>)</td>
+      <td><b>English</b>: <code>sat-en</code>, <code>sat-math</code>, <code>lsat-ar</code>, <code>lsat-lr</code>, <code>lsat-rc</code>, <code>logiqa-en</code>, <code>aqua-rat</code>, <code>sat-en-without-passage</code></td>
       <td rowspan=2>MultipleChoice</td>
       <td></td>
       <td rowspan=3></td>
@@ -418,49 +439,49 @@ python inference.py -d race:middle,high --evaluation_set "test[:10]" --example_s
       <td>✅</td>
   </tr>
   <tr>
-      <td>alpaca_eval</td>
+      <td>Alpacal Eval (<code>alpaca_eval</code>)</td>
       <td>/</td>
       <td>Generation</td>
       <td></td>
       <td>Single GPTEval</td>
   </tr>
   <tr>
-      <td>anli</td>
+      <td>Adversarial Natural Language Inference (<code>anli</code>)</td>
       <td><code>Round2</code> (default)</td>
       <td>MultipleChoice</td>
       <td></td>
       <td></td>
   </tr>
   <tr>
-      <td>arc</td>
+      <td>AI2's Reasoning Challenge (<code>arc</code>)</td>
       <td><code>ARC-Easy</code>, <code>ARC-Challenge</code></td>
       <td>MultipleChoice</td>
       <td></td>
       <td>Normalization</td>
   </tr>
   <tr>
-      <td>bbh</td>
+      <td>BIG-Bench Hard (<code>bbh</code>)</td>
       <td><code>boolean_expressions</code>, ...</td>
       <td>Generation</td>
       <td>✅</td>
       <td></td>
   </tr>
   <tr>
-      <td>boolq</td>
+      <td>Boolean Questions (<code>boolq</code>)</td>
       <td><i>super_glue</i></td>
       <td>MultipleChoice</td>
       <td></td>
       <td></td>
   </tr>
   <tr>
-      <td>cb</td>
+      <td>CommitmentBank (<code>cb</code>)</td>
       <td><i>super_glue</i></td>
       <td>MultipleChoice</td>
       <td></td>
       <td></td>
   </tr>
   <tr>
-      <td rowspan=4>ceval</td>
+      <td rowspan=4>C-Eval (<code>ceval</code>)</td>
       <td><b>stem</b>: <code>advanced_mathematics</code>, <code>college_chemistry</code>, ...</td>
       <td rowspan=4>MultipleChoice</td>
       <td rowspan=4></td>
@@ -476,7 +497,7 @@ python inference.py -d race:middle,high --evaluation_set "test[:10]" --example_s
       <td><b>other</b>: <code>accountant</code>, <code>basic_medicine</code>, ...</td>
   </tr>
   <tr>
-      <td rowspan=4>cmmlu</td>
+      <td rowspan=4>Massive Multitask Language Understanding in Chinese (<code>cmmlu</code>)</td>
       <td><b>stem</b>: <code>anatomy</code>, <code>astronomy</code>, ...</td>
       <td rowspan=4>MultipleChoice</td>
       <td rowspan=4></td>
@@ -492,56 +513,56 @@ python inference.py -d race:middle,high --evaluation_set "test[:10]" --example_s
       <td><b>other</b>: <code>agronomy</code>, <code>chinese_driving_rule</code>, ...</td>
   </tr>
   <tr>
-      <td>cnn_dailymail</td>
+      <td>CNN Dailymail (<code>cnn_dailymail</code>)</td>
       <td><code>3.0.0</code> (default), ...</td>
       <td>Generation</td>
       <td></td>
       <td></td>
   </tr>
   <tr>
-      <td>color_objects</td>
+      <td>Reasoning About Colored Objects (<code>color_objects</code>)</td>
       <td><i>bigbench</i> (reasoning_about_colored_objects)</td>
       <td>Generation</td>
       <td></td>
       <td></td>
   </tr>
   <tr>
-      <td>commonsenseqa</td>
+      <td>Commonsense QA (<code>commonsenseqa</code>)</td>
       <td>/</td>
       <td>MultipleChoice</td>
       <td></td>
       <td></td>
   </tr>
   <tr>
-      <td>copa</td>
+      <td>Choice Of Plausible Alternatives (<code>copa</code>)</td>
       <td><i>super_glue</i></td>
       <td>MultipleChoice</td>
       <td></td>
       <td></td>
   </tr>
   <tr>
-      <td>coqa</td>
+      <td>Conversational Question Answering (<code>coqa</code>)</td>
       <td>/</td>
       <td>Generation</td>
       <td></td>
       <td>Download: <a href="https://nlp.stanford.edu/data/coqa/coqa-train-v1.0.json">train</a>, <a href="https://nlp.stanford.edu/data/coqa/coqa-dev-v1.0.json">dev</a></td>
   </tr>
   <tr>
-      <td>crows_pairs</td>
+      <td>CrowS-Pairs (<code>crows_pairs</code>)</td>
       <td>/</td>
       <td>MultipleChoice</td>
       <td></td>
       <td></td>
   </tr>
   <tr>
-      <td>drop</td>
+      <td>Discrete Reasoning Over the content of Paragraphs (<code>drop</code>)</td>
       <td>/</td>
       <td>Generation</td>
       <td></td>
       <td></td>
   </tr>
   <tr>
-      <td rowspan=3>gaokao</td>
+      <td rowspan=3>GAOKAO (<code>gaokao</code>)</td>
       <td><b>Chinese</b>: <code>2010-2022_Chinese_Modern_Lit</code>, <code>2010-2022_Chinese_Lang_and_Usage_MCQs</code></td>
       <td rowspan=3>Generation</td>
       <td rowspan=3></td>
@@ -554,63 +575,70 @@ python inference.py -d race:middle,high --evaluation_set "test[:10]" --example_s
       <td><code>2010-2022_Math_II_MCQs</code>, <code>2010-2022_Math_I_MCQs</code>, ...</td>
   </tr>
   <tr>
-      <td>gsm8k</td>
+      <td>Google-Proof Q&A (<code>GPQA</code>)</td>
+      <td><code>gpqa_main</code> (default), <code>gpqa_extended</code>, ...</td>
+      <td>MultipleChoiceDataset</td>
+      <td>✅</td>
+      <td></td>
+  </tr>
+  <tr>
+      <td>Grade School Math 8K (<code>gsm8k</code>)</td>
       <td><code>main</code> (default), <code>socratic</code></td>
       <td>Generation</td>
       <td>✅</td>
       <td>Code exec</td>
   </tr>
   <tr>
-      <td>halueval</td>
+      <td>HaluEval(<code>halueval</code>)</td>
       <td><code>dialogue_samples</code>, <code>qa_samples</code>, <code>summarization_samples</code></td>
       <td>Generation</td>
       <td></td>
       <td></td>
   </tr>
   <tr>
-      <td>hellaswag</td>
+      <td>HellaSWAG (<code>hellaswag</code>)</td>
       <td>/</td>
       <td>MultipleChoice</td>
       <td></td>
       <td></td>
   </tr>
   <tr>
-      <td>humaneval</td>
+      <td>HumanEval (<code>humaneval</code>)</td>
       <td>/</td>
       <td>Generation</td>
       <td></td>
       <td>Pass@K</td>
   </tr>
   <tr>
-      <td>ifeval</td>
+      <td>Instruction-Following Evaluation (<code>ifeval</code>)</td>
       <td>/</td>
       <td>Generation</td>
       <td></td>
       <td></td>
   </tr>
   <tr>
-      <td>lambada</td>
+      <td>LAnguage Modeling Broadened to Account for Discourse Aspects (<code>lambada</code>)</td>
       <td><code>default</code> (default), <code>de</code>, ... (source: <i>EleutherAI/lambada_openai</i>)</td>
       <td>Generation</td>
       <td></td>
       <td></td>
   </tr>
   <tr>
-      <td>math</td>
+      <td>Mathematics Aptitude Test of Heuristics (<code>math</code>)</td>
       <td>/</td>
       <td>Generation</td>
-      <td></td>
+      <td>✅</td>
       <td></td>
   </tr>
   <tr>
-      <td>mbpp</td>
+      <td>Mostly Basic Python Problems (<code>mbpp</code>)</td>
       <td><code>full</code> (default), <code>sanitized</code></td>
       <td>Generation</td>
       <td></td>
       <td>Pass@K</td>
   </tr>
   <tr>
-      <td rowspan=4>mmlu</td>
+      <td rowspan=4>Massive Multitask Language Understanding(<code>mmlu</code>)</td>
       <td><b>stem</b>: <code>abstract_algebra</code>, <code>astronomy</code>, ...</td>
       <td rowspan=4>MultipleChoice</td>
       <td rowspan=4></td>
@@ -626,168 +654,168 @@ python inference.py -d race:middle,high --evaluation_set "test[:10]" --example_s
       <td><b>other</b>: <code>anatomy</code>, <code>business_ethics</code>, ...</td>
   </tr>
   <tr>
-      <td>mt_bench</td>
+      <td>Multi-turn Benchmark (<code>mt_bench</code>)</td>
       <td>/</td>
       <td>Generation</td>
       <td></td>
       <td>Multi-turn GPTEval</td>
   </tr>
   <tr>
-      <td>nq</td>
+      <td>Natural Questions(<code>nq</code>)</td>
       <td>/</td>
       <td>Generation</td>
       <td></td>
       <td></td>
   </tr>
   <tr>
-      <td>openbookqa</td>
+      <td>OpenBookQA (<code>openbookqa</code>)</td>
       <td><code>main</code> (default), <code>additional</code></td>
       <td>MultipleChoice</td>
       <td></td>
       <td>Normalization</td>
   </tr>
   <tr>
-      <td>penguins_in_a_table</td>
+      <td>Penguins In A Table (<code>penguins_in_a_table</code>)</td>
       <td><i>bigbench</i></td>
       <td>MultipleChoice</td>
       <td></td>
       <td></td>
   </tr>
   <tr>
-      <td>piqa</td>
+      <td>Physical Interaction: Question Answering (<code>piqa</code>)</td>
       <td>/</td>
       <td>MultipleChoice</td>
       <td></td>
       <td></td>
   </tr>
   <tr>
-      <td>quac</td>
+      <td>Question Answering in Context (<code>quac</code>)</td>
       <td>/</td>
       <td>Generation</td>
       <td></td>
       <td></td>
   </tr>
   <tr>
-      <td>race</td>
+      <td>ReAding Comprehension (<code>race</code>)</td>
       <td><code>high</code>, <code>middle</code></td>
       <td>MultipleChoice</td>
       <td></td>
       <td>Normalization</td>
   </tr>
   <tr>
-      <td>real_toxicity_prompts</td>
+      <td>Real Toxicity Prompts (<code>real_toxicity_prompts</code>)</td>
       <td>/</td>
       <td>Generation</td>
       <td></td>
       <td><a href="https://www.perspectiveapi.com/">Perspective</a> Toxicity</td>
   </tr>
   <tr>
-      <td>rte</td>
+      <td>Recognizing Textual Entailment (<code>rte</code>)</td>
       <td><i>super_glue</i></td>
       <td>MultipleChoice</td>
       <td></td>
       <td></td>
   </tr>
   <tr>
-      <td>siqa</td>
+      <td>Social Interaction QA (<code>siqa</code>)</td>
       <td>/</td>
       <td>MultipleChoice</td>
       <td></td>
       <td></td>
   </tr>
   <tr>
-      <td>squad, squad_v2</td>
+      <td>Stanford Question Answering Dataset (<code>squad, squad_v2</code>)</td>
       <td>/</td>
       <td>Generation</td>
       <td></td>
       <td></td>
   </tr>
   <tr>
-      <td>story_cloze</td>
+      <td>Story Cloze Test (<code>story_cloze</code>)</td>
       <td><code>2016</code> (default), <code>2018</code></td>
       <td>MultipleChoice</td>
       <td></td>
       <td><a href='http://goo.gl/forms/aQz39sdDrO'>Manually download</a></td>
   </tr>
   <tr>
-      <td>tldr</td>
+      <td>TL;DR (<code>tldr</code>)</td>
       <td>/</td>
       <td>Generation</td>
       <td></td>
       <td></td>
   </tr>
   <tr>
-      <td>triviaqa</td>
+      <td>TriviaQA (<code>triviaqa</code>)</td>
       <td><code>rc.wikipedia.nocontext</code> (default), <code>rc</code>, <code>rc.nocontext</code>, ...</td>
       <td>Generation</td>
       <td></td>
       <td></td>
   </tr>
   <tr>
-      <td>truthfulqa_mc</td>
+      <td>TruthfulQA (<code>truthfulqa_mc</code>)</td>
       <td><code>multiple_choice</code> (default), <code>generation</code> (not supported)</td>
       <td>MultipleChoice</td>
       <td></td>
       <td></td>
   </tr>
   <tr>
-      <td>vicuna_bench</td>
+      <td>Vicuna Bench (<code>vicuna_bench</code>)</td>
       <td>/</td>
       <td>Generation</td>
       <td></td>
       <td>GPTEval</td>
   </tr>
   <tr>
-      <td>webq</td>
+      <td>WebQuestions (<code>webq</code>)</td>
       <td>/</td>
       <td>Generation</td>
       <td></td>
       <td></td>
   </tr>
   <tr>
-      <td>wic</td>
+      <td>Words in Context (<code>wic</code>)</td>
       <td><i>super_glue</i></td>
       <td>MultipleChoice</td>
       <td></td>
       <td></td>
   </tr>
   <tr>
-      <td>winogender</td>
+      <td>Winogender Schemas (<code>winogender</code>)</td>
       <td><code>main</code>, <code>gotcha</code></td>
       <td>MultipleChoice</td>
       <td></td>
       <td>Group by gender</td>
   </tr>
   <tr>
-      <td>winograd</td>
+      <td>WSC273 (<code>winograd</code>)</td>
       <td><code>wsc273</code> (default), <code>wsc285</code></td>
       <td>MultipleChoice</td>
       <td></td>
       <td></td>
   </tr>
   <tr>
-      <td>winogrande</td>
+      <td>WinoGrande (<code>winogrande</code>)</td>
       <td><code>winogrande_debiased</code> (default), ...</td>
       <td>MultipleChoice</td>
       <td></td>
       <td></td>
   </tr>
   <tr>
-      <td>wmt21, wmt19, ...</td>
+      <td>Conference on Machine Translation (<code>wmt21, wmt19, ...</code>)</td>
       <td><code>en-ro</code>, <code>ro-en</code>, ...</td>
       <td>Generation</td>
       <td></td>
       <td></td>
   </tr>
   <tr>
-      <td>wsc</td>
+      <td>Winograd Schema Challenge (<code>wsc</code>)</td>
       <td><i>super_glue</i></td>
       <td>MultipleChoice</td>
       <td></td>
       <td></td>
   </tr>
   <tr>
-      <td>xsum</td>
+      <td>Extreme Summarization (<code>xsum</code>)</td>
       <td>/</td>
       <td>Generation</td>
       <td></td>
@@ -808,6 +836,13 @@ Unless a default subset is defined:
 ```bash
 python inference.py -m model -d cnn_dailymail
 # equivalent: cnn_dailymail:3.0.0
+```
+
+Some datasets like GPQA (Google-Proof Q&A) have to load example set separately:
+
+```bash
+# few_shot
+python inference.py -m model -d gpqa --ranking_type generation -shots 5 --example_set "../gpqa/prompts"
 ```
 
 If `dataset_path` is not None, the dataset will be loaded from the given local path:
@@ -860,7 +895,7 @@ We provide two types of datasets: [`GenerationDataset`](dataset/generation_datas
 ```python
 def NewDataset(GenerationDataset):
 
-    instruction = "Answer the following question."
+    instruction = "Answer the following question.\n\n{source}"
     metrics = [Accuracy()]
     evaluation_set = "test"
     example_set = "dev"
@@ -891,46 +926,154 @@ class MyDataset(Dataset):
         self.example_data = load_raw_dataset_from_file("examples.json")
 ```
 
-Then, format the instance by implementing the `format_instance` method. The instance should be a dictionary with the following keys:
+Then, format the instance by implementing the `instruction` attribute and `format_instance` method. The returned instance should be a dictionary with keys accessible in the instruction string. Both jinja2 and f-string are supported for the instruction string.
 
-- `source` (`Union[str, List[str]]`): The source text. If this is a list, `source_idx` is required.
-- `source_idx` (`int`, optional): The index of the correct source (for multiple contexts ranking dataset like winogrande).
-- `source_postfix` (`str`, optional): The postfix of the source text. This will be appended to the source text after options when `ranking_with_options` is True.
-- `target` (`str`, optional): The target text. Either `target` or `target_idx` should be provided.
-- `target_idx` (`int`, optional): The index of the target in the options (for ranking). This will generate the `target` text in `_format_instance`.
-- `options` (`List[str]`, optional): The options for ranking.
+<table class="waffle" cellspacing="0" cellpadding="0">
+    <thead>
+        <tr>
+        <th class="column-headers-background"><code>format_instance</code></th>
+        <th class="column-headers-background">Type</th>
+        <th class="column-headers-background"><code>instruction</code></th>
+        <th class="column-headers-background">Type</th>
+        <th class="column-headers-background">Description</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+        <td class="s1" dir="ltr">customized</td>
+        <td class="s1" dir="ltr"><code>Any</code></td>
+        <td class="s1" dir="ltr">customized</td>
+        <td class="s1" dir="ltr"><code>Any</code></td>
+        <td class="s2 softmerge" dir="ltr">
+            <div class="softmerge-inner">Customized arguments that accessible in the instruction string</div>
+        </td>
+        </tr>
+        <tr>
+        <td class="s1" dir="ltr">source</td>
+        <td class="s1" dir="ltr"><code>str</code> or <code>list</code></td>
+        <td class="s1" dir="ltr">source</td>
+        <td class="s1" dir="ltr"><code>str</code></td>
+        <td class="s1" dir="ltr">Source text</td>
+        </tr>
+        <tr>
+        <td class="s1" dir="ltr">options</td>
+        <td class="s1" dir="ltr"><code>list</code></td>
+        <td class="s1" dir="ltr">options</td>
+        <td class="s1" dir="ltr"><code>str</code></td>
+        <td class="s1" dir="ltr">Options of MCQ</td>
+        </tr>
+        <tr>
+        <td class="s1" dir="ltr">source_idx</td>
+        <td class="s1" dir="ltr"><code>int</code></td>
+        <td class="s1" dir="ltr">source_idx</td>
+        <td class="s1" dir="ltr"><code>int</code></td>
+        <td class="s2 softmerge" dir="ltr">
+            <div class="softmerge-inner">The index of source text in options for datasets like winogrande</div>
+        </td>
+        </tr>
+        <tr>
+        <td class="s1" dir="ltr">target</td>
+        <td class="s1" dir="ltr"><code>str</code></td>
+        <td class="s1" dir="ltr" rowspan="2">target</td>
+        <td class="s1" dir="ltr" rowspan="2"><code>str</code></td>
+        <td class="s1" dir="ltr" rowspan="2">Target text. Either return <code>target</code> or <code>target_idx</code> in <code>format_instance</code></td>
+        </tr>
+        <tr>
+        <td class="s1" dir="ltr">target_idx</td>
+        <td class="s1" dir="ltr"><code>int</code></td>
+        </tr>
+        <tr>
+        <td class="s1" dir="ltr">target_idx</td>
+        <td class="s1" dir="ltr"><code>int</code></td>
+        <td class="s1" dir="ltr">target_idx</td>
+        <td class="s1" dir="ltr"><code>int</code></td>
+        <td class="s2 softmerge" dir="ltr">
+            <div class="softmerge-inner">The index of target text in options for general MCQs</div>
+        </td>
+        </tr>
+        <tr>
+        <td class="s1" dir="ltr" colspan="2" rowspan="5"><i>No need to return from format_instance</i></td>
+        <td class="s1" dir="ltr">example_idx</td>
+        <td class="s1" dir="ltr"><code>int</code></td>
+        <td class="s2 softmerge" dir="ltr">
+            <div class="softmerge-inner">The index of examples if greater or equal than 0. Equal to -1 if it is not formatting an example</div>
+        </td>
+        </tr>
+        <tr>
+        <td class="s1" dir="ltr">dataset_name</td>
+        <td class="s1" dir="ltr"><code>str</code></td>
+        <td class="s1" dir="ltr">Dataset name</td>
+        </tr>
+        <tr>
+        <td class="s1" dir="ltr">subset_name</td>
+        <td class="s1" dir="ltr"><code>str</code></td>
+        <td class="s2 softmerge" dir="ltr">
+            <div class="softmerge-inner">Subset name of current dataset</div>
+        </td>
+        </tr>
+        <tr>
+        <td class="s1" dir="ltr">display_name</td>
+        <td class="s1" dir="ltr"><code>str</code></td>
+        <td class="s2 softmerge" dir="ltr">
+            <div class="softmerge-inner">Display name of current dataset</div>
+        </td>
+        </tr>
+        <tr>
+        <td class="s1" dir="ltr">real_num_shots</td>
+        <td class="s1" dir="ltr"><code>int</code></td>
+        <td class="s2 softmerge" dir="ltr">
+            <div class="softmerge-inner">The num shots formatted as examples</div>
+        </td>
+        </tr>
+    </tbody>
+</table>
 
 MultipleChoiceDataset:
 
 ```python
+instruction = "Answer the following question.\n\n{{question}}{{'\n' + options if options}}\nAnswer:"
+
 def format_instance(self, instance):
-    dict(
-        source=self.source_prefix + instance["question"].strip(),
-        source_postfix="\nAnswer:",
+    return dict(
+        question=instance["question"],
         target_idx=instance["answer"],
-        options=options,
+        options=[instance[label] for label in ["A", "B", "C", "D"]],
     )
 ```
 
 MultipleChoiceDataset (Multiple-context) like winogrande:
 
 ```python
+instruction = "Answer the following question.\n\n{source}\nAnswer:"
+
 def format_instance(self, instance):
-    dict(
-        source=contexts,
+    return dict(
+        source=[instance["ctx_a"], instance["ctx_b"]],
         source_idx=int(instance["answer"]) - 1,
-        target=completion,
+        target=instance["completion"],
     )
 ```
 
 GenerationDataset:
 
 ```python
+instruction = "Answer the following question.\n\n{question}\nAnswer:"
+
 def format_instance(self, instance):
-    dict(
-        source=instance["question"],
+    return dict(
+        question=instance["question"],
         target=instance["answer"],
     )
 ```
 
+To evaluate a pre-trained model that lacks instruction-following capabilities, you can provide an instruction explicitly by assigning a completion instruction to the model as follows: instruction = "{question}".
+
 See [`Dataset`](dataset/dataset.py) for more details.
+
+## Change Log
+
+- **May 24, 2024**: Chat format support including conversational few-shot and system prompts.
+- **May 10, 2024**: New instruction formatting using f-string and jinja2.
+- **May 7, 2024**: Bump openai and vllm version.
+- **Apr 16, 2024**: Full support for KV caching.
+- **March 18, 2024**: First release of LLMBox.
