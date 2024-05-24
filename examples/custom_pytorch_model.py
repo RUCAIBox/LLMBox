@@ -25,7 +25,7 @@ def load_hf_model(model_args: ModelArguments):
 
 evaluator = Evaluator(
     model_args=ModelArguments(
-        model_name_or_path="../Phi-3-mini-128k-instruct",
+        model_name_or_path="../your-model-path",
         model_type="chat",
         model_backend="huggingface",
         prefix_caching=False,
