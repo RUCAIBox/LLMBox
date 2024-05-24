@@ -449,7 +449,7 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
             )
             self.prefix_caching = False
 
-        if self.model_evaluation_method == "generation" or not self.model.is_local_model():
+        if self.model_evaluation_method == "generation":
             # generation endpoint supports Conversation
             evaluation_instances = conversations
         else:
@@ -498,10 +498,6 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
         options = formatted_instance.pop("options", None)
         options_text = None
 
-        if self.model_evaluation_method != "generation" or example_idx >= 0:
-            msg = "few-shot examples" if example_idx >= 0 else "ranking evaluation"
-            assert target is not None, f"The target text is required for {msg}."
-
         if self.evaluation_type == "ranking" and target_idx is not None:
             if self.ranking_with_options:
                 # update options with labels and then append options to source
@@ -515,6 +511,10 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
                 target = chr(65 + target_idx)
             elif self.model_evaluation_method == "generation":
                 target = chr(65 + target_idx)
+
+        if example_idx >= 0:
+            msg = "few-shot examples" if example_idx >= 0 else "ranking evaluation"
+            assert target is not None, f"The target text is missing for {msg}. Return either `target` or `target_idx` in `format_instance`"
 
         # source_idx is used to render the correct answer in few-shot examples
         if example_idx >= 0 and self.evaluation_type == "ranking" and source_idx is not None:
