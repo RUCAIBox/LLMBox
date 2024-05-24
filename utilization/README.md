@@ -951,9 +951,13 @@ Then, format the instance by implementing the `instruction` attribute and `forma
         <tr>
         <td class="s1" dir="ltr">source</td>
         <td class="s1" dir="ltr"><code>str</code> or <code>list</code></td>
-        <td class="s1" dir="ltr">source</td>
-        <td class="s1" dir="ltr"><code>str</code></td>
+        <td class="s1" dir="ltr" rowspan="2">source</td>
+        <td class="s1" dir="ltr" rowspan="2"><code>str</code></td>
         <td class="s1" dir="ltr">Source text</td>
+        </tr>
+        <tr>
+        <td class="s1" dir="ltr">source_idx</td>
+        <td class="s1" dir="ltr"><code>int</code></td>
         </tr>
         <tr>
         <td class="s1" dir="ltr">options</td>
@@ -963,33 +967,19 @@ Then, format the instance by implementing the `instruction` attribute and `forma
         <td class="s1" dir="ltr">Options of MCQ</td>
         </tr>
         <tr>
-        <td class="s1" dir="ltr">source_idx</td>
-        <td class="s1" dir="ltr"><code>int</code></td>
-        <td class="s1" dir="ltr">source_idx</td>
-        <td class="s1" dir="ltr"><code>int</code></td>
-        <td class="s2 softmerge" dir="ltr">
-            <div class="softmerge-inner">The index of source text in options for datasets like winogrande</div>
-        </td>
-        </tr>
-        <tr>
         <td class="s1" dir="ltr">target</td>
         <td class="s1" dir="ltr"><code>str</code></td>
-        <td class="s1" dir="ltr" rowspan="2">target</td>
-        <td class="s1" dir="ltr" rowspan="2"><code>str</code></td>
-        <td class="s1" dir="ltr" rowspan="2">Target text. Either return <code>target</code> or <code>target_idx</code> in <code>format_instance</code></td>
+        <td class="s1" dir="ltr" rowspan="3">target</td>
+        <td class="s1" dir="ltr" rowspan="3"><code>str</code></td>
+        <td class="s1" dir="ltr" rowspan="3">Target text. Either return <code>target</code> or <code>target_idx</code> in <code>format_instance</code></td>
         </tr>
         <tr>
         <td class="s1" dir="ltr">target_idx</td>
         <td class="s1" dir="ltr"><code>int</code></td>
         </tr>
         <tr>
-        <td class="s1" dir="ltr">target_idx</td>
+        <td class="s1" dir="ltr">label</td>
         <td class="s1" dir="ltr"><code>int</code></td>
-        <td class="s1" dir="ltr">target_idx</td>
-        <td class="s1" dir="ltr"><code>int</code></td>
-        <td class="s2 softmerge" dir="ltr">
-            <div class="softmerge-inner">The index of target text in options for general MCQs</div>
-        </td>
         </tr>
         <tr>
         <td class="s1" dir="ltr" colspan="2" rowspan="5"><i>No need to return from format_instance</i></td>
