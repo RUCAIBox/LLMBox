@@ -2,6 +2,7 @@ name: Run yapf
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened]
     paths:
         - 'utilization/**'
 
