@@ -2,6 +2,9 @@
 pytest
 pytest-md
 pytest-emoji
+packaging
+setuptools
+wheel
 
 torch
 transformers
@@ -11,11 +14,6 @@ datasets>=2.16.1
 coloredlogs
 tqdm>=4.58.0
 jinja2
-
-# Efficient inference
-packaging
-vllm
-flash-attn  # https://github.com/Dao-AILab/flash-attention/issues/453#issuecomment-1692867770
 
 # API Models
 anthropic
@@ -33,4 +31,3 @@ language_data
 google-api-python-client
 immutabledict
 langdetect
-
