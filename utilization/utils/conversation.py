@@ -1,5 +1,6 @@
 from copy import deepcopy
 from functools import lru_cache
+from pprint import pformat
 from typing import Dict, Iterator, List, Literal, NewType, Optional, Tuple, Union
 
 from jinja2.exceptions import TemplateError
@@ -298,7 +299,7 @@ class Conversation(_HFConversation):
 
         # source
         source = self.messages[example_ed:source_ed]
-        assert example_ed + 1 == source_ed, f"Invalid source messages: {source}"
+        assert source_ed - example_ed <= 1, f"Invalid source messages: {source}"
 
         results = {"system": system, "examples": examples, "source": source, "target": target}
         if seg:
@@ -350,6 +351,7 @@ class Conversation(_HFConversation):
                 assert isinstance(assistant, str)
                 messages.append({"role": "assistant", "content": assistant})
         else:
+            assert isinstance(other, Conversation)
             messages = other.messages
         conv = Conversation(messages=deepcopy(self.messages))
         # add a copy of other messages
@@ -372,6 +374,7 @@ class Conversation(_HFConversation):
                 assert isinstance(assistant, str)
                 messages.append({"role": "assistant", "content": assistant})
         else:
+            assert isinstance(other, Conversation)
             messages = other.messages
         # add a copy of other messages
         self.messages.extend(messages)
@@ -379,6 +382,5 @@ class Conversation(_HFConversation):
 
     def __repr__(self):
         output = f"Conversation id: {self.uuid}\n"
-        for message in self.messages:
-            output += f" > {message['role']}: {message['content']}\n"
+        output += pformat(self.messages)
         return output
