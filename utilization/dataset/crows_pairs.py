@@ -20,6 +20,10 @@ class Crows_pairs(MultipleChoiceDataset):
     example_set = None
     load_args = ("crows_pairs",)
 
+    def init_arguments(self):
+        if self.model_evaluation_method != "get_ppl":
+            raise ValueError("CrowS-Pairs dataset only supports PPL evaluation method.")
+
     def format_instance(self, instance):
         # source text is empty
         options = [" " + instance["sent_more"], " " + instance["sent_less"]]

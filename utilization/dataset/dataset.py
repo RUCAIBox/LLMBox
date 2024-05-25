@@ -54,7 +54,7 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
         - `tokenizer (Tokenizer)`: The tokenizer used for the dataset.
         - `num_shots (int)`: The number of few-shot examples to construct.
         - `max_example_tokens (int)`: The maximum number of tokens allowed for the few-shot examples.
-        - `examples (str)`: The constructed demonstration text.
+        - `examples (Conversation)`: The constructed demonstration text.
         - `evaluation_data (List[Dict])`: The loaded evaluation data.
         - `example_data (List[Dict])`: The loaded example data.
         - `evaluation_instances (List[str])`: The final formatted instances for evaluation.
@@ -449,7 +449,7 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
             )
             self.prefix_caching = False
 
-        if self.model_evaluation_method == "generation" or not self.model.is_local_model():
+        if self.model_evaluation_method == "generation":
             # generation endpoint supports Conversation
             evaluation_instances = conversations
         else:
@@ -498,10 +498,6 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
         options = formatted_instance.pop("options", None)
         options_text = None
 
-        if self.model_evaluation_method != "generation" or example_idx >= 0:
-            msg = "few-shot examples" if example_idx >= 0 else "ranking evaluation"
-            assert target is not None, f"The target text is required for {msg}."
-
         if self.evaluation_type == "ranking" and target_idx is not None:
             if self.ranking_with_options:
                 # update options with labels and then append options to source
@@ -515,6 +511,10 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
                 target = chr(65 + target_idx)
             elif self.model_evaluation_method == "generation":
                 target = chr(65 + target_idx)
+
+        if example_idx >= 0:
+            msg = "few-shot examples" if example_idx >= 0 else "ranking evaluation"
+            assert target is not None, f"The target text is missing for {msg}. Return either `target` or `target_idx` in `format_instance`"
 
         # source_idx is used to render the correct answer in few-shot examples
         if example_idx >= 0 and self.evaluation_type == "ranking" and source_idx is not None:
@@ -561,7 +561,11 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
         if self.examples is None or self.kate or self.globale:
             self.examples = self.construct_examples(instance)
 
-        convers.add_(self.examples)
+        if isinstance(self.examples, Conversation):
+            convers.add_(self.examples)
+        else:
+            # FIXME new example format for quac, squad
+            logger.warning(f"{self.display_name} has legacy examples format. Skipping the examples.")
         option_num = len(instance["options"]) if instance.get("options", None) else 1
         if isinstance(instance["source"], list):
             if self.model_evaluation_method == "get_ppl":

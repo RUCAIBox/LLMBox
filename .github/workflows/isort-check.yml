@@ -1,6 +1,10 @@
 name: Run isort
+
 on:
-  - push
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+        - 'utilization/**'
 
 jobs:
   build:

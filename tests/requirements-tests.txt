@@ -1,3 +1,33 @@
+# pytest
 pytest
 pytest-md
 pytest-emoji
+packaging
+setuptools
+wheel
+
+torch
+transformers
+safetensors
+tokenizers
+datasets>=2.16.1
+coloredlogs
+tqdm>=4.58.0
+jinja2
+
+# API Models
+anthropic
+dashscope
+qianfan
+openai>=1.0.0
+tiktoken>=0.5.0
+
+# Metrics
+nltk
+sacrebleu
+rouge_score
+langcodes
+language_data
+google-api-python-client
+immutabledict
+langdetect

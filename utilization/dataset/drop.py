@@ -33,7 +33,10 @@ class Drop(GenerationDataset):
     extra_model_args = dict(max_tokens=64, temperature=0, stop=["\n"])
 
     def format_instance(self, instance):
-        instance["target"] = instance["answers_spans"]["spans"][0]
+        if "spans" in instance:
+            instance["target"] = instance["spans"][0]
+        else:
+            instance["target"] = instance["answers_spans"]["spans"][0]
         return instance
 
     @staticmethod
@@ -50,7 +53,4 @@ class Drop(GenerationDataset):
 
     @cached_property
     def references(self):
-        if "flatten_answers" in self.evaluation_data[0]:
-            return [instance["flatten_answers"] for instance in self.evaluation_data]
-        else:
-            return [get_answers(instance) for instance in self.evaluation_data]
+        return [instance["answers_spans"]["spans"] for instance in self.evaluation_data]
