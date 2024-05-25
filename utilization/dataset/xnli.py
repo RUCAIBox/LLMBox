@@ -17,7 +17,7 @@ class Xnli(MultipleChoiceDataset):
         "premise": "\"Du weißt , während der Saison und ich schätze , auf deiner Ebene verlierst du sie auf die nächste Ebene , wenn sie sich entschl..."
     """
 
-    instruction = "Given the premise sentence in '{{subset}}': '{{source[1]}}', does the hypothesis sentence '{{source[0]}}' entail, contradict, or neither (neutral) with respect to the premise?\nOptions: 0 for entailment, 1 for neutral, 2 for contradiction\nAnswer:"
+    instruction = "Given the premise sentence in '{{subset}}': '{{source[1]}}', does the hypothesis sentence '{{source[0]}}' entail, contradict, or neither (neutral) with respect to the premise?\nAnswer:"
 
     evaluation_set = "test"
     example_set = "train"

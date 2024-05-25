@@ -18,7 +18,7 @@ class Mgsm(GenerationDataset):
         'equation_solution': '5 + 6 = 11.'
     """
     
-    instruction = "Role: {{question.replace('\n', ' ')}}\n Assistant:"
+    instruction = "Answer the following question.\n\nQuestion: {{question.replace('\n', ' ')}}\nAnswer:"
     
     evaluation_set = "test"
     example_set = "train"
