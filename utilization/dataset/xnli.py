@@ -17,20 +17,20 @@ class Xnli(MultipleChoiceDataset):
         "premise": "\"Du weißt , während der Saison und ich schätze , auf deiner Ebene verlierst du sie auf die nächste Ebene , wenn sie sich entschl..."
     """
 
-    instruction = "Given the premise sentence in '{{subset}}': '{{source[1]}}', does the hypothesis sentence '{{source[0]}}' entail, contradict, or neither (neutral) with respect to the premise?\nAnswer:"
-
-    evaluation_set = "test"
+    instruction = "Given the premise sentence in '{{lang}}': '{{premise.strip()}}', does the hypothesis sentence '{{hypothesis.strip()}}' entail, contradict, or neither (neutral) with respect to the premise?{{'\n'+options if options}}\nAnswer:"
+    evaluation_set = "validation"
     example_set = "train"
     load_args = ("xnli",)
     banned_subsets = ["all_languages"]
     
+    def init_arguments(self):
+        from langcodes import Language
+        self.language = Language(self.subset_name).language_name("en")
+
     def format_instance(self, instance):
-        return dict(
-            source=[ instance["hypothesis"], instance["premise"] ],
-            target_idx=instance["label"],
-            subset=self.subset_name,
-            options=[ "entailment", "neutral", "contradiction" ],
-        )
+        instance["lang"] = self.language
+        instance["options"] = ["entailment", "neutral", "contradiction"]
+        return instance
 
     @cached_property
     def references(self):

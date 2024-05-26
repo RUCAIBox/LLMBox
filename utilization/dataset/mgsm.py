@@ -18,7 +18,7 @@ class Mgsm(GenerationDataset):
         'equation_solution': '5 + 6 = 11.'
     """
     
-    instruction = "Answer the following question.\n\nQuestion: {{question.replace('\n', ' ')}}\nAnswer:"
+    instruction = "Answer the following question in {{lang}}.\n\nQuestion: {{question.replace('\n', ' ')}}\nAnswer:"
     
     evaluation_set = "test"
     example_set = "train"
@@ -33,35 +33,23 @@ class Mgsm(GenerationDataset):
         if self.model_type == 'base':
             self.extra_model_args['stop'] = ['\n']
 
+        from langcodes import Language
+        self.language = Language(self.subset_name).language_name("en")
+
     def post_processing(self, predictions):
         new_predictions = []
         for pred in predictions:
-            if self.args.cot == 'pal':
-                if '```python' in pred:
-                    pred = pred.split('```python')[1].split('```')[0]
-                elif '```' in pred:
-                    pred = pred.split('```')[1].split('```')[0]
-                code = pred.split('\n')
-
-                with Timeout():
-                    try:
-                        exec('\n'.join(code))
-                        ans = eval("solution()")
-                        ans = str(ans)[:-2] if str(ans).endswith(".0") else str(ans)
-                        new_predictions.append(ans)
-                    except:
-                        new_predictions.append('')
+            # replace numbers like `x,xxx` with `xxxx`
+            pred = self._decimal_separator.sub(r"\1\2", pred)
+            numbers = self._extract_numbers.findall(pred)
+            if numbers:
+                new_predictions.append(numbers[-1])
             else:
-                # replace numbers like `x,xxx` with `xxxx`
-                pred = self._decimal_separator.sub(r"\1\2", pred)
-                numbers = self._extract_numbers.findall(pred)
-                if numbers:
-                    new_predictions.append(numbers[-1])
-                else:
-                    new_predictions.append(pred)
+                new_predictions.append(pred)
         return new_predictions
 
     def format_instance(self, instance):
+        instance["lang"] = self.language
         instance['short_answer'] = str(instance["answer_number"])
         instance["target"] = instance["answer"]
 
@@ -70,18 +58,3 @@ class Mgsm(GenerationDataset):
     @cached_property
     def references(self):
         return [instance["short_answer"] for instance in self.evaluation_data]
-
-class Timeout:
-    def __init__(self, seconds=10, error_message='Timeout'):
-        self.seconds = seconds
-        self.error_message = error_message
-
-    def timeout_handler(self, signum, frame):
-        raise TimeoutError(self.error_message)
-
-    def __enter__(self):
-        signal.signal(signal.SIGALRM, self.timeout_handler)
-        signal.alarm(self.seconds)
-
-    def __exit__(self, type, value, traceback):
-        signal.alarm(0)
