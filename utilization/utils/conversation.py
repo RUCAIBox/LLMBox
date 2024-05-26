@@ -331,6 +331,9 @@ class Conversation(_HFConversation):
             max_turns=max_turns,
         )[0]
 
+    def apply_prompt_template(self):
+        return self.formatter.apply_prompt_template(self)
+
     def add(
         self,
         other: Optional["Conversation"] = None,
