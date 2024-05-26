@@ -1,5 +1,5 @@
-from logging import getLogger
 from functools import cached_property
+from logging import getLogger
 
 from .multiple_choice_dataset import MultipleChoiceDataset
 
