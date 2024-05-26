@@ -6,6 +6,8 @@ from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 
 import pandas as pd
 
+from .conversation import Conversation
+
 logger = getLogger(__name__)
 
 if typing.TYPE_CHECKING:
@@ -33,6 +35,22 @@ def to_dict(merge: Optional[List[str]] = None, merge_by_option: Optional[List[st
         return df_dict
 
     return wrapper
+
+
+def dump_conversations(convs: List[Any], local: bool):
+    if isinstance(convs, (str, Conversation)):
+        convs = [convs]
+
+    if isinstance(convs[0], Conversation):
+        if not local:
+            convs = [[str(m['content']) for m in p.messages] for p in convs]
+        else:
+            convs = [p.apply_prompt_template() for p in convs]
+
+    if not isinstance(convs[0], str):
+        convs = [str(p) for p in convs]
+
+    return convs
 
 
 class PredictionWriter:
@@ -83,14 +101,15 @@ class PredictionWriter:
     def log_batch_results(
         self,
         raw_predictions: List[str],
+        local_model: bool,
         lines_iter: Iterator[Tuple[int, str, Any]],
     ) -> int:
+        """Log the batch predictions to the evaluation jsonlines file."""
         if not self.alive():
             return len(raw_predictions)
 
         for raw_prediction, (idx, source, reference) in zip(raw_predictions, lines_iter):
-            if not isinstance(source, str):
-                source = str(source)
+            source = dump_conversations(source, local_model)
             lines = {
                 "index": idx,
                 "source": source,
@@ -140,16 +159,20 @@ class PredictionWriter:
 def log_final_results(
     raw_predictions: List[str],
     processed_predictions: List[Union[str, float]],
+    evaluation_instances: List[tuple],
     score_lists: Dict[str, List[float]],
     multiple_source: bool,
     model_evaluation_method: str,
     use_normalization: bool,
     option_nums: List[int],
     len_evaluation_data: int,
-    evaluation_instances: List[tuple],
     sample_num: int,
     references: List[Any],
+    local_model: bool,
 ) -> Optional[pd.Series]:
+    """Aggregate the final results and prepare for dumping to a json file."""
+
+    evaluation_instances = dump_conversations(evaluation_instances, local_model)
 
     transposed_score_lists = [dict(zip(score_lists.keys(), values)) for values in zip(*score_lists.values())]
     if model_evaluation_method == "generation":

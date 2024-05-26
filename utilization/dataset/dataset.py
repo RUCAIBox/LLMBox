@@ -766,15 +766,16 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
         return log_final_results(
             raw_predictions=raw_predictions,
             processed_predictions=processed_predictions,
+            evaluation_instances=self.evaluation_instances,
             score_lists=score_lists,
             multiple_source=(self.dataset_name == "winogrande"),
             model_evaluation_method=self.model_evaluation_method,
             use_normalization=self.use_normalization,
             option_nums=self.option_nums,
             len_evaluation_data=len(self.evaluation_data),
-            evaluation_instances=self.evaluation_instances,
             sample_num=self.sample_num,
             references=self.references,
+            local_model=self.model.is_local_model(),
         )
 
     def __repr__(self):
@@ -967,7 +968,7 @@ class DatasetCollection(torch.utils.data.Dataset):
             if batch_size > 0:
                 tqdm.set_description(self.display_names[self._cur_idx])
         if batch_size > 0:
-            writer.log_batch_results(batch_raw_predictions, self._lines_iter)
+            writer.log_batch_results(batch_raw_predictions, self._datasets[0].model.is_local_model(), self._lines_iter)
 
     def __repr__(self):
         reprs = []

@@ -690,13 +690,14 @@ def parse_argument(args: Optional[List[str]] = None,
         epilog=EXAMPLE_STRING,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    model_args, dataset_args, evaluation_args = parser.parse_args_into_dataclasses(args)
 
     try:
         from dotenv import load_dotenv
         load_dotenv()
     except (ImportError, ModuleNotFoundError):
         pass
+
+    model_args, dataset_args, evaluation_args = parser.parse_args_into_dataclasses(args)
 
     if model_args.bnb_config:
         bnb_config_dict = json.loads(model_args.bnb_config)
