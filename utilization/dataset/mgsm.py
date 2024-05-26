@@ -17,9 +17,9 @@ class Mgsm(GenerationDataset):
         'answer_number': 11,
         'equation_solution': '5 + 6 = 11.'
     """
-    
+
     instruction = "Answer the following question.\n\nQuestion: {{question.replace('\n', ' ')}}\nAnswer:"
-    
+
     evaluation_set = "test"
     example_set = "train"
     load_args = ("juletxara/mgsm",)
@@ -71,7 +71,9 @@ class Mgsm(GenerationDataset):
     def references(self):
         return [instance["short_answer"] for instance in self.evaluation_data]
 
+
 class Timeout:
+
     def __init__(self, seconds=10, error_message='Timeout'):
         self.seconds = seconds
         self.error_message = error_message

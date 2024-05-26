@@ -1,5 +1,5 @@
-from logging import getLogger
 from functools import cached_property
+from logging import getLogger
 
 from .multiple_choice_dataset import MultipleChoiceDataset
 
@@ -23,13 +23,13 @@ class Xnli(MultipleChoiceDataset):
     example_set = "train"
     load_args = ("xnli",)
     banned_subsets = ["all_languages"]
-    
+
     def format_instance(self, instance):
         return dict(
-            source=[ instance["hypothesis"], instance["premise"] ],
+            source=[instance["hypothesis"], instance["premise"]],
             target_idx=instance["label"],
             subset=self.subset_name,
-            options=[ "entailment", "neutral", "contradiction" ],
+            options=["entailment", "neutral", "contradiction"],
         )
 
     @cached_property
