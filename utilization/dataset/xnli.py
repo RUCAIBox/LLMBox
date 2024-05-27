@@ -22,7 +22,7 @@ class Xnli(MultipleChoiceDataset):
     example_set = "train"
     load_args = ("xnli",)
     banned_subsets = ["all_languages"]
-    
+
     def init_arguments(self):
         from langcodes import Language
         self.language = Language(self.subset_name).language_name("en")

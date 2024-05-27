@@ -4,6 +4,7 @@ from .multiple_choice_dataset import MultipleChoiceDataset
 
 logger = getLogger(__name__)
 
+
 class Xwinograd(MultipleChoiceDataset):
     """The dataset of XWinograd.
 
@@ -25,7 +26,7 @@ class Xwinograd(MultipleChoiceDataset):
     instruction = "Given the sentence '{{sentence.strip()}}' in {{lang}}, fill in the blank with the appropriate option: who does '_' refer to?{{'\n'+options if options}}\nAnswer:"
     evaluation_set = "test"
     load_args = ("Muennighoff/xwinograd",)
-    
+
     def init_arguments(self):
         from langcodes import Language
         self.language = Language(self.subset_name).language_name("en")
