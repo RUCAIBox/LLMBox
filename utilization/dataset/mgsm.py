@@ -1,5 +1,4 @@
 import re
-import signal
 from functools import cached_property
 
 from ..metric import Accuracy
@@ -17,16 +16,16 @@ class Mgsm(GenerationDataset):
         'answer_number': 11,
         'equation_solution': '5 + 6 = 11.'
     """
-    
+
     instruction = "Answer the following question in {{lang}}.\n\nQuestion: {{question.replace('\n', ' ')}}\nAnswer:"
-    
+
     evaluation_set = "test"
     example_set = "train"
     load_args = ("juletxara/mgsm",)
     metrics = [Accuracy()]
     extra_model_args = dict(temperature=0)
 
-    _decimal_separator = re.compile(r"(\d),(\d)")
+    _decimal_separator = re.compile(r"(?<=\d),(?=\d)")
     _extract_numbers = re.compile(r"[-+]?\d*\.\d+|\d+")
 
     def init_arguments(self):
@@ -40,7 +39,7 @@ class Mgsm(GenerationDataset):
         new_predictions = []
         for pred in predictions:
             # replace numbers like `x,xxx` with `xxxx`
-            pred = self._decimal_separator.sub(r"\1\2", pred)
+            pred = self._decimal_separator.sub("", pred)
             numbers = self._extract_numbers.findall(pred)
             if numbers:
                 new_predictions.append(numbers[-1])
