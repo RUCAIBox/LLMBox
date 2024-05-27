@@ -642,7 +642,6 @@ class HuggingFaceModel(Model):
             return []
 
         results = self._generation(prompts)
-        print(results)
         results = [conv[-1]["content"] if isinstance(conv, Conversation) else conv for conv in results]
         return results
 

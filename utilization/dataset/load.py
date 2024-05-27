@@ -155,15 +155,27 @@ def get_cmd_subset_names(cmd_subset_names: Set[str], dataset_cls: "Dataset") -> 
     return results
 
 
-def load_dataset(dataset_name: str,
-                 args: "DatasetArguments",
-                 model: "Model",
-                 threading: bool = True) -> Iterator[Dict[str, Dataset]]:
-    r"""Load corresponding dataset class.
+def load_dataset(
+    dataset_name: str,
+    args: "DatasetArguments",
+    model: "Model",
+    threading: bool = True,
+) -> Iterator[Dict[str, Dataset]]:
+    """Load corresponding dataset class. One dataset class contains one subset,
+    e.g., Mmlu(abstract_algebra), Mmlu()
+
+    1. Load dataset classes from dataset_name, e.g. `agieval` -> `Agieval_cot`
+    and `Agieval_single_choice`, `squad_v2` -> `Squad`
+    2. Get available subsets for each dataset class, e.g., `Agieval_cot` ->
+    `['lsat-ar', ...]`, `Agieval_single_choice` -> `[logiqa-zh', ...]`
+    3. Get subset names from command line arguments and get the intersection.
+    4. Instantiate each dataset class with corresponding subset name.
 
     Args:
-        args (Namespace): The global configurations.
+        dataset_name (str): The name of the dataset.
+        args (DatasetArguments): The global configurations.
         model (Model): Our class for model.
+        threading (bool): Whether to use threading to load datasets.
 
     Returns:
         An iterator of dictionaries grouped by dataset classes, each containing a mapping of display_names to dataset instances.
@@ -192,7 +204,9 @@ def load_dataset(dataset_name: str,
         )
 
         if len(subset_names) > 1 and accepts_subset(dataset_cls.load_args, overwrite_subset=len(cmd_subset_names) > 0):
-            # race:middle,high (several subsets) , super_glue (all the subsets)
+            # Example: race:middle,high (several subsets) , super_glue (all the subsets)
+
+            # sort the subset names and log to terminal
             subset_names = sorted(subset_names)
             max_eles = 5
             if len(subset_names) > max_eles or logger.level <= logging.DEBUG:
@@ -200,13 +214,18 @@ def load_dataset(dataset_name: str,
             else:
                 subset_repr = ",".join(subset_names)
             logger.info("Loading dataset `%s` with subset(s): %s", dataset_name, subset_repr)
+
             if threading and len(subset_names) > 2:
+
+                # load the first dataset in the main thread (only show the INFO log message for the first dataset)
                 first_dataset = subset_names.pop(0)
                 first_dataset = (
                     dataset_name + ":" + first_dataset, dataset_cls(dataset_name, args, model, first_dataset)
                 )
                 logger.info(f"Loading remaining subsets ...")
                 logging.disable(logging.INFO)
+
+                # load the remaining datasets in parallel
                 with ThreadPoolExecutor(max_workers=len(subset_names)) as executor:
                     res = [
                         executor.submit(
@@ -216,6 +235,7 @@ def load_dataset(dataset_name: str,
                 datasets = dict([first_dataset] + [f.result() for f in as_completed(res)])
                 logging.disable(logging.NOTSET)
             else:
+                # load all datasets one by one
                 datasets = {dataset_name + ":" + s: dataset_cls(dataset_name, args, model, s) for s in subset_names}
             yield datasets
 
@@ -248,12 +268,16 @@ def load_datasets(args: "DatasetArguments", model: "Model") -> DatasetCollection
         )
         model.args.prefix_caching = False
 
+    # get all the dataset classes
     datasets = []
     for d in args.dataset_names:
         datasets.extend(load_dataset(d, args, model, args.dataset_threading))
     datasets = {k: v for d in datasets for k, v in d.items()}
+    logger.debug(datasets)
     if len(datasets) <= 0:
         raise ValueError("No datasets loaded.")
+
+    # collect all the datasets into a DatasetCollection
     dataset_collection = DatasetCollection(datasets)
     logger.debug(f"Evaluation datasets: {dataset_collection}")
     return dataset_collection
