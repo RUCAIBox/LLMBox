@@ -42,6 +42,7 @@ datasets = {
     "real_toxicity_prompts": None,
     "rte": [],
     "siqa": [],
+    "sst2": [],
     "squad": [],
     "squad_v2": [],
     "story_cloze": None,
