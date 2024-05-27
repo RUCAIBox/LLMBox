@@ -1,6 +1,6 @@
 import pytest
 
-from ..fixtures import run_evaluate
+from .fixtures import run_evaluate
 
 datasets = {
     "agieval": [],
