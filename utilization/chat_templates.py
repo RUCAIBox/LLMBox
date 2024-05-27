@@ -1,3 +1,7 @@
+from typing import Any, Dict, Union
+
+__all__ = ["DEFAULT_CHAT_TEMPLATE", "DEFAULT_CHAT_CONFIGS"]
+
 # sources: https://github.com/huggingface/chat-ui/blob/main/PROMPTS.md
 
 DEFAULT_CHAT_TEMPLATE = (
@@ -6,6 +10,7 @@ DEFAULT_CHAT_TEMPLATE = (
     "{{ msg | smart_space(auto_leading_space, seq[role + '_start']) }}"
     "{{ seq[role + '_end'] }}"
     "{%- endmacro %}"
+    "{{ seq.get('all_start', '') }}"
     "{% for message in messages %}"
     "{{ add(message['role'], message['content']) }}"
     "{% endfor %}"
@@ -14,7 +19,27 @@ DEFAULT_CHAT_TEMPLATE = (
     "{% endif %}"
 )
 
-DEFAULT_CHAT_CONFIGS = {
+# Chat configs format:
+#
+# A jinja2 chat-template accessing to variables:
+#   - messages: A list of dictionaries with the following keys:
+#   - seq: A dictionary with the `starts` and `ends` sequences of each role.
+#   - smart_space: A filter that controls the leading space of a string.
+#   - add_generation_prompt: Whether to prepend assistant_start after entire chat message.
+#
+# or a dictionary with the following keys:
+#   - all_start: The string to prepend to the entire chat message.
+#   - system_start: The string to prepend to the system message.
+#   - system_end: The string to append to the system message.
+#   - user_start: The string to prepend to the user message.
+#   - user_end: The string to append to the user message.
+#   - assistant_start: The string to prepend to the assistant message.
+#   - assistant_end: The string to append to the assistant message.
+#   - auto_leading_space: Whether to add a leading space when concatenating two
+#     strings if the first string does not end with a whitespace.
+#   - default_stops: A list of strings that indicate the end of a message.
+#
+DEFAULT_CHAT_CONFIGS: Dict[str, Union[Dict[str, Any], str]] = {
     "base": {
         "system_start": "",
         "system_end": "\n\n",
@@ -26,7 +51,8 @@ DEFAULT_CHAT_CONFIGS = {
         "default_stops": ["\n"],
     },
     "llama2": {
-        "system_start": "<s>[INST] <<SYS>>\n",
+        "all_start": "<s>[INST] ",
+        "system_start": "<<SYS>>\n",
         "system_end": "\n<</SYS>>\n\n",
         "user_start": "",
         "user_end": " [/INST] ",
