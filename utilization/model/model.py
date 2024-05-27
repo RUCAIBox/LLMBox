@@ -248,8 +248,10 @@ class ApiModel(Model):
             logger.warning(f"Unused generation arguments: {extra_model_args}")
         return self.generation_kwargs
 
-    def generation(self, batched_inputs: Union[List[str],
-                                               List[Conversation]]) -> Union[List[str], List[Tuple[str, ...]]]:
+    def generation(
+        self,
+        batched_inputs: Union[List[str], List[Conversation]],
+    ) -> Union[List[str], List[Tuple[str, ...]]]:
         multi_turn_results = self.request(
             prompt=batched_inputs,
             multi_turn=self.multi_turn,
