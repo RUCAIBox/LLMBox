@@ -1,6 +1,6 @@
 import pytest
 
-from ..fixtures import run_evaluate
+from .fixtures import run_evaluate
 
 models = {
     "gpt-3.5-turbo": ["--openai_api_key", "fake_key"],
