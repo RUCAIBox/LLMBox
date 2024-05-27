@@ -118,7 +118,15 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
         "real_example_tokens",
     ]
 
-    def __init__(self, dataset_name: str, args: "DatasetArguments", model: "Model", subset_name: Optional[str] = None):
+    def __init__(
+        self,
+        dataset_name: str,
+        args: "DatasetArguments",
+        model: "Model",
+        subset_name: Optional[str] = None,
+        evaluation_data: Optional[List[typing.Any]] = None,
+        example_data: Optional[List[typing.Any]] = None,
+    ):
         r"""This should be called by the subclass.
 
         Args:
@@ -172,12 +180,19 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
                 logger.warning(
                     f"Example set is used for constructing few-shot examples, but `{self.example_set}` seems to be an evaluation set."
                 )
-        self.load_raw_dataset(
-            dataset_path=args.dataset_path,
-            subset_name=subset_name,
-            evaluation_set=self.evaluation_set,
-            example_set=self.example_set,
-        )
+        if evaluation_data is None or example_data is None:
+            self.load_raw_dataset(
+                dataset_path=args.dataset_path,
+                subset_name=subset_name,
+                evaluation_set=self.evaluation_set,
+                example_set=self.example_set,
+            )
+        if evaluation_data is not None:
+            self.evaluation_data = evaluation_data
+        if example_data is not None:
+            self.example_data = example_data
+        assert hasattr(self, "evaluation_data")
+
         if self.max_num_shots and not self.example_data:
             raise ValueError(
                 f"Please provide the example set for dataset {self.dataset_name} to construct few-shot examples."
@@ -383,7 +398,8 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
             (f" and example set `{example_set}`" if example_set else "")
         )
 
-        self.evaluation_data = list(load_fn(evaluation_set))
+        if evaluation_set:
+            self.evaluation_data = list(load_fn(evaluation_set))
         if example_set:
             # avoid overwriting the example_data if it is already loaded
             self.example_data = list(load_fn(example_set))
@@ -716,13 +732,11 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
         subject_results = {}
         # datasets like winogrander can be categorized by gender
         if self.category_column is not None:
+            subjects = map(lambda i: f"{self.dataset_name}[{i[self.category_column]}]", self.evaluation_data)
             subject_results = pd.DataFrame({
-                "predictions":
-                predictions,
-                "references":
-                self.references,
-                "subject":
-                map(lambda i: f"{self.dataset_name}[{i[self.category_column]}]", self.evaluation_data),
+                "predictions": predictions,
+                "references": self.references,
+                "subject": subjects,
             }).groupby("subject").apply(lambda df: _calculate_metric(df["predictions"], df["references"])).to_dict()
 
         metric_results = OrderedDict(**subject_results)
@@ -779,7 +793,7 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
         )
 
     def __repr__(self):
-        reprs = [f"{p}={getattr(self, p)!r}" for p in self._repr]
+        reprs = [f"{p}={getattr(self, p, None)!r}" for p in self._repr]
         reprs.append(f"len={self.len()}")
         reprs.append(f"num_instances={self.len(sample_num=False, option_num=False, normalization=False)}")
         return "Dataset(" + ", ".join(reprs) + ")"

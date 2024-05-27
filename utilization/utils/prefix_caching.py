@@ -5,7 +5,7 @@ import torch
 from torch.utils.data.sampler import Sampler
 from transformers import DynamicCache
 
-from utilization.utils.conversation import Conversation, ConversationFormatter
+from utilization.utils.conversation import Conversation
 
 _LegacyCache = Tuple[Tuple[torch.FloatTensor, torch.FloatTensor], ...]
 
@@ -304,15 +304,15 @@ class CachePrefixSampler(Sampler[List[int]], Cacher):
         total: int,
         total_prefix_num: int,
         batch_size: int,
-        conversation_formatter: ConversationFormatter,
         auto_batch_size: bool = False,
+        start_from: int = 0,
     ):
 
         # split data into (src,) and (src, tgt)
         self.total_prefix_num = total_prefix_num
         self.joined_data = [[] for _ in range(self.total_prefix_num)]
         self.cache_levels = [0] * total
-        self.conversation_formatter = conversation_formatter
+        self.start_from = start_from
 
         # the batch_size for the kvcache is smaller than the batch_size to avoid OOM
         cache_batch_size = (batch_size + 1) // 2
@@ -392,6 +392,9 @@ class CachePrefixSampler(Sampler[List[int]], Cacher):
                             order_idx_by_cache[j] = -1
                     if self.check_new_batch(data_order_with_cache[order_idx_by_cache[i]], i, data_idx + 1):
                         order_idx_by_cache[i] = -1
+
+        for o in data_order_with_cache:
+            o = [i + self.start_from for i in o]
 
         return data_order_with_cache
 

@@ -71,6 +71,10 @@ class ConversationFormatter:
         else:
             chat_config = {}
 
+        if not isinstance(chat_config, dict):
+            chat_config = {}
+            chat_template = chat_config
+
         return cls(chat_config=chat_config, chat_template=chat_template)
 
     @staticmethod
