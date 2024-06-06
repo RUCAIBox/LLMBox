@@ -1,4 +1,5 @@
 import pytest
+import torch
 
 from .fixtures import run_evaluate
 
@@ -18,4 +19,7 @@ models = {
 def test_models_dry_run(run_evaluate, model, dataset, extra_args):
     if extra_args is None:
         return
-    run_evaluate(["-m", model, "-d", dataset, "-b", "10", "--dry_run"] + extra_args, cuda=0)
+    try:
+        run_evaluate(["-m", model, "-d", dataset, "-b", "10", "--dry_run"] + extra_args, cuda=0)
+    except torch.cuda.OutOfMemoryError:
+        pytest.skip(f"Out of memory error on {model} {dataset}")

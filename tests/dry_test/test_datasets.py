@@ -21,13 +21,13 @@ datasets = {
     "drop": [],
     "gaokao": [],
     "gsm8k": [],
-    "gpqa": [],
+    "gpqa": None,  # requires authentication
     "halueval": [],
     "hellaswag": [],
     "humaneval": ["--pass_at_k", "1"],
     "ifeval": [],
     "lambada": [],
-    "math": [],
+    "math": ["--no_dataset_threading"],
     "mbpp": ["--pass_at_k", "1"],
     "mmlu": [],
     "mrpc": [],
@@ -60,7 +60,7 @@ datasets = {
     "wsc": [],
     "xcopa": [],
     "xlsum": [],
-    "xsum": [],
+    "xsum": ["--no_dataset_threading"],
 }
 
 test_evaluation_data = {
