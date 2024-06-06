@@ -10,7 +10,7 @@ on:
 
 jobs:
   Pytest:
-    name: Run tests
+    name: subtest
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -21,7 +21,7 @@ jobs:
         with:
           timezoneLinux: "Asia/Shanghai"
       - name: Build with logs
-        run: export TEMP_HFD_CACHE_PATH=${{ runner.temp }}/${{ matrix.group }}
+        run: mkdir ${{ runner.temp }}/${{ matrix.group }}
       - uses: actions/checkout@v3
       - name: Set up Python 3.8.18
         uses: actions/setup-python@v4
@@ -34,6 +34,8 @@ jobs:
           uv pip install vllm --no-build-isolation --system
       - name: Run tests
         run: pytest --cov --junit-xml=test-results.xml --splits 10 --group ${{ matrix.group }}
+        env:
+            TEMP_HFD_CACHE_PATH: ${{ runner.temp }}/${{ matrix.group }}
       - name: Surface failing tests
         if: always()
         uses: pmeier/pytest-results-action@main
