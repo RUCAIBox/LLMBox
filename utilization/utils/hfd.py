@@ -35,13 +35,14 @@ def update_script(load_script_path: Path, mirror: bool, old: str, new: str) -> b
 
 def huggingface_download(
     path: str,
+    hfd_cache_path: str,
     mirror: bool = True,
     old: str = "https://huggingface.co",
     new: str = "https://hf-mirror.com",
 ) -> Optional[str]:
     """Download a dataset from Hugging Face Hub to a local directory using hfd.sh."""
 
-    hub_cache_path = Path.home() / ".cache" / "huggingface" / "datasets"
+    hub_cache_path = Path(hfd_cache_path).expanduser()
     repo_name = "datasets--" + path.replace("/", "--")
     repo_path = hub_cache_path / repo_name
     load_script_path = get_script_path(repo_path)

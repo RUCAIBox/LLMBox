@@ -489,6 +489,10 @@ class DatasetArguments:
         default=False,
         help="Whether to use hfd.sh to load dataset from hugging face mirror server (experimental)",
     )
+    hfd_cache_path: str = HfArg(
+        default="~/.cache/huggingface/datasets",
+        help="The cache path for datasets downloaded with hfd.sh",
+    )
 
     continue_from: ClassVar[int] = 0
     proxy_port: ClassVar[int] = None
