@@ -174,7 +174,7 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
                 logger.warning(
                     f"Please provide the example set for dataset {self.display_name} to construct few-shot examples. You can ignore this warning if `load_raw_dataset` is correctly implemented."
                 )
-            elif "val" in self.example_set or "test" in self.example_set:
+            elif self.example_set and ("val" in self.example_set or "test" in self.example_set):
                 logger.warning(
                     f"Example set is used for constructing few-shot examples, but `{self.example_set}` seems to be an evaluation set."
                 )

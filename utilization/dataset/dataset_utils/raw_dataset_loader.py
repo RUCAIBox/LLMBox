@@ -240,16 +240,15 @@ def get_raw_dataset_loader(
         def load_fn(split):
             return ds.load_dataset(*load_args, split=split, **load_kwargs)
 
-    if load_fn is None:
-        raise ValueError(
-            f"Failed to load dataset `{dataset_msg}`. Please check if the dataset exists in huggingface or local path."
-        )
-
     def informative_load_fn(split=None) -> ds.Dataset:
         try:
             return load_fn(split=split)
         except KeyError as e:
             raise ValueError(f"Cannot find split `{split}` in `{dataset_msg}`.") from e
+        except TypeError as e:
+            raise ValueError(
+                f"Failed to load dataset `{dataset_msg}`. Please check if the dataset exists in huggingface or local path."
+            ) from e
 
     if return_msg:
         return informative_load_fn, msg
