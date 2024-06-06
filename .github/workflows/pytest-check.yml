@@ -20,8 +20,6 @@ jobs:
       - uses: szenius/set-timezone@v2.0
         with:
           timezoneLinux: "Asia/Shanghai"
-      - name: Build with logs
-        run: mkdir ${{ runner.temp }}/${{ matrix.group }}
       - uses: actions/checkout@v3
       - name: Set up Python 3.8.18
         uses: actions/setup-python@v4
@@ -35,7 +33,7 @@ jobs:
       - name: Run tests
         run: pytest --cov --junit-xml=test-results.xml --splits 10 --group ${{ matrix.group }}
         env:
-            TEMP_HFD_CACHE_PATH: ${{ runner.temp }}/${{ matrix.group }}
+            GITHUB_ACTION: 1
       - name: Surface failing tests
         if: always()
         uses: pmeier/pytest-results-action@main
