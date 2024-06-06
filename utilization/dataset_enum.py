@@ -8,7 +8,6 @@ DEFAULT_VLLM_DATASETS = {
 
 DATASET_ALIASES = {
     "agieval": ["agieval_single_choice", "agieval_cot"],  # try to use MultipleChoiceDataset first
-    "squad_v2": ["squad"],
 }
 
 for wmt in WMT_DATASETS:

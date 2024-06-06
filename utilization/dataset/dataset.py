@@ -546,10 +546,11 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
                 raise ValueError(f"Key `{key}` is reserved for dataset extensions and cannot be used in the instance.")
             formatted_instance[key] = getattr(self, key)
 
-        if self.instruction_template.debug_info:
-            source = self.instruction_template.render(formatted_instance)
-        else:
-            source = self.instruction.format_map(formatted_instance)
+        if not isinstance(source, list):
+            if self.instruction_template.debug_info:
+                source = self.instruction_template.render(formatted_instance)
+            else:
+                source = self.instruction.format_map(formatted_instance)
 
         return {"source": source, "target": target, "options": options}
 

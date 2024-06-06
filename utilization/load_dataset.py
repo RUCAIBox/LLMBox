@@ -4,6 +4,7 @@ import inspect
 import logging
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from itertools import zip_longest
 from logging import getLogger
 from typing import TYPE_CHECKING, Dict, Iterator, List, Optional, Set, Type
 
@@ -26,7 +27,7 @@ logger = getLogger(__name__)
 
 __all__ = ["load_datasets", "register_dataset"]
 
-ABSTRACT_DATASET = {"Dataset", "GenerationDataset", "MultipleChoiceDataset"}
+ABSTRACT_DATASET = {"Dataset", "GenerationDataset", "MultipleChoiceDataset", "SquadDataset"}
 REGISTERY = {}
 
 
@@ -103,9 +104,9 @@ def get_subsets(
     available_subsets = set()
     available_subsets_by_cls = []
 
-    for dataset_cls, cache_path in zip(dataset_classes, cache_paths):
+    for dataset_cls, cache_path in zip_longest(dataset_classes, cache_paths):
 
-        # dynamically set load_args for squad and wmt datasets, in order to support squad_v2 and wmt series datasets
+        # dynamically set load_args for wmt datasets, in order to support wmt series datasets
         if not dataset_cls.load_args:
             dataset_cls.load_args = (dataset_name,)
 
@@ -200,7 +201,7 @@ def load_dataset(
     e.g., Mmlu(abstract_algebra), Mmlu()
 
     1. Load dataset classes from dataset_name, e.g. `agieval` -> `Agieval_cot`
-    and `Agieval_single_choice`, `squad_v2` -> `Squad`
+    and `Agieval_single_choice`
     2. Get available subsets for each dataset class, e.g., `Agieval_cot` ->
     `['lsat-ar', ...]`, `Agieval_single_choice` -> `[logiqa-zh', ...]`
     3. Get subset names from command line arguments and get the intersection.
@@ -217,10 +218,18 @@ def load_dataset(
     """
 
     dataset_classes = import_dataset_classes(dataset_name)
-    cache_paths = [huggingface_download(dcls.load_args[0], mirror=args.hf_mirror) for dcls in dataset_classes]
+    cache_paths = []
+    for dcls in dataset_classes:
+        if len(dcls.load_args) > 0:
+            cache_paths.append(huggingface_download(dcls.load_args[0], mirror=args.hf_mirror))
+        else:
+            # dynamically set load_args for wmt datasets, in order to support wmt series datasets
+            cache_paths.append(huggingface_download(dataset_name, mirror=args.hf_mirror))
     available_subsets_by_cls = get_subsets(dataset_name, dataset_classes, args, cache_paths)
 
-    for dataset_cls, available_subsets, cache_path in zip(dataset_classes, available_subsets_by_cls, cache_paths):
+    for dataset_cls, available_subsets, cache_path in zip_longest(
+        dataset_classes, available_subsets_by_cls, cache_paths
+    ):
 
         if not args.passed_in_commandline("dataset_path"):
             args.dataset_path = cache_path

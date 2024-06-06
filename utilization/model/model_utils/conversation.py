@@ -232,11 +232,11 @@ class Conversation(_HFConversation):
         messages = [msg for conv in conversations for msg in conv.messages]
         return Conversation(messages=messages)
 
-    def set_num_options(self, num_options: int):
-        self.num_options = num_options
+    def set_num_options(self, num_options: Optional[int]):
+        self.num_options = num_options if isinstance(num_options, int) else 0
 
-    def set_num_shots(self, num_shots: int):
-        self.num_shots = num_shots
+    def set_num_shots(self, num_shots: Optional[int]):
+        self.num_shots = num_shots if isinstance(num_shots, int) else 0
 
     def add_multi_turn(self, *, users: Optional[List[str]] = None, assistant: Optional[str] = None):
         if users is not None and assistant is not None:

@@ -228,11 +228,11 @@ class ApiModel(Model):
                 key = details.alias
 
             # type casting
-            if details._type is not None:
+            if details._type is not None and value is not None:
                 value = details._type(value)
 
             # transform
-            if details.transform is not None:
+            if details.transform is not None and value is not None:
                 value = details.transform(value)
 
             # skip if no value
