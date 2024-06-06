@@ -95,11 +95,24 @@ def get_raw_dataset_loader(
         if subset_name is None and len(load_args) > 1 and load_args[1] is not None:
             subset_name = load_args[1]
 
+        load_from_script = False
+        if os.path.isdir(dataset_path):
+            load_script = dataset_path + "/" + dataset_path.split("/")[-1].split("--")[-1] + ".py"
+            if os.path.exists(load_script):
+                load_from_script = True
+
+        if load_from_script:
+            logger.debug(f"Loading from a downloaded dataset: {load_script}, {subset_name}")
+
+            # hfd
+            def load_fn(split):
+                return ds.load_dataset(load_script, subset_name, split=split, **load_kwargs)
+
         # load from a cloned repository from huggingface
-        if os.path.exists(os.path.join(dataset_path, "dataset_infos.json")):
+        elif os.path.exists(os.path.join(dataset_path, "dataset_infos.json")):
             infos = json.load(open(os.path.join(dataset_path, "dataset_infos.json")))
 
-            # find the correct subset
+            # find the correct subset. e.g. copa
             if dataset_name in infos:
 
                 logger.debug(f"Loading from a cloned or cached repository: {dataset_path}, {dataset_name}")
@@ -107,7 +120,8 @@ def get_raw_dataset_loader(
                 def load_fn(split):
                     return ds.load_dataset(dataset_path, dataset_name, split=split, **load_kwargs)
 
-            elif subset_name in infos:
+            # e.g. hellaswag
+            elif subset_name in infos or (subset_name is None and "default" in infos):
 
                 logger.debug(f"Loading from a cloned or cached repository: {dataset_path}, {subset_name}")
 
@@ -149,17 +163,8 @@ def get_raw_dataset_loader(
         elif os.path.isdir(dataset_path):
 
             offline = os.environ.get("HF_DATASETS_OFFLINE") == "1"
-            load_script = dataset_path + "/" + dataset_path.split("/")[-1].split("--")[-1] + ".py"
 
-            if os.path.exists(load_script):
-
-                logger.debug(f"Loading from a downloaded dataset: {load_script}, {subset_name}")
-
-                # hfd
-                def load_fn(split):
-                    return ds.load_dataset(load_script, subset_name, split=split, **load_kwargs)
-
-            elif offline:
+            if offline:
 
                 logger.debug(f"Loading from a downloaded dataset: {dataset_path}, default")
 

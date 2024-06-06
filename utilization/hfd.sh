@@ -127,6 +127,9 @@ files=$(git lfs ls-files | cut -d ' ' -f 3-)
 declare -a urls
 
 while IFS= read -r file; do
+    if [ ! $file ]; then
+        continue
+    fi
     url="$HF_ENDPOINT/$MODEL_ID/resolve/main/$file"
     file_dir=$(dirname "$file")
     mkdir -p "$file_dir"

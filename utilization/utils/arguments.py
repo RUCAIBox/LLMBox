@@ -10,7 +10,6 @@ from logging import getLogger
 from typing import Callable, ClassVar, Dict, List, Literal, Optional, Set, Tuple, Union
 
 import tiktoken
-from transformers.hf_argparser import HfArg, HfArgumentParser
 
 from ..chat_templates import DEFAULT_CHAT_CONFIGS
 from ..dataset_enum import DEFAULT_VLLM_DATASETS
@@ -18,6 +17,7 @@ from ..model_enum import (
     ANTHROPIC_CHAT_COMPLETIONS_ARGS, API_MODELS, DASHSCOPE_CHAT_COMPLETIONS_ARGS, HUGGINGFACE_ARGS,
     QIANFAN_CHAT_COMPLETIONS_ARGS, VLLM_ARGS
 )
+from .hf_argparser import HfArg, HfArgumentParser
 from .logging import filter_none_repr, get_redacted, list_datasets, log_levels, passed_in_commandline, set_logging
 
 logger = getLogger(__name__)
@@ -29,6 +29,9 @@ if typing.TYPE_CHECKING:
     from transformers import PreTrainedModel, PreTrainedTokenizer, PreTrainedTokenizerFast
 else:
     batch_size_type = str
+    PreTrainedModel = None
+    PreTrainedTokenizer = None
+    PreTrainedTokenizerFast = None
 
 LOADER = Callable[["ModelArguments"], Tuple["PreTrainedModel", Union["PreTrainedTokenizer", "PreTrainedTokenizerFast"]]]
 

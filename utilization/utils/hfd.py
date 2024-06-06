@@ -14,6 +14,25 @@ def get_script_path(repo_path: Union[Path, str]) -> Path:
     return Path(repo_path) / load_script_name
 
 
+def update_script(load_script_path: Path, mirror: bool, old: str, new: str) -> bool:
+    if not load_script_path.exists():
+        return False
+
+    # if HF_ENDPOINT is set in the environment, update the load script
+    hf_endpoint = os.environ.get("HF_ENDPOINT", "").rstrip("/")
+    new_endpoint = new.rstrip("/")
+
+    if mirror or hf_endpoint == new_endpoint:
+        script = load_script_path.read_text()
+        updated_script = script.replace(old, new)
+        if script != updated_script:
+            load_script_path.with_suffix(".py.bak").write_text(script)
+            load_script_path.write_text(updated_script)
+            return True
+
+    return False
+
+
 def huggingface_download(
     path: str,
     mirror: bool = True,
@@ -28,6 +47,7 @@ def huggingface_download(
     load_script_path = get_script_path(repo_path)
 
     if repo_path.exists() and load_script_path.exists():
+        update_script(load_script_path, mirror, old, new)
         logger.debug(f"Found {repo_path}, skipping download")
         return str(repo_path)
 
@@ -42,8 +62,6 @@ def huggingface_download(
     command = f"bash {hfd_cli.as_posix()} {path} --dataset --local-dir {repo_path.as_posix()}"
     os.system(command + mirror_flag)
 
-    if mirror:
-        script = load_script_path.read_text().replace(old, new)
-        load_script_path.write_text(script)
+    update_script(load_script_path, mirror, old, new)
 
     return str(repo_path)
