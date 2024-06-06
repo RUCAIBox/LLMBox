@@ -46,16 +46,6 @@ def _fuzzy_match_prompt(dataset_name) -> str:
     return fuzzy_match
 
 
-def register_dataset(name: str):
-
-    def inner_decorator(cls):
-        assert _validate_dataset_class(cls), f"{cls} is not a valid dataset class."
-        REGISTERY[name] = cls
-        return cls
-
-    return inner_decorator
-
-
 def _import_dataset_class(dataset_name: str) -> Type[Dataset]:
 
     module_path = __package__ + ".dataset." + dataset_name
@@ -102,9 +92,13 @@ def get_subsets(
 ) -> List[Set[str]]:
 
     available_subsets = set()
-    available_subsets_by_cls = []
+    available_subsets_by_cls: List[Set[str]] = []
 
     for dataset_cls, cache_path in zip_longest(dataset_classes, cache_paths):
+
+        if dataset_cls.load_args is None:
+            available_subsets_by_cls.append(set())
+            continue
 
         # dynamically set load_args for wmt datasets, in order to support wmt series datasets
         if not dataset_cls.load_args:
@@ -220,7 +214,9 @@ def load_dataset(
     dataset_classes = import_dataset_classes(dataset_name)
     cache_paths = []
     for dcls in dataset_classes:
-        if len(dcls.load_args) > 0:
+        if dcls.load_args is None:
+            continue
+        elif len(dcls.load_args) > 0:
             cache_paths.append(huggingface_download(dcls.load_args[0], mirror=args.hf_mirror))
         else:
             # dynamically set load_args for wmt datasets, in order to support wmt series datasets

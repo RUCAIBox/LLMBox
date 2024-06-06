@@ -74,7 +74,7 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
     example_set: Optional[str] = None
     r"""The example split of dataset. Example data will be automatically loaded if this is not None."""
 
-    load_args: Union[Tuple[str], Tuple[str, str], Tuple[()]] = ()
+    load_args: Union[Tuple[str], Tuple[str, str], Tuple[()], None] = None
     r"""Arguments for loading the dataset with huggingface `load_dataset`.
 
     Supported formats:

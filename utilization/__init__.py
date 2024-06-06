@@ -2,9 +2,9 @@ import os
 
 # Disable download counts for transformers to accelerate
 os.environ["HF_UPDATE_DOWNLOAD_COUNTS"] = "FALSE"
-
 from typing import TYPE_CHECKING, Callable, Optional
 
+# this file only initializes .utils modules to avoid early import of torch
 from .utils import DatasetArguments, EvaluationArguments, ModelArguments, parse_argument
 
 if TYPE_CHECKING:
@@ -30,4 +30,19 @@ def get_evaluator(
     )
 
 
-__all__ = ["get_evaluator", "parse_argument", "ModelArguments", "DatasetArguments", "EvaluationArguments"]
+def register_dataset(name: str):
+    """Decorator to register a dataset class to the dataset registry."""
+
+    from .load_dataset import REGISTERY, _validate_dataset_class
+
+    def _register_dataset_class(cls):
+        assert _validate_dataset_class(cls), f"{cls} is not a valid dataset class."
+        REGISTERY[name] = cls
+        return cls
+
+    return _register_dataset_class
+
+
+__all__ = [
+    "get_evaluator", "parse_argument", "ModelArguments", "DatasetArguments", "EvaluationArguments", "register_dataset"
+]

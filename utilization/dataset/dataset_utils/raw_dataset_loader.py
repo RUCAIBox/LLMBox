@@ -15,11 +15,14 @@ slice_regex = re.compile(r"\[(\d*):(\d*)\]")
 
 
 def accepts_subset(
-    load_args: Union[Tuple[str], Tuple[str, str], Tuple[()]],
+    load_args: Union[Tuple[str], Tuple[str, str], Tuple[()], None],
     overwrite_subset: bool = True,
     subset: str = "",
     disable_warning: bool = False,
 ) -> bool:
+    if load_args is None:
+        return False
+
     if len(load_args) == 2 and isinstance(load_args[1], str):
         if overwrite_subset:
             if not disable_warning and load_args[1] != subset:
@@ -71,6 +74,11 @@ def get_raw_dataset_loader(
     - local file pattern `"{dataset_path}".format(subset=subset_name, split=split)`
 
     """
+    if load_args is None:
+        raise NotImplementedError(
+            f"You should either specifing `load_args` or overwriting `load_raw_dataset` to load the dataset."
+        )
+
     if subset_name:
         dataset_msg = f"{dataset_name}:{subset_name}"
     else:
