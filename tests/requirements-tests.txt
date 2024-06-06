@@ -2,6 +2,7 @@
 pytest
 pytest-md
 pytest-emoji
+pytest-cov
 packaging
 setuptools
 wheel
@@ -14,6 +15,8 @@ datasets>=2.16.1
 coloredlogs
 tqdm>=4.58.0
 jinja2
+accelerate
+# install vllm in pytest-check.yml with --no-build-isolation
 
 # API Models
 anthropic
