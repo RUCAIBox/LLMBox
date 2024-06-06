@@ -10,10 +10,12 @@ logger = getLogger(__name__)
 uncleaned_label = re.compile(r"^(\([ABCDEFGHIJ]\)|[ABCDEFGHIJ] *\.) *")
 
 INSTRUCTIONS = {
-    "zh_zero_shot": "{passage}问题：{question}\n{options}答案：从A到{max_option_letter}，我们应选择",
-    "zh_few_shot": "问题. {passage} {question}\n{options}从以下选项中选择：",
-    "en_zero_shot": "{passage}Q: {question}\n{options}Answer: Among A through {max_option_letter}, the answer is",
-    "en_few_shot": "Question. {passage} {question}\n{options}Choose from the following options: ",
+    "zh_zero_shot": "{{ passage if passage }}问题：{{ question }}\n{{ options }}\n答案：从A到{{ max_option_letter }}，我们应选择",
+    "zh_few_shot": "问题. {{ passage if passage }} {{ question }}\n{{ options }}\n从以下选项中选择：",
+    "en_zero_shot":
+    "{{ passage if passage}}Q: {{question}}\n{{options}}\nAnswer: Among A through {{ max_option_letter }}, the answer is",
+    "en_few_shot":
+    "Question. {{ passage if passage }} {{ question }}\n{{ options }}\nChoose from the following options: ",
 }
 
 

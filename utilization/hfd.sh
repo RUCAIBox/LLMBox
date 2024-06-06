@@ -145,6 +145,9 @@ done <<< "$files"
 
 for url_file in "${urls[@]}"; do
     IFS='|' read -r url file <<< "$url_file"
+    if [[ -n "$file" ]]; then
+        continue
+    fi
     printf "${YELLOW}Start downloading ${file}.\n${NC}"
     file_dir=$(dirname "$file")
     if [[ "$TOOL" == "wget" ]]; then

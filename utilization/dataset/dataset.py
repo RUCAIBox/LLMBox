@@ -1,7 +1,7 @@
 import typing
 from collections import OrderedDict, defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from copy import copy
+from copy import deepcopy
 from functools import cached_property
 from itertools import chain, islice
 from logging import getLogger
@@ -342,7 +342,7 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
 
         self.init_arguments()
 
-        self._extra_model_args = copy(self.extra_model_args)
+        self._extra_model_args = deepcopy(self.extra_model_args)
 
         # apply chat template
         if self.conversation_formatter.default_stops:

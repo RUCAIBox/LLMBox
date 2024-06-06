@@ -27,7 +27,7 @@ class Drop(GenerationDataset):
     instruction = "Answer the question based on the given passage.\n\nPassage: {passage}\nQuestion: {question}\nAnswer:"
     example_set = "train"
     evaluation_set = "validation"
-    load_args = ("EleutherAI/drop",)
+    load_args = ("ucinlp/drop",)
     load_kwargs = {"download_config": ds.DownloadConfig(extract_compressed_file=True)}
     metrics = [F1(force_number_match=True, word_tokenize="regex", align_bag="counter"), Em()]
     extra_model_args = dict(max_tokens=64, temperature=0, stop=["\n"])

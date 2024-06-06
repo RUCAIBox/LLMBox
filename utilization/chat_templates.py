@@ -6,13 +6,14 @@ __all__ = ["DEFAULT_CHAT_TEMPLATE", "DEFAULT_CHAT_CONFIGS"]
 def smart_space(parts: List[str], auto_leading_space) -> str:
 
     def add_space(msg: str, auto_leading_space: bool, context: str) -> str:
-        if auto_leading_space and msg and context and not context[-1].isspace():
+        if auto_leading_space and msg and context and not context[-1].isspace() and not msg[0].isspace():
             return ' ' + msg
         return msg
 
     rendered = ""
     for part in parts:
-        rendered += add_space(part, auto_leading_space, rendered)
+        if part:
+            rendered += add_space(part, auto_leading_space, rendered)
     return rendered
 
 

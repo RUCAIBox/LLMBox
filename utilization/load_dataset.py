@@ -97,13 +97,13 @@ def get_subsets(
     dataset_name: str,
     dataset_classes: List[Type[Dataset]],
     args: "DatasetArguments",
-    cache_path: Optional[str] = None,
+    cache_paths: List[Optional[str]],
 ) -> List[Set[str]]:
 
     available_subsets = set()
     available_subsets_by_cls = []
 
-    for dataset_cls in dataset_classes:
+    for dataset_cls, cache_path in zip(dataset_classes, cache_paths):
 
         # dynamically set load_args for squad and wmt datasets, in order to support squad_v2 and wmt series datasets
         if not dataset_cls.load_args:
@@ -217,12 +217,13 @@ def load_dataset(
     """
 
     dataset_classes = import_dataset_classes(dataset_name)
-    cache_path = huggingface_download(dataset_classes[0].load_args[0], mirror=args.hf_mirror)
-    if not args.passed_in_commandline("dataset_path"):
-        args.dataset_path = cache_path
-    available_subsets_by_cls = get_subsets(dataset_name, dataset_classes, args, cache_path)
+    cache_paths = [huggingface_download(dcls.load_args[0], mirror=args.hf_mirror) for dcls in dataset_classes]
+    available_subsets_by_cls = get_subsets(dataset_name, dataset_classes, args, cache_paths)
 
-    for dataset_cls, available_subsets in zip(dataset_classes, available_subsets_by_cls):
+    for dataset_cls, available_subsets, cache_path in zip(dataset_classes, available_subsets_by_cls, cache_paths):
+
+        if not args.passed_in_commandline("dataset_path"):
+            args.dataset_path = cache_path
 
         cmd_subset_names = get_cmd_subset_names(args.subset_names, dataset_cls)
         if len(args.subset_names) > 0 and len(cmd_subset_names) == 0:
@@ -293,7 +294,7 @@ def load_dataset(
             yield {dataset_name: dataset_cls(dataset_name, args, model)}
 
 
-@catch_error
+@catch_error()
 def load_datasets(
     args: "DatasetArguments",
     model: "Model",
