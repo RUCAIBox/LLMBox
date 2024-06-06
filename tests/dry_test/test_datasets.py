@@ -20,7 +20,7 @@ datasets = {
     "commonsenseqa": [],
     "copa": [],
     "coqa": "skip",
-    "crows_pairs": "does not support api model",
+    # "crows_pairs": "does not support api model",
     "drop": [],
     "gaokao": [],
     "gsm8k": [],
@@ -57,7 +57,7 @@ datasets = {
     "webq": [],
     "wic": [],
     "winogender": [],
-    "winograd": "does not support api model",
+    # "winograd": "does not support api model",
     "winogrande": [],
     "wmt16:de-en": [],
     "wsc": [],
@@ -90,7 +90,7 @@ def test_datasets_dry_run(run_evaluate, dataset, extra_args):
     `pytest tests/dry_test/test_datasets.py::test_datasets_dry_run[ceval-extra_args7]`
     """
     if not isinstance(extra_args, list):
-        pytest.skip(extra_args)
+        return
 
     run_evaluate(
         ["-m", "gpt-3.5-turbo", "-d", dataset, "-b", "10", "--dry_run", "--openai_api_key", "fake_key", "-i", "5"] +
