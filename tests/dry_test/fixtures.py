@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 from typing import Dict, List, Optional
 
 import pytest
@@ -9,17 +10,17 @@ import requests
 def run_before_and_after_tests():
     """Fixture to execute asserts before and after a test is run"""
     # Setup: fill with any logic you want
-    base_path = os.path.expanduser(os.environ.get("TEMP_HFD_CACHE_PATH", "~/.cache/huggingface"))
-    path = os.path.join(base_path, "datasets")
-    clear = not os.path.exists(path)
+
+    clear = os.environ.get("GITHUB_ACTION", None) == "1"
+    path = Path.home() / ".cache/huggingface/datasets"
 
     if clear:
-        os.makedirs(path)
+        path.mkdir()
 
     yield  # this is where the testing happens
 
     if clear:
-        os.removedirs(path)
+        path.rmdir()
 
 
 @pytest.fixture
@@ -31,10 +32,7 @@ def run_evaluate():
                 cuda = str(cuda)
             os.environ["CUDA_VISIBLE_DEVICES"] = cuda
 
-        base_path = os.path.expanduser(os.environ.get("TEMP_HFD_CACHE_PATH", "~/.cache/huggingface"))
-        path = os.path.join(base_path, "datasets")
-        args.append("--hfd_cache_path")
-        args.append(path)
+        from datasets.exceptions import DatasetGenerationError
 
         from utilization import get_evaluator, parse_argument
 
@@ -53,6 +51,8 @@ def run_evaluate():
             evaluator.evaluate()
         except (ConnectionError, requests.exceptions.ReadTimeout):
             pytest.skip(reason="ConnectionError")
+        except DatasetGenerationError:
+            pytest.skip(reason="DatasetGenerationError")
 
         if test_evaluation_data is not None:
             for key, value in test_evaluation_data.items():
