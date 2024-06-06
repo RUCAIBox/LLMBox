@@ -4,6 +4,7 @@ pytest-md
 pytest-emoji
 pytest-cov
 pytest-github-actions-annotate-failures
+pytest-split
 packaging
 setuptools
 wheel

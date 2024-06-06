@@ -5,6 +5,23 @@ import pytest
 import requests
 
 
+@pytest.fixture(autouse=True)
+def run_before_and_after_tests():
+    """Fixture to execute asserts before and after a test is run"""
+    # Setup: fill with any logic you want
+    base_path = os.path.expanduser(os.environ.get("TEMP_HFD_CACHE_PATH", "~/.cache/huggingface"))
+    path = os.path.join(base_path, "datasets")
+    clear = not os.path.exists(path)
+
+    if clear:
+        os.makedirs(path)
+
+    yield  # this is where the testing happens
+
+    if clear:
+        os.removedirs(path)
+
+
 @pytest.fixture
 def run_evaluate():
 
@@ -13,6 +30,11 @@ def run_evaluate():
             if isinstance(cuda, int):
                 cuda = str(cuda)
             os.environ["CUDA_VISIBLE_DEVICES"] = cuda
+
+        base_path = os.path.expanduser(os.environ.get("TEMP_HFD_CACHE_PATH", "~/.cache/huggingface"))
+        path = os.path.join(base_path, "datasets")
+        args.append("--hfd_cache_path")
+        args.append(path)
 
         from utilization import get_evaluator, parse_argument
 
