@@ -1,3 +1,4 @@
+import inspect
 from functools import wraps
 from traceback import format_exc
 
@@ -8,12 +9,19 @@ ERROR_OVERVIEW = {
     "probability tensor contains either `inf`, `nan` or element < 0.\nSee https://github.com/meta-llama/llama/issues/380 for more details.",
     "trust_remote_code":
     "Unsupported datasets library version. Please update the datasets library to the latest version.\n\n  pip install datasets --upgrade",
+    "'utf-8' codec can't decode byte 0x8b in position 1: invalid start byte":
+    "Failed to fetch subset names from Hugging Face Hub. Please check your internet connection or try hf-mirror mode with `--hf_mirror` (experimental).",
 }
 
 
-def catch_error(continue_from: bool = False):
+def catch_error(continue_from_or_func: bool = False):
+    """Catch the error and log the error message to log file. If the error is known, raise a RuntimeError with a message.
 
-    def catch_error_decrator(func):
+    Args:
+        - continue_from_or_func (bool): Prompt the user to continue from the checkpoint if an error occurs.
+    """
+
+    def catch_error_decrator(func, continue_from=continue_from_or_func):
         """Catch the error and log the error message to log file."""
 
         @wraps(func)
@@ -41,5 +49,8 @@ def catch_error(continue_from: bool = False):
                 raise e
 
         return wrapper
+
+    if inspect.isfunction(continue_from_or_func):
+        return catch_error_decrator(continue_from_or_func, False)
 
     return catch_error_decrator
