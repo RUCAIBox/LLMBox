@@ -17,6 +17,9 @@ models = {
 @pytest.mark.parametrize("dataset", ["gsm8k", "hellaswag", "mmlu"])
 @pytest.mark.parametrize("model, extra_args", models.items())
 def test_models_dry_run(run_evaluate, model, dataset, extra_args):
+    if not torch.cuda.is_available() and extra_args[-2:] == ["--cuda", "0"]:
+        pytest.skip("CUDA is not available")
+
     if extra_args is None:
         return
     try:
