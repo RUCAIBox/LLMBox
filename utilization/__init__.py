@@ -2,7 +2,7 @@ import os
 
 # Disable download counts for transformers to accelerate
 os.environ["HF_UPDATE_DOWNLOAD_COUNTS"] = "FALSE"
-from typing import TYPE_CHECKING, Callable, Optional
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
 # this file only initializes .utils modules to avoid early import of torch
 from .utils import DatasetArguments, EvaluationArguments, ModelArguments, parse_argument
@@ -18,6 +18,8 @@ def get_evaluator(
     evaluation_args: Optional["EvaluationArguments"] = None,
     initalize: bool = True,
     load_hf_model: Optional[Callable] = None,
+    evaluation_data: Optional[List[Dict[str, Any]]] = None,
+    example_data: Optional[List[Dict[str, Any]]] = None,
 ) -> "Evaluator":
     from .evaluator import Evaluator
 
@@ -27,6 +29,8 @@ def get_evaluator(
         evaluation_args=evaluation_args,
         initalize=initalize,
         load_hf_model=load_hf_model,
+        evaluation_data=evaluation_data,
+        example_data=example_data,
     )
 
 

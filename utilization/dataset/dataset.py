@@ -169,7 +169,7 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
         self.evaluation_set = args.evaluation_set or self.evaluation_set
         self.example_set = args.example_set or self.example_set
         if self.max_num_shots:
-            if not self.example_set:
+            if not self.example_set and not example_data:
                 # example_set is not mandatory when `load_raw_dataset` is overriden
                 logger.warning(
                     f"Please provide the example set for dataset {self.display_name} to construct few-shot examples. You can ignore this warning if `load_raw_dataset` is correctly implemented."

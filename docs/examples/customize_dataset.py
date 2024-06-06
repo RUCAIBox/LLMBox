@@ -14,19 +14,6 @@ class MyData(GenerationDataset):
     instruction = "Reply to my message: {input}\nReply:"
     metrics = []
 
-    def load_raw_dataset(self, dataset_path, subset_name, evaluation_set, example_set):
-        self.evaluation_data = [
-            {
-                "input": "Hello",
-                "target": "Hi"
-            },
-            {
-                "input": "How are you?",
-                "target": "I'm fine, thank you!"
-            },
-        ]
-        self.example_data = [{"input": "What's the weather like today?", "target": "It's sunny today."}]
-
     def format_instance(self, instance: dict) -> dict:
         return instance
 
@@ -42,5 +29,19 @@ evaluator = get_evaluator(
         num_shots=1,
         max_example_tokens=2560,
     ),
+    evaluation_data=[
+        {
+            "input": "Hello",
+            "target": "Hi"
+        },
+        {
+            "input": "How are you?",
+            "target": "I'm fine, thank you!"
+        },
+    ],
+    example_data=[{
+        "input": "What's the weather like today?",
+        "target": "It's sunny today."
+    }]
 )
 evaluator.evaluate()

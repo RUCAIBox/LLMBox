@@ -1,6 +1,6 @@
 from logging import getLogger
 from statistics import mode
-from typing import Callable, Dict, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from .load_dataset import load_datasets
 from .load_model import load_model
@@ -34,6 +34,8 @@ class Evaluator:
         evaluation_args: Optional[EvaluationArguments] = None,
         initalize: bool = True,
         load_hf_model: Optional[Callable] = None,
+        evaluation_data: Optional[List[Dict[str, Any]]] = None,
+        example_data: Optional[List[Dict[str, Any]]] = None,
     ):
 
         self.model_args = model_args
@@ -52,7 +54,13 @@ class Evaluator:
 
         self.model = load_model(self.model_args)
         self.writer = PredictionWriter(self.dataset_args.evaluation_results_path)
-        self.dataset = load_datasets(self.dataset_args, self.model, self.evaluation_args)
+        self.dataset = load_datasets(
+            self.dataset_args,
+            self.model,
+            self.evaluation_args,
+            evaluation_data=evaluation_data,
+            example_data=example_data,
+        )
         self.writer.write_metainfo(self.model_args, self.dataset_args, self.evaluation_args)
 
     @catch_error(True)

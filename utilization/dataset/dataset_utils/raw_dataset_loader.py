@@ -74,10 +74,6 @@ def get_raw_dataset_loader(
     - local file pattern `"{dataset_path}".format(subset=subset_name, split=split)`
 
     """
-    if load_args is None:
-        raise NotImplementedError(
-            f"You should either specifing `load_args` or overwriting `load_raw_dataset` to load the dataset."
-        )
 
     if subset_name:
         dataset_msg = f"{dataset_name}:{subset_name}"

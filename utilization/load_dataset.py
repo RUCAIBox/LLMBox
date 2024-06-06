@@ -6,7 +6,7 @@ import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from itertools import zip_longest
 from logging import getLogger
-from typing import TYPE_CHECKING, Dict, Iterator, List, Optional, Set, Type
+from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Set, Type
 
 from datasets import DownloadConfig, get_dataset_config_names
 
@@ -190,6 +190,8 @@ def load_dataset(
     args: "DatasetArguments",
     model: "Model",
     evaluation_args: "EvaluationArguments",
+    evaluation_data: Optional[List[Dict[str, Any]]] = None,
+    example_data: Optional[List[Dict[str, Any]]] = None,
 ) -> Iterator[Dict[str, Dataset]]:
     """Load corresponding dataset class. One dataset class contains one subset,
     e.g., Mmlu(abstract_algebra), Mmlu()
@@ -264,7 +266,8 @@ def load_dataset(
                 # load the first dataset in the main thread (only show the INFO log message for the first dataset)
                 first_dataset = subset_names.pop(0)
                 first_dataset = (
-                    dataset_name + ":" + first_dataset, dataset_cls(dataset_name, args, model, first_dataset)
+                    dataset_name + ":" + first_dataset,
+                    dataset_cls(dataset_name, args, model, first_dataset, evaluation_data, example_data)
                 )
                 logger.info(f"Loading remaining subsets ...")
                 logging.disable(logging.INFO)
@@ -273,14 +276,20 @@ def load_dataset(
                 with ThreadPoolExecutor(max_workers=len(subset_names)) as executor:
                     res = [
                         executor.submit(
-                            lambda s: (dataset_name + ":" + s, dataset_cls(dataset_name, args, model, s)), s
+                            lambda s: (
+                                dataset_name + ":" + s,
+                                dataset_cls(dataset_name, args, model, s, evaluation_data, example_data)
+                            ), s
                         ) for s in subset_names
                     ]
                 datasets = dict([first_dataset] + [f.result() for f in as_completed(res)])
                 logging.disable(logging.NOTSET)
             else:
                 # load all datasets one by one
-                datasets = {dataset_name + ":" + s: dataset_cls(dataset_name, args, model, s) for s in subset_names}
+                datasets = {
+                    dataset_name + ":" + s: dataset_cls(dataset_name, args, model, s, evaluation_data, example_data)
+                    for s in subset_names
+                }
             yield datasets
 
         elif len(subset_names) == 1 and len(available_subsets) != 1 and accepts_subset(
@@ -291,12 +300,15 @@ def load_dataset(
             # race:middle (one of the subsets), coqa (default)
             subset_name = next(iter(subset_names))
             logger.info(f"Loading subset of dataset `{dataset_name}:{subset_name}`")
-            yield {dataset_name + ":" + subset_name: dataset_cls(dataset_name, args, model, subset_name)}
+            yield {
+                dataset_name + ":" + subset_name:
+                dataset_cls(dataset_name, args, model, subset_name, evaluation_data, example_data)
+            }
 
         else:
             # copa (super_glue:copa) or anli
             logger.info(f"Loading dataset `{dataset_name}`")
-            yield {dataset_name: dataset_cls(dataset_name, args, model)}
+            yield {dataset_name: dataset_cls(dataset_name, args, model, None, evaluation_data, example_data)}
 
 
 @catch_error()
@@ -304,6 +316,8 @@ def load_datasets(
     args: "DatasetArguments",
     model: "Model",
     evaluation_args: "EvaluationArguments",
+    evaluation_data: Optional[List[Dict[str, Any]]] = None,
+    example_data: Optional[List[Dict[str, Any]]] = None,
 ) -> DatasetCollection:
 
     if model.model_backend == "vllm":
@@ -319,7 +333,16 @@ def load_datasets(
     # get all the dataset classes
     datasets = []
     for d in args.dataset_names:
-        datasets.extend(load_dataset(d, args, model, evaluation_args))
+        datasets.extend(
+            load_dataset(
+                d,
+                args,
+                model,
+                evaluation_args,
+                evaluation_data=evaluation_data,
+                example_data=example_data,
+            )
+        )
     datasets = {k: v for d in datasets for k, v in d.items()}
     logger.debug(datasets)
     if len(datasets) <= 0:
