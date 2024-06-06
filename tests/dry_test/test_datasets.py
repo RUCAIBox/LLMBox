@@ -1,6 +1,9 @@
+import nltk
 import pytest
 
 from .fixtures import run_evaluate
+
+nltk.download('punkt')
 
 datasets = {
     "agieval": [],
