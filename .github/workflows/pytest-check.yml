@@ -33,7 +33,7 @@ jobs:
           uv pip install -r tests/requirements-tests.txt --system
           uv pip install vllm --no-build-isolation --system
       - name: Run tests
-        run: pytest --cov --junit-xml=test-results.xml --split 10 --group ${{ matrix.group }}
+        run: pytest --cov --junit-xml=test-results.xml --splits 10 --group ${{ matrix.group }}
       - name: Surface failing tests
         if: always()
         uses: pmeier/pytest-results-action@main
