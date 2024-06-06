@@ -68,11 +68,10 @@ datasets = {
 def test_datasets_dry_run(run_evaluate, dataset, extra_args):
     if extra_args is None:
         return
-    run_evaluate(
-        ["-m", "gpt-3.5-turbo", "-d", dataset, "-b", "10", "--dry_run", "--cuda", "0", "--openai_api_key", "fake_key"] +
-        extra_args
-    )
+    run_evaluate(["-m", "gpt-3.5-turbo", "-d", dataset, "-b", "10", "--dry_run", "--openai_api_key", "fake_key"] +
+                 extra_args,
+                 cuda=0)
 
 
 def test_crows_pairs_dry_run(run_evaluate):
-    run_evaluate(["-m", "gpt2", "-d", "crows_pairs", "-b", "10", "--dry_run", "--cuda", "0"])
+    run_evaluate(["-m", "gpt2", "-d", "crows_pairs", "-b", "10", "--dry_run"], cuda=0)
