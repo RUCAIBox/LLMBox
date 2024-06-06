@@ -42,7 +42,8 @@ def huggingface_download(
     command = f"bash {hfd_cli.as_posix()} {path} --dataset --local-dir {repo_path.as_posix()}"
     os.system(command + mirror_flag)
 
-    script = load_script_path.read_text().replace(old, new)
-    load_script_path.write_text(script)
+    if mirror:
+        script = load_script_path.read_text().replace(old, new)
+        load_script_path.write_text(script)
 
     return str(repo_path)
