@@ -62,7 +62,7 @@ datasets = {
     "wmt16:de-en": [],
     "wsc": [],
     "xcopa": [],
-    "xlsum": [],
+    "xlsum": "dataset too large",
     "xsum": ["--no_dataset_threading"],
 }
 
