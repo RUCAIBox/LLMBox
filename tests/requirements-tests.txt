@@ -5,6 +5,7 @@ pytest-emoji
 pytest-cov
 pytest-github-actions-annotate-failures
 pytest-split
+pytest-rerunfailures
 packaging
 setuptools
 wheel
