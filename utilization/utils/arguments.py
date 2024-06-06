@@ -280,7 +280,12 @@ class ModelArguments(ModelBackendMixin):
                     "OpenAI API key is required. Please set it by passing a `--openai_api_key` or through environment variable `OPENAI_API_KEY`."
                 )
             if self.tokenizer_name_or_path is None:
-                self.tokenizer_name_or_path = tiktoken.encoding_name_for_model(self.model_name_or_path)
+                try:
+                    self.tokenizer_name_or_path = tiktoken.encoding_name_for_model(self.model_name_or_path)
+                except KeyError as e:
+                    raise RuntimeError(
+                        "Unsupported tiktoken library version. Please update the tiktoken library to the latest version.\n\n  pip install tiktoken --upgrade"
+                    )
 
         # set `self.anthropic_api_key` from environment variables
         if "ANTHROPIC_API_KEY" in os.environ and self.anthropic_api_key is None:

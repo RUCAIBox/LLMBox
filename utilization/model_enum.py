@@ -146,6 +146,11 @@ API_MODELS = {
         "model_type": "chat",
         "model_backend": "openai",
     },
+    "gpt-4o": {
+        "endpoint": "chat/completions",
+        "model_type": "chat",
+        "model_backend": "openai",
+    },
     "gpt-4-turbo": {
         "endpoint": "chat/completions",
         "model_type": "chat",
