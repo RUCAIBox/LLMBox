@@ -4,7 +4,7 @@ import numpy as np
 import torch
 from tqdm import tqdm
 
-from ..model import openai_model
+from ...model import openai_model
 
 
 def knn_construct_examples(instance_query, example_dataset, k):

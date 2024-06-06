@@ -7,7 +7,7 @@ from torch.utils.data.sampler import Sampler
 from .prefix_caching import CachePrefixSampler, round_down
 
 if TYPE_CHECKING:
-    from ..dataset.dataset import Dataset, DatasetCollection
+    from ...dataset.dataset import Dataset, DatasetCollection
 
 logger = getLogger(__name__)
 

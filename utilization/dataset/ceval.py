@@ -1,7 +1,7 @@
 from functools import cached_property
 from logging import getLogger
 
-from .dataset_enum import CEVAL_SUBJECTS, CEVAL_TRANS
+from ..dataset_enum import CEVAL_SUBJECTS, CEVAL_TRANS
 from .multiple_choice_dataset import MultipleChoiceDataset
 
 logger = getLogger(__name__)

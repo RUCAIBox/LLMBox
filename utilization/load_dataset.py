@@ -5,51 +5,68 @@ import logging
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from logging import getLogger
-from typing import TYPE_CHECKING, Dict, Iterator, List, Set, Type
+from typing import TYPE_CHECKING, Dict, Iterator, List, Optional, Set, Type
 
 from datasets import DownloadConfig, get_dataset_config_names
 
-from utilization.metric.pass_at_k import PassAtK
-
-from ..metric import GPTEval
-from ..utils.catch_error import catch_error
-from ..utils.logging import list_datasets
 from .dataset import Dataset, DatasetCollection
+from .dataset.dataset_utils.raw_dataset_loader import accepts_subset
 from .dataset_enum import DATASET_ALIASES
-from .utils import accepts_subset
+from .metric import GPTEval, PassAtK
+from .utils.catch_error import catch_error
+from .utils.hfd import get_script_path, huggingface_download
+from .utils.logging import list_datasets
 
 if TYPE_CHECKING:
     # solve the circular import
-    from ..model.model import Model
-    from ..utils import DatasetArguments
+    from .model import Model
+    from .utils import DatasetArguments, EvaluationArguments
 
 logger = getLogger(__name__)
 
+__all__ = ["load_datasets", "register_dataset"]
+
 ABSTRACT_DATASET = {"Dataset", "GenerationDataset", "MultipleChoiceDataset"}
+REGISTERY = {}
+
+
+def _validate_dataset_class(cls):
+    name = cls.__name__
+    return issubclass(cls, Dataset) and name not in ABSTRACT_DATASET
+
+
+def _fuzzy_match_prompt(dataset_name) -> str:
+    all_datasets = list_datasets()
+    matches = difflib.get_close_matches(dataset_name, list(all_datasets), cutoff=0.6)
+    if len(matches) == 0:
+        fuzzy_match = f" Available choices are: {all_datasets}."
+    else:
+        fuzzy_match = f" Possible choices are: {matches}."
+    return fuzzy_match
+
+
+def register_dataset(name: str):
+
+    def inner_decorator(cls):
+        assert _validate_dataset_class(cls), f"{cls} is not a valid dataset class."
+        REGISTERY[name] = cls
+        return cls
+
+    return inner_decorator
 
 
 def _import_dataset_class(dataset_name: str) -> Type[Dataset]:
 
-    module_path = __package__ + "." + dataset_name
+    module_path = __package__ + ".dataset." + dataset_name
     try:
         module = importlib.import_module(module_path)
     except ModuleNotFoundError as e:
-        all_datasets = list_datasets()
-
-        if f"utilization.dataset.{dataset_name}" in str(e):
-            matches = difflib.get_close_matches(dataset_name, list(all_datasets), cutoff=0.6)
-            if len(matches) == 0:
-                fuzzy_match = f" Available choices are: {all_datasets}."
-            else:
-                fuzzy_match = f" Possible choices are: {matches}."
-        else:
-            fuzzy_match = ""
-
+        fuzzy_match = _fuzzy_match_prompt(dataset_name) if f"utilization.dataset.{dataset_name}" in str(e) else ""
         raise ValueError(f"Invalid dataset: {dataset_name}.{fuzzy_match}\n{e}") from e
     clsmembers = inspect.getmembers(module, inspect.isclass)
 
     for name, obj in clsmembers:
-        if issubclass(obj, Dataset) and name not in ABSTRACT_DATASET:
+        if _validate_dataset_class(obj):
             logger.debug(f"Dataset class `{name}` imported from `{module_path}`.")
             return obj
 
@@ -60,7 +77,16 @@ def _import_dataset_class(dataset_name: str) -> Type[Dataset]:
 
 
 def import_dataset_classes(dataset_name: str) -> List[Type[Dataset]]:
-    if dataset_name in DATASET_ALIASES:
+    """Import dataset classes from the dataset_name. Look up order:
+
+    1. Registered datasets with `register_dataset`
+    2. Dataset aliases defined in `DATASET_ALIASES`
+    3. Native dataset classes in `utilization.dataset.{dataset_name}`
+    """
+
+    if dataset_name in REGISTERY:
+        return [REGISTERY[dataset_name]]
+    elif dataset_name in DATASET_ALIASES:
         logger.info("Loading dataset aliases: %s -> %s", dataset_name, DATASET_ALIASES[dataset_name])
         return [_import_dataset_class(alias) for alias in DATASET_ALIASES[dataset_name]]
     else:
@@ -71,7 +97,7 @@ def get_subsets(
     dataset_name: str,
     dataset_classes: List[Type[Dataset]],
     args: "DatasetArguments",
-    offline: bool = False
+    cache_path: Optional[str] = None,
 ) -> List[Set[str]]:
 
     available_subsets = set()
@@ -84,18 +110,26 @@ def get_subsets(
             dataset_cls.load_args = (dataset_name,)
 
         download_config = DownloadConfig(use_etag=False)
+        paths = [cache_path, args.dataset_path, dataset_cls.load_args[0]]
         if args.dataset_path is not None:
-            paths = [args.dataset_path, dataset_cls.load_args[0]]
-        else:
-            paths = [dataset_cls.load_args[0]]
+            paths = [str(get_script_path(cache_path))] + paths
+        if cache_path is not None:
+            paths = [str(get_script_path(cache_path))] + paths
+
         found_config = False
         for path in paths:
+            if path is None:
+                continue
+
             try:
-                s = get_dataset_config_names(path, download_config=download_config, trust_remote_code=True)
+                s = get_dataset_config_names(path=path, download_config=download_config, trust_remote_code=True)
                 found_config = True
                 break
             except Exception as e:
-                logger.info(f"Failed when trying to get_dataset_config_names: {e}")
+                logger.info(f"Failed when trying to get_dataset_config_names({path}): {e}")
+
+        logger.debug(f"get_dataset_config_names({path}): {s}")
+
         if not found_config:
             os.environ["HF_DATASETS_OFFLINE"] = "1"
             s = []
@@ -122,6 +156,7 @@ def get_subsets(
                 banned_subsets = {dataset_cls.banned_subsets}  # type: ignore
             else:
                 banned_subsets = set(dataset_cls.banned_subsets)
+            logger.debug(f"Removing banned subsets {banned_subsets} of {dataset_cls} from available subsets.")
             s -= banned_subsets
 
         available_subsets.update(s)
@@ -159,7 +194,7 @@ def load_dataset(
     dataset_name: str,
     args: "DatasetArguments",
     model: "Model",
-    threading: bool = True,
+    evaluation_args: "EvaluationArguments",
 ) -> Iterator[Dict[str, Dataset]]:
     """Load corresponding dataset class. One dataset class contains one subset,
     e.g., Mmlu(abstract_algebra), Mmlu()
@@ -182,7 +217,10 @@ def load_dataset(
     """
 
     dataset_classes = import_dataset_classes(dataset_name)
-    available_subsets_by_cls = get_subsets(dataset_name, dataset_classes, args, offline=args.dataset_path is not None)
+    cache_path = huggingface_download(dataset_classes[0].load_args[0], mirror=args.hf_mirror)
+    if not args.passed_in_commandline("dataset_path"):
+        args.dataset_path = cache_path
+    available_subsets_by_cls = get_subsets(dataset_name, dataset_classes, args, cache_path)
 
     for dataset_cls, available_subsets in zip(dataset_classes, available_subsets_by_cls):
 
@@ -215,7 +253,7 @@ def load_dataset(
                 subset_repr = ",".join(subset_names)
             logger.info("Loading dataset `%s` with subset(s): %s", dataset_name, subset_repr)
 
-            if threading and len(subset_names) > 2:
+            if evaluation_args.dataset_threading and len(subset_names) > 2:
 
                 # load the first dataset in the main thread (only show the INFO log message for the first dataset)
                 first_dataset = subset_names.pop(0)
@@ -255,8 +293,12 @@ def load_dataset(
             yield {dataset_name: dataset_cls(dataset_name, args, model)}
 
 
-@catch_error()
-def load_datasets(args: "DatasetArguments", model: "Model") -> DatasetCollection:
+@catch_error
+def load_datasets(
+    args: "DatasetArguments",
+    model: "Model",
+    evaluation_args: "EvaluationArguments",
+) -> DatasetCollection:
 
     if model.model_backend == "vllm":
         args.batch_size = -1
@@ -271,7 +313,7 @@ def load_datasets(args: "DatasetArguments", model: "Model") -> DatasetCollection
     # get all the dataset classes
     datasets = []
     for d in args.dataset_names:
-        datasets.extend(load_dataset(d, args, model, args.dataset_threading))
+        datasets.extend(load_dataset(d, args, model, evaluation_args))
     datasets = {k: v for d in datasets for k, v in d.items()}
     logger.debug(datasets)
     if len(datasets) <= 0:

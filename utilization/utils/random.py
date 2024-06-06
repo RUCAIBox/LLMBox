@@ -1,16 +1,6 @@
 import random
 
 import numpy as np
-import torch
-
-try:
-    import accelerate
-    from accelerate.utils.imports import is_mlu_available, is_npu_available, is_torch_xla_available, is_xpu_available
-
-    if is_torch_xla_available():
-        import torch_xla.core.xla_model as xm
-except (ModuleNotFoundError, ImportError):
-    accelerate = None
 
 
 def set_seed(seed: int, device_specific: bool = False, deterministic: bool = False):
@@ -25,6 +15,19 @@ def set_seed(seed: int, device_specific: bool = False, deterministic: bool = Fal
         deterministic (`bool`, *optional*, defaults to `False`):
             Whether to use deterministic algorithms where available. Can slow down training.
     """
+    import torch
+
+    try:
+        import accelerate
+        from accelerate.utils.imports import (
+            is_mlu_available, is_npu_available, is_torch_xla_available, is_xpu_available
+        )
+
+        if is_torch_xla_available():
+            import torch_xla.core.xla_model as xm
+    except (ModuleNotFoundError, ImportError):
+        accelerate = None
+
     if device_specific and accelerate is not None:
         seed += accelerate.state.AcceleratorState().process_index
 

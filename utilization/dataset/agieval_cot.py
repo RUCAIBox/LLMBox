@@ -2,12 +2,12 @@ import re
 from functools import cached_property
 from logging import getLogger
 
-from ..metric import Em
-from ..utils import math_equiv
-from .dataset_enum import (
+from ..dataset_enum import (
     AGIEVAL_EN_CLOZE_TASKS, AGIEVAL_EN_PROMPT_TASKS, AGIEVAL_EN_QA_TASKS, AGIEVAL_MULTI_ANSWERS_TASKS,
     AGIEVAL_NO_LETTER_CHOICE_TASKS, AGIEVAL_ZH_CLOZE_TASKS, AGIEVAL_ZH_PROMPT_TASKS, AGIEVAL_ZH_QA_TASKS
 )
+from ..metric import Em
+from ..utils import math_equiv
 from .generation_dataset import GenerationDataset
 
 logger = getLogger(__name__)

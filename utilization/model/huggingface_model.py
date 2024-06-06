@@ -10,12 +10,11 @@ from transformers.models.auto import AutoModelForCausalLM, AutoTokenizer
 from transformers.tokenization_utils import PreTrainedTokenizer
 from transformers.tokenization_utils_fast import PreTrainedTokenizerFast
 
-from utilization.utils.conversation import Conversation
-from utilization.utils.prefix_caching import SequenceCache
-
 from ..utils import ModelArguments
 from .model import Model
-from .model_utils import KeyWordsCriteria
+from .model_utils.conversation import Conversation
+from .model_utils.keywords_criteria import KeyWordsCriteria
+from .model_utils.prefix_caching import SequenceCache
 
 logger = getLogger(__name__)
 
@@ -82,15 +81,21 @@ def load_hf_model(args: ModelArguments) -> Tuple[PreTrainedModel, Union[PreTrain
 
     # https://github.com/meta-llama/llama/issues/380#issuecomment-1656714118
     if args.torch_dtype == "auto":
-        with open(args.model_name_or_path + "/config.json") as f:
-            config = json.load(f)
-        if "torch_dtype" in config:
-            if config["torch_dtype"] == "float32":
-                args.torch_dtype = "float16"
-            else:
-                args.torch_dtype = config["torch_dtype"]
+        try:
+            with open(args.model_name_or_path + "/config.json") as f:
+                config = json.load(f)
+            if "torch_dtype" in config:
+                if config["torch_dtype"] == "float32":
+                    torch_dtype = "float16"
+                else:
+                    torch_dtype = config["torch_dtype"]
+        except:
+            torch_dtype = "float16"
+    else:
+        torch_dtype = args.torch_dtype
+
     model_kwargs = dict(
-        torch_dtype=getattr(torch, args.torch_dtype),
+        torch_dtype=getattr(torch, torch_dtype),
         device_map=args.device_map,
         load_in_4bit=args.load_in_4bit,
         load_in_8bit=args.load_in_8bit,
@@ -102,13 +107,15 @@ def load_hf_model(args: ModelArguments) -> Tuple[PreTrainedModel, Union[PreTrain
 
     if args.flash_attention:
         model_kwargs["attn_implementation"] = "flash_attention_2"
+    else:
+        model_kwargs["attn_implementation"] = "sdpa"
 
     if hasattr(args, 'bnb_config') and args.bnb_config:
         model_kwargs['quantization_config'] = args.bnb_config
 
     try:
         model = AutoModelForCausalLM.from_pretrained(args.model_name_or_path, **model_kwargs).eval()
-    except (TypeError, ImportError, ValueError) as e:
+    except (TypeError, ImportError, ValueError, RuntimeError) as e:
         if "attn_implementation" in str(e) or "flash att" in str(e).lower().replace("_", " "):
             logger.warning(
                 f"Cannot set `attn_implementation` for {args.model_name_or_path}: {e}. Set `flash_attention` to False."
@@ -151,6 +158,8 @@ class HuggingFaceModel(Model):
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.model_max_input_and_output = self.tokenizer.model_max_length
 
+        # model tests
+
         try:
             self.model(position_ids=None)
         except TypeError:
@@ -166,6 +175,8 @@ class HuggingFaceModel(Model):
             self.support_cache = False
         except ValueError:
             self.support_cache = True
+
+        self.support_char_to_token = True
 
     @property
     def model_max_input(self):

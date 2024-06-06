@@ -5,7 +5,7 @@ import string
 
 from tqdm import tqdm
 
-from utilization.model.openai import Openai
+from utilization.model.openai_model import Openai
 from utilization.utils import ModelArguments
 
 base_instruction_breath = "I want you act as a Prompt Creator.\r\n\

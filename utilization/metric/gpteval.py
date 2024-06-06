@@ -7,8 +7,6 @@ import numpy as np
 import openai
 from tqdm import tqdm
 
-from ..model import load_model
-from ..utils import ModelArguments
 from .metric import Metric
 
 logger = getLogger(__name__)
@@ -35,6 +33,8 @@ class GPTEval(Metric):
         """
 
     def __init__(self, multi_turn=False, type: Literal["single", "pairwise"] = "single"):
+        from ..utils import ModelArguments
+
         self.multi_turn = multi_turn
         self.type = type
         self.model_args = ModelArguments(
@@ -49,6 +49,8 @@ class GPTEval(Metric):
     def __call__(self, predictions, references):
 
         # load gpteval model after the predictions of dataset are generated
+        from ..model import load_model
+
         self.model = load_model(self.model_args)
         self.model.set_generation_args()
 

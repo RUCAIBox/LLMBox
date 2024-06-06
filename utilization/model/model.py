@@ -6,11 +6,11 @@ import tiktoken
 from tiktoken import Encoding
 from transformers import PreTrainedModel, PreTrainedTokenizer, PreTrainedTokenizerFast
 
+from ..model_enum import API_MODELS, ENDPOINT_ARGS, ERROR_OVERVIEW
 from ..utils import ModelArguments
 from ..utils.arguments import ModelBackendMixin
-from ..utils.conversation import Conversation
-from ..utils.prefix_caching import Cacher
-from .model_enum import API_MODELS, ENDPOINT_ARGS, ERROR_OVERVIEW
+from .model_utils.conversation import Conversation
+from .model_utils.prefix_caching import Cacher
 
 if TYPE_CHECKING:
     # solve the circular import

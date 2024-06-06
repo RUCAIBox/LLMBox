@@ -1,22 +1,41 @@
-from typing import Any, Dict, Union
+from typing import Any, Dict, List, Union
 
 __all__ = ["DEFAULT_CHAT_TEMPLATE", "DEFAULT_CHAT_CONFIGS"]
+
+
+def smart_space(parts: List[str], auto_leading_space) -> str:
+
+    def add_space(msg: str, auto_leading_space: bool, context: str) -> str:
+        if auto_leading_space and msg and context and not context[-1].isspace():
+            return ' ' + msg
+        return msg
+
+    rendered = ""
+    for part in parts:
+        rendered += add_space(part, auto_leading_space, rendered)
+    return rendered
+
 
 # sources: https://github.com/huggingface/chat-ui/blob/main/PROMPTS.md
 
 DEFAULT_CHAT_TEMPLATE = (
-    "{% macro add(role, msg) -%}"
-    "{{ seq[role + '_start'] }}"
-    "{{ msg | smart_space(auto_leading_space, seq[role + '_start']) }}"
-    "{{ seq[role + '_end'] }}"
-    "{%- endmacro %}"
-    "{{ seq.get('all_start', '') }}"
-    "{% for message in messages %}"
-    "{{ add(message['role'], message['content']) }}"
-    "{% endfor %}"
-    "{% if add_generation_prompt %}"
-    "{{ seq['assistant_start'] }}"
-    "{% endif %}"
+    "{%- set data = namespace(parts=[]) -%}"
+    ""
+    "{%- if 'all_start' in seq -%}"
+    "{%- set data.parts = data.parts + [seq['all_start']] -%}"
+    "{%- endif -%}"
+    ""
+    "{%- for message in messages -%}"
+    "{%- set data.parts = data.parts + [seq[message['role'] + '_start']] -%}"
+    "{%- set data.parts = data.parts + [message['content']] -%}"
+    "{%- set data.parts = data.parts + [seq[message['role'] + '_end']] -%}"
+    "{%- endfor -%}"
+    ""
+    "{%- if add_generation_prompt -%}"
+    "{%- set data.parts = data.parts + [seq['assistant_start']] -%}"
+    "{%- endif -%}"
+    ""
+    "{{ data.parts | smart_space(auto_leading_space) }}"
 )
 
 # Chat configs format:
@@ -48,7 +67,8 @@ DEFAULT_CHAT_CONFIGS: Dict[str, Union[Dict[str, Any], str]] = {
         "assistant_start": "",
         "assistant_end": "\n\n",
         "auto_leading_space": True,
-        "default_stops": ["\n"],
+        "final_rstrip": True,
+        "default_stops": [],
     },
     "llama2": {
         "all_start": "<s>[INST] ",
@@ -59,7 +79,7 @@ DEFAULT_CHAT_CONFIGS: Dict[str, Union[Dict[str, Any], str]] = {
         "assistant_start": "",
         "assistant_end": " </s><s>[INST] ",
         "auto_leading_space": True,
-        "default_stops": [""],
+        "default_stops": [],
     },
     "chatml": {
         "system_start": "<|im_start|>system\n",

@@ -1,6 +1,33 @@
 import re
 
-from utilization.model.generation_args import generation_arg
+from .utils.generation_args import generation_arg
+
+VLLM_ARGS = {
+    "temperature": generation_arg(),
+    "top_p": generation_arg(),
+    "top_k": generation_arg(),
+    "max_tokens": generation_arg(),
+    "best_of": generation_arg(),
+    "frequency_penalty": generation_arg(),
+    "presence_penalty": generation_arg(),
+    "repetition_penalty": generation_arg(),
+    "length_penalty": generation_arg(),
+    "early_stopping": generation_arg(),
+    "stop": generation_arg(),
+}
+
+HUGGINGFACE_ARGS = {
+    "temperature": generation_arg(),
+    "top_p": generation_arg(),
+    "top_k": generation_arg(),
+    "max_tokens": generation_arg(),
+    "best_of": generation_arg(),
+    "repetition_penalty": generation_arg(),
+    "length_penalty": generation_arg(),
+    "early_stopping": generation_arg(),
+    "no_repeat_ngram_size": generation_arg(),
+    "stop": generation_arg(),
+}
 
 ANTHROPIC_CHAT_COMPLETIONS_ARGS = {
     "max_tokens": generation_arg(default=4096),

@@ -13,16 +13,14 @@ import numpy as np
 import pandas as pd
 import torch
 
-from utilization.utils import dynamic_stride_tqdm
-
-from ..metric.utils import avg_metrics
-from ..model.model_enum import ENDPOINT_ARGS
-from ..utils.batch_sampler import DatasetCollectionBatchSampler
-from ..utils.conversation import Conversation, ConversationFormatter
+from ..dataset_enum import GAOKAO_CHINESE_TASKS_SCORE, GAOKAO_ENGLISH_TASKS_SCORE, GAOKAO_TASKS_SCORE
+from ..metric.metric_utils import avg_metrics
+from ..model.model_utils import Conversation, ConversationFormatter, DatasetCollectionBatchSampler
+from ..model_enum import ENDPOINT_ARGS
+from ..utils.dynamic_stride_tqdm import dynamic_stride_tqdm
 from ..utils.log_results import PredictionWriter, log_final_results, repeat_iter
-from .dataset_enum import GAOKAO_CHINESE_TASKS_SCORE, GAOKAO_ENGLISH_TASKS_SCORE, GAOKAO_TASKS_SCORE
-from .icl_strategies import ape, global_entropy_ordering_strategy, knn_construct_examples
-from .utils import DatasetUtilMixin, get_raw_dataset_loader
+from .dataset_utils import DatasetUtilMixin, get_raw_dataset_loader
+from .dataset_utils.icl_strategies import ape, global_entropy_ordering_strategy, knn_construct_examples
 
 if typing.TYPE_CHECKING:
     # solve the circular import

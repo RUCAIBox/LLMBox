@@ -10,13 +10,13 @@ from logging import getLogger
 from typing import Callable, ClassVar, Dict, List, Literal, Optional, Set, Tuple, Union
 
 import tiktoken
-from transformers import BitsAndBytesConfig, PreTrainedModel, PreTrainedTokenizer, PreTrainedTokenizerFast
 from transformers.hf_argparser import HfArg, HfArgumentParser
 
 from ..chat_templates import DEFAULT_CHAT_CONFIGS
-from ..dataset.dataset_enum import DEFAULT_VLLM_DATASETS
-from ..model.model_enum import (
-    ANTHROPIC_CHAT_COMPLETIONS_ARGS, API_MODELS, DASHSCOPE_CHAT_COMPLETIONS_ARGS, QIANFAN_CHAT_COMPLETIONS_ARGS
+from ..dataset_enum import DEFAULT_VLLM_DATASETS
+from ..model_enum import (
+    ANTHROPIC_CHAT_COMPLETIONS_ARGS, API_MODELS, DASHSCOPE_CHAT_COMPLETIONS_ARGS, HUGGINGFACE_ARGS,
+    QIANFAN_CHAT_COMPLETIONS_ARGS, VLLM_ARGS
 )
 from .logging import filter_none_repr, get_redacted, list_datasets, log_levels, passed_in_commandline, set_logging
 
@@ -26,6 +26,7 @@ ENVIRONMENT_ARGUMENTS = {"CUDA_VISIBLE_DEVICES", "PYTORCH_CUDA_ALLOC_CONF", "TOK
 
 if typing.TYPE_CHECKING:
     batch_size_type = int
+    from transformers import PreTrainedModel, PreTrainedTokenizer, PreTrainedTokenizerFast
 else:
     batch_size_type = str
 
@@ -213,8 +214,14 @@ class ModelArguments(ModelBackendMixin):
         help="The maximum gpu memory utilization of vllm.",
     )
 
+    cuda_visible_devices: str = HfArg(
+        default="",
+        aliases=["--cuda"],
+        help="The CUDA device to use, e.g., '0' or '0,1,3'",
+    )
+
     torch_dtype: Literal["float16", "bfloat16", "float32", "auto"] = HfArg(
-        default="float16",
+        default="auto",
         help="The torch dtype for model input and output",
     )
 
@@ -237,11 +244,12 @@ class ModelArguments(ModelBackendMixin):
         "dashscope": {"dashscope_api_key"} | set(DASHSCOPE_CHAT_COMPLETIONS_ARGS),
         "openai": set(),  # openai model is used for gpt-eval metrics, not specific arguments
         "qianfan": {"qianfan_access_key", "qianfan_secret_key"} | set(QIANFAN_CHAT_COMPLETIONS_ARGS),
-        "vllm": {"vllm", "prefix_caching", "flash_attention", "gptq", "vllm_gpu_memory_utilization", "chat_template"},
+        "vllm": {"vllm", "prefix_caching", "flash_attention", "gptq", "vllm_gpu_memory_utilization", "chat_template"}
+        | set(VLLM_ARGS),
         "huggingface": {
             "device_map", "vllm", "prefix_caching", "flash_attention", "bnb_config", "load_in_8bit", "load_in_4bit",
-            "gptq", "chat_template", "stop"
-        },
+            "gptq", "chat_template"
+        } | set(HUGGINGFACE_ARGS),
     }
 
     def __post_init__(self):
@@ -469,10 +477,13 @@ class DatasetArguments:
         default=False,
         help="Whether to shuffle the choices for ranking task",
     )
+    hf_mirror: bool = HfArg(
+        default=False,
+        help="Whether to use hfd.sh to load dataset from hugging face mirror server (experimental)",
+    )
 
     continue_from: ClassVar[int] = 0
     proxy_port: ClassVar[int] = None
-    dataset_threading: ClassVar[bool] = True
 
     # set in `set_logging` with format "{evaluation_results_dir}/{log_filename}.json"
     evaluation_results_path: ClassVar[Optional[str]] = None
@@ -541,11 +552,6 @@ class EvaluationArguments:
         default=None,
         help="The port of the proxy",
     )
-    cuda_visible_devices: Optional[str] = HfArg(
-        default=None,
-        aliases=["--cuda"],
-        help="Override the CUDA_VISIBLE_DEVICES environment variable",
-    )
     dataset_threading: bool = HfArg(default=True, help="Load dataset with threading")
     dataloader_workers: int = HfArg(default=0, help="The number of workers for dataloader")
     continue_from: Optional[str] = HfArg(
@@ -580,6 +586,16 @@ def check_args(model_args: ModelArguments, dataset_args: DatasetArguments, evalu
         dataset_args (DatasetArguments): The dataset configurations.
         evaluation_args (EvaluationArguments): The evaluation configurations.
     """
+    if model_args.cuda_visible_devices:
+        os.environ["CUDA_VISIBLE_DEVICES"] = model_args.cuda_visible_devices
+        import torch
+
+        if torch.cuda.device_count() != len(model_args.cuda_visible_devices.split(",")):
+            logger.warning(
+                f"CUDA initalized before setting CUDA_VISIBLE_DEVICES (most likely because of importing torch or transformers before parse_arguments). Ignoring --cuda flag."
+            )
+            os.environ.pop("CUDA_VISIBLE_DEVICES")
+
     # vllm still has some bugs in ranking task
     if model_args.is_local_model() and all(d not in DEFAULT_VLLM_DATASETS for d in dataset_args.dataset_names
                                            ) and not model_args.passed_in_commandline("vllm"):
@@ -589,8 +605,6 @@ def check_args(model_args: ModelArguments, dataset_args: DatasetArguments, evalu
     # copy arguments
     if evaluation_args.proxy_port:
         dataset_args.proxy_port = evaluation_args.proxy_port
-
-    dataset_args.dataset_threading = evaluation_args.dataset_threading
 
     model_args.seed = int(evaluation_args.seed)
 
@@ -613,14 +627,6 @@ def check_args(model_args: ModelArguments, dataset_args: DatasetArguments, evalu
         logger.warning(
             f"Prefix caching might results in cuda memory fragmentation, which can be mitigated by setting `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True`. See https://pytorch.org/docs/stable/notes/cuda.html#environment-variables for details."
         )
-
-    if evaluation_args.cuda_visible_devices:
-        if "CUDA_VISIBLE_DEVICES" in os.environ and os.environ["CUDA_VISIBLE_DEVICES"
-                                                               ] != evaluation_args.cuda_visible_devices:
-            logger.warning(
-                f"Override CUDA_VISIBLE_DEVICES from {os.environ['CUDA_VISIBLE_DEVICES']} to {evaluation_args.cuda_visible_devices}."
-            )
-        os.environ["CUDA_VISIBLE_DEVICES"] = evaluation_args.cuda_visible_devices
 
     # check dataset
     if "vicuna_bench" in dataset_args.dataset_names and model_args.openai_api_key is None:
@@ -700,6 +706,7 @@ def parse_argument(args: Optional[List[str]] = None,
     model_args, dataset_args, evaluation_args = parser.parse_args_into_dataclasses(args)
 
     if model_args.bnb_config:
+        from transformers import BitsAndBytesConfig
         bnb_config_dict = json.loads(model_args.bnb_config)
         model_args.bnb_config = BitsAndBytesConfig(**bnb_config_dict)
 

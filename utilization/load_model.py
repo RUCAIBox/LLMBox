@@ -1,17 +1,17 @@
 from logging import getLogger
 from typing import TYPE_CHECKING
 
-from ..utils.catch_error import catch_error
+from .utils.catch_error import catch_error
 
 if TYPE_CHECKING:
     # solve the circular import
-    from ..utils import ModelArguments
     from .model import Model
+    from .utils import ModelArguments
 
 logger = getLogger(__name__)
 
 
-@catch_error()
+@catch_error
 def load_model(args: "ModelArguments") -> "Model":
     r"""Load corresponding model class.
 
@@ -23,22 +23,22 @@ def load_model(args: "ModelArguments") -> "Model":
     """
     if args.is_openai_model():
         logger.info(f"Loading OpenAI API model `{args.model_name_or_path}`.")
-        from .openai_model import Openai
+        from .model.openai_model import Openai
 
         return Openai(args)
     elif args.is_anthropic_model():
         logger.info(f"Loading Anthropic API model `{args.model_name_or_path}`.")
-        from .anthropic_model import Anthropic
+        from .model.anthropic_model import Anthropic
 
         return Anthropic(args)
     elif args.is_dashscope_model():
         logger.info(f"Loading Dashscope (Aliyun) API model `{args.model_name_or_path}`.")
-        from .dashscope_model import Dashscope
+        from .model.dashscope_model import Dashscope
 
         return Dashscope(args)
     elif args.is_qianfan_model():
         logger.info(f"Loading Qianfan (Baidu) API model `{args.model_name_or_path}`.")
-        from .qianfan_model import Qianfan
+        from .model.qianfan_model import Qianfan
 
         return Qianfan(args)
     else:
@@ -47,7 +47,7 @@ def load_model(args: "ModelArguments") -> "Model":
                 import vllm
                 vllm.__version__
 
-                from .vllm_model import vllmModel
+                from .model.vllm_model import vllmModel
 
                 return vllmModel(args)
             except ModuleNotFoundError:
@@ -63,6 +63,6 @@ def load_model(args: "ModelArguments") -> "Model":
                     raise ValueError(f"Set an appropriate tensor parallel size via CUDA_VISIBLE_DEVICES: {e}")
                 else:
                     raise e
-        from .huggingface_model import HuggingFaceModel
+        from .model.huggingface_model import HuggingFaceModel
 
         return HuggingFaceModel(args)

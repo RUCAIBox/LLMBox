@@ -2,8 +2,8 @@ import re
 from functools import cached_property
 from logging import getLogger
 
+from ..dataset_enum import GAOKAO_TASKS
 from ..metric import Gaokao_bench_metric
-from .dataset_enum import GAOKAO_TASKS
 from .generation_dataset import GenerationDataset
 
 logger = getLogger(__name__)

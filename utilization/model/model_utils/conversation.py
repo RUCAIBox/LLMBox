@@ -7,7 +7,7 @@ from jinja2.exceptions import TemplateError
 from jinja2.sandbox import ImmutableSandboxedEnvironment
 from transformers.pipelines.conversational import Conversation as _HFConversation
 
-from ..chat_templates import DEFAULT_CHAT_CONFIGS, DEFAULT_CHAT_TEMPLATE
+from ...chat_templates import DEFAULT_CHAT_CONFIGS, DEFAULT_CHAT_TEMPLATE, smart_space
 
 # legacy types
 NumOptions = NewType("NumOptions", int)
@@ -36,12 +36,7 @@ def _compile_jinja_template(chat_template):
     def raise_exception(message):
         raise TemplateError(message)
 
-    def smart_space(s: str, auto_leading_space: bool, context: str) -> str:
-        if auto_leading_space and s and context and not context[-1].isspace():
-            return ' ' + s
-        return s
-
-    jinja_env = ImmutableSandboxedEnvironment(trim_blocks=True, lstrip_blocks=True)
+    jinja_env = ImmutableSandboxedEnvironment(trim_blocks=True, lstrip_blocks=True, extensions=["jinja2.ext.do"])
     jinja_env.globals["raise_exception"] = raise_exception
     jinja_env.filters['smart_space'] = smart_space
     return jinja_env.from_string(chat_template)
@@ -127,8 +122,8 @@ class ConversationFormatter:
         *,
         add_generation_prompt: bool = False,
         remove_generation_prompt: bool = False,
-        final_lstrip: bool = False,
-        final_rstrip: bool = False,
+        final_lstrip: bool = True,
+        final_rstrip: bool = True,
     ) -> str:
 
         return self._apply_prompt_template(

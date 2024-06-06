@@ -5,7 +5,7 @@ import torch
 from torch.utils.data.sampler import Sampler
 from transformers import DynamicCache
 
-from utilization.utils.conversation import Conversation
+from .conversation import Conversation
 
 _LegacyCache = Tuple[Tuple[torch.FloatTensor, torch.FloatTensor], ...]
 
