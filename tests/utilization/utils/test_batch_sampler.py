@@ -4,8 +4,8 @@ from ..fixtures import get_dataset_collection
 
 sys.path.append('.')
 from utilization.model.huggingface_model import HuggingFaceModel
+from utilization.model.model_utils.batch_sampler import AutoBatchSizeSampler, DatasetCollectionBatchSampler
 from utilization.utils.arguments import ModelArguments
-from utilization.utils.batch_sampler import AutoBatchSizeSampler, DatasetCollectionBatchSampler
 
 
 def test_auto_batch_sampler_auto_batching():

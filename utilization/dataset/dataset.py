@@ -1,7 +1,7 @@
 import typing
 from collections import OrderedDict, defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from copy import copy
+from copy import deepcopy
 from functools import cached_property
 from itertools import chain, islice
 from logging import getLogger
@@ -13,16 +13,14 @@ import numpy as np
 import pandas as pd
 import torch
 
-from utilization.utils import dynamic_stride_tqdm
-
-from ..metric.utils import avg_metrics
-from ..model.model_enum import ENDPOINT_ARGS
-from ..utils.batch_sampler import DatasetCollectionBatchSampler
-from ..utils.conversation import Conversation, ConversationFormatter
+from ..dataset_enum import GAOKAO_CHINESE_TASKS_SCORE, GAOKAO_ENGLISH_TASKS_SCORE, GAOKAO_TASKS_SCORE
+from ..metric.metric_utils import avg_metrics
+from ..model.model_utils import Conversation, ConversationFormatter, DatasetCollectionBatchSampler
+from ..model_enum import ENDPOINT_ARGS
+from ..utils.dynamic_stride_tqdm import dynamic_stride_tqdm
 from ..utils.log_results import PredictionWriter, log_final_results, repeat_iter
-from .dataset_enum import GAOKAO_CHINESE_TASKS_SCORE, GAOKAO_ENGLISH_TASKS_SCORE, GAOKAO_TASKS_SCORE
-from .icl_strategies import ape, global_entropy_ordering_strategy, knn_construct_examples
-from .utils import DatasetUtilMixin, get_raw_dataset_loader
+from .dataset_utils import DatasetUtilMixin, get_raw_dataset_loader
+from .dataset_utils.icl_strategies import ape, global_entropy_ordering_strategy, knn_construct_examples
 
 if typing.TYPE_CHECKING:
     # solve the circular import
@@ -76,7 +74,7 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
     example_set: Optional[str] = None
     r"""The example split of dataset. Example data will be automatically loaded if this is not None."""
 
-    load_args: Union[Tuple[str], Tuple[str, str], Tuple[()]] = ()
+    load_args: Union[Tuple[str], Tuple[str, str], Tuple[()], None] = None
     r"""Arguments for loading the dataset with huggingface `load_dataset`.
 
     Supported formats:
@@ -171,12 +169,12 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
         self.evaluation_set = args.evaluation_set or self.evaluation_set
         self.example_set = args.example_set or self.example_set
         if self.max_num_shots:
-            if not self.example_set:
+            if not self.example_set and not example_data:
                 # example_set is not mandatory when `load_raw_dataset` is overriden
                 logger.warning(
                     f"Please provide the example set for dataset {self.display_name} to construct few-shot examples. You can ignore this warning if `load_raw_dataset` is correctly implemented."
                 )
-            elif "val" in self.example_set or "test" in self.example_set:
+            elif self.example_set and ("val" in self.example_set or "test" in self.example_set):
                 logger.warning(
                     f"Example set is used for constructing few-shot examples, but `{self.example_set}` seems to be an evaluation set."
                 )
@@ -344,7 +342,7 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
 
         self.init_arguments()
 
-        self._extra_model_args = copy(self.extra_model_args)
+        self._extra_model_args = deepcopy(self.extra_model_args)
 
         # apply chat template
         if self.conversation_formatter.default_stops:
@@ -548,10 +546,11 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
                 raise ValueError(f"Key `{key}` is reserved for dataset extensions and cannot be used in the instance.")
             formatted_instance[key] = getattr(self, key)
 
-        if self.instruction_template.debug_info:
-            source = self.instruction_template.render(formatted_instance)
-        else:
-            source = self.instruction.format_map(formatted_instance)
+        if not isinstance(source, list):
+            if self.instruction_template.debug_info:
+                source = self.instruction_template.render(formatted_instance)
+            else:
+                source = self.instruction.format_map(formatted_instance)
 
         return {"source": source, "target": target, "options": options}
 

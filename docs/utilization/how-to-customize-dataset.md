@@ -2,6 +2,8 @@
 
 If you find some datasets are not supported in the current version, feel free to implement your own dataset and submit a PR.
 
+See a full list of supported datasets at [here](https://github.com/RUCAIBox/LLMBox/tree/main/docs/utilization/supported-datasets.md).
+
 ## Choose the Right Dataset
 
 We provide two types of datasets: [`GenerationDataset`](https://github.com/RUCAIBox/LLMBox/tree/main/utilization/dataset/generation_dataset.py) and [`MultipleChoiceDataset`](https://github.com/RUCAIBox/LLMBox/tree/main/utilization/dataset/multiple_choice_dataset.py).
@@ -35,7 +37,7 @@ These are the attributes you can define in a new dataset:
 
 - `example_set` (`Optional[str]`): The example split of dataset. Example data will be automatically loaded if this is not None.
 
-- `load_args` (`Union[Tuple[str], Tuple[str, str], Tuple[()]]`, **required\***): Arguments for loading the dataset with huggingface `load_dataset`. See [load from source data](https://github.com/RUCAIBox/LLMBox/tree/main/docs/utilization/customize-dataset.md#load-from-source-data) for details.
+- `load_args` (`Union[Tuple[str], Tuple[str, str], Tuple[()]]`, **required\***): Arguments for loading the dataset with huggingface `load_dataset`. See [load from source data](https://github.com/RUCAIBox/LLMBox/tree/main/docs/utilization/how-to-customize-dataset.md#load-from-source-data) for details.
 
 - `extra_model_args` (`Dict[str, Any]`): Extra arguments for the model like `temperature`, `stop` etc. See `set_generation_args`, `set_prob_args`, and `set_ppl_args` for details.
 
@@ -45,7 +47,7 @@ Then implement the following methods or properties:
 - `references` (**required**): Return the reference answers for evaluation.
 - `init_arguments`: Initialize the arguments for the dataset. This is called before the raw dataset is loaded.
 
-See [here](https://github.com/RUCAIBox/LLMBox/tree/main/docs/utilization/customize-dataset.md#advanced-topics) for advanced topics.
+See [here](https://github.com/RUCAIBox/LLMBox/tree/main/docs/utilization/how-to-customize-dataset.md#advanced-topics) for advanced topics.
 
 
 ## Load from Source Data

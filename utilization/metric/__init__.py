@@ -8,7 +8,7 @@ __all__ = [
     "Perspective_api", "Rouge", "Word_Accuracy"
 ]
 
-from .utils import avg_metrics
+from .metric_utils import avg_metrics
 
 if TYPE_CHECKING:
     from .accuracy import Accuracy as _Accuracy

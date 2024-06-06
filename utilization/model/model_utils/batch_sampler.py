@@ -7,7 +7,7 @@ from torch.utils.data.sampler import Sampler
 from .prefix_caching import CachePrefixSampler, round_down
 
 if TYPE_CHECKING:
-    from ..dataset.dataset import Dataset, DatasetCollection
+    from ...dataset.dataset import Dataset, DatasetCollection
 
 logger = getLogger(__name__)
 
@@ -165,7 +165,6 @@ class DatasetCollectionBatchSampler(Sampler[List[int]]):
         accumulative = 0
         for total, init_model, self._forward_call in zip(*self._splitted):
             iterator, total_prefix_num = init_model()
-            print(f"Total prefix num: {total_prefix_num}!!!")
             if total_prefix_num > 1 and model.support_cache:
                 sampler = CachePrefixSampler(
                     data=iterator,

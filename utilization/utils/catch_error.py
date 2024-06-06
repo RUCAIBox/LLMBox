@@ -1,17 +1,31 @@
+import inspect
 from functools import wraps
 from traceback import format_exc
 
 from .logging import getFileLogger
 
+UNSOPPORTED_LIBRARY = "Unsupported {lib} library version. Please update the {lib} library to the latest version.\n\n  pip install {lib} --upgrade"
+
 ERROR_OVERVIEW = {
     "probability tensor contains either `inf`, `nan` or element < 0":
     "probability tensor contains either `inf`, `nan` or element < 0.\nSee https://github.com/meta-llama/llama/issues/380 for more details.",
+    "'utf-8' codec can't decode byte 0x8b in position 1: invalid start byte":
+    "Failed to fetch subset names from Hugging Face Hub. Please check your internet connection or try hf-mirror mode with `--hf_mirror` (experimental).",
+    "openai.types":
+    UNSOPPORTED_LIBRARY.format(lib="openai"),
     "trust_remote_code":
-    "Unsupported datasets library version. Please update the datasets library to the latest version.\n\n  pip install datasets --upgrade",
+    UNSOPPORTED_LIBRARY.format(lib="datasets"),
+    "datasets.exceptions.DatasetGenerationError":
+    "There is some issue when loading dataset with threading. Please try to disable threading with `--no_dataset_threading`.",
 }
 
 
 def catch_error(continue_from: bool = False):
+    """Catch the error and log the error message to log file. If the error is known, raise a RuntimeError with a message.
+
+    Args:
+        - continue_from (bool): Prompt the user to continue from the checkpoint if an error occurs.
+    """
 
     def catch_error_decrator(func):
         """Catch the error and log the error message to log file."""

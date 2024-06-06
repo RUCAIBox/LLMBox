@@ -4,11 +4,12 @@ import os
 import pathlib
 import sys
 from dataclasses import fields
+from functools import lru_cache
 from typing import TYPE_CHECKING, List, Optional, Set
 
 import coloredlogs
 
-from ..dataset.dataset_enum import DATASET_ALIASES
+from ..dataset_enum import DATASET_ALIASES
 
 if TYPE_CHECKING:
     # solve the circular import
@@ -37,7 +38,10 @@ BUILTIN_DATASET = {
 }
 
 
+@lru_cache
 def list_datasets() -> List[str]:
+    """List all natively supported datasets."""
+
     results = os.listdir(os.path.join(os.path.dirname(__file__), "../dataset"))
     results = [f[:-3] for f in results if f.endswith(".py")]
     results = [f for f in results if f not in BUILTIN_DATASET]

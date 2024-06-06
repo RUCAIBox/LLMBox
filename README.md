@@ -57,7 +57,7 @@ bash bash/run_7b_ds3.sh
 To utilize your model, or evaluate an existing model, you can run the following command:
 
 ```python
-python inference.py -m gpt-3.5-turbo -d copa  # --num_shot 0 --model_type instruction
+python inference.py -m gpt-3.5-turbo -d copa  # --num_shot 0 --model_type chat
 ```
 
 This is default to run the OpenAI GPT 3.5 turbo model on the CoPA dataset in a zero-shot manner.
@@ -118,12 +118,11 @@ We provide a broad support on Huggingface models (e.g. `LLaMA-3`, `Mistral`, or 
 Currently a total of 56+ commonly used datasets are supported, including: `HellaSwag`, `MMLU`, `GSM8K`, `GPQA`, `AGIEval`, `CEval`, and `CMMLU`. For a full list of supported models and datasets, view the [utilization](https://github.com/RUCAIBox/LLMBox/tree/main/utilization) documentation.
 
 ```bash
-python inference.py \
+CUDA_VISIBLE_DEVICES=0 python inference.py \
   -m llama-2-7b-hf \
   -d mmlu agieval:[English] \
-  --model_type instruction \
+  --model_type chat \
   --num_shot 5 \
-  --cuda 0 \
   --ranking_type ppl_no_option
 ```
 

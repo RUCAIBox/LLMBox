@@ -3,8 +3,8 @@ from functools import cached_property
 from logging import getLogger
 from typing import List
 
+from ..dataset_enum import BBH_LETTER_CHOICE, BBH_NO_CHOICE
 from ..metric import Em
-from .dataset_enum import BBH_LETTER_CHOICE, BBH_NO_CHOICE
 from .generation_dataset import GenerationDataset
 
 logger = getLogger(__name__)

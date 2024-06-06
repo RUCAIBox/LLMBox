@@ -1,4 +1,5 @@
 import pytest
+import torch
 
 from .fixtures import run_evaluate
 
@@ -12,9 +13,16 @@ models = {
 }
 
 
+# 3 (datasets) by 6 (models) grid
 @pytest.mark.parametrize("dataset", ["gsm8k", "hellaswag", "mmlu"])
 @pytest.mark.parametrize("model, extra_args", models.items())
 def test_models_dry_run(run_evaluate, model, dataset, extra_args):
+    if not torch.cuda.is_available() and extra_args[-2:] == ["--cuda", "0"]:
+        pytest.skip("CUDA is not available")
+
     if extra_args is None:
         return
-    run_evaluate(["-m", model, "-d", dataset, "-b", "10", "--dry_run"] + extra_args)
+    try:
+        run_evaluate(["-m", model, "-d", dataset, "-b", "10", "--dry_run"] + extra_args, cuda=0)
+    except torch.cuda.OutOfMemoryError:
+        pytest.skip(f"Out of memory error on {model} {dataset}")

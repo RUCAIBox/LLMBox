@@ -5,8 +5,8 @@ from typing import TYPE_CHECKING, List, Tuple
 import torch
 from packaging import version
 
-from ..utils.conversation import Conversation
 from .model import Model
+from .model_utils.conversation import Conversation
 
 if TYPE_CHECKING:
     from ..utils import ModelArguments

@@ -1,12 +1,14 @@
+import sys
+
 import torch
 from transformers import LlamaForCausalLM
 
-from utilization import Evaluator
-from utilization.model.huggingface_model import get_model_max_length, load_tokenizer
-from utilization.utils import DatasetArguments, ModelArguments
+sys.path.append(".")
+from utilization import DatasetArguments, ModelArguments, get_evaluator
 
 
 def load_hf_model(model_args: ModelArguments):
+    from utilization.model.huggingface_model import get_model_max_length, load_tokenizer
 
     # load your own model
     model = LlamaForCausalLM.from_pretrained(
@@ -24,7 +26,7 @@ def load_hf_model(model_args: ModelArguments):
     return model, tokenizer
 
 
-evaluator = Evaluator(
+evaluator = get_evaluator(
     model_args=ModelArguments(
         model_name_or_path="../your-model-path",
         model_type="chat",

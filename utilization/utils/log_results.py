@@ -6,8 +6,6 @@ from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 
 import pandas as pd
 
-from .conversation import Conversation
-
 logger = getLogger(__name__)
 
 if typing.TYPE_CHECKING:
@@ -38,6 +36,8 @@ def to_dict(merge: Optional[List[str]] = None, merge_by_option: Optional[List[st
 
 
 def dump_conversations(convs: List[Any], local: bool):
+    from ..model.model_utils.conversation import Conversation
+
     if isinstance(convs, (str, Conversation)):
         convs = [convs]
 
