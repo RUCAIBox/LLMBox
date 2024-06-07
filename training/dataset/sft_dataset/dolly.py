@@ -14,7 +14,7 @@ class DollyDataset(SFTDataset):
         list_data_dict = self.load_data()
         for example in list_data_dict:
             s = tokenizer.apply_chat_template([{'role':'user','content':example['instruction']+example['context']}],tokenize=False)
-            t = tokenizer.apply_chat_template([{'role':'assistant','content':example['output']}],tokenize=False)
+            t = tokenizer.apply_chat_template([{'role':'assistant','content':example['response']}],tokenize=False)
             input_id, label = self.encode_src_tgt(s, t, tokenizer)
             input_ids.append(input_id)
             labels.append(label)

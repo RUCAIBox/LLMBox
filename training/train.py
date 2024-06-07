@@ -37,6 +37,9 @@ def build_chat_template(args):
         "{% endif %}"
         "{% endfor %}"
     )
+    B_INST = args.B_INST
+    E_INST = args.E_INST
+    template = template.replace("[INST]", B_INST).replace("[/INST]", E_INST)
     return template
 
 @dataclass
@@ -121,6 +124,10 @@ class Arguments(TrainingArguments):
     qlora: Optional[bool] = HfArg(default=False, help="whether to train with QLoRA. This will enable LoRA automatically.")
     
     packing: Optional[bool] = HfArg(default=False, help="Whether to pack the input sequences to the maximum length of the model.")
+    
+    B_INST: Optional[str] = HfArg(default="[INST]", help="The beginning token for instruction.")
+    
+    E_INST: Optional[str] = HfArg(default="[/INST]", help="The ending token for instruction.")
 
 
 @dataclass
@@ -228,18 +235,20 @@ def train():
     trainer.save_model(args.output_dir+"/checkpoint-final")
     trainer.save_state()
     
-    if args.lora and args.lora_merge:
-        if is_deepspeed_zero3_enabled():
-            unset_hf_deepspeed_config()
-        subdir_list = os.listdir(args.output_dir)
-        for subdir in subdir_list:
-            if subdir.startswith("checkpoint"):
-                print("Merging model in ", args.output_dir+"/"+subdir)
-                peft_model = AutoPeftModelForCausalLM.from_pretrained(args.output_dir+"/"+subdir)
-                merged_model = peft_model.merge_and_unload()
-                save_path = args.output_dir+"/"+subdir+"-merged"
-                merged_model.save_pretrained(save_path)
-                tokenizer.save_pretrained(save_path)
+    if torch.distributed.get_rank() == 0:
+        if args.lora and args.lora_merge:
+            if is_deepspeed_zero3_enabled():
+                unset_hf_deepspeed_config()
+            subdir_list = os.listdir(args.output_dir)
+            for subdir in subdir_list:
+                if subdir.startswith("checkpoint"):
+                    print("Merging model in ", args.output_dir+"/"+subdir)
+                    peft_model = AutoPeftModelForCausalLM.from_pretrained(args.output_dir+"/"+subdir)
+                    merged_model = peft_model.merge_and_unload()
+                    save_path = args.output_dir+"/"+subdir+"-merged"
+                    merged_model.save_pretrained(save_path)
+                    tokenizer.save_pretrained(save_path)
+                    config.save_pretrained(save_path)
 
 
 def init():

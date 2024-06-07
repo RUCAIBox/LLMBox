@@ -15,8 +15,8 @@ class ShareGPTDataset(SFTDataset):
             tmp1 = []
             tmp2 = []
             for s, t in zip(example['conversations'][::2], example['conversations'][1::2]):
-                s = tokenizer.apply_chat_template([{'role':'user','content':s}],tokenize=False)
-                t = tokenizer.apply_chat_template([{'role':'assistant','content':t}],tokenize=False)
+                s = tokenizer.apply_chat_template([{'role':'user','content':s['value']}],tokenize=False)
+                t = tokenizer.apply_chat_template([{'role':'assistant','content':t['value']}],tokenize=False)
                 input_id, label = self.encode_src_tgt(s, t, tokenizer)
                 tmp1.append(input_id)
                 tmp2.append(label)
