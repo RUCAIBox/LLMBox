@@ -18,7 +18,7 @@ class Vicuna_bench(GenerationDataset):
     instruction = "{{turns[0]}}"
     example_set = None
     evaluation_set = ""
-    load_args = ()
+    load_args = None
     metrics = [GPTEval()]
 
     def load_raw_dataset(self, dataset_path, subset_name, evaluation_set, example_set):
