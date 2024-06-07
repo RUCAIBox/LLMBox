@@ -1,20 +1,20 @@
 import gc
+import json
 from logging import getLogger
-from typing import Any, Iterator, List, Optional, Tuple, Union
+from typing import Iterator, List, Optional, Tuple, Union
 
 import torch
 from torch.nn import CrossEntropyLoss
 from transformers.modeling_utils import PreTrainedModel
 from transformers.models.auto import AutoModelForCausalLM, AutoTokenizer
-from transformers.pipelines.conversational import Conversation
 from transformers.tokenization_utils import PreTrainedTokenizer
 from transformers.tokenization_utils_fast import PreTrainedTokenizerFast
 
-from utilization.utils.prefix_caching import SequenceCache
-
 from ..utils import ModelArguments
 from .model import Model
-from .model_utils import KeyWordsCriteria
+from .model_utils.conversation import Conversation
+from .model_utils.keywords_criteria import KeyWordsCriteria
+from .model_utils.prefix_caching import SequenceCache
 
 logger = getLogger(__name__)
 
@@ -45,12 +45,57 @@ def load_tokenizer(tokenizer_name_or_path: str, use_fast: bool, max_length: int 
     return tokenizer
 
 
+def get_model_max_length(
+    model: PreTrainedModel,
+    max_length: Optional[int] = None,
+    large_positive: int = LARGE_POSITIVE,
+    default_model_max_length: int = DEFAULT_MODEL_MAX_LENGTH,
+) -> int:
+    # TODO: [Important]!!! check for each tokenizer
+    max_length = max_length or large_positive
+    for key in [
+        "max_sequence_length",
+        "max_position_embeddings",
+        "model_max_length",
+        "seq_length",
+        "seq_len",
+        "n_positions",
+        "max_seq_len",
+        "max_seq_length",
+    ]:
+        value = getattr(model.config, key, None)
+        if value is not None:
+            max_length = min(max_length, value)
+
+    if not max_length or max_length >= large_positive:
+        max_length = default_model_max_length
+        logger.warning(
+            f"Cannot specify model's maximum length according to `args` or model config. Set to {default_model_max_length} by default."
+        )
+
+    return max_length
+
+
 def load_hf_model(args: ModelArguments) -> Tuple[PreTrainedModel, Union[PreTrainedTokenizer, PreTrainedTokenizerFast]]:
     logger.info(f"Loading {args.model_name_or_path} using Hugging Face Transformers...")
 
     # https://github.com/meta-llama/llama/issues/380#issuecomment-1656714118
+    if args.torch_dtype == "auto":
+        try:
+            with open(args.model_name_or_path + "/config.json") as f:
+                config = json.load(f)
+            if "torch_dtype" in config:
+                if config["torch_dtype"] == "float32":
+                    torch_dtype = "float16"
+                else:
+                    torch_dtype = config["torch_dtype"]
+        except:
+            torch_dtype = "float16"
+    else:
+        torch_dtype = args.torch_dtype
+
     model_kwargs = dict(
-        torch_dtype=getattr(torch, args.torch_dtype),
+        torch_dtype=getattr(torch, torch_dtype),
         device_map=args.device_map,
         load_in_4bit=args.load_in_4bit,
         load_in_8bit=args.load_in_8bit,
@@ -62,13 +107,15 @@ def load_hf_model(args: ModelArguments) -> Tuple[PreTrainedModel, Union[PreTrain
 
     if args.flash_attention:
         model_kwargs["attn_implementation"] = "flash_attention_2"
+    else:
+        model_kwargs["attn_implementation"] = "sdpa"
 
     if hasattr(args, 'bnb_config') and args.bnb_config:
         model_kwargs['quantization_config'] = args.bnb_config
 
     try:
         model = AutoModelForCausalLM.from_pretrained(args.model_name_or_path, **model_kwargs).eval()
-    except (TypeError, ImportError, ValueError) as e:
+    except (TypeError, ImportError, ValueError, RuntimeError) as e:
         if "attn_implementation" in str(e) or "flash att" in str(e).lower().replace("_", " "):
             logger.warning(
                 f"Cannot set `attn_implementation` for {args.model_name_or_path}: {e}. Set `flash_attention` to False."
@@ -79,25 +126,7 @@ def load_hf_model(args: ModelArguments) -> Tuple[PreTrainedModel, Union[PreTrain
         else:
             raise e
 
-    # TODO: [Important]!!! check for each tokenizer
-    max_length = args.max_length or LARGE_POSITIVE
-    for key in [
-        "max_sequence_length",
-        "max_position_embeddings",
-        "model_max_length",
-        "seq_length",
-        "seq_len",
-        "n_positions",
-        "max_seq_len",
-        "max_seq_length",
-    ]:
-        max_length = min(max_length, getattr(model.config, key, LARGE_POSITIVE))
-    if not max_length or max_length >= LARGE_POSITIVE:
-        max_length = DEFAULT_MODEL_MAX_LENGTH
-        logger.warning(
-            f"Cannot specify model's maximum length according to `args` or model config. Set to {DEFAULT_MODEL_MAX_LENGTH} by default."
-        )
-
+    max_length = get_model_max_length(model)
     tokenizer = load_tokenizer(args.tokenizer_name_or_path, use_fast=True, max_length=max_length)
     logger.debug(f"Model: {model}\nTokenizer: {tokenizer}")
     return model, tokenizer
@@ -110,25 +139,26 @@ class HuggingFaceModel(Model):
     model: PreTrainedModel
 
     _repr = [
-        "model_type", "model_backend", "model_max_input", "model_max_input_and_output", "system_prompt", "multi_turn",
-        "candidate_ids", "use_cache"
+        "model_type", "model_backend", "model_max_input", "model_max_input_and_output", "multi_turn", "candidate_ids",
+        "use_cache"
     ]
 
     def __init__(self, args: ModelArguments):
         super().__init__(args)
-        self.model, self._tokenizer = load_hf_model(args)
+
+        if getattr(args, "load_hf_model", None) is not None:
+            _load_hf_model = args.load_hf_model
+        else:
+            _load_hf_model = load_hf_model
+        self.model, self._tokenizer = _load_hf_model(args)
+        if self._tokenizer.model_max_length is None:
+            logger.warning(f"`model_max_length` is not set for {self.name}. Set to default {DEFAULT_MODEL_MAX_LENGTH}.")
+            self._tokenizer.model_max_length = DEFAULT_MODEL_MAX_LENGTH
+
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.model_max_input_and_output = self.tokenizer.model_max_length
 
-        self.system_prompt = self.args.system_prompt
-        self.chat_template = self.args.chat_template
-        self.support_char_to_token = True
-        if self.system_prompt:
-            self._system = lambda: Conversation([{"role": "system", "content": self.system_prompt}])
-        else:
-            self._system = lambda: Conversation()
-        if self.chat_template is not None:
-            self.tokenizer.chat_template = self.chat_template
+        # model tests
 
         try:
             self.model(position_ids=None)
@@ -145,6 +175,8 @@ class HuggingFaceModel(Model):
             self.support_cache = False
         except ValueError:
             self.support_cache = True
+
+        self.support_char_to_token = True
 
     @property
     def model_max_input(self):
@@ -492,6 +524,8 @@ class HuggingFaceModel(Model):
         return ppls
 
     def set_generation_args(self, **extra_model_args):
+        self.stop_id_sequences = []
+
         generation_kwargs = {}
         for key in [
             "temperature",
@@ -530,7 +564,13 @@ class HuggingFaceModel(Model):
                     else:
                         generation_kwargs["do_sample"] = False
                 elif key == "stop":
-                    self.stop_id_sequences = self._tokenize_postfix(value, add_dummy_prefix=True, padding=False)
+                    self.stop_id_sequences.extend(
+                        self._tokenize_postfix(
+                            value,  # type: ignore
+                            add_dummy_prefix=True,
+                            padding=False,
+                        )
+                    )
                     generation_kwargs["stopping_criteria"] = [KeyWordsCriteria(self.stop_id_sequences)]
                 else:
                     generation_kwargs[key] = value
@@ -581,7 +621,7 @@ class HuggingFaceModel(Model):
         return answers
 
     def generation(self,
-                   batched_inputs: Union[List[str], List[_MultiTurnResults]],
+                   batched_inputs: List[Conversation],
                    use_cache: bool = True) -> Union[List[str], List[_MultiTurnResults]]:
         """Generate the response of given question for this batch.
 
@@ -589,16 +629,16 @@ class HuggingFaceModel(Model):
             List[str]: The list of generation results.
         """
 
-        if isinstance(batched_inputs[0], str):
-            prompts = batched_inputs
+        batched_prompts = [i.to_model_prompt() for i in batched_inputs]
+        if isinstance(batched_prompts[0], str):
+            prompts: List[str] = batched_prompts
         else:
-            grouped_prompts = list(map(list, zip(*batched_inputs)))
-            prompts = ["".join(pg[i] for pg in grouped_prompts) for i in range(len(grouped_prompts[0]))]
+            grouped_prompts = list(map(list, zip(*batched_prompts)))
+            prompts: List[str] = ["".join(pg[i] for pg in grouped_prompts) for i in range(len(grouped_prompts[0]))]
             cache_level = len(grouped_prompts)
 
         if self.model_type == "chat" and self.multi_turn:
-            batched_mt_inputs = [s.split("__SEPARATOR__") for s in batched_inputs]
-            return self._multi_turn_generation(batched_mt_inputs)
+            return self._multi_turn_generation(batched_inputs)
         elif use_cache and self.use_cache:
             # if cache is available, generation_with_cache
             prefix_cache, cached_num = self.cacher.get_cache()
@@ -612,24 +652,21 @@ class HuggingFaceModel(Model):
             self.cacher.step()
             return []
 
-        return self._generation(prompts)
+        results = self._generation(prompts)
+        results = [conv[-1]["content"] if isinstance(conv, Conversation) else conv for conv in results]
+        return results
 
-    def _multi_turn_generation(self, batched_mt_inputs: List[List[str]]) -> List[Tuple[str, ...]]:
+    def _multi_turn_generation(self, batched_mt_inputs: List[Conversation]) -> List[Tuple[str, ...]]:
         """Multi-turn generation
 
         Args:
-            batched_mt_inputs (List[List[str]]): [Batch Turn]
+            batched_mt_inputs (List[Conversation]): Batched multi-turn inputs.
 
         Returns:
             List[Tuple[str, ...]]: [Batch Turn]
         """
         batch_size = len(batched_mt_inputs)
-        max_turn = max(len(turns) for turns in batched_mt_inputs)
-
-        # generate the first turn (with system prompt)
-        history_conversations = [self._system() for _ in range(batch_size)]
-        for conv, turn in zip(history_conversations, batched_mt_inputs):
-            conv.add_message({"role": "user", "content": turn[0]})
+        max_turn = max(conv.num_turns for conv in batched_mt_inputs)
 
         answers = self._generation(history_conversations)
         responses = [[conv[-1]["content"]] for conv in answers]
@@ -652,19 +689,24 @@ class HuggingFaceModel(Model):
 
         return [tuple(r) for r in responses]
 
-    def _generation(self, batched_inputs: Union[List[str], List[Conversation]]) -> Union[List[str], List[Conversation]]:
+    def _generation(
+        self,
+        batched_inputs: Union[List[str], List[Conversation]],
+        max_turns=1,
+    ) -> Union[List[str], List[Conversation]]:
 
         batched_conversations = None
-        if self.model_type == "chat" and isinstance(batched_inputs[0], Conversation):
+        if isinstance(batched_inputs[0], Conversation):
+            # save the original conversation for chat-based model
             batched_conversations = batched_inputs
-            batched_inputs = [
-                self.tokenizer.apply_chat_template(
-                    conv,
-                    tokenize=False,
-                    add_generation_prompt=True,
-                    truncation=True,
-                ) for conv in batched_conversations
-            ]
+            batched_inputs_nofilter = [conv.to_model_prompt(max_turns=max_turns) for conv in batched_conversations]
+            # deal with conversations with different number of turns
+            batched_inputs = [i for i in batched_inputs_nofilter if i is not None]
+
+            def iter_conv() -> Iterator[Conversation]:
+                for conv, i in zip(batched_conversations, batched_inputs_nofilter):
+                    if i is not None:
+                        yield conv
 
         batched_encodings = self.tokenizer(
             batched_inputs,
@@ -683,9 +725,9 @@ class HuggingFaceModel(Model):
         max_input_length = batched_encodings["input_ids"].size(1)
         answers = self._process_generation_results(batch_outputs[:, max_input_length:])
 
-        if self.model_type == "chat" and batched_conversations is not None:
-            for conv, answer in zip(batched_conversations, answers):
-                conv.add_message({"role": "assistant", "content": answer})
+        if batched_conversations is not None:
+            for conv, answer in zip(iter_conv(), answers):
+                conv.add_multi_turn(assistant=answer)
             answers = batched_conversations
 
         return answers
@@ -723,7 +765,7 @@ class HuggingFaceModel(Model):
         if option_num is not None:
             if len(self._token_labels) < option_num:
                 labels = [chr(i + 65) for i in range(len(self._token_labels), option_num)]
-                self._word_labels.extend([self.tokenizer.encode(l, add_special_tokens=False)[0] for l in labels])
+                self._word_labels.extend([self.tokenizer.encode(" " + l, add_special_tokens=False)[-1] for l in labels])
                 self._token_labels.extend([self.tokenizer.convert_tokens_to_ids(l) for l in labels])
             return self._word_labels[:option_num] + self._token_labels[:option_num]
         else:

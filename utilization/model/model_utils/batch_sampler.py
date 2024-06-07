@@ -7,7 +7,7 @@ from torch.utils.data.sampler import Sampler
 from .prefix_caching import CachePrefixSampler, round_down
 
 if TYPE_CHECKING:
-    from ..dataset.dataset import Dataset, DatasetCollection
+    from ...dataset.dataset import Dataset, DatasetCollection
 
 logger = getLogger(__name__)
 
@@ -32,33 +32,41 @@ def info_dataset_group(
             num_shots = str(min_num_shots)
     else:
         num_shots = "None"
+    model_evaluation_method = dataset_group[0].model_evaluation_method
+    if model_evaluation_method == "get_ppl":
+        model_evaluation_method += f" ({dataset_group[0].ranking_type})"
     logger.info(
-        f"Evaluating {d.model_evaluation_method} on {d.dataset_name}{subset_str} (model_attr={model_attr}, {kwargs_name}={model_kwargs}, num_shots={num_shots}, len={group_length}, num_instances={instances}, use_cache={use_cache})"
+        f"Evaluating {model_evaluation_method} on {d.display_name}{subset_str} (model_attr={model_attr}, {kwargs_name}={model_kwargs}, num_shots={num_shots}, len={group_length}, num_instances={instances}, use_cache={use_cache})"
     )
     logger.debug(f"Datasets: {d.dataset_name}{subset_names}")
 
 
 class AutoBatchSizeSampler(Sampler[List[int]]):
 
-    def __init__(self, data, total: int, batch_size: int, auto_batch_size):
-        self.data = list(data)
+    def __init__(self, data, batch_size: int, auto_batch_size: bool, start_from: int = 0):
+        self.data = [src.to_model_prompt() if hasattr(src, "to_model_prompt") else src for src in data]
+        total = len(self.data)
         self.batch_size = batch_size
         self.auto_batch_size = auto_batch_size
         self.first_max_len = None
         self.data_order = [[]]
+        self.start_from = start_from
 
         if not self.auto_batch_size:
             for i in range(0, total, self.batch_size):
-                self.data_order[-1].extend(range(i, min(i + self.batch_size, total)))
+                st = i + self.start_from
+                ed = min(i + self.batch_size, total) + self.start_from
+                self.data_order[-1].extend(range(st, ed))
                 if len(self.data_order[-1]) == self.batch_size:
                     self.data_order.append([])
         else:
             for i in range(total):
-                self.data_order[-1].append(i)
+                self.data_order[-1].append(i + self.start_from)
                 if self.check_new_batch(self.data_order[-1], i + 1):
                     self.data_order.append([])
         while self.data_order[-1] == []:
             self.data_order.pop()
+        logger.debug(f"AutoBatchSizeSampler: {len(self.data_order)} batches starting from {self.start_from}")
 
     def check_new_batch(self, queries: List[int], next_data: int) -> bool:
         """Check the condition to start a new batch."""
@@ -77,6 +85,7 @@ class AutoBatchSizeSampler(Sampler[List[int]]):
 
         batch_size = available_space // max_len
         batch_size = round_down(batch_size)
+        print("!!!", queries, current_batch, batch_size, available_space, max_len, self.first_max_len)
         return current_batch >= batch_size
 
     def __iter__(self) -> Iterator[List[int]]:
@@ -153,10 +162,18 @@ class DatasetCollectionBatchSampler(Sampler[List[int]]):
 
     def __iter__(self) -> Iterator[List[int]]:
         model = self.dataset_collection._datasets[0].model
+        accumulative = 0
         for total, init_model, self._forward_call in zip(*self._splitted):
             iterator, total_prefix_num = init_model()
-            if total_prefix_num > 1:
-                sampler = CachePrefixSampler(iterator, total, total_prefix_num, self.batch_size, self.auto_batch_size)
+            if total_prefix_num > 1 and model.support_cache:
+                sampler = CachePrefixSampler(
+                    data=iterator,
+                    total=total,
+                    total_prefix_num=total_prefix_num,
+                    batch_size=self.batch_size,
+                    auto_batch_size=self.auto_batch_size,
+                    start_from=accumulative,
+                )
                 model.set_cacher(sampler)
                 yield from sampler
             else:
@@ -164,10 +181,15 @@ class DatasetCollectionBatchSampler(Sampler[List[int]]):
                 model.use_cache = False
                 # dynamic batch size for vLLM
                 yield from AutoBatchSizeSampler(
-                    iterator, total, self.batch_size if not self.vllm else total, self.auto_batch_size
+                    iterator,
+                    self.batch_size if not self.vllm else total,
+                    self.auto_batch_size,
+                    start_from=accumulative
                 )
+            accumulative += total
 
     def call_model(self, *args, **kwargs) -> List[Any]:
+        """Route the model to call the corresponding `model_evaluation_method`"""
         return self._forward_call(*args, **kwargs)  # type: ignore
 
     def __len__(self) -> int:

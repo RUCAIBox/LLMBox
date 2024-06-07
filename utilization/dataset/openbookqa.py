@@ -1,7 +1,6 @@
 from functools import cached_property
 from logging import getLogger
 
-from ..metric import Accuracy
 from .multiple_choice_dataset import MultipleChoiceDataset
 
 logger = getLogger(__name__)
@@ -28,7 +27,6 @@ class OpenBookQA(MultipleChoiceDataset):
     load_args = ("openbookqa", "main")
     use_normalization = True
     normalization_prompt = "Q: \nA:"
-    metrics = [Accuracy("Norm")]
 
     def init_arguments(self):
         # TODO

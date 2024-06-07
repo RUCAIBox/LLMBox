@@ -1,16 +1,12 @@
 import json
 import os
 import re
-from bisect import bisect_left, bisect_right
-from dataclasses import dataclass
 from importlib.machinery import SourceFileLoader
 from logging import getLogger
 from os.path import abspath, relpath
-from typing import Callable, List, Literal, Optional, Tuple, Union
+from typing import Any, Callable, Dict, Optional, Tuple, Union
 
 import datasets as ds
-import tiktoken
-from transformers import PreTrainedTokenizer, PreTrainedTokenizerFast
 
 logger = getLogger(__name__)
 
@@ -18,71 +14,15 @@ split_regex = re.compile(r"(\w+)(\[\d*:\d*\])?")
 slice_regex = re.compile(r"\[(\d*):(\d*)\]")
 
 
-@dataclass
-class DatasetUtilMixin:
-
-    normalization_prompt: str = "Q: \nA:"
-
-    def set_tokenizer(self, tokenizer: Union[tiktoken.Encoding, PreTrainedTokenizer, PreTrainedTokenizerFast]) -> None:
-        self.tokenizer = tokenizer
-        if isinstance(tokenizer, tiktoken.Encoding):
-            # Encoding.encode_ordinary is slightly faster than Encoding.encode
-            self.tokenizer_encode = tokenizer.encode_ordinary
-        else:
-            self.tokenizer_encode = tokenizer.encode
-        self.tokenizer_decode = tokenizer.decode
-
-    def _apply_normalization(self, options: List[Tuple[str, ...]], prefix_length: int) -> List[Tuple[str, ...]]:
-        normalized_option = ("",) * prefix_length + (self.normalization_prompt,)
-        normalized_options = [normalized_option + (option,) for *_, option in options]
-        options = [o for g in zip(options, normalized_options) for o in g]
-        return options
-
-    def prompt_token_nums(self, prompt: str):
-        return len(self.tokenizer_encode(prompt))
-
-    def truncate_by_word(
-        self,
-        words: List[str],
-        max_tokens: int,
-        side: Literal["left", "right"],
-    ) -> Tuple[str, int, int]:
-        """Truncate the prompt by word to fit the maximum token length.
-
-        Return:
-            - prompt: the truncated prompt
-            - real_token_nums: the real token numbers of the truncated prompt
-            - word_nums: the number of words in the truncated prompt
-        """
-        lengths = [0]
-        for w in words:
-            lengths.append(lengths[-1] + len(w))
-        prompt = "".join(words)
-
-        tokens = self.tokenizer_encode(prompt)
-        real_token_nums = len(tokens)
-        if real_token_nums <= max_tokens:
-            return prompt, real_token_nums, len(words)
-
-        st = 0
-        ed = len(words)
-        if side == "left":
-            truncated_raw = self.tokenizer_decode(tokens[-max_tokens:])
-            st = bisect_left(lengths, len(prompt) - len(truncated_raw))
-        elif side == "right":
-            truncated_raw = self.tokenizer_decode(tokens[:max_tokens])
-            ed = bisect_right(lengths, len(truncated_raw)) - 1
-        prompt = "".join(words[st:ed])
-        real_token_nums = self.prompt_token_nums(prompt)
-        return prompt, real_token_nums, ed - st
-
-
 def accepts_subset(
-    load_args: Union[Tuple[str], Tuple[str, str], Tuple[()]],
+    load_args: Union[Tuple[str], Tuple[str, str], Tuple[()], None],
     overwrite_subset: bool = True,
     subset: str = "",
     disable_warning: bool = False,
 ) -> bool:
+    if load_args is None:
+        return False
+
     if len(load_args) == 2 and isinstance(load_args[1], str):
         if overwrite_subset:
             if not disable_warning and load_args[1] != subset:
@@ -113,6 +53,7 @@ def get_raw_dataset_loader(
     dataset_path: Optional[str],
     subset_name: Optional[str],
     load_args: Optional[Union[Tuple[str], Tuple[str, str], Tuple[()]]],
+    load_kwargs: Optional[Dict[str, Any]],
     return_msg: bool = False,
     use_etag: bool = False,
 ) -> Union[_LoaderType, Tuple[_LoaderType, str]]:
@@ -133,6 +74,7 @@ def get_raw_dataset_loader(
     - local file pattern `"{dataset_path}".format(subset=subset_name, split=split)`
 
     """
+
     if subset_name:
         dataset_msg = f"{dataset_name}:{subset_name}"
     else:
@@ -140,7 +82,15 @@ def get_raw_dataset_loader(
     msg = f"Loading raw dataset `{dataset_msg}`"
     load_fn = None
 
-    download_config = ds.DownloadConfig(use_etag=use_etag)
+    load_kwargs = load_kwargs or {}
+    if "downalod_config" in load_kwargs:
+        assert isinstance(load_kwargs["download_config"], ds.DownloadConfig)
+        load_kwargs["download_config"].use_etag = use_etag
+    else:
+        load_kwargs["download_config"] = ds.DownloadConfig(use_etag=use_etag)
+
+    if "trust_remote_code" not in load_kwargs:
+        load_kwargs["trust_remote_code"] = True
 
     # if `dataset_path` is not None, load from local path
     if dataset_path is not None:
@@ -149,36 +99,38 @@ def get_raw_dataset_loader(
         if subset_name is None and len(load_args) > 1 and load_args[1] is not None:
             subset_name = load_args[1]
 
+        load_from_script = False
+        if os.path.isdir(dataset_path):
+            load_script = dataset_path + "/" + dataset_path.split("/")[-1].split("--")[-1] + ".py"
+            if os.path.exists(load_script):
+                load_from_script = True
+
+        if load_from_script:
+            logger.debug(f"Loading from a downloaded dataset: {load_script}, {subset_name}")
+
+            # hfd
+            def load_fn(split):
+                return ds.load_dataset(load_script, subset_name, split=split, **load_kwargs)
+
         # load from a cloned repository from huggingface
-        if os.path.exists(os.path.join(dataset_path, "dataset_infos.json")):
+        elif os.path.exists(os.path.join(dataset_path, "dataset_infos.json")):
             infos = json.load(open(os.path.join(dataset_path, "dataset_infos.json")))
 
-            # find the correct subset
+            # find the correct subset. e.g. copa
             if dataset_name in infos:
 
                 logger.debug(f"Loading from a cloned or cached repository: {dataset_path}, {dataset_name}")
 
                 def load_fn(split):
-                    return ds.load_dataset(
-                        dataset_path,
-                        dataset_name,
-                        split=split,
-                        trust_remote_code=True,
-                        download_config=download_config
-                    )
+                    return ds.load_dataset(dataset_path, dataset_name, split=split, **load_kwargs)
 
-            elif subset_name in infos:
+            # e.g. hellaswag
+            elif subset_name in infos or (subset_name is None and "default" in infos):
 
                 logger.debug(f"Loading from a cloned or cached repository: {dataset_path}, {subset_name}")
 
                 def load_fn(split):
-                    return ds.load_dataset(
-                        dataset_path,
-                        subset_name,
-                        split=split,
-                        trust_remote_code=True,
-                        download_config=download_config,
-                    )
+                    return ds.load_dataset(dataset_path, subset_name, split=split, **load_kwargs)
 
             else:
                 raise ValueError(
@@ -190,13 +142,7 @@ def get_raw_dataset_loader(
             logger.debug(f"Loading from a cloned or cached repository: {dataset_path}, {subset_name}")
 
             def load_fn(split):
-                return ds.load_dataset(
-                    dataset_path,
-                    "default",
-                    split=split,
-                    trust_remote_code=True,
-                    download_config=download_config,
-                )
+                return ds.load_dataset(dataset_path, "default", split=split, **load_kwargs)
 
         # load from a local directory
         elif os.path.exists(os.path.join(dataset_path, "dataset_dict.json")):
@@ -221,56 +167,31 @@ def get_raw_dataset_loader(
         elif os.path.isdir(dataset_path):
 
             offline = os.environ.get("HF_DATASETS_OFFLINE") == "1"
-            if os.path.exists(dataset_path + "/" + dataset_path.split("/")[-1] + ".py"):
-                offline = True
 
-            if ".cache" in dataset_path:
+            if offline:
+
+                logger.debug(f"Loading from a downloaded dataset: {dataset_path}, default")
+
+                # example command: ceval (cloned from huggingface repo, in .csv format)
+                def load_fn(split):
+                    return ds.load_dataset(
+                        dataset_path, "default", split=split, data_dir=relpath(dataset_path), **load_kwargs
+                    )
+
+            elif ".cache" in dataset_path:
 
                 _path = load_args[0] if len(load_args) >= 1 else dataset_name
                 logger.debug(f"Loading from a cache dir: {_path}, {subset_name}")
 
                 def load_fn(split):
-                    return ds.load_dataset(
-                        _path,
-                        subset_name,
-                        split=split,
-                        cache_dir=dataset_path,
-                        trust_remote_code=True,
-                        download_config=download_config,
-                    )
-            elif offline:
-
-                config_name = subset_name
-                if not os.path.exists(dataset_path + "/" + dataset_path.split("/")[-1] + ".py"):
-                    config_name = "default"
-
-                logger.debug(f"Loading from a downloaded dataset: {dataset_path}, {config_name}")
-
-                # example command: ceval (cloned from huggingface repo, in .csv format)
-                def load_fn(split):
-                    return ds.load_dataset(
-                        dataset_path,
-                        config_name,
-                        split=split,
-                        data_dir=relpath(dataset_path),
-                        download_config=download_config,
-                        trust_remote_code=True,
-                    )
-
+                    return ds.load_dataset(_path, subset_name, split=split, cache_dir=dataset_path, **load_kwargs)
             else:
 
                 logger.debug(f"Loading from a manually-downloaded dataset: {dataset_path}, {subset_name}")
 
                 # example command: story_cloze
                 def load_fn(split):
-                    return ds.load_dataset(
-                        dataset_name,
-                        subset_name,
-                        split=split,
-                        data_dir=dataset_path,
-                        download_config=download_config,
-                        trust_remote_code=True,
-                    )
+                    return ds.load_dataset(dataset_name, subset_name, split=split, data_dir=dataset_path, **load_kwargs)
 
         # load from a file
         else:
@@ -317,18 +238,17 @@ def get_raw_dataset_loader(
         msg += f" from huggingface ({', '.join(load_args)})"
 
         def load_fn(split):
-            return ds.load_dataset(*load_args, split=split, trust_remote_code=True, download_config=download_config)
-
-    if load_fn is None:
-        raise ValueError(
-            f"Failed to load dataset `{dataset_msg}`. Please check if the dataset exists in huggingface or local path."
-        )
+            return ds.load_dataset(*load_args, split=split, **load_kwargs)
 
     def informative_load_fn(split=None) -> ds.Dataset:
         try:
             return load_fn(split=split)
         except KeyError as e:
             raise ValueError(f"Cannot find split `{split}` in `{dataset_msg}`.") from e
+        except TypeError as e:
+            raise ValueError(
+                f"Failed to load dataset `{dataset_msg}`. Please check if the dataset exists in huggingface or local path."
+            ) from e
 
     if return_msg:
         return informative_load_fn, msg

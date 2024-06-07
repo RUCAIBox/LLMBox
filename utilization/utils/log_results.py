@@ -35,6 +35,24 @@ def to_dict(merge: Optional[List[str]] = None, merge_by_option: Optional[List[st
     return wrapper
 
 
+def dump_conversations(convs: List[Any], local: bool):
+    from ..model.model_utils.conversation import Conversation
+
+    if isinstance(convs, (str, Conversation)):
+        convs = [convs]
+
+    if isinstance(convs[0], Conversation):
+        if not local:
+            convs = [[str(m['content']) for m in p.messages] for p in convs]
+        else:
+            convs = [p.apply_prompt_template() for p in convs]
+
+    if not isinstance(convs[0], str):
+        convs = [str(p) for p in convs]
+
+    return convs
+
+
 class PredictionWriter:
 
     def __init__(self, evaluation_path: Optional[str]):
@@ -77,18 +95,21 @@ class PredictionWriter:
                 json.dump(data, f, ensure_ascii=False)
                 f.write("\n")
         except Exception as e:
-            logger.warning(f"Failed to log_predictions: {e}\n{data}")
+            logger.warning(f"Failed to log batch predictions: {e}\n{data}")
             self._alive = False
 
     def log_batch_results(
         self,
         raw_predictions: List[str],
+        local_model: bool,
         lines_iter: Iterator[Tuple[int, str, Any]],
     ) -> int:
+        """Log the batch predictions to the evaluation jsonlines file."""
         if not self.alive():
             return len(raw_predictions)
 
         for raw_prediction, (idx, source, reference) in zip(raw_predictions, lines_iter):
+            source = dump_conversations(source, local_model)
             lines = {
                 "index": idx,
                 "source": source,
@@ -138,16 +159,20 @@ class PredictionWriter:
 def log_final_results(
     raw_predictions: List[str],
     processed_predictions: List[Union[str, float]],
+    evaluation_instances: List[tuple],
     score_lists: Dict[str, List[float]],
     multiple_source: bool,
     model_evaluation_method: str,
     use_normalization: bool,
     option_nums: List[int],
     len_evaluation_data: int,
-    evaluation_instances: List[tuple],
     sample_num: int,
     references: List[Any],
+    local_model: bool,
 ) -> Optional[pd.Series]:
+    """Aggregate the final results and prepare for dumping to a json file."""
+
+    evaluation_instances = dump_conversations(evaluation_instances, local_model)
 
     transposed_score_lists = [dict(zip(score_lists.keys(), values)) for values in zip(*score_lists.values())]
     if model_evaluation_method == "generation":
@@ -163,8 +188,9 @@ def log_final_results(
         try:
             return pd.DataFrame(lines).groupby("index").apply(to_dict(merge=["index", "source", "metric", "reference"]))
         except Exception as e:
-            lines = {k: len(v) for k, v in lines.items()}
-            logger.warning(f"Failed to log_predictions: {e}\n{lines}")
+            get_len = lambda v: len(v) if hasattr(v, "__len__") else None
+            lines = {k: get_len(v) for k, v in lines.items()}
+            logger.warning(f"Failed to generate final predictions: {e}\n{lines}")
             return None
 
     elif model_evaluation_method == "get_ppl":  # ranking
@@ -201,8 +227,8 @@ def log_final_results(
                 merge_by_option = ["option"]
             return pd.DataFrame(lines).groupby("index").apply(to_dict(merge, merge_by_option))
         except Exception as e:
-            lines = {k: len(v) for k, v in lines.items()}
-            logger.warning(f"Failed to log_predictions: {e}\n{lines}")
+            lines = {k: getattr(v, "__len__", lambda: None)() for k, v in lines.items()}
+            logger.warning(f"Failed to log_pgenerate final predictions: {e}\n{lines}")
             return None
 
     elif model_evaluation_method == "get_prob":
@@ -218,8 +244,8 @@ def log_final_results(
         try:
             return pd.DataFrame(lines).groupby("index").apply(to_dict())
         except Exception as e:
-            lines = {k: len(v) for k, v in lines.items()}
-            logger.warning(f"Failed to log_predictions: {e}\n{lines}")
+            lines = {k: getattr(v, "__len__", lambda: None)() for k, v in lines.items()}
+            logger.warning(f"Failed to generate final predictions: {e}\n{lines}")
             return None
 
     else:

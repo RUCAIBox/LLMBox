@@ -1,10 +1,10 @@
-**LLMBox** | [Training](training) | [Utilization](utilization)
+**LLMBox** | [Training](https://github.com/RUCAIBox/LLMBox/tree/main/training) | [Utilization](https://github.com/RUCAIBox/LLMBox/tree/main/utilization)
 
 # LLMBox
 
 LLMBox is a comprehensive library for implementing LLMs, including **a unified training pipeline** and **comprehensive model evaluation**. LLMBox is designed to be a one-stop solution for training and utilizing LLMs. Through a pratical library design, we achieve a high-level of **flexibility** and **efficiency** in both training and utilization stages.
 
-<img style="display: block; margin: 25 auto;" src="assets/llmbox.png" alt="" />
+<img style="display: block; margin: 25 auto;" src="docs/assets/llmbox.png" alt="" />
 
 
 ## Key Features
@@ -20,11 +20,11 @@ Training
 
 Utilization
 
-- **Comprehensive Evaluation:** We support 51 commonly used datasets.
-- **In-Context Learning:** We support various ICL strategies, including `KATE`, `GlobalE`, and `APE`.
-- **Chain-of-Thought:** For some datasets, we support three types of CoT evaluation: `base`, `least-to-most`, and `pal`.
-- **Evaluation Methods:** We currently support three evaluation methods for multiple choice questions or generation questions.
-- **Prefix Caching:** By caching the `past_key_value` of prefix, we can speed up local inference by up to 6x.
+- **Comprehensive Evaluation:** 56+ commonly used datasets and benchmarks in evaluating LLMs.
+- **Evaluation Methods:** Accurately reproduce results from original papers of OpenAI, LLaMA, Mistral, and other models.
+- **In-Context Learning:** We support various ICL strategies, including [`KATE`](https://aclanthology.org/2022.deelio-1.10/), [`GlobalE`](https://aclanthology.org/2022.acl-long.556/), and [`APE`](https://arxiv.org/abs/2211.01910).
+- **Chain-of-Thought:** For some datasets, we support three types of CoT evaluation: `base`, [`least-to-most`](https://arxiv.org/abs/2205.10625), and [`pal`](https://arxiv.org/abs/2211.10435).
+- **Prefix Caching:** By managing the KV Cache of prefixes, we can speed up local inference by up to 6x.
 - **vLLM and Flash Attention Support:** We also support [`vLLM`](https://github.com/vllm-project/vllm) and [`Flash Attention`](https://github.com/Dao-AILab/flash-attention) for efficient inference.
 - **Quantization:** BitsAndBytes and GPTQ quantization are supported.
 
@@ -35,10 +35,12 @@ Utilization
 
 ```python
 git clone https://github.com/RUCAIBox/LLMBox.git && cd LLMBox
-pip install -r requirements.txt  # or `requirements-openai.txt`
+pip install -r requirements.txt
 ```
 
-If you are only evaluating the OpenAI (or OpenAI compatible) models, you can install the minimal requirements.
+If you are only evaluating the OpenAI (or OpenAI compatible like DeepSeek, Perplexity) models, you can install the minimal requirements `requirements-openai.txt`.
+
+For installation problem, see [trouble shooting](https://github.com/RUCAIBox/LLMBox/tree/main/docs/trouble_shooting/vllm_no_module_name_packaging.md).
 
 ### Quick Start with Training
 
@@ -55,7 +57,7 @@ bash bash/run_7b_ds3.sh
 To utilize your model, or evaluate an existing model, you can run the following command:
 
 ```python
-python inference.py -m gpt-3.5-turbo -d copa  # --num_shot 0 --model_type instruction
+python inference.py -m gpt-3.5-turbo -d copa  # --num_shot 0 --model_type chat
 ```
 
 This is default to run the OpenAI GPT 3.5 turbo model on the CoPA dataset in a zero-shot manner.
@@ -85,7 +87,7 @@ Alternatively, you can use the following preset bash scripts to train your model
 
 ### Merging Tokenizer
 
-If you want to pre-train your models on corpora with languages or tokens not well-supported in original language mdoels(e.g., LLaMA), we provide the tokenizer merging function to expand the vocabulary based on the corpora by using [sentencepiece](https://github.com/google/sentencepiece). You can check [merge_tokenizer.py](training/merge_tokenizer.py) for detailed information. Please follow the guide in [Pre-train](training/README.md##2-continual-pre-training-with-your-own-corpora).
+If you want to pre-train your models on corpora with languages or tokens not well-supported in original language mdoels(e.g., LLaMA), we provide the tokenizer merging function to expand the vocabulary based on the corpora by using [sentencepiece](https://github.com/google/sentencepiece). You can check [merge_tokenizer.py](training/merge_tokenizer.py) for detailed information. Please follow the guide in [Pre-train](https://github.com/RUCAIBox/LLMBox/tree/main/training#2-continual-pre-training-with-your-own-corpora).
 
 ```bash
 bash bash/run_7b_pt.sh
@@ -93,7 +95,7 @@ bash bash/run_7b_pt.sh
 
 ### Merging Datasets
 
-If you want to train your models with a mix of multiple datasets, you can pass a list of dataset files or names to LLMBox. LLMBox will transfer each file or name into a PTDataset or SFTDataset, and merge them together to construct a combined dataset. You can also set the merging ratio of each dataset by passing a list of floats to LLMBox. Please follow the guide in [Merge Dataset](training/README.md##3-merging-different-datasets-with-designated-ratios-for-training).
+If you want to train your models with a mix of multiple datasets, you can pass a list of dataset files or names to LLMBox. LLMBox will transfer each file or name into a PTDataset or SFTDataset, and merge them together to construct a combined dataset. You can also set the merging ratio of each dataset by passing a list of floats to LLMBox. Please follow the guide in [Merge Dataset](https://github.com/RUCAIBox/LLMBox/tree/main/training#3-merging-different-datasets-with-designated-ratios-for-training).
 
 ```bash
 bash bash/run_7b_hybrid.sh
@@ -101,23 +103,25 @@ bash bash/run_7b_hybrid.sh
 
 ### Self-Instruct and Evol-Instruct
 
-Since manually creating instruction data of high qualities to train the model is very time-consuming and labor-intensive, Self-Instruct and Evol-Instruct are proposed to create large amounts of instruction data with varying levels of complexity using LLM instead of humans. LLMBox support both Self-Instruct and Evol-Instruct to augment or enhance the input data files. Please follow the guide in [Self-Insturct and Evol-Instruct](training/README.md#8-self-instruct-and-evol-instruct-for-generation-instructions)
+Since manually creating instruction data of high qualities to train the model is very time-consuming and labor-intensive, Self-Instruct and Evol-Instruct are proposed to create large amounts of instruction data with varying levels of complexity using LLM instead of humans. LLMBox support both Self-Instruct and Evol-Instruct to augment or enhance the input data files. Please follow the guide in [Self-Insturct and Evol-Instruct](https://github.com/RUCAIBox/LLMBox/tree/main/training#8-self-instruct-and-evol-instruct-for-generation-instructions)
 
 ```bash
 python self_instruct/self_instruct.py --seed_tasks_path=seed_tasks.jsonl
 ```
 
-For more details, view the [training](./training/README.md) documentation.
+For more details, view the [training](https://github.com/RUCAIBox/LLMBox/tree/main/training) documentation.
 
 ## Utilization
 
-We provide a broad support on Huggingface models, OpenAI, Anthropic, QWen and  models for further utilization. Currently a total of 51 commonly used datasets are supported, including: `HellaSwag`, `MMLU`, `GSM8K`, `AGIEval`, `CEval`, and `CMMLU`. For a full list of supported models and datasets, view the [utilization](./utilization/README.md) documentation.
+We provide a broad support on Huggingface models (e.g. `LLaMA-3`, `Mistral`, or the model you are building on), OpenAI, Anthropic, QWen and other OpenAI-compatible models for further utilization.
+
+Currently a total of 56+ commonly used datasets are supported, including: `HellaSwag`, `MMLU`, `GSM8K`, `GPQA`, `AGIEval`, `CEval`, and `CMMLU`. For a full list of supported models and datasets, view the [utilization](https://github.com/RUCAIBox/LLMBox/tree/main/utilization) documentation.
 
 ```bash
 CUDA_VISIBLE_DEVICES=0 python inference.py \
   -m llama-2-7b-hf \
   -d mmlu agieval:[English] \
-  --model_type instruction \
+  --model_type chat \
   --num_shot 5 \
   --ranking_type ppl_no_option
 ```
@@ -243,7 +247,7 @@ python inference.py -m model -d dataset --kate  # --globale or --ape
 python inference.py -m model -d dataset --cot least_to_most  # --base or --pal
 ```
 
-For a more detailed instruction on model utilization, view the [utilization](./utilization/README.md) documentation.
+For a more detailed instruction on model utilization, view the [utilization](https://github.com/RUCAIBox/LLMBox/tree/main/utilization) documentation.
 
 <!-- For a full list of evaluation results, view our paper. -->
 
@@ -255,12 +259,14 @@ We welcome all contributions from bug fixes to new features and extensions.
 
 We expect all contributions discussed in the issue tracker and going through PRs.
 
-Make sure to format your code with `yapf --style style.cfg` and `isort` before submitting a PR.
+You can follow [model customization](https://github.com/RUCAIBox/LLMBox/tree/main/utilization#customize-model) and [dataset customization](https://github.com/RUCAIBox/LLMBox/tree/main/utilization#customize-dataset) to add new model provider or dataset.
+
+Make sure to format your code with `yapf --style .style.cfg` and `isort` before submitting a PR.
 
 
 ## The Team
 
-LLMBox is developed and maintained by [AI Box](http://aibox.ruc.edu.cn/).
+LLMBox is developed and maintained by [AI Box](http://aibox.ruc.edu.cn/). See more details in [change log](https://github.com/RUCAIBox/LLMBox/tree/main/utilization#change-log)
 
 ## License
 

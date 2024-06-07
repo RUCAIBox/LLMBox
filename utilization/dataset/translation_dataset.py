@@ -14,7 +14,7 @@ class TranslationDataset(GenerationDataset):
         reference: Obama welcomes Netanyahu
     """
 
-    instruction = "Q: Translate to {{lang}}. {{translation[self.subset_name[:2]]}}\nA:"
+    instruction = "Q: Translate to {{lang}}. {{translation[subset_name[:2]]}}\nA:"
     evaluation_set = "test"
     example_set = "train"
     metrics = [Bleu()]
@@ -27,7 +27,7 @@ class TranslationDataset(GenerationDataset):
 
     def format_instance(self, instance):
         instance["lang"] = self.language
-        instance["target"] = instance[self.subset_name[3:5]]
+        instance["target"] = instance["translation"][self.subset_name[3:5]]
         return instance
 
     @staticmethod

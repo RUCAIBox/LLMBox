@@ -5,12 +5,12 @@ from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Tuple, Typ
 import tiktoken
 from tiktoken import Encoding
 from transformers import PreTrainedModel, PreTrainedTokenizer, PreTrainedTokenizerFast
-from transformers.pipelines.conversational import Conversation
 
+from ..model_enum import API_MODELS, ENDPOINT_ARGS, ERROR_OVERVIEW
 from ..utils import ModelArguments
 from ..utils.arguments import ModelBackendMixin
-from ..utils.prefix_caching import Cacher
-from .model_enum import API_MODELS, ENDPOINT_ARGS, ERROR_OVERVIEW
+from .model_utils.conversation import Conversation
+from .model_utils.prefix_caching import Cacher
 
 if TYPE_CHECKING:
     # solve the circular import
@@ -34,7 +34,8 @@ class Model(ModelBackendMixin):
         generation_kwargs (dict): The configurations for open-ended generation.
         ppl_kwargs (dict, *optional*): The configurations for computing PPL score.
     """
-
+    name: str
+    model_type: Literal["base", "chat"]
     model_backend: Literal["anthropic", "dashscope", "huggingface", "openai", "qianfan", "vllm"]
 
     model: Union[PreTrainedModel, "LLM", None] = None
@@ -161,9 +162,9 @@ class ApiModel(Model):
 
     endpoint: Literal["completions", "chat/completions"]
 
-    _retry_errors: Tuple[Type[Exception]]
-    _raise_errors: Tuple[Type[Exception]]
-    _skip_errors: Tuple[Type[Exception]]
+    _retry_errors: Tuple[Type[Exception], ...]
+    _raise_errors: Tuple[Type[Exception], ...]
+    _skip_errors: Tuple[Type[Exception], ...]
 
     def __init__(self, args: ModelArguments):
         super().__init__(args)
@@ -227,11 +228,11 @@ class ApiModel(Model):
                 key = details.alias
 
             # type casting
-            if details._type is not None:
+            if details._type is not None and value is not None:
                 value = details._type(value)
 
             # transform
-            if details.transform is not None:
+            if details.transform is not None and value is not None:
                 value = details.transform(value)
 
             # skip if no value
@@ -247,7 +248,10 @@ class ApiModel(Model):
             logger.warning(f"Unused generation arguments: {extra_model_args}")
         return self.generation_kwargs
 
-    def generation(self, batched_inputs) -> Union[List[str], List[Tuple[str, ...]]]:
+    def generation(
+        self,
+        batched_inputs: Union[List[str], List[Conversation]],
+    ) -> Union[List[str], List[Tuple[str, ...]]]:
         multi_turn_results = self.request(
             prompt=batched_inputs,
             multi_turn=self.multi_turn,
@@ -292,25 +296,10 @@ class ApiModel(Model):
                         messages = [{"role": "user", "content": c} for c in conversation.split("__SEPARATOR__")]
                         conversation = Conversation(messages)
 
-                    user_idx = 1
-                    for user_idx in range(1, len(conversation.messages)):
-                        if (
-                            conversation.messages[user_idx]["role"] == "user"
-                            and conversation.messages[user_idx - 1]["role"] == "user"
-                        ):
-                            assert multi_turn, "Multi-turn conversation is needed."
-                            break
-
-                    num_turns = len(conversation.messages) - user_idx + 1
-                    assert all(
-                        m["role"] == "user" for m in conversation.messages[user_idx - 1:]
-                    ), "The last messages should be user's message."
-
-                    max_messages_with_reply = len(conversation.messages) + num_turns
                     results = []
-                    for i in range(user_idx, max_messages_with_reply, 2):
+                    for _ in range(conversation.num_turns):
                         response = self._chat_completions(
-                            messages=conversation.messages[:i],
+                            messages=conversation.messages,
                             model=self.name,
                             **model_kwargs,
                         )
@@ -322,13 +311,7 @@ class ApiModel(Model):
 
                         results.append(response)
                         content = self._get_assistant(response)
-                        conversation.messages.insert(
-                            i,
-                            {
-                                "role": "assistant",
-                                "content": content,
-                            },
-                        )
+                        conversation.add_multi_turn(assistant=content)
                     return results
 
                 # reset retry_times counter

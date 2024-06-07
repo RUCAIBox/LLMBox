@@ -21,11 +21,12 @@ class Anthropic(ApiModel):
     model_backend = "anthropic"
     model: anthropic.Anthropic
 
-    _retry_errors = (anthropic.APITimeoutError, anthropic.InternalServerError, anthropic.RateLimitError)
+    _retry_errors = (anthropic.APITimeoutError, anthropic.RateLimitError)
     _raise_errors = (
         anthropic.APIConnectionError, anthropic.AuthenticationError, anthropic.BadRequestError, anthropic.ConflictError,
         anthropic.NotFoundError, anthropic.PermissionDeniedError, anthropic.UnprocessableEntityError
     )
+    _skip_errors = (anthropic.InternalServerError,)
 
     _repr = ["model_type", "model_backend", "multi_turn"]
 

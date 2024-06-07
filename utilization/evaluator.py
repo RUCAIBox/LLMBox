@@ -1,13 +1,14 @@
 from logging import getLogger
 from statistics import mode
-from typing import Dict, Tuple
+from typing import Any, Callable, Dict, List, Optional
 
-from torch.utils.data import DataLoader
-
-from .dataset import load_datasets
-from .model import load_model
-from .utils import DatasetArguments, EvaluationArguments, ModelArguments, catch_error, dynamic_stride_tqdm
+from .load_dataset import load_datasets
+from .load_model import load_model
+from .utils.arguments import DatasetArguments, EvaluationArguments, ModelArguments, check_args
+from .utils.catch_error import catch_error
+from .utils.dynamic_stride_tqdm import dynamic_stride_tqdm
 from .utils.log_results import PredictionWriter
+from .utils.logging import set_logging
 from .utils.random import set_seed
 
 logger = getLogger(__name__)
@@ -25,20 +26,44 @@ class Evaluator:
         dataset (Dataset): Our class for dataset.
     """
 
-    def __init__(self, args: Tuple[ModelArguments, DatasetArguments, EvaluationArguments]):
-        model_args, dataset_args, evaluation_args = args
+    def __init__(
+        self,
+        *,
+        model_args: ModelArguments,
+        dataset_args: DatasetArguments,
+        evaluation_args: Optional[EvaluationArguments] = None,
+        initalize: bool = True,
+        load_hf_model: Optional[Callable] = None,
+        evaluation_data: Optional[List[Dict[str, Any]]] = None,
+        example_data: Optional[List[Dict[str, Any]]] = None,
+    ):
+
         self.model_args = model_args
         self.dataset_args = dataset_args
+        evaluation_args = evaluation_args or EvaluationArguments()
         self.evaluation_args = evaluation_args
+        if load_hf_model is not None:
+            self.model_args.load_hf_model = load_hf_model
+
+        if initalize:
+            set_logging(self.model_args, self.dataset_args, self.evaluation_args)
+            check_args(self.model_args, self.dataset_args, self.evaluation_args)
+            logger.info(self.evaluation_args)
 
         set_seed(self.evaluation_args.seed)
 
         self.model = load_model(self.model_args)
         self.writer = PredictionWriter(self.dataset_args.evaluation_results_path)
-        self.dataset = load_datasets(self.dataset_args, self.model)
+        self.dataset = load_datasets(
+            self.dataset_args,
+            self.model,
+            self.evaluation_args,
+            evaluation_data=evaluation_data,
+            example_data=example_data,
+        )
         self.writer.write_metainfo(self.model_args, self.dataset_args, self.evaluation_args)
 
-    @catch_error
+    @catch_error(True)
     def evaluate(self) -> Dict[str, Dict[str, float]]:
         r"""It conducts the evaluation on the dataset with corresponding models.
         We support two evaluation types:
@@ -48,6 +73,8 @@ class Evaluator:
 
         Finally, we call the `calculate_metric` to get the metric score of prediction results.
         """
+        from torch.utils.data import DataLoader
+
         if self.evaluation_args.dry_run:
             self.model.get_ppl = lambda x: [(0, 1)] * len(x)
             self.model.generation = lambda x: [""] * len(x)

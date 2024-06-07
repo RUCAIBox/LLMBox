@@ -42,6 +42,7 @@ class Mt_bench(GenerationDataset):
         return dict(
             source=instance["question_1"].strip() + "__SEPARATOR__" + instance["question_2"].strip(),
             target="",
+            num_turns=2,
         )
 
     @cached_property

@@ -1,0 +1,86 @@
+name: Run pytest
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+        - 'utilization/**'
+        - 'tests/**'
+        - '.github/workflows/**'
+
+jobs:
+  Pytest:
+    name: subtest
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        group: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+
+    steps:
+      - uses: szenius/set-timezone@v2.0
+        with:
+          timezoneLinux: "Asia/Shanghai"
+      - uses: actions/checkout@v3
+      - name: Set up Python 3.8.18
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.8.18
+      - name: Install dependencies
+        run: |
+          pip install uv pip -U
+          uv pip install -r tests/requirements-tests.txt --system
+          uv pip install vllm --no-build-isolation --system
+      - name: Run tests
+        run: pytest --cov --junit-xml=test-results.xml --splits 10 --group ${{ matrix.group }} --reruns 3 --only-rerun PermissionError
+        env:
+            GITHUB_ACTION: 1
+      - name: Surface failing tests
+        if: always()
+        uses: pmeier/pytest-results-action@multi-testsuites
+        with:
+          # A list of JUnit XML files, directories containing the former, and wildcard
+          # patterns to process.
+          # See @actions/glob for supported patterns.
+          path: test-results.xml
+
+          # (Optional) Add a summary of the results at the top of the report
+          summary: true
+
+          # (Optional) Select which results should be included in the report.
+          # Follows the same syntax as `pytest -r`
+          display-options: fEX
+
+          # (Optional) Fail the workflow if no JUnit XML was found.
+          fail-on-empty: true
+
+          # (Optional) Title of the test results section in the workflow summary
+          title: Test results
+      - name: Upload coverage
+        uses: actions/upload-artifact@v2
+        with:
+          name: coverage${{ matrix.group }}
+          path: .coverage
+
+  Coverage:
+    needs: Pytest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python 3.8.18
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.8.18
+      - name: Install uv
+        run: |
+          pip install uv pip -U
+          uv pip install -r tests/requirements-tests.txt --system
+          uv pip install vllm --no-build-isolation --system
+      - name: Download all artifacts
+        # Downloads coverage1, coverage2, etc.
+        uses: actions/download-artifact@v2
+      - name: Run coverage
+        run: |
+          coverage combine coverage*/.coverage*
+          coverage report --fail-under=90
+          coverage xml -i
+      - uses: codecov/codecov-action@v1

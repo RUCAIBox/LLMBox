@@ -2,8 +2,8 @@ import re
 from functools import cached_property
 from logging import getLogger
 
+from ..dataset_enum import GAOKAO_TASKS
 from ..metric import Gaokao_bench_metric
-from .enum import GAOKAO_TASKS
 from .generation_dataset import GenerationDataset
 
 logger = getLogger(__name__)
@@ -64,7 +64,8 @@ class Gaokao(GenerationDataset):
 
     def init_arguments(self):
         self.gaokao_instruction = GAOKAO_PROMPTS[self.subset_name]
-        self.extra_model_args = dict(temperature=0.3, max_tokens=4096)
+        self.extra_model_args["temperature"] = 0.3
+        self.extra_model_args["max_tokens"] = 4096
         # According to https://github.com/OpenLMLab/GAOKAO-Bench/blob/main/Models/openai_gpt4.py
         # We use temperature=0.3 and max_tokens=4096
 

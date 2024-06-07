@@ -1,4 +1,4 @@
-[LLMBox](..) | **Training** | [Utilization](../utilization)
+[LLMBox](https://github.com/RUCAIBox/LLMBox) | **Training** | [Utilization](https://github.com/RUCAIBox/LLMBox/tree/main/utilization)
 
 <!-- ## Supervised Fine-tuning and Continual Pre-training -->
 # LLMBox-Training

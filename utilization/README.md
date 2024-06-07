@@ -1,16 +1,32 @@
-[LLMBox](..) | [Training](../training) | **Utilization**
+[LLMBox](https://github.com/RUCAIBox/LLMBox) | [Training](https://github.com/RUCAIBox/LLMBox/tree/main/training) | **Utilization**
 
 # Utilization
 
 - [Utilization](#utilization)
+  - [Supported Datasets](#supported-datasets)
+  - [Customize Dataset](#customize-dataset)
   - [Usage](#usage)
     - [Model Arguments](#model-arguments)
     - [Dataset Arguments](#dataset-arguments)
     - [Evaluation Arguments](#evaluation-arguments)
   - [Supported Models](#supported-models)
   - [Customize Model](#customize-model)
-  - [Supported Datasets](#supported-datasets)
-  - [Customize Dataset](#customize-dataset)
+    - [Customizing HuggingFace Models](#customizing-huggingface-models)
+    - [Adding a New Model Provider](#adding-a-new-model-provider)
+  - [Customize Chat Template](#customize-chat-template)
+  - [Change Log](#change-log)
+
+
+## Supported Datasets
+
+- See a full list of supported datasets at [here](https://github.com/RUCAIBox/LLMBox/tree/main/docs/utilization/supported-datasets.md).
+- See how to [load datasets with subsets](https://github.com/RUCAIBox/LLMBox/tree/main/docs/utilization/how-to-load-datasets-with-subsets.md).
+- See how to [load datasets](https://github.com/RUCAIBox/LLMBox/tree/main/docs/utilization/how-to-load-datasets-from-huggingface.md) from Hugging Face or its mirror.
+
+## Customize Dataset
+
+See [this guide](https://github.com/RUCAIBox/LLMBox/tree/main/docs/utilization/how-to-customize-dataset.md) for details.
+
 
 ## Usage
 
@@ -37,7 +53,7 @@ python inference.py -m microsoft/phi-2 -d gsm8k -shots 8 --sample_num 100 --load
 Evaluating LLaMA-2 (7b) on CMMLU and CEval with instruction using vllm:
 
 ```bash
-CUDA_VISIBLE_DEVICES=0 python inference.py -m llama-2-7b-hf -d cmmlu ceval --vllm True --model_type instruction
+CUDA_VISIBLE_DEVICES=0 python inference.py -m llama-2-7b-hf -d cmmlu ceval --vllm True --model_type chat
 ```
 
 We use all cuda devices by default. You can specify the device with `CUDA_VISIBLE_DEVICES`.
@@ -46,7 +62,7 @@ We use all cuda devices by default. You can specify the device with `CUDA_VISIBL
 
 Define the model parameters, efficient evaluation settings, generation arguments, quantization, and additional configuration options.
 
-We provide an enumeration ([`enum`](model/enum.py)) for models corresponding to each `model_backend`. If a model is not listed within this enumeration, `--model_backend` should be specified directly.
+We provide an enumeration ([`model_enum`](https://github.com/RUCAIBox/LLMBox/tree/main/utilization/model_enum.py)) for models corresponding to each `model_backend`. If a model is not listed within this enumeration, `--model_backend` should be specified directly.
 
 
 ```text
@@ -123,7 +139,7 @@ Generation arguments and quantization options:
 --system_prompt SYSTEM_PROMPT, -sys SYSTEM_PROMPT
                       The system prompt for chat-based models
 --chat_template CHAT_TEMPLATE
-                      The chat template for huggingface chat-based models
+                      The chat template for local chat-based models. Support model default chate template (choose from 'base', 'llama2', 'chatml', 'zephyr', 'phi3', 'llama3', ...) or standard HuggingFace tokenizers chat template
 --bnb_config BNB_CONFIG
                       JSON string for BitsAndBytesConfig parameters.
 --load_in_8bit [LOAD_IN_8BIT]
@@ -169,9 +185,8 @@ You can evaluate datasets sequentially in a single run when they require similar
 --example_set EXAMPLE_SET
                       The set name for demonstration, supporting slice,
                       e.g., train, dev, train[:10] (default: None)
---instance_format INSTANCE_FORMAT, -fmt INSTANCE_FORMAT
-                      The format to format the `source` and `target` for
-                      each instance (default: {source}{target})
+--instruction INSTRUCTION
+                      The format to format the instruction for each instance. Either f-string or jinja2 format is supported. E.g., 'Answer the following question: {question}\nAnswer:'"
 --num_shots NUM_SHOTS, -shots NUM_SHOTS
                       The few-shot number for demonstration (default: 0)
 --max_example_tokens MAX_EXAMPLE_TOKENS
@@ -308,7 +323,7 @@ Specify the random seed, logging directory, evaluation results directory, and ot
       <td><b>Supported Methods</b></td>
   </tr>
   <tr>
-      <td>(<code>Huggingface</code>)</td>
+      <td>Huggingface</td>
       <td>AutoModelForCasualLM</td>
       <td><code>Llama-2-7b-hf</code></td>
       <td><code>generation</code>, <code>get_ppl</code>, <code>get_prob</code></td>
@@ -316,34 +331,34 @@ Specify the random seed, logging directory, evaluation results directory, and ot
   <tr>
       <td rowspan=2>OpenAI</td>
       <td>Chat Completion Models</td>
-      <td><code>gpt-4-0125-preview</code>, <code>gpt-3.5-turbo</code></td>
-      <td><code>generation</code>, <code>get_prob</code> (adapted by generation)</td>
+      <td><code>gpt-4-0125-preview</code>, <code>deepseek-chat</code></td>
+      <td><code>generation</code>
   </tr>
   <tr>
-      <td>(<code>Completion Models (Legacy)</code>)</td>
+      <td>Completion Models (Legacy)</td>
       <td><code>davinci-002</code></td>
       <td><code>generation</code>, <code>get_ppl</code>, <code>get_prob</code></td>
   </tr>
   <tr>
-      <td>(<code>Qianfan</code>)</td>
+      <td>Qianfan</td>
       <td>Chat Completion Models</td>
       <td><code>ernie-speed-8k</code></td>
-      <td><code>generation</code>, <code>get_prob</code> (adapted by generation)</td>
+      <td><code>generation</code></td>
   </tr>
   <tr>
-      <td>(<code>Dashscope</code>)</td>
+      <td>Dashscope</td>
       <td>Generation</td>
       <td><code>qwen-turbo</code></td>
-      <td><code>generation</code>, <code>get_prob</code> (adapted by generation)</td>
+      <td><code>generation</code></td>
   </tr>
   <tr>
-      <td>(<code>Anthropic</code>)</td>
+      <td>Anthropic</td>
       <td>Chat Completion Models</td>
       <td><code>claude-3-haiku-20240307</code></td>
-      <td><code>generation</code>, <code>get_prob</code> (adapted by generation)</td>
+      <td><code>generation</code></td>
   </tr>
   <tr>
-      <td>(<code>vLLM</code>)</td>
+      <td>vLLM</td>
       <td>LLM</td>
       <td><code>Llama-2-7b-hf</code></td>
       <td><code>generation</code>, <code>get_ppl</code>, <code>get_prob</code></td>
@@ -356,15 +371,26 @@ For openai-compatible models like [Perplexity](https://docs.perplexity.ai/docs/g
 OPENAI_BASE_URL=https://api.perplexity.ai python inference.py -m llama-3-sonar-small-32k-chat -d hellaswag --openai_api_key PERPLEXITY_API_KEY --model_backend openai
 ```
 
-In some cases (e.g. evaluating with `get_prob`), you may need to specify the `--tokenizer` to load the correct tokenizer
+In some cases (e.g. evaluating with `get_prob`), you may need to specify the `--tokenizer` to load the correct tokenizer (e.g. `cl100k_base`).
+
+> [!TIP]
+> Use dotenv `.env` file to store your API keys and other sensitive information. The `.env` file should be in the root directory of the project.
 
 
 ## Customize Model
 
-By inheriting the [`Model`](model/model.py) class, you can customize support for more models. You can implement `generation`, `get_ppl`, and `get_prob` methods to support different models. For example, you can implement the `generation` method for a new model as follows:
+### Customizing HuggingFace Models
+
+If you are building on your own model, such as using a fine-tuned model, you can evaluate it easily from python script. Detailed steps and example code are provided in the [customize HuggingFace model guide](https://github.com/RUCAIBox/LLMBox/tree/main/docs/examples/customize_huggingface_model.py).
+
+### Adding a New Model Provider
+
+If you're integrating a new model provider, begin by extending the [`Model`](https://github.com/RUCAIBox/LLMBox/tree/main/utilization/model/model.py) class. Implement essential methods such as `generation`, `get_ppl` (get perplexity), and `get_prob` (get probability) to support different functionalities. For instance, here's how you might implement the `generation` method for a new model:
 
 ```python
 class NewModel(Model):
+
+    model_backend = "new_model"
 
     def call_model(self, batched_inputs: List[str]) -> List[Any]:
         return ...  # call to model, e.g., self.model.generate(...)
@@ -378,573 +404,30 @@ class NewModel(Model):
         return results
 ```
 
-And then, you should register your model in the [`load`](model/load.py) file.
+And then, you should register your model in the [`load`](https://github.com/RUCAIBox/LLMBox/tree/main/utilization/model/load.py) file.
 
+## Customize Chat Template
 
-
-## Supported Datasets
-
-We currently support 53 commonly used datasets for LLMs. Each dataset may includes multiple subsets, or is a subset of a collection.
-
-Load from huggingface server:
-```bash
-python inference.py -d copa
-python inference.py -d race:middle,high
-python inference.py -d race:middle,high --evaluation_set "test[:10]" --example_set "train"
-```
-
-<table>
-  <tr>
-      <td><b>Dataset</b></td>
-      <td><b>Subsets / Collections</b></td>
-      <td><b>Evaluation Type</b></td>
-      <td><b>CoT</b></td>
-      <td><b>Notes</b></td>
-  </tr>
-  <tr>
-      <td rowspan=3>AGIEval(<code>agieval</code>, alias of <code>agieval_single_choice</code> and <code>agieval_cot</code>)</td>
-      <td><b>English</b>: <code>sat-en</code>, <code>sat-math</code>, <code>lsat-ar</code>, <code>lsat-lr</code>, <code>lsat-rc</code>, <code>logiqa-en</code>, <code>aqua-rat</code>, <code>sat-en-without-passage</code></td>
-      <td rowspan=2>MultipleChoice</td>
-      <td></td>
-      <td rowspan=3></td>
-  </tr>
-  <tr>
-      <td><code>gaokao-chinese</code>, <code>gaokao-geography</code>, <code>gaokao-history</code>, <code>gaokao-biology</code>, <code>gaokao-chemistry</code>, <code>gaokao-english</code>, <code>logiqa-zh</code></td>
-      <td></td>
-  </tr>
-  <tr>
-      <td><code>jec-qa-kd</code>, <code>jec-qa-ca</code>, <code>math</code>, <code>gaokao-physics</code>, <code>gaokao-mathcloze</code>, <code>gaokao-mathqa</code></td>
-      <td>Generation</td>
-      <td>✅</td>
-  </tr>
-  <tr>
-      <td>Alpacal Eval (<code>alpaca_eval</code>)</td>
-      <td>/</td>
-      <td>Generation</td>
-      <td></td>
-      <td>Single GPTEval</td>
-  </tr>
-  <tr>
-      <td>Adversarial Natural Language Inference (<code>anli</code>)</td>
-      <td><code>Round2</code> (default)</td>
-      <td>MultipleChoice</td>
-      <td></td>
-      <td></td>
-  </tr>
-  <tr>
-      <td>AI2's Reasoning Challenge (<code>arc</code>)</td>
-      <td><code>ARC-Easy</code>, <code>ARC-Challenge</code></td>
-      <td>MultipleChoice</td>
-      <td></td>
-      <td>Normalization</td>
-  </tr>
-  <tr>
-      <td>BIG-Bench Hard (<code>bbh</code>)</td>
-      <td><code>boolean_expressions</code>, ...</td>
-      <td>Generation</td>
-      <td>✅</td>
-      <td></td>
-  </tr>
-  <tr>
-      <td>Boolean Questions (<code>boolq</code>)</td>
-      <td><i>super_glue</i></td>
-      <td>MultipleChoice</td>
-      <td></td>
-      <td></td>
-  </tr>
-  <tr>
-      <td>CommitmentBank (<code>cb</code>)</td>
-      <td><i>super_glue</i></td>
-      <td>MultipleChoice</td>
-      <td></td>
-      <td></td>
-  </tr>
-  <tr>
-      <td rowspan=4>C-Eval (<code>ceval</code>)</td>
-      <td><b>stem</b>: <code>advanced_mathematics</code>, <code>college_chemistry</code>, ...</td>
-      <td rowspan=4>MultipleChoice</td>
-      <td rowspan=4></td>
-      <td rowspan=4></td>
-  </tr>
-  <tr>
-      <td><b>social science</b>: <code>business_administration</code>, <code>college_economics</code>, ...</td>
-  </tr>
-  <tr>
-      <td><b>humanities</b>: <code>art_studies</code>, <code>chinese_language_and_literature</code>, ...</td>
-  </tr>
-  <tr>
-      <td><b>other</b>: <code>accountant</code>, <code>basic_medicine</code>, ...</td>
-  </tr>
-  <tr>
-      <td rowspan=4>Massive Multitask Language Understanding in Chinese (<code>cmmlu</code>)</td>
-      <td><b>stem</b>: <code>anatomy</code>, <code>astronomy</code>, ...</td>
-      <td rowspan=4>MultipleChoice</td>
-      <td rowspan=4></td>
-      <td rowspan=4></td>
-  </tr>
-  <tr>
-      <td><b>social science</b>: <code>ancient_chinese</code>, <code>business_ethics</code>, ...</td>
-  </tr>
-  <tr>
-      <td><b>humanities</b>: <code>arts</code>, <code>chinese_history</code>, ...</td>
-  </tr>
-  <tr>
-      <td><b>other</b>: <code>agronomy</code>, <code>chinese_driving_rule</code>, ...</td>
-  </tr>
-  <tr>
-      <td>CNN Dailymail (<code>cnn_dailymail</code>)</td>
-      <td><code>3.0.0</code> (default), ...</td>
-      <td>Generation</td>
-      <td></td>
-      <td></td>
-  </tr>
-  <tr>
-      <td>Reasoning About Colored Objects (<code>color_objects</code>)</td>
-      <td><i>bigbench</i> (reasoning_about_colored_objects)</td>
-      <td>Generation</td>
-      <td></td>
-      <td></td>
-  </tr>
-  <tr>
-      <td>Commonsense QA (<code>commonsenseqa</code>)</td>
-      <td>/</td>
-      <td>MultipleChoice</td>
-      <td></td>
-      <td></td>
-  </tr>
-  <tr>
-      <td>Choice Of Plausible Alternatives (<code>copa</code>)</td>
-      <td><i>super_glue</i></td>
-      <td>MultipleChoice</td>
-      <td></td>
-      <td></td>
-  </tr>
-  <tr>
-      <td>Conversational Question Answering (<code>coqa</code>)</td>
-      <td>/</td>
-      <td>Generation</td>
-      <td></td>
-      <td>Download: <a href="https://nlp.stanford.edu/data/coqa/coqa-train-v1.0.json">train</a>, <a href="https://nlp.stanford.edu/data/coqa/coqa-dev-v1.0.json">dev</a></td>
-  </tr>
-  <tr>
-      <td>CrowS-Pairs (<code>crows_pairs</code>)</td>
-      <td>/</td>
-      <td>MultipleChoice</td>
-      <td></td>
-      <td></td>
-  </tr>
-  <tr>
-      <td>Discrete Reasoning Over the content of Paragraphs (<code>drop</code>)</td>
-      <td>/</td>
-      <td>Generation</td>
-      <td></td>
-      <td></td>
-  </tr>
-  <tr>
-      <td rowspan=3>GAOKAO (<code>gaokao</code>)</td>
-      <td><b>Chinese</b>: <code>2010-2022_Chinese_Modern_Lit</code>, <code>2010-2022_Chinese_Lang_and_Usage_MCQs</code></td>
-      <td rowspan=3>Generation</td>
-      <td rowspan=3></td>
-      <td rowspan=3>Metric: Exam scoring</td>
-  </tr>
-  <tr>
-      <td><b>English</b>: <code>2010-2022_English_Reading_Comp</code>, <code>2010-2022_English_Fill_in_Blanks</code>, ...</td>
-  </tr>
-  <tr>
-      <td><code>2010-2022_Math_II_MCQs</code>, <code>2010-2022_Math_I_MCQs</code>, ...</td>
-  </tr>
-  <tr>
-      <td>Google-Proof Q&A (<code>GPQA</code>)</td>
-      <td><code>gpqa_main</code> (default), <code>gpqa_extended</code>, ...</td>
-      <td>MultipleChoiceDataset</td>
-      <td>✅</td>
-      <td></td>
-  </tr>
-  <tr>
-      <td>Grade School Math 8K (<code>gsm8k</code>)</td>
-      <td><code>main</code> (default), <code>socratic</code></td>
-      <td>Generation</td>
-      <td>✅</td>
-      <td>Code exec</td>
-  </tr>
-  <tr>
-      <td>HaluEval(<code>halueval</code>)</td>
-      <td><code>dialogue_samples</code>, <code>qa_samples</code>, <code>summarization_samples</code></td>
-      <td>Generation</td>
-      <td></td>
-      <td></td>
-  </tr>
-  <tr>
-      <td>HellaSWAG (<code>hellaswag</code>)</td>
-      <td>/</td>
-      <td>MultipleChoice</td>
-      <td></td>
-      <td></td>
-  </tr>
-  <tr>
-      <td>HumanEval (<code>humaneval</code>)</td>
-      <td>/</td>
-      <td>Generation</td>
-      <td></td>
-      <td>Pass@K</td>
-  </tr>
-  <tr>
-      <td>Instruction-Following Evaluation (<code>ifeval</code>)</td>
-      <td>/</td>
-      <td>Generation</td>
-      <td></td>
-      <td></td>
-  </tr>
-  <tr>
-      <td>LAnguage Modeling Broadened to Account for Discourse Aspects (<code>lambada</code>)</td>
-      <td><code>default</code> (default), <code>de</code>, ... (source: <i>EleutherAI/lambada_openai</i>)</td>
-      <td>Generation</td>
-      <td></td>
-      <td></td>
-  </tr>
-  <tr>
-      <td>Mathematics Aptitude Test of Heuristics (<code>math</code>)</td>
-      <td>/</td>
-      <td>Generation</td>
-      <td></td>
-      <td></td>
-  </tr>
-  <tr>
-      <td>Mostly Basic Python Problems (<code>mbpp</code>)</td>
-      <td><code>full</code> (default), <code>sanitized</code></td>
-      <td>Generation</td>
-      <td></td>
-      <td>Pass@K</td>
-  </tr>
-  <tr>
-      <td rowspan=4>Massive Multitask Language Understanding(<code>mmlu</code>)</td>
-      <td><b>stem</b>: <code>abstract_algebra</code>, <code>astronomy</code>, ...</td>
-      <td rowspan=4>MultipleChoice</td>
-      <td rowspan=4></td>
-      <td rowspan=4></td>
-  </tr>
-  <tr>
-      <td><b>social_sciences</b>: <code>econometrics</code>, <code>high_school_geography</code>, ...</td>
-  </tr>
-  <tr>
-      <td><b>humanities</b>: <code>formal_logic</code>, <code>high_school_european_history</code>, ...</td>
-  </tr>
-  <tr>
-      <td><b>other</b>: <code>anatomy</code>, <code>business_ethics</code>, ...</td>
-  </tr>
-  <tr>
-      <td>Multi-turn Benchmark (<code>mt_bench</code>)</td>
-      <td>/</td>
-      <td>Generation</td>
-      <td></td>
-      <td>Multi-turn GPTEval</td>
-  </tr>
-  <tr>
-      <td>Natural Questions(<code>nq</code>)</td>
-      <td>/</td>
-      <td>Generation</td>
-      <td></td>
-      <td></td>
-  </tr>
-  <tr>
-      <td>OpenBookQA (<code>openbookqa</code>)</td>
-      <td><code>main</code> (default), <code>additional</code></td>
-      <td>MultipleChoice</td>
-      <td></td>
-      <td>Normalization</td>
-  </tr>
-  <tr>
-      <td>Penguins In A Table (<code>penguins_in_a_table</code>)</td>
-      <td><i>bigbench</i></td>
-      <td>MultipleChoice</td>
-      <td></td>
-      <td></td>
-  </tr>
-  <tr>
-      <td>Physical Interaction: Question Answering (<code>piqa</code>)</td>
-      <td>/</td>
-      <td>MultipleChoice</td>
-      <td></td>
-      <td></td>
-  </tr>
-  <tr>
-      <td>Question Answering in Context (<code>quac</code>)</td>
-      <td>/</td>
-      <td>Generation</td>
-      <td></td>
-      <td></td>
-  </tr>
-  <tr>
-      <td>ReAding Comprehension (<code>race</code>)</td>
-      <td><code>high</code>, <code>middle</code></td>
-      <td>MultipleChoice</td>
-      <td></td>
-      <td>Normalization</td>
-  </tr>
-  <tr>
-      <td>Real Toxicity Prompts (<code>real_toxicity_prompts</code>)</td>
-      <td>/</td>
-      <td>Generation</td>
-      <td></td>
-      <td><a href="https://www.perspectiveapi.com/">Perspective</a> Toxicity</td>
-  </tr>
-  <tr>
-      <td>Recognizing Textual Entailment (<code>rte</code>)</td>
-      <td><i>super_glue</i></td>
-      <td>MultipleChoice</td>
-      <td></td>
-      <td></td>
-  </tr>
-  <tr>
-      <td>Social Interaction QA (<code>siqa</code>)</td>
-      <td>/</td>
-      <td>MultipleChoice</td>
-      <td></td>
-      <td></td>
-  </tr>
-  <tr>
-      <td>Stanford Question Answering Dataset (<code>squad, squad_v2</code>)</td>
-      <td>/</td>
-      <td>Generation</td>
-      <td></td>
-      <td></td>
-  </tr>
-  <tr>
-      <td>Story Cloze Test (<code>story_cloze</code>)</td>
-      <td><code>2016</code> (default), <code>2018</code></td>
-      <td>MultipleChoice</td>
-      <td></td>
-      <td><a href='http://goo.gl/forms/aQz39sdDrO'>Manually download</a></td>
-  </tr>
-  <tr>
-      <td>TL;DR (<code>tldr</code>)</td>
-      <td>/</td>
-      <td>Generation</td>
-      <td></td>
-      <td></td>
-  </tr>
-  <tr>
-      <td>TriviaQA (<code>triviaqa</code>)</td>
-      <td><code>rc.wikipedia.nocontext</code> (default), <code>rc</code>, <code>rc.nocontext</code>, ...</td>
-      <td>Generation</td>
-      <td></td>
-      <td></td>
-  </tr>
-  <tr>
-      <td>TruthfulQA (<code>truthfulqa_mc</code>)</td>
-      <td><code>multiple_choice</code> (default), <code>generation</code> (not supported)</td>
-      <td>MultipleChoice</td>
-      <td></td>
-      <td></td>
-  </tr>
-  <tr>
-      <td>Vicuna Bench (<code>vicuna_bench</code>)</td>
-      <td>/</td>
-      <td>Generation</td>
-      <td></td>
-      <td>GPTEval</td>
-  </tr>
-  <tr>
-      <td>WebQuestions (<code>webq</code>)</td>
-      <td>/</td>
-      <td>Generation</td>
-      <td></td>
-      <td></td>
-  </tr>
-  <tr>
-      <td>Words in Context (<code>wic</code>)</td>
-      <td><i>super_glue</i></td>
-      <td>MultipleChoice</td>
-      <td></td>
-      <td></td>
-  </tr>
-  <tr>
-      <td>Winogender Schemas (<code>winogender</code>)</td>
-      <td><code>main</code>, <code>gotcha</code></td>
-      <td>MultipleChoice</td>
-      <td></td>
-      <td>Group by gender</td>
-  </tr>
-  <tr>
-      <td>WSC273 (<code>winograd</code>)</td>
-      <td><code>wsc273</code> (default), <code>wsc285</code></td>
-      <td>MultipleChoice</td>
-      <td></td>
-      <td></td>
-  </tr>
-  <tr>
-      <td>WinoGrande (<code>winogrande</code>)</td>
-      <td><code>winogrande_debiased</code> (default), ...</td>
-      <td>MultipleChoice</td>
-      <td></td>
-      <td></td>
-  </tr>
-  <tr>
-      <td>Conference on Machine Translation (<code>wmt21, wmt19, ...</code>)</td>
-      <td><code>en-ro</code>, <code>ro-en</code>, ...</td>
-      <td>Generation</td>
-      <td></td>
-      <td></td>
-  </tr>
-  <tr>
-      <td>Winograd Schema Challenge (<code>wsc</code>)</td>
-      <td><i>super_glue</i></td>
-      <td>MultipleChoice</td>
-      <td></td>
-      <td></td>
-  </tr>
-  <tr>
-      <td>Extreme Summarization (<code>xsum</code>)</td>
-      <td>/</td>
-      <td>Generation</td>
-      <td></td>
-      <td></td>
-  </tr>
-
-</table>
-
-By default we load all the subsets of a dataset:
+Chat templates are used to formatting conversational messages to text input for local chat-based models.
 
 ```bash
-python inference.py -m model -d arc
-# equivalent: arc:ARC-Easy,ARC-Challenge
+python inference.py -m Meta-Llama-3-8B-Instruct -d gsm8k --model_type chat --chat_template llama3 -shots 8 -sys "You are a helpful assistant."
 ```
 
-Unless a default subset is defined:
+You don't need to specify the chat template for hosted models.
 
 ```bash
-python inference.py -m model -d cnn_dailymail
-# equivalent: cnn_dailymail:3.0.0
+python inference.py -m gpt-3.5-turbo -d gsm8k --model_type chat -shots 8 -sys "You are a helpful assistant."
 ```
 
-Some datasets like GPQA (Google-Proof Q&A) have to load example set separately:
+You can customize the [chat template](https://github.com/RUCAIBox/LLMBox/blob/main/utilization/chat_templates.py) for local chat-based models. We provide a set of chat templates for different models. You can specify a jinja2 chat template with the `--chat_template` argument. It works in the same way as the [tokenizers](https://huggingface.co/docs/transformers/main/en/chat_templating).
 
-```bash
-# few_shot
-python inference.py -m model -d gpqa --ranking_type generation -shots 5 --example_set "../gpqa/prompts"
-```
 
-If `dataset_path` is not None, the dataset will be loaded from the given local path:
+## Change Log
 
-```bash
-# from a cloned directory of the huggingface dataset repository:
-python inference.py -d copa --dataset_path /path/to/copa
-
-# from a local (nested) directory saved by `dataset.save_to_disk`:
-python inference.py -d race --dataset_path /path/to/race/middle
-python inference.py -d race:middle --dataset_path /path/to/race
-python inference.py -d race:middle --dataset_path /path/to/race/middle
-python inference.py -d race:middle,high --dataset_path /path/to/race
-```
-
-`dataset_path` can also accept a dataset file or a directory containing these files (supports json, jsonl, csv, and txt):
-```bash
-# load one split from one subset only
-python inference.py -d gsm8k --dataset_path /path/to/gsm.jsonl
-python inference.py -d race --dataset_path /path/to/race/middle/train.json
-
-# load test and train splits from middle subset (a directory contains `/path/to/race/middle/train.json` and `/path/to/race/middle/test.json`)
-python inference.py -d race --dataset_path /path/to/race/middle --evaluation_set "test[:10]" --example_set "train"
-
-# load test and train splits from middle and high subsets (a nested directory)
-python inference.py -d race:middle,high --dataset_path /path/to/race --evaluation_set "test[:10]" --example_set "train"
-
-# load test and train splits from middle and high subsets with a filename pattern
-python inference.py -d race:middle,high --evaluation_set "test[:10]" --example_set "train" --dataset_path "/pattern/of/race_{subset}_{split}.json"
-python inference.py -d mmlu --evaluation_set val --example_set dev --dataset_path "/pattern/of/mmlu/{split}/{subset}_{split}.csv"
-```
-
----
-
-Also feel free to override this function if you want to load the dataset in a different way:
-
-```python
-from .utils import load_raw_dataset_from_file, get_raw_dataset_loader
-
-class MyDataset(Dataset):
-    def load_raw_dataset(self, dataset_path, subset_name, evaluation_set, example_set):
-        self.evaluation_data = get_raw_dataset_loader(...)("test")
-        self.example_data = load_raw_dataset_from_file("examples.json")
-```
-
-## Customize Dataset
-
-We provide two types of datasets: [`GenerationDataset`](dataset/generation_dataset.py), [`MultipleChoiceDataset`](dataset/multiple_choice_dataset.py). You can also customize support for a new dataset type by inheriting the [`Dataset`](dataset/dataset.py) class. For example, you can implement a new `GenerationDataset` as follows:
-
-```python
-def NewDataset(GenerationDataset):
-
-    instruction = "Answer the following question.\n\n{source}"
-    metrics = [Accuracy()]
-    evaluation_set = "test"
-    example_set = "dev"
-    load_args = ("huggingface/path", "subset")
-
-    extra_model_args = dict(temperature=0)
-    category_subsets = {"Group": ["subset1", "subset2"]}
-
-    def format_instance(self, instance):
-        src, tgt = func(instance, self.example_data)
-        return dict(source=src, target=tgt)
-
-    def reference(self):
-        return [i["answer"] for i in self.eval_data]
-```
-
-You can load the raw dataset by the following methods:
-
-- Set a `load_args`: The arguments for [`datasets.load_dataset`](https://huggingface.co/docs/datasets/v2.18.0/en/package_reference/loading_methods#datasets.load_dataset).
-- Or overwrite `load_raw_dataset` function: Set the `self.evaluation_data` and `self.example_data`.
-
-```python
-from .utils import load_raw_dataset_from_file, get_raw_dataset_loader
-
-class MyDataset(Dataset):
-    def load_raw_dataset(self, dataset_path, subset_name, evaluation_set, example_set):
-        self.evaluation_data = get_raw_dataset_loader(...)("test")
-        self.example_data = load_raw_dataset_from_file("examples.json")
-```
-
-Then, format the instance by implementing the `format_instance` method. The instance should be a dictionary with the following keys:
-
-- `source` (`Union[str, List[str]]`): The source text. If this is a list, `source_idx` is required.
-- `source_idx` (`int`, optional): The index of the correct source (for multiple contexts ranking dataset like winogrande).
-- `source_postfix` (`str`, optional): The postfix of the source text. This will be appended to the source text after options when `ranking_with_options` is True.
-- `target` (`str`, optional): The target text. Either `target` or `target_idx` should be provided.
-- `target_idx` (`int`, optional): The index of the target in the options (for ranking). This will generate the `target` text in `_format_instance`.
-- `options` (`List[str]`, optional): The options for ranking.
-
-MultipleChoiceDataset:
-
-```python
-def format_instance(self, instance):
-    dict(
-        source=self.source_prefix + instance["question"].strip(),
-        source_postfix="\nAnswer:",
-        target_idx=instance["answer"],
-        options=options,
-    )
-```
-
-MultipleChoiceDataset (Multiple-context) like winogrande:
-
-```python
-def format_instance(self, instance):
-    dict(
-        source=contexts,
-        source_idx=int(instance["answer"]) - 1,
-        target=completion,
-    )
-```
-
-GenerationDataset:
-
-```python
-def format_instance(self, instance):
-    dict(
-        source=instance["question"],
-        target=instance["answer"],
-    )
-```
-
-See [`Dataset`](dataset/dataset.py) for more details.
+- **June 6, 2024**: Refactor the codebase and add support for hf-mirror.
+- **May 24, 2024**: Chat format support including conversational few-shot and system prompts.
+- **May 10, 2024**: New instruction formatting using f-string and jinja2.
+- **May 7, 2024**: Bump openai and vllm version.
+- **Apr 16, 2024**: Full support for KV caching.
+- **March 18, 2024**: First release of LLMBox.

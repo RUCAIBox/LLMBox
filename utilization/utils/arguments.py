@@ -7,16 +7,17 @@ import typing
 from copy import copy
 from dataclasses import MISSING, dataclass
 from logging import getLogger
-from typing import ClassVar, Dict, List, Literal, Optional, Set, Tuple, Union
+from typing import Callable, ClassVar, Dict, List, Literal, Optional, Set, Tuple, Union
 
 import tiktoken
-from transformers import BitsAndBytesConfig
-from transformers.hf_argparser import HfArg, HfArgumentParser
 
-from ..dataset.dataset_enum import DEFAULT_VLLM_DATASETS
-from ..model.model_enum import (
-    ANTHROPIC_CHAT_COMPLETIONS_ARGS, API_MODELS, DASHSCOPE_CHAT_COMPLETIONS_ARGS, QIANFAN_CHAT_COMPLETIONS_ARGS
+from ..chat_templates import DEFAULT_CHAT_CONFIGS
+from ..dataset_enum import DEFAULT_VLLM_DATASETS
+from ..model_enum import (
+    ANTHROPIC_CHAT_COMPLETIONS_ARGS, API_MODELS, DASHSCOPE_CHAT_COMPLETIONS_ARGS, HUGGINGFACE_ARGS,
+    QIANFAN_CHAT_COMPLETIONS_ARGS, VLLM_ARGS
 )
+from .hf_argparser import HfArg, HfArgumentParser
 from .logging import filter_none_repr, get_redacted, list_datasets, log_levels, passed_in_commandline, set_logging
 
 logger = getLogger(__name__)
@@ -25,8 +26,14 @@ ENVIRONMENT_ARGUMENTS = {"CUDA_VISIBLE_DEVICES", "PYTORCH_CUDA_ALLOC_CONF", "TOK
 
 if typing.TYPE_CHECKING:
     batch_size_type = int
+    from transformers import PreTrainedModel, PreTrainedTokenizer, PreTrainedTokenizerFast
 else:
     batch_size_type = str
+    PreTrainedModel = None
+    PreTrainedTokenizer = None
+    PreTrainedTokenizerFast = None
+
+LOADER = Callable[["ModelArguments"], Tuple["PreTrainedModel", Union["PreTrainedTokenizer", "PreTrainedTokenizerFast"]]]
 
 
 class ModelBackendMixin:
@@ -63,10 +70,9 @@ class ModelArguments(ModelBackendMixin):
         aliases=["--model", "-m"],
         help="The model name or path, e.g., davinci-002, meta-llama/Llama-2-7b-hf, ./mymodel",
     )
-    model_type: str = HfArg(
-        default="instruction",
-        help="The type of the model, which can be chosen from `base` or `instruction`.",
-        metadata={"choices": ["base", "instruction", "chat"]},
+    model_type: Literal["base", "chat"] = HfArg(
+        default=None,
+        help="The type of the model",
     )
     model_backend: Literal["anthropic", "dashscope", "huggingface", "openai", "qianfan", "vllm"] = HfArg(
         default=None,
@@ -184,7 +190,8 @@ class ModelArguments(ModelBackendMixin):
     )
     chat_template: Optional[str] = HfArg(
         default=None,
-        help="The chat template for huggingface chat-based models",
+        help=
+        "The chat template for local chat-based models. Support model default chate template (choose from 'base', 'llama2', 'chatml', 'zephyr', 'phi3', 'llama3', 'alpaca', ...) or standard HuggingFace tokenizers chat template",
     )
 
     bnb_config: Optional[str] = HfArg(default=None, help="JSON string for BitsAndBytesConfig parameters.")
@@ -210,12 +217,20 @@ class ModelArguments(ModelBackendMixin):
         help="The maximum gpu memory utilization of vllm.",
     )
 
+    cuda_visible_devices: str = HfArg(
+        default="",
+        aliases=["--cuda"],
+        help="The CUDA device to use, e.g., '0' or '0,1,3'",
+    )
+
     torch_dtype: Literal["float16", "bfloat16", "float32", "auto"] = HfArg(
-        default="float16",
+        default="auto",
         help="The torch dtype for model input and output",
     )
 
     seed: ClassVar[int] = None  # use class variable to facilitate type hint inference
+
+    load_hf_model: ClassVar[Optional["LOADER"]] = None
 
     _argument_group_name = "model arguments"
 
@@ -232,11 +247,12 @@ class ModelArguments(ModelBackendMixin):
         "dashscope": {"dashscope_api_key"} | set(DASHSCOPE_CHAT_COMPLETIONS_ARGS),
         "openai": set(),  # openai model is used for gpt-eval metrics, not specific arguments
         "qianfan": {"qianfan_access_key", "qianfan_secret_key"} | set(QIANFAN_CHAT_COMPLETIONS_ARGS),
-        "vllm": {"vllm", "prefix_caching", "flash_attention", "gptq", "vllm_gpu_memory_utilization", "chat_template"},
+        "vllm": {"vllm", "prefix_caching", "flash_attention", "gptq", "vllm_gpu_memory_utilization", "chat_template"}
+        | set(VLLM_ARGS),
         "huggingface": {
             "device_map", "vllm", "prefix_caching", "flash_attention", "bnb_config", "load_in_8bit", "load_in_4bit",
-            "gptq", "chat_template", "stop"
-        },
+            "gptq", "chat_template"
+        } | set(HUGGINGFACE_ARGS),
     }
 
     def __post_init__(self):
@@ -264,7 +280,12 @@ class ModelArguments(ModelBackendMixin):
                     "OpenAI API key is required. Please set it by passing a `--openai_api_key` or through environment variable `OPENAI_API_KEY`."
                 )
             if self.tokenizer_name_or_path is None:
-                self.tokenizer_name_or_path = tiktoken.encoding_name_for_model(self.model_name_or_path)
+                try:
+                    self.tokenizer_name_or_path = tiktoken.encoding_name_for_model(self.model_name_or_path)
+                except KeyError as e:
+                    raise RuntimeError(
+                        "Unsupported tiktoken library version. Please update the tiktoken library to the latest version.\n\n  pip install tiktoken --upgrade"
+                    )
 
         # set `self.anthropic_api_key` from environment variables
         if "ANTHROPIC_API_KEY" in os.environ and self.anthropic_api_key is None:
@@ -324,7 +345,7 @@ class ModelArguments(ModelBackendMixin):
         if self.model_type is None and auto_model_type is not None:
             self.model_type = auto_model_type
         elif self.model_type is None and auto_model_type is None:
-            self.model_type = "base" if self.is_local_model() else "instruction"
+            self.model_type = "chat"
         elif auto_model_type is not None and self.model_type != auto_model_type:
             logger.warning(
                 f"Model {self.model_name_or_path} seems to be a {auto_model_type} model, but get model_type {self.model_type}."
@@ -361,8 +382,16 @@ class ModelArguments(ModelBackendMixin):
                 )
             if self.chat_template:
                 raise ValueError(
-                    "The chat_template is only available for huggingface chat-based model. Please use a chat model and set `--model_type chat`."
+                    "The chat_template is only available for chat-based model. Please use a chat model and set `--model_type chat`."
                 )
+
+        model_name = self.model_name_or_path.lower().replace("-", "").replace("_", "")
+        if self.is_local_model() and self.chat_template is None and self.model_type == "chat":
+            for config_name in DEFAULT_CHAT_CONFIGS:
+                if config_name in model_name:
+                    self.chat_template = config_name
+                    logger.info(f"Automatically set chat_template to {config_name}.")
+                    break
 
         # argparse encodes string with unicode_escape, decode it to normal string, e.g., "\\n" -> "\n"
         if self.stop is not None:
@@ -370,6 +399,8 @@ class ModelArguments(ModelBackendMixin):
                 self.stop = [self.stop]
             for idx in range(len(self.stop)):
                 self.stop[idx] = self.stop[idx].encode('utf-8').decode('unicode_escape')
+        if self.system_prompt is not None:
+            self.system_prompt = self.system_prompt.encode('utf-8').decode('unicode_escape')
 
 
 @dataclass
@@ -454,10 +485,17 @@ class DatasetArguments:
         default=False,
         help="Whether to shuffle the choices for ranking task",
     )
+    hf_mirror: bool = HfArg(
+        default=False,
+        help="Whether to use hfd.sh to load dataset from hugging face mirror server (experimental)",
+    )
+    hfd_cache_path: str = HfArg(
+        default="~/.cache/huggingface/datasets",
+        help="The cache path for datasets downloaded with hfd.sh",
+    )
 
     continue_from: ClassVar[int] = 0
     proxy_port: ClassVar[int] = None
-    dataset_threading: ClassVar[bool] = True
 
     # set in `set_logging` with format "{evaluation_results_dir}/{log_filename}.json"
     evaluation_results_path: ClassVar[Optional[str]] = None
@@ -526,11 +564,6 @@ class EvaluationArguments:
         default=None,
         help="The port of the proxy",
     )
-    cuda_visible_devices: Optional[str] = HfArg(
-        default=None,
-        aliases=["--cuda"],
-        help="Override the CUDA_VISIBLE_DEVICES environment variable",
-    )
     dataset_threading: bool = HfArg(default=True, help="Load dataset with threading")
     dataloader_workers: int = HfArg(default=0, help="The number of workers for dataloader")
     continue_from: Optional[str] = HfArg(
@@ -565,8 +598,19 @@ def check_args(model_args: ModelArguments, dataset_args: DatasetArguments, evalu
         dataset_args (DatasetArguments): The dataset configurations.
         evaluation_args (EvaluationArguments): The evaluation configurations.
     """
+    if model_args.cuda_visible_devices:
+        os.environ["CUDA_VISIBLE_DEVICES"] = model_args.cuda_visible_devices
+        import torch
+
+        if torch.cuda.device_count() != len(model_args.cuda_visible_devices.split(",")):
+            logger.warning(
+                f"CUDA initalized before setting CUDA_VISIBLE_DEVICES (most likely because of importing torch or transformers before parse_arguments). Ignoring --cuda flag."
+            )
+            os.environ.pop("CUDA_VISIBLE_DEVICES")
+
     # vllm still has some bugs in ranking task
-    if model_args.is_local_model() and all(d not in DEFAULT_VLLM_DATASETS for d in dataset_args.dataset_names) and not model_args.passed_in_commandline("vllm"):
+    if model_args.is_local_model() and all(d not in DEFAULT_VLLM_DATASETS for d in dataset_args.dataset_names
+                                           ) and not model_args.passed_in_commandline("vllm"):
         model_args.vllm = False
         model_args.model_backend = "huggingface"
 
@@ -574,16 +618,15 @@ def check_args(model_args: ModelArguments, dataset_args: DatasetArguments, evalu
     if evaluation_args.proxy_port:
         dataset_args.proxy_port = evaluation_args.proxy_port
 
-    dataset_args.dataset_threading = evaluation_args.dataset_threading
+    model_args.seed = int(evaluation_args.seed)
 
-    model_args.seed = evaluation_args.seed
-
-    if dataset_args.batch_size == 1:
+    if dataset_args.batch_size == 1 and model_args.prefix_caching:
+        logger.warning("Prefix caching is not supported for batch_size=1, automatically set prefix_caching to False.")
         model_args.prefix_caching = False
 
     # check models
     if model_args.model_name_or_path in API_MODELS and API_MODELS[
-        model_args.model_name_or_path]["model_type"] == "instruction" and dataset_args.batch_size > 1:
+        model_args.model_name_or_path]["model_type"] == "chat" and dataset_args.batch_size > 1:
         dataset_args.batch_size = 1
         logger.warning(
             f"chat/completions endpoint model {model_args.model_name_or_path} doesn't support batch_size > 1, automatically set batch_size to 1."
@@ -596,11 +639,6 @@ def check_args(model_args: ModelArguments, dataset_args: DatasetArguments, evalu
         logger.warning(
             f"Prefix caching might results in cuda memory fragmentation, which can be mitigated by setting `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True`. See https://pytorch.org/docs/stable/notes/cuda.html#environment-variables for details."
         )
-
-    if evaluation_args.cuda_visible_devices:
-        if "CUDA_VISIBLE_DEVICES" in os.environ and os.environ["CUDA_VISIBLE_DEVICES"] != evaluation_args.cuda_visible_devices:
-            logger.warning(f"Override CUDA_VISIBLE_DEVICES from {os.environ['CUDA_VISIBLE_DEVICES']} to {evaluation_args.cuda_visible_devices}.")
-        os.environ["CUDA_VISIBLE_DEVICES"] = evaluation_args.cuda_visible_devices
 
     # check dataset
     if "vicuna_bench" in dataset_args.dataset_names and model_args.openai_api_key is None:
@@ -619,7 +657,9 @@ def check_args(model_args: ModelArguments, dataset_args: DatasetArguments, evalu
         )
 
     if dataset_args.instruction and "{" not in dataset_args.instruction:
-        logger.warning("Instruction does not include any variable, so the input remains unchanged across the insatnces. Try to use f-string or jinja2 format to include variables like `{source}` or `{problem}`. See dataset documentation for details.")
+        logger.warning(
+            "Instruction does not include any variable, so the input remains unchanged across the insatnces. Try to use f-string or jinja2 format to include variables like `{source}` or `{problem}`. See dataset documentation for details."
+        )
 
     if evaluation_args.dry_run and model_args.prefix_caching:
         model_args.prefix_caching = False
@@ -653,7 +693,8 @@ EXAMPLE_STRING = r"""example:
 """
 
 
-def parse_argument(args=None) -> Tuple[ModelArguments, DatasetArguments, EvaluationArguments]:
+def parse_argument(args: Optional[List[str]] = None,
+                   initalize: bool = True) -> Tuple[ModelArguments, DatasetArguments, EvaluationArguments]:
     r"""Parse arguments from command line. Using `argparse` for predefined ones, and an easy mannal parser for others (saved in `kwargs`).
 
     Returns:
@@ -667,7 +708,6 @@ def parse_argument(args=None) -> Tuple[ModelArguments, DatasetArguments, Evaluat
         epilog=EXAMPLE_STRING,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    model_args, dataset_args, evaluation_args = parser.parse_args_into_dataclasses(args)
 
     try:
         from dotenv import load_dotenv
@@ -675,7 +715,10 @@ def parse_argument(args=None) -> Tuple[ModelArguments, DatasetArguments, Evaluat
     except (ImportError, ModuleNotFoundError):
         pass
 
+    model_args, dataset_args, evaluation_args = parser.parse_args_into_dataclasses(args)
+
     if model_args.bnb_config:
+        from transformers import BitsAndBytesConfig
         bnb_config_dict = json.loads(model_args.bnb_config)
         model_args.bnb_config = BitsAndBytesConfig(**bnb_config_dict)
 
@@ -683,8 +726,9 @@ def parse_argument(args=None) -> Tuple[ModelArguments, DatasetArguments, Evaluat
     for type_args in [model_args, dataset_args, evaluation_args]:
         for name, field in type_args.__dataclass_fields__.items():
             field.hash = name in commandline_args  # borrow `hash` attribute to indicate whether the argument is set
-    set_logging(model_args, dataset_args, evaluation_args)
-    check_args(model_args, dataset_args, evaluation_args)
+    if initalize:
+        set_logging(model_args, dataset_args, evaluation_args)
+        check_args(model_args, dataset_args, evaluation_args)
 
     # log arguments and environment variables
     redact_dict = {f"--{arg}": get_redacted(getattr(model_args, arg, "")) for arg in model_args._redact}

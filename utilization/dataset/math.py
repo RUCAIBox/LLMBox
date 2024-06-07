@@ -16,7 +16,7 @@ REMOVED_EXPRESSIONS = [
 
 
 class Math(GenerationDataset):
-    """The dataset of MATH.
+    r"""The dataset of MATH.
 
     MATH(Hendrycks et al. 2021), a dataset of 12,500 challenging competition mathematics problems  with step-by-step solutions
     written in LATEX and natural language.
@@ -38,7 +38,8 @@ class Math(GenerationDataset):
 
     def init_arguments(self):
         if self.model_type == 'base':
-            self.extra_model_args['stop'] = ['\n\n']
+            # when evaluating base model, responses might be in multiple lines
+            self.extra_model_args.get("stop", []).append("\n\n")
 
     @staticmethod
     def normalize_final_answer(final_answer: str) -> str:

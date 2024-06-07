@@ -4,7 +4,7 @@ import numpy as np
 import torch
 from tqdm import tqdm
 
-from ..model import openai_model
+from ...model import openai_model
 
 
 def knn_construct_examples(instance_query, example_dataset, k):
@@ -75,7 +75,7 @@ def global_entropy_ordering_strategy(indices, labels, example_dataset, call_mode
     return list(best_perm)
 
 
-def ape(example_dataset, eval_dataset, call_model, api_key):
+def ape(example_dataset, eval_dataset, call_model):
     """
     generate instructions using APE
 
@@ -87,6 +87,8 @@ def ape(example_dataset, eval_dataset, call_model, api_key):
         List[str]: results of likelihood evaluation
         List[float]: scores based on log probability
     """
+    import openai
+    api_key = openai.api_key
 
     class ModelArguments:
 

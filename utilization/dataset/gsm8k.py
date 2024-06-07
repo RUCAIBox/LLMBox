@@ -24,12 +24,13 @@ class Gsm8k(GenerationDataset):
     extra_model_args = dict(temperature=0)
     supported_cot = ["base", "least_to_most", "pal"]
 
-    _decimal_separator = re.compile(r"(\d),(\d)")
+    _decimal_separator = re.compile(r"(?<=\d),(?=\d)")
     _extract_numbers = re.compile(r"[-+]?\d*\.\d+|\d+")
 
     def init_arguments(self):
-        if self.model_type == 'base':
-            self.extra_model_args['stop'] = ['\n']
+        if self.cot is None:
+            # when using chain-of-thought, responses might be in multiple lines
+            self.extra_model_args["stop"] = ["\n"]
 
     def load_raw_dataset(self, dataset_path, subset_name, evaluation_set, example_set):
         super().load_raw_dataset(dataset_path, subset_name, evaluation_set, example_set)
@@ -39,7 +40,7 @@ class Gsm8k(GenerationDataset):
             self.example_data = LEAST_TO_MOST_EXAMPLARS
         elif self.cot == 'pal':
             self.example_data = PAL_EXAMPLARS
-            self.instruction = "Let's use python to solve math problems. Here are some examples how to do it."
+            self.instruction = "Let's use python to solve math problems. Here are some examples how to do it.\n\nQuestion: {{question.replace('\n', ' ')}}\nAnswer:"
 
     def post_processing(self, predictions):
         new_predictions = []
@@ -60,11 +61,13 @@ class Gsm8k(GenerationDataset):
                     except:
                         new_predictions.append('')
             else:
-                # replace numbers like `x,xxx` with `xxxx`
-                pred = self._decimal_separator.sub(r"\1\2", pred)
+                # matches teh decimal separators like x,xxx,xxx
+                pred = self._decimal_separator.sub("", pred)
                 numbers = self._extract_numbers.findall(pred)
                 if numbers:
-                    new_predictions.append(numbers[-1])
+                    # remove trailing zeros
+                    number = re.sub(r"(?<=\d)\.0*$", "", numbers[-1])
+                    new_predictions.append(number)
                 else:
                     new_predictions.append(pred)
         return new_predictions
@@ -72,7 +75,7 @@ class Gsm8k(GenerationDataset):
     def format_instance(self, instance):
 
         # remove decimal seperators
-        instance["answer"] = ' ' + self._decimal_separator.sub(r"\1\2", instance["answer"])
+        instance["answer"] = ' ' + self._decimal_separator.sub("", instance["answer"])
 
         # few-shot examples might not contain "####"
         if "####" in instance["answer"]:

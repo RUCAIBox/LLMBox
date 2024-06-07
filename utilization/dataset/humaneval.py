@@ -25,7 +25,7 @@ IMPORT_HELPER = [
 class Humaneval(GenerationDataset):
     """The dataset of HumanEval.
 
-    The HumanEval dataset released by OpenAI includes 164 programming problems with a function sig- nature, docstring, body, and several unit tests. They were handwritten to ensure not to be included in the training set of code generation models.
+    The HumanEval dataset released by OpenAI includes 164 programming problems with a function signature, docstring, body, and several unit tests. They were handwritten to ensure not to be included in the training set of code generation models.
 
     Examples:
         "task_id": "test/0",
