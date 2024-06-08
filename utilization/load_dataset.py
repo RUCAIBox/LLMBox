@@ -204,14 +204,27 @@ def load_dataset(
     4. Instantiate each dataset class with corresponding subset name.
 
     Args:
-        dataset_name (str): The name of the dataset.
-        args (DatasetArguments): The global configurations.
-        model (Model): Our class for model.
-        threading (bool): Whether to use threading to load datasets.
+        - dataset_name (str): The name of the dataset.
+        - args (DatasetArguments): The global configurations.
+            - subset_names
+            - dataset_path
+            - hf_mirror
+            - hfd_cache_path
+        - model (Model): Our class for model.
+        - evaluation_args (EvaluationArguments): The evaluation arguments
+            - dataset_threading
+        - evaluation_data (Optional[List[Dict[str, Any]]]): The evaluation data for the dataset.
+        -
 
     Returns:
         An iterator of dictionaries grouped by dataset classes, each containing a mapping of display_names to dataset instances.
     """
+
+    if ":" in dataset_name:
+        dataset_name, subset_names = dataset_name.split(":")
+        subset_names = set(subset_names.split(","))
+    else:
+        subset_names = set()
 
     dataset_classes = import_dataset_classes(dataset_name)
     cache_paths = []
@@ -232,8 +245,8 @@ def load_dataset(
         if not args.passed_in_commandline("dataset_path"):
             args.dataset_path = cache_path
 
-        cmd_subset_names = get_cmd_subset_names(args.subset_names, dataset_cls)
-        if len(args.subset_names) > 0 and len(cmd_subset_names) == 0:
+        cmd_subset_names = get_cmd_subset_names(subset_names, dataset_cls)
+        if len(subset_names) > 0 and len(cmd_subset_names) == 0:
             continue
 
         # if dataset not in huggingface, allow to manually specify subset_names
@@ -320,6 +333,7 @@ def load_datasets(
     example_data: Optional[List[Dict[str, Any]]] = None,
 ) -> DatasetCollection:
 
+    # batch size for vllm is set after model is loaded
     if model.model_backend == "vllm":
         args.batch_size = -1
         logger.info("Setting batch_size to -1, since vllm can automatically planning the optimal batch and order.")

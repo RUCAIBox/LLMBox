@@ -17,6 +17,8 @@ ERROR_OVERVIEW = {
     UNSOPPORTED_LIBRARY.format(lib="datasets"),
     "datasets.exceptions.DatasetGenerationError":
     "There is some issue when loading dataset with threading. Please try to disable threading with `--no_dataset_threading`.",
+    "assert logits_applied == logits.shape[0]":
+    "Current version of vLLM does not support prefix_caching. Try disable vLLM or disable prefix_caching.",
 }
 
 
