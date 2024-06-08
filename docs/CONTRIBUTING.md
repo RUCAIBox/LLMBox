@@ -78,5 +78,9 @@ Please refer to the README in each module:
 - [docs](./docs)
 
 ## Tests
-Please navigate to `tests` folder to see existing test suites.
+
 At the moment, we have three kinds of tests: `pytest`, `isort`, and `yapf`.
+
+Please navigate to `tests` folder to see existing `pytest` test suites.
+
+Make sure to format your code with `yapf -i --style .style.cfg` and `isort` before submitting a PR.
