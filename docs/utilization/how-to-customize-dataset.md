@@ -175,6 +175,42 @@ The following table shows the keys that should be returned from the `format_inst
     </tbody>
 </table>
 
+### Jinja2 Template
+
+Jinja is a fast, expressive, extensible templating engine. Special placeholders in the template allow writing code similar to Python syntax. `jinja2` is supported for the instruction string.
+
+You can use the `{{ variable }}` syntax to insert variables into the instruction string.
+
+If a variable is optional, you can use the `if` statement to check if the variable exists, to avoid getting `"None"` in the instruction string:
+
+```python
+"{% if passage %}"
+"{{ passage }}"
+"{% endif %}"
+```
+
+Notes its differnece from the following syntax, which includes two newlines if `passage` is not `None`:
+
+```python
+"""{% if passage %}
+{{ passage }}
+{% endif %}"""
+```
+
+Alternatively, you can use the inline `if` statement:
+
+```python
+"{{ passage if passage }}"
+```
+
+As much as possible, we’ve stripped the whitespaces from the variables to avoid extra spaces in the output. For example, `{{ passage }}` will not print extra spaces around the `passage` variable. You can use `{{ passage + '\n' if passage }}` to add a newline after the passage.
+
+However, be aware that Jinja is a general-purpose templating engine, and it may treat whitespace between blocks on the same line as significant and print it to the output. We strongly recommend checking that your template isn’t printing extra spaces where it shouldn’t be before you upload it!
+
+See more details about Jinja2 syntax [here](https://jinja.palletsprojects.com/en/3.1.x/templates).
+
+If you want to check the formatted result, you can add a test in the [`tests/utilization/dataset/test_formatting`](https://github.com/RUCAIBox/LLMBox/tree/main/tests/utilization/dataset/test_formatting.py).
+
 ### Foramting Multiple-Choice Dataset:
 
 ```python
@@ -187,6 +223,25 @@ class MyDataset(MultipleChoiceDataset):
             target_idx=instance["answer"],
             options=[instance[label] for label in ["A", "B", "C", "D"]],
         )
+```
+
+In `get_ppl` (`ppl_no_option`) evaluation method, this will generate four evaluation instances:
+
+```python
+[
+    {"source": "Answer the following question.\n\n[Question A]\nAnswer:", "target": "[Answer A]"},
+    {"source": "Answer the following question.\n\n[Question A]\nAnswer:", "target": "[Answer B]"},
+    {"source": "Answer the following question.\n\n[Question A]\nAnswer:", "target": "[Answer C]"},
+    {"source": "Answer the following question.\n\n[Question A]\nAnswer:", "target": "[Answer D]"},
+]
+```
+
+And in `get_prob` method, this will generate one evaluation instance:
+
+```python
+[
+    {"source": "Answer the following question.\n\n[Question A]\nA. [Answer A]\nB. [Answer B]\nC. [Answer C]\nD. [Answer D]\nAnswer:", "target": "A"},
+]
 ```
 
 ### Formating Multiple-Context Dataset:
@@ -204,6 +259,15 @@ class MyDataset(MultipleChoiceDataset):
             source_idx=int(instance["answer"]) - 1,
             target=instance["completion"],
         )
+```
+
+which generates two evaluation instances:
+
+```python
+[
+    {"source": "Answer the following question.\n\n[Context A]\nAnswer:", "target": "[Completion]"},
+    {"source": "Answer the following question.\n\n[Context B]\nAnswer:", "target": "[Completion]"},
+]
 ```
 
 ### Formating Generation Dataset:
@@ -263,7 +327,7 @@ For advanced topics, you can define the following attributes:
 
 - `banned_subsets` (`Optional[List[str]]`): The banned subsets for the dataset (default: None).
 
-- `use_normalization` (`bool`): Use normalization (default: False)
+- `use_normalization` (`bool`): Use normalization (default: False). See ARC, OpenBookQA, and RACE for details.
 
 - `supported_cot` (`List[str]`): Define the supported `cot` for the dataset.
 
