@@ -5,7 +5,7 @@ import pathlib
 import sys
 from dataclasses import fields
 from functools import lru_cache
-from typing import TYPE_CHECKING, List, Optional, Set
+from typing import TYPE_CHECKING, Callable, List, Optional
 
 import coloredlogs
 
@@ -34,8 +34,16 @@ log_levels = {
 
 BUILTIN_DATASET = {
     "__init__", "enum", "dataset", "utils", "multiple_choice_dataset", "generation_dataset", "load", "icl_strategies",
-    "translation_dataset"
+    "translation_dataset", "warn_once"
 }
+
+WARNED = set()
+
+
+def warn_once(logger: logging.Logger, msg: str, identifier: str) -> Callable[[str], None]:
+    if identifier not in WARNED:
+        logger.warning(msg)
+        WARNED.add(identifier)
 
 
 @lru_cache
@@ -101,21 +109,14 @@ def _get_file_handler(log_path, int_file_log_level):
     return handler
 
 
-def _format_dataset_names(dataset_names: List[str], subset_names: Set[str]) -> str:
-    name = ""
-    if len(dataset_names) == 1:
-        name = dataset_names[0]
-        if len(subset_names) > 0:
-            name += "_" + ",".join(subset_names)
-    else:
-        name = ",".join(dataset_names)
-    return name
+def _format_dataset_names(dataset_names: List[str]) -> str:
+    return "_".join(d.replace(":", "-") for d in dataset_names)
 
 
 def _format_path(model_args, dataset_args, evaluation_args):
 
     model_name = model_args.model_name_or_path.strip("/").split("/")[-1]
-    dataset_name = _format_dataset_names(dataset_args.dataset_names, dataset_args.subset_names)
+    dataset_name = _format_dataset_names(dataset_args.dataset_names)
     num_shots = str(dataset_args.num_shots)
     execution_time = datetime.datetime.now().strftime(DEFAULT_DATETIME_FORMAT)
 

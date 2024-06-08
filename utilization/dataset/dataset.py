@@ -19,6 +19,7 @@ from ..model.model_utils import Conversation, ConversationFormatter, DatasetColl
 from ..model_enum import ENDPOINT_ARGS
 from ..utils.dynamic_stride_tqdm import dynamic_stride_tqdm
 from ..utils.log_results import PredictionWriter, log_final_results, repeat_iter
+from ..utils.logging import warn_once
 from .dataset_utils import DatasetUtilMixin, get_raw_dataset_loader
 from .dataset_utils.icl_strategies import ape, global_entropy_ordering_strategy, knn_construct_examples
 
@@ -55,7 +56,7 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
         - `examples (Conversation)`: The constructed demonstration text.
         - `evaluation_data (List[Dict])`: The loaded evaluation data.
         - `example_data (List[Dict])`: The loaded example data.
-        - `evaluation_instances (List[str])`: The final formatted instances for evaluation.
+        - `evaluation_instances (List[Any])`: The final formatted instances for evaluation.
         - `option_nums (List[int])`: The number of options for each evaluation instance.
     """
 
@@ -310,20 +311,28 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
 
         # validate model evaluation method and endpoint arguments
         if self.model.args.api_endpoint is not None:
-            endpoint_args = ENDPOINT_ARGS[self.model.args.model_backend + "/" + self.model.args.api_endpoint]
-            methods = ["get_ppl", "get_prob", "generation"]
-            requireds = [
-                ("echo", "max_tokens", "logprobs"),
-                ("max_tokens", "temperature", "logit_bias"),
-                ("max_tokens", "temperature"),
-            ]
-            support = [m for m, r in zip(methods, requireds) if all(a in endpoint_args for a in r)]
-            if self.model_evaluation_method not in support:
-                logger.warning(
-                    f"Model {self.model.args.model_name_or_path} does not support {self.model_evaluation_method}, "
-                    f"automatically switch to {support[0]}."
-                )
-                self.model_evaluation_method = support[0]
+            model_endpoint = self.model.args.model_backend + "/" + self.model.args.api_endpoint
+            if model_endpoint in ENDPOINT_ARGS:
+                endpoint_args = ENDPOINT_ARGS[model_endpoint]
+                methods = ["get_ppl", "get_prob", "generation"]
+                requireds = [
+                    ("echo", "max_tokens", "logprobs"),
+                    ("max_tokens", "temperature", "logit_bias"),
+                    ("max_tokens", "temperature"),
+                ]
+                support = [m for m, r in zip(methods, requireds) if all(a in endpoint_args for a in r)]
+                if self.model_evaluation_method not in support:
+                    logger.warning(
+                        f"Model {self.model.args.model_name_or_path} does not support {self.model_evaluation_method}, "
+                        f"automatically switch to {support[0]}."
+                    )
+                    self.model_evaluation_method = support[0]
+
+        # validate ranking_type
+        if self.evaluation_type == "ranking" and not isinstance(self.ranking_type, str):
+            self.ranking_type = "ppl_no_option"
+        elif self.evaluation_type == "generation":
+            self.ranking_type = None
 
         # validate chain-of-thought
         if self.cot and self.cot not in self.supported_cot:
@@ -427,6 +436,8 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
                     f"The example data of {self.display_name} only has {len(self.example_data)} instances, but the few-shot number is set to {self.max_num_shots}. Setting the few-shot number to {len(self.example_data)}."
                 )
                 self.max_num_shots = len(self.example_data)
+
+            # if size of example data is less than max_num_shots, we will randomly sample from the example data
             if len(self.example_data) == self.max_num_shots:
                 self.random_indice = list(range(len(self.example_data)))
             else:
@@ -542,9 +553,12 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
         formatted_instance["example_idx"] = example_idx
         dataset_extensions = ["dataset_name", "subset_name", "display_name", "real_num_shots"]
         for key in dataset_extensions:
-            if key in formatted_instance:
+            if key in formatted_instance and formatted_instance[key] != getattr(self, key):
                 raise ValueError(f"Key `{key}` is reserved for dataset extensions and cannot be used in the instance.")
             formatted_instance[key] = getattr(self, key)
+        for key, value in formatted_instance.items():
+            if isinstance(value, str) and value.startswith(" "):
+                warn_once(logger, f"Key `{key}` has leading spaces: {pformat(value)}")(key)
 
         if not isinstance(source, list):
             if self.instruction_template.debug_info:
@@ -756,6 +770,8 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
         - `len(dataset)` or `len(dataset.evaluation_instances)`: the length of `__iter__`. Equal to length of raw data multiplied by `self.sample_num`, option_num (if `model_evaluation_method` is "get_ppl") and 2 (if `use_normalization` is True)
         """
         # if `model_evaluation_method` is not "get_ppl", two branches of `option_num` should be equivalent
+        if not hasattr(self, "evaluation_instances"):
+            return 0
         if option_num:
             length = len(self.evaluation_instances)
             if not sample_num and self.sample_num > 1:

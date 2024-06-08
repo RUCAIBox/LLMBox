@@ -77,7 +77,7 @@ class Bbh(GenerationDataset):
         target = instance["answer"]
         if target is None or self.cot is None:
             target = instance["label"]
-        return dict(input=instance["input"].strip(), target=" " + target, bbh_instruction=self.bbh_instruction)
+        return dict(input=instance["input"].strip(), target=target, bbh_instruction=self.bbh_instruction)
 
     def post_processing(self, predictions: List[str]):
         new_predictions = []

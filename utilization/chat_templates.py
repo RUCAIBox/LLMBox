@@ -1,14 +1,14 @@
 from typing import Any, Dict, List, Union
 
-__all__ = ["DEFAULT_CHAT_TEMPLATE", "DEFAULT_CHAT_CONFIGS"]
+__all__ = ["DEFAULT_CHAT_TEMPLATE", "DEFAULT_CHAT_CONFIGS", "add_space", "smart_space"]
+
+def add_space(msg: str, auto_leading_space: bool, context: str) -> str:
+    if auto_leading_space and msg and context and not context[-1].isspace() and not msg[0].isspace():
+        return ' ' + msg
+    return msg
 
 
 def smart_space(parts: List[str], auto_leading_space) -> str:
-
-    def add_space(msg: str, auto_leading_space: bool, context: str) -> str:
-        if auto_leading_space and msg and context and not context[-1].isspace() and not msg[0].isspace():
-            return ' ' + msg
-        return msg
 
     rendered = ""
     for part in parts:

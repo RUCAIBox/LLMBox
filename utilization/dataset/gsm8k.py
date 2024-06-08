@@ -5,6 +5,9 @@ from functools import cached_property
 from ..metric import Accuracy
 from .generation_dataset import GenerationDataset
 
+BASE_INSTRUCTION = "Answer the following question.\n\nQuestion: {{question.replace('\n', ' ')}}\nAnswer:"
+PAL_INSTRUCTION = "Let's use python to solve math problems. Here are some examples how to do it.\n\nQuestion: {{question.replace('\n', ' ')}}\nAnswer:"
+
 
 class Gsm8k(GenerationDataset):
     """The dataset of GSM8K.
@@ -16,7 +19,7 @@ class Gsm8k(GenerationDataset):
         answer: Natalia sold 48/2 = <<48/2=24>>24 clips in May. Natalia sold 48+24 = <<48+24=72>>72 clips altogether in April and May. #### 72
     """
 
-    instruction = "Answer the following question.\n\nQuestion: {{question.replace('\n', ' ')}}\nAnswer:"
+    instruction = BASE_INSTRUCTION
     evaluation_set = "test"
     example_set = "train"
     load_args = ("gsm8k", "main")
@@ -40,7 +43,7 @@ class Gsm8k(GenerationDataset):
             self.example_data = LEAST_TO_MOST_EXAMPLARS
         elif self.cot == 'pal':
             self.example_data = PAL_EXAMPLARS
-            self.instruction = "Let's use python to solve math problems. Here are some examples how to do it.\n\nQuestion: {{question.replace('\n', ' ')}}\nAnswer:"
+            self.instruction = PAL_INSTRUCTION
 
     def post_processing(self, predictions):
         new_predictions = []
@@ -75,7 +78,7 @@ class Gsm8k(GenerationDataset):
     def format_instance(self, instance):
 
         # remove decimal seperators
-        instance["answer"] = ' ' + self._decimal_separator.sub("", instance["answer"])
+        instance["answer"] = self._decimal_separator.sub("", instance["answer"])
 
         # few-shot examples might not contain "####"
         if "####" in instance["answer"]:

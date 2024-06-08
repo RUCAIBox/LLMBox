@@ -142,7 +142,7 @@ while IFS= read -r file; do
     fi
     [[ -n "$INCLUDE_PATTERN" && ! "$file" == $INCLUDE_PATTERN ]] && printf "# %s\n" "$download_cmd" && continue
     [[ -n "$EXCLUDE_PATTERN" && "$file" == $EXCLUDE_PATTERN ]] && printf "# %s\n" "$download_cmd" && continue
-    printf "%s\n" "$download_cmd"
+    # printf "%s\n" "$download_cmd"
     urls+=("$url|$file")
 done <<< "$files"
 
