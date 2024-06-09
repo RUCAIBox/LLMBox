@@ -39,4 +39,4 @@ class Mmlu(MultipleChoiceDataset):
 
     @cached_property
     def references(self):
-        return [instance["answer"].strip() for instance in self.evaluation_data]
+        return [instance["answer"] for instance in self.evaluation_data]

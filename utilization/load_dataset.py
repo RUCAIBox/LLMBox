@@ -166,18 +166,26 @@ def get_subsets(
     for idx, a in enumerate(available_subsets_by_cls):
         available_subsets_by_cls[idx] = a.intersection(available_subsets)
         available_subsets -= a
+        logger.debug(f"Available subsets of {dataset_classes[idx].__name__}: {available_subsets_by_cls[idx]}")
 
     return available_subsets_by_cls
 
 
-def get_cmd_subset_names(cmd_subset_names: Set[str], dataset_cls: "Dataset") -> Set[str]:
+def expand_cmd_subset_names(cmd_subset_names: Set[str], dataset_classes: List[Type["Dataset"]]) -> Set[str]:
     """Get the subset names from the command line arguments. If the subset name is a category, expand it to the actual subset names."""
     results = set()
+    all_categorized_subsets = dict()
+    for cls in dataset_classes:
+        if cls.categorized_subsets is not None:
+            all_categorized_subsets.update(cls.categorized_subsets)
+
     for cmd_subset in cmd_subset_names:
         if cmd_subset.startswith("[") and cmd_subset.endswith("]"):
-            if dataset_cls.categorized_subsets is None:
-                continue
-            categorized_subsets = dataset_cls.categorized_subsets[cmd_subset[1:-1]]
+            cat_name = cmd_subset[1:-1]
+            if cat_name not in all_categorized_subsets:
+                all_classes = ", ".join(d.__name__ for d in dataset_classes)
+                raise ValueError(f"Category `{cat_name}` not found in dataset:", all_classes)
+            categorized_subsets = all_categorized_subsets[cat_name]
             logger.info(f"Expanding category `{cmd_subset}` to `{categorized_subsets}`")
             results.update(categorized_subsets)
         else:
@@ -221,10 +229,10 @@ def load_dataset(
     """
 
     if ":" in dataset_name:
-        dataset_name, subset_names = dataset_name.split(":")
-        subset_names = set(subset_names.split(","))
+        dataset_name, cmd_subset_names = dataset_name.split(":")
+        cmd_subset_names = set(cmd_subset_names.split(","))
     else:
-        subset_names = set()
+        cmd_subset_names = set()
 
     dataset_classes = import_dataset_classes(dataset_name)
     cache_paths = []
@@ -237,6 +245,7 @@ def load_dataset(
             # dynamically set load_args for wmt datasets, in order to support wmt series datasets
             cache_paths.append(huggingface_download(dataset_name, args.hfd_cache_path, mirror=args.hf_mirror))
     available_subsets_by_cls = get_subsets(dataset_name, dataset_classes, args, cache_paths)
+    expanded_cmd_subset_names = expand_cmd_subset_names(cmd_subset_names, dataset_classes)
 
     for dataset_cls, available_subsets, cache_path in zip_longest(
         dataset_classes, available_subsets_by_cls, cache_paths
@@ -245,39 +254,40 @@ def load_dataset(
         if not args.passed_in_commandline("dataset_path"):
             args.dataset_path = cache_path
 
-        cmd_subset_names = get_cmd_subset_names(subset_names, dataset_cls)
-        if len(subset_names) > 0 and len(cmd_subset_names) == 0:
+        if len(cmd_subset_names) > 0 and len(expanded_cmd_subset_names) == 0:
             continue
 
         # if dataset not in huggingface, allow to manually specify subset_names
-        if len(available_subsets) and not available_subsets.issuperset(cmd_subset_names):
-            na = cmd_subset_names - available_subsets
+        if len(available_subsets) and not available_subsets.issuperset(expanded_cmd_subset_names):
+            na = expanded_cmd_subset_names - available_subsets
             raise ValueError(
                 f"Specified subset names {na} are not available. Available ones of {dataset_name} are: {available_subsets}"
             )
 
         # use specified subset_names if available
-        subset_names = cmd_subset_names or available_subsets
+        cmd_subset_names = expanded_cmd_subset_names or available_subsets
+        expanded_cmd_subset_names -= cmd_subset_names
         logger.debug(
-            f"{dataset_name} - available_subsets: {available_subsets}, load_args: {dataset_cls.load_args}, final subset_names: {subset_names}"
+            f"{dataset_name} - available_subsets: {available_subsets}, load_args: {dataset_cls.load_args}, final subset_names: {cmd_subset_names}"
         )
 
-        if len(subset_names) > 1 and accepts_subset(dataset_cls.load_args, overwrite_subset=len(cmd_subset_names) > 0):
+        if len(cmd_subset_names
+               ) > 1 and accepts_subset(dataset_cls.load_args, overwrite_subset=len(expanded_cmd_subset_names) > 0):
             # Example: race:middle,high (several subsets) , super_glue (all the subsets)
 
             # sort the subset names and log to terminal
-            subset_names = sorted(subset_names)
+            cmd_subset_names = sorted(cmd_subset_names)
             max_eles = 5
-            if len(subset_names) > max_eles or logger.level <= logging.DEBUG:
-                subset_repr = ",".join(subset_names[:max_eles]) + " ..."
+            if len(cmd_subset_names) > max_eles or logger.level <= logging.DEBUG:
+                subset_repr = ",".join(cmd_subset_names[:max_eles]) + " ..."
             else:
-                subset_repr = ",".join(subset_names)
+                subset_repr = ",".join(cmd_subset_names)
             logger.info("Loading dataset `%s` with subset(s): %s", dataset_name, subset_repr)
 
-            if evaluation_args.dataset_threading and len(subset_names) > 2:
+            if evaluation_args.dataset_threading and len(cmd_subset_names) > 2:
 
                 # load the first dataset in the main thread (only show the INFO log message for the first dataset)
-                first_dataset = subset_names.pop(0)
+                first_dataset = cmd_subset_names.pop(0)
                 first_dataset = (
                     dataset_name + ":" + first_dataset,
                     dataset_cls(dataset_name, args, model, first_dataset, evaluation_data, example_data)
@@ -286,14 +296,14 @@ def load_dataset(
                 logging.disable(logging.INFO)
 
                 # load the remaining datasets in parallel
-                with ThreadPoolExecutor(max_workers=len(subset_names)) as executor:
+                with ThreadPoolExecutor(max_workers=len(cmd_subset_names)) as executor:
                     res = [
                         executor.submit(
                             lambda s: (
                                 dataset_name + ":" + s,
                                 dataset_cls(dataset_name, args, model, s, evaluation_data, example_data)
                             ), s
-                        ) for s in subset_names
+                        ) for s in cmd_subset_names
                     ]
                 datasets = dict([first_dataset] + [f.result() for f in as_completed(res)])
                 logging.disable(logging.NOTSET)
@@ -301,17 +311,19 @@ def load_dataset(
                 # load all datasets one by one
                 datasets = {
                     dataset_name + ":" + s: dataset_cls(dataset_name, args, model, s, evaluation_data, example_data)
-                    for s in subset_names
+                    for s in cmd_subset_names
                 }
             yield datasets
 
-        elif len(subset_names) == 1 and len(available_subsets) != 1 and accepts_subset(
-            dataset_cls.load_args, overwrite_subset=len(cmd_subset_names) > 0, subset=next(iter(subset_names))
+        elif len(cmd_subset_names) == 1 and len(available_subsets) != 1 and accepts_subset(
+            dataset_cls.load_args,
+            overwrite_subset=len(expanded_cmd_subset_names) > 0,
+            subset=next(iter(cmd_subset_names))
         ):
             # in some cases of get_dataset_config_names() have only one subset, loading dataset with the a subset name is not allowed in huggingface datasets library
             # len(available_subsets) == 0 means a special case, like wmt
             # race:middle (one of the subsets), coqa (default)
-            subset_name = next(iter(subset_names))
+            subset_name = next(iter(cmd_subset_names))
             logger.info(f"Loading subset of dataset `{dataset_name}:{subset_name}`")
             yield {
                 dataset_name + ":" + subset_name:
