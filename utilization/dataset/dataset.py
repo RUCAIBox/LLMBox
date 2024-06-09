@@ -560,7 +560,7 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
             formatted_instance[key] = getattr(self, key)
         for key, value in formatted_instance.items():
             if isinstance(value, str) and value.startswith(" "):
-                warn_once(logger, f"Key `{key}` has leading spaces: {pformat(value)}")(key)
+                warn_once(logger, f"Key `{key}` has leading spaces: {pformat(value)}", key)
 
         if not isinstance(source, list):
             if self.instruction_template.debug_info:
