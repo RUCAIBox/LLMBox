@@ -324,9 +324,11 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
                 ]
                 support = [m for m, r in zip(methods, requireds) if all(a in endpoint_args for a in r)]
                 if self.model_evaluation_method not in support:
-                    logger.warning(
+                    warn_once(
+                        logger,
                         f"Model {self.model.args.model_name_or_path} does not support {self.model_evaluation_method}, "
-                        f"automatically switch to {support[0]}."
+                        f"automatically switch to {support[0]}.",
+                        identifier=self.model_evaluation_method + support[0]
                     )
                     self.model_evaluation_method = support[0]
 

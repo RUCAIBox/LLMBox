@@ -228,6 +228,7 @@ def load_dataset(
         An iterator of dictionaries grouped by dataset classes, each containing a mapping of display_names to dataset instances.
     """
 
+    # get the subset names
     if ":" in dataset_name:
         dataset_name, cmd_subset_names = dataset_name.split(":")
         cmd_subset_names = set(cmd_subset_names.split(","))
@@ -266,7 +267,6 @@ def load_dataset(
 
         # use specified subset_names if available
         cmd_subset_names = expanded_cmd_subset_names or available_subsets
-        expanded_cmd_subset_names -= cmd_subset_names
         logger.debug(
             f"{dataset_name} - available_subsets: {available_subsets}, load_args: {dataset_cls.load_args}, final subset_names: {cmd_subset_names}"
         )
@@ -334,6 +334,8 @@ def load_dataset(
             # copa (super_glue:copa) or anli
             logger.info(f"Loading dataset `{dataset_name}`")
             yield {dataset_name: dataset_cls(dataset_name, args, model, None, evaluation_data, example_data)}
+
+        expanded_cmd_subset_names.difference_update(cmd_subset_names)
 
 
 @catch_error()
