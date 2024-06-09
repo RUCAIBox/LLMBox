@@ -315,7 +315,7 @@ class HuggingFaceModel(Model):
         batched_ids = [ids[st:ed] for ids, st, ed in zip(batched_encodings["input_ids"], ids_starts, ids_ends)]
         input_lengths = [len(seq) for seq in batched_ids]
         if any(l == 0 for l in input_lengths):
-            raise ValueError(
+            logger.warning(
                 "The prefix is too long for the model. Please reduce the length of the prefix (e.g. `--max_example_tokens`)"
             )
         max_input_len = max(input_lengths)

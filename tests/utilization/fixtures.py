@@ -1,13 +1,86 @@
 import sys
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import pytest
 
 sys.path.append('.')
 from utilization.dataset.dataset import DatasetCollection
 from utilization.dataset.generation_dataset import GenerationDataset
+from utilization.load_dataset import load_dataset
+from utilization.model.model_utils.conversation import Conversation
 from utilization.model.openai_model import Openai
-from utilization.utils.arguments import DatasetArguments, ModelArguments
+from utilization.utils.arguments import DatasetArguments, EvaluationArguments, ModelArguments
+
+
+@pytest.fixture
+def conversation():
+    return Conversation(
+        messages=[{
+            "role": "system",
+            "content": "This is a system message."
+        }, {
+            "role": "user",
+            "content": "This is a user message."
+        }, {
+            "role": "assistant",
+            "content": "This is an assistant message."
+        }, {
+            "role": "user",
+            "content": "This is the second user message."
+        }, {
+            "role": "assistant",
+            "content": "This is the second assistant message."
+        }]
+    )
+
+
+@pytest.fixture
+def get_openai_model():
+
+    def openai_model(chat_template):
+        args = ModelArguments(
+            model_name_or_path="fake_model",
+            model_type="chat",
+            tokenizer_name_or_path="cl100k_base",
+            model_backend="openai",
+            openai_api_key="fake_key",
+            chat_template=chat_template,
+            api_endpoint="completions"
+        )
+        model = Openai(args)
+        args.model_backend = "huggingface"
+        model.model_backend = "huggingface"
+        return model
+
+    return openai_model
+
+
+@pytest.fixture
+def get_dataset(get_openai_model):
+
+    def dataset(
+        dataset_name: str,
+        num_shots: int,
+        cot: Optional[str] = None,
+        chat_template: Optional[str] = None,
+        ranking_type: Optional[str] = None,
+    ):
+
+        args = DatasetArguments(
+            dataset_names=[dataset_name],
+            num_shots=num_shots,
+            batch_size=1,
+            cot=cot,
+            ranking_type=ranking_type,
+        )
+        evaluation_args = EvaluationArguments()
+        openai_model = get_openai_model(chat_template)
+
+        ds = list(load_dataset(dataset_name, args, openai_model, evaluation_args))
+
+        return ds[0][dataset_name]
+
+    return dataset
 
 
 class FakeDataset(GenerationDataset):

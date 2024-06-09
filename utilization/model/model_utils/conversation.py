@@ -7,7 +7,7 @@ from jinja2.exceptions import TemplateError
 from jinja2.sandbox import ImmutableSandboxedEnvironment
 from transformers.pipelines.conversational import Conversation as _HFConversation
 
-from ...chat_templates import DEFAULT_CHAT_CONFIGS, DEFAULT_CHAT_TEMPLATE, smart_space
+from ...chat_templates import DEFAULT_CHAT_CONFIGS, DEFAULT_CHAT_TEMPLATE, add_space, smart_space
 
 # legacy types
 NumOptions = NewType("NumOptions", int)
@@ -51,6 +51,8 @@ class ConversationFormatter:
     ):
         self.default_stops = chat_config.pop("default_stops", [])
         self.auto_leading_space = chat_config.pop("auto_leading_space", True)
+        self.final_lstrip = chat_config.pop("final_lstrip", True)
+        self.final_rstrip = chat_config.pop("final_rstrip", True)
 
         self.sequences = chat_config
         self.chat_template = chat_template
@@ -122,9 +124,15 @@ class ConversationFormatter:
         *,
         add_generation_prompt: bool = False,
         remove_generation_prompt: bool = False,
-        final_lstrip: bool = True,
-        final_rstrip: bool = True,
+        final_lstrip: Optional[bool] = None,
+        final_rstrip: Optional[bool] = None,
     ) -> str:
+
+        if final_lstrip is None:
+            final_lstrip = self.final_lstrip
+
+        if final_rstrip is None:
+            final_rstrip = self.final_rstrip
 
         return self._apply_prompt_template(
             conversation=conversation,
@@ -139,15 +147,25 @@ class ConversationFormatter:
 
     def _get_segs(self, conversations: List["Conversation"], max_turns: int = 1) -> Iterator[tuple]:
         seg_num = None
+        kwargs = {"final_rstrip": False, "final_lstrip": False}
         for conv in conversations:
-            system = self.apply_prompt_template(conv.get_segs("system"))
-            examples = self.apply_prompt_template(conv.get_segs("examples"))
-            source = self.apply_prompt_template(conv.get_segs("source")[:max_turns * 2 - 1], add_generation_prompt=True)
-            target = self.apply_prompt_template(conv.get_segs("target"), remove_generation_prompt=True)
+            system = self.apply_prompt_template(conv.get_segs("system"), **kwargs)
+            examples = self.apply_prompt_template(conv.get_segs("examples"), **kwargs)
+            source = self.apply_prompt_template(
+                conv.get_segs("source")[:max_turns * 2 - 1], add_generation_prompt=True, **kwargs
+            )
+            target = self.apply_prompt_template(conv.get_segs("target"), remove_generation_prompt=True, **kwargs)
             result = ()
             for seg in (system, examples, source, target):
                 if len(seg) > 0:
+                    if len(result) > 0:
+                        seg = add_space(seg, True, result[-1])
+                    elif self.final_lstrip:
+                        seg = seg.lstrip()
                     result += (seg,)
+            if self.final_rstrip:
+                result = result[:-1] + (result[-1].rstrip(),)
+
             assert seg_num is None or seg_num == len(result)
             seg_num = len(result)
             yield result + (conv.num_options,)
