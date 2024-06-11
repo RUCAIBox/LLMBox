@@ -421,3 +421,22 @@ class HfArgumentParser(ArgumentParser):
         """
         outputs = self.parse_dict(yaml.safe_load(Path(yaml_file).read_text()), allow_extra_keys=allow_extra_keys)
         return tuple(outputs)
+
+    def error(self, message):
+        sys.stderr.write('error: %s\n' % message)
+
+        if "--dataset_names/-d/--dataset" in message:
+
+            from os import get_terminal_size
+            from textwrap import fill
+
+            from .logging import list_datasets
+
+            msg = fill(
+                "Supported datasets: " + ", ".join(list_datasets()),
+                width=get_terminal_size().columns,
+                subsequent_indent=" " * 4,
+            )
+            sys.stderr.write(msg + '\n')
+
+        sys.exit(2)

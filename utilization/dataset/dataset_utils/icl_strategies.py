@@ -1,13 +1,118 @@
+from dataclasses import dataclass
+from functools import lru_cache
 from itertools import permutations
+from logging import getLogger
+from typing import TYPE_CHECKING, Dict, Iterable, List, Optional
 
 import numpy as np
 import torch
 from tqdm import tqdm
 
 from ...model import openai_model
+from ...utils.arguments import ModelArguments
+
+logger = getLogger(__name__)
+
+if TYPE_CHECKING:
+    from sentence_transformers import SentenceTransformer
+
+    from ...model.model import ApiModel, Model
 
 
-def knn_construct_examples(instance_query, example_dataset, k):
+@dataclass
+class ICLUtilMixin:
+
+    ape: bool
+    globale: bool
+    kate: bool
+
+    def set_icl(self, kate: bool, globale: bool, ape: bool, model: "Model"):
+        self.ape = ape
+        self.globale = globale
+        self.kate = kate
+
+        if self.ape:
+            self.set_ape(model)
+        if self.globale:
+            self._set_globale(model)
+        if self.kate:
+            self._set_kate()
+
+    def _set_get_ppl(self, model: "Model"):
+        try:
+            model.get_ppl([])
+        except NotImplementedError:
+            raise NotImplementedError("GlobalE requires a model with a get_ppl method")
+        except Exception:
+            pass
+
+        self._get_ppl = model.get_ppl
+
+    def set_ape(self, model: "Model"):
+
+        import openai
+
+        self._set_get_ppl(model)
+        model_args = ModelArguments(
+            model_name_or_path="gpt-3.5-turbo-instruct",
+            openai_api_key=openai.api_key,
+            max_tokens=50,
+            temperature=0.9,
+            top_p=0.9,
+            frequency_penalty=0.0,
+            presence_penalty=0.0,
+        )
+        self._instruct_gen_model = openai_model.Openai(model_args)
+
+    def _set_globale(self, model: "Model"):
+        self._set_get_ppl(model)
+
+    def _set_kate(self):
+        import torch
+        from sentence_transformers import SentenceTransformer
+
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        paraphrase_model_name = "paraphrase-MiniLM-L6-v2"
+        self._paraphrase_model = SentenceTransformer(paraphrase_model_name, device=device)
+        self._paraphrase_model.eval()
+        logger.info(f"kate model {paraphrase_model_name} loaded: {self._paraphrase_model}")
+
+        self._embeddings = []
+
+    def generate_ape(self, example_dataset: List[Dict[str, str]], eval_dataset: Iterable[Dict[str, str]]):
+        return generate_ape(self._instruct_gen_model, example_dataset, list(eval_dataset), self._get_ppl)
+
+    def global_entropy_ordering_strategy(
+        self, indices: List[int], labels: List[int], example_dataset: List[Dict[str, str]]
+    ):
+        return global_entropy_ordering_strategy(indices, labels, example_dataset, self._get_ppl)
+
+    def knn_construct_examples(
+        self, instance_query: str, example_dataset: List[Dict[str, str]], k: int, batch_size: int = 32
+    ):
+
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        paraphrase_encode = lambda x, show_progress_bar=False: self._paraphrase_model.encode(
+            x,
+            convert_to_tensor=True,
+            convert_to_numpy=False,
+            show_progress_bar=show_progress_bar,
+            device=device,
+            batch_size=batch_size,
+        )
+
+        if len(self._embeddings) == 0:
+            self._embeddings = paraphrase_encode([example["source"] for example in example_dataset], True)
+
+        return knn_construct_examples(paraphrase_encode, instance_query, self._embeddings, k)
+
+
+def knn_construct_examples(
+    paraphrase_encode: callable,
+    instance_query: str,
+    example_embeddings: List[torch.Tensor],
+    k: int,
+):
     """
     select demonstration based on Euclid distance
 
@@ -18,23 +123,14 @@ def knn_construct_examples(instance_query, example_dataset, k):
     Returns:
         List[int]: k nearest examples to the instance_query
     """
-    from sentence_transformers import SentenceTransformer
 
-    embeddings = []
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = SentenceTransformer("paraphrase-MiniLM-L6-v2")
-    model = model.to(device)
-    example_data = [example_dataset[i]["source"] for i in range(len(example_dataset))]
-    for data in example_data:
-        tmp_embeddings = model.encode(data)
-        embeddings.append(tmp_embeddings)
-    instance_embedding = torch.tensor(model.encode(instance_query))
-    distances = [torch.norm(instance_embedding - embedding) for embedding in embeddings]
+    instance_embedding = paraphrase_encode(instance_query)
+    distances = [torch.norm(instance_embedding - embedding) for embedding in example_embeddings]
     indice = torch.topk(torch.tensor(distances), k, largest=False).indices
     return indice
 
 
-def global_entropy_ordering_strategy(indices, labels, example_dataset, call_model):
+def global_entropy_ordering_strategy(indices, labels, example_dataset, get_ppl):
     """
     rank demonstrations based on Global Entropy
 
@@ -64,7 +160,7 @@ def global_entropy_ordering_strategy(indices, labels, example_dataset, call_mode
         outputs = [0] * labels_num
         for i in range(len(prompts) // labels_num):
             tmp_prompts = [prompts[labels_num * i + j] for j in range(labels_num)]
-            ppls = call_model(tmp_prompts)
+            ppls = get_ppl(tmp_prompts)
             min_ppl_index = ppls.index(min(ppls, key=lambda x: x[0]))
             outputs[min_ppl_index] = outputs[min_ppl_index] + 1
         label_counts = torch.tensor(outputs)
@@ -75,7 +171,7 @@ def global_entropy_ordering_strategy(indices, labels, example_dataset, call_mode
     return list(best_perm)
 
 
-def ape(example_dataset, eval_dataset, call_model):
+def generate_ape(instruct_gen_model: "ApiModel", example_dataset, eval_dataset, get_ppl):
     """
     generate instructions using APE
 
@@ -87,25 +183,7 @@ def ape(example_dataset, eval_dataset, call_model):
         List[str]: results of likelihood evaluation
         List[float]: scores based on log probability
     """
-    import openai
-    api_key = openai.api_key
 
-    class ModelArguments:
-
-        def __init__(self):
-            self.model_name_or_path = "gpt-3.5-turbo-instruct"
-            self.openai_api_key = api_key
-            self.max_tokens = 50
-            self.temperature = 0.9
-
-    gpt_config = {
-        "n": 5,
-        "temperature": 0.9,
-        "max_tokens": 50,
-        "top_p": 0.9,
-        "frequency_penalty": 0.0,
-        "presence_penalty": 0.0,
-    }
     prompt_gen_template = "I gave a friend an instruction. Based on the instruction they produced the following sentences:\n\n{DEMO}\nThe instruction was to "
     prompt_eval_template = "The instruction was {PROMPT}. Based on the instruction they produced the following sentences:\n\n{DEMO}\n now evaluate the sentence:{INPUT}"
     # generate prompts
@@ -116,10 +194,8 @@ def ape(example_dataset, eval_dataset, call_model):
         query = prompt_gen_template.format_map({"DEMO": full_demo})
         queries.append(query)
     prompts = []
-    model_parameter = ModelArguments()
-    instruct_gen_model = openai_model.Openai(model_parameter)
     for query in queries:
-        response = instruct_gen_model.request(query, gpt_config)
+        response = instruct_gen_model.request(query, n=5)
         prompts += [response[i]["text"].strip().replace('"', "") for i in range(len(response))]
 
     # evaluate prompts
@@ -142,9 +218,9 @@ def ape(example_dataset, eval_dataset, call_model):
             eval_queries.append(eval_query)
     ppls = []
     queries_batches = [eval_queries[i:i + 10] for i in range(0, len(eval_queries), 10)]
-    print("----------evaluating instructions----------")
+    logger.info("APE: evaluating instructions")
     for queries_batch in tqdm(queries_batches):
-        batch_ppl = call_model(queries_batch)
+        batch_ppl = get_ppl(queries_batch)
         ppls.extend(batch_ppl)
 
     prompt_avg_log_probs = []
