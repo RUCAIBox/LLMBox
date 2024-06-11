@@ -1,6 +1,6 @@
 import sys
 
-from ..fixtures import get_dataset_collection
+from ..fixtures import *
 
 sys.path.append('.')
 from utilization.model.huggingface_model import HuggingFaceModel

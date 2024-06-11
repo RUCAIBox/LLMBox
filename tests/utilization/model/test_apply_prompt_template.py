@@ -1,7 +1,7 @@
 from utilization.chat_templates import DEFAULT_CHAT_TEMPLATE
 from utilization.model.model_utils.conversation import Conversation, ConversationFormatter
 
-from ..fixtures import conversation
+from ..fixtures import *
 
 
 def test_base(conversation: Conversation):

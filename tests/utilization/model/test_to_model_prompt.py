@@ -2,7 +2,7 @@ import pytest
 
 from utilization.model.model_utils.conversation import Conversation, ConversationFormatter
 
-from ..fixtures import conversation
+from ..fixtures import *
 
 model_evaluation_methods = {
     ("generation", False): (
