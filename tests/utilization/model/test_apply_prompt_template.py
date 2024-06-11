@@ -26,7 +26,7 @@ def test_llama2(conversation: Conversation):
         "This is a system message.\n"
         "<</SYS>>\n"
         "\n"
-        "This is a user message. [/INST] This is an assistant message. </s><s>[INST] This is the second user message. [/INST] This is the second assistant message. </s><s>[INST]"
+        "This is a user message. [/INST] This is an assistant message. </s><s>[INST] This is the second user message. [/INST] This is the second assistant message. </s><s>[INST] "
     )
 
 
