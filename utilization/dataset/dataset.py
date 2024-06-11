@@ -12,6 +12,7 @@ import jinja2
 import numpy as np
 import pandas as pd
 import torch
+from tqdm import tqdm
 
 from ..dataset_enum import GAOKAO_CHINESE_TASKS_SCORE, GAOKAO_ENGLISH_TASKS_SCORE, GAOKAO_TASKS_SCORE
 from ..metric.metric_utils import avg_metrics
@@ -20,8 +21,7 @@ from ..model_enum import ENDPOINT_ARGS
 from ..utils.dynamic_stride_tqdm import dynamic_stride_tqdm
 from ..utils.log_results import PredictionWriter, log_final_results, repeat_iter
 from ..utils.logging import warn_once
-from .dataset_utils import DatasetUtilMixin, get_raw_dataset_loader
-from .dataset_utils.icl_strategies import ape, global_entropy_ordering_strategy, knn_construct_examples
+from .dataset_utils import ICLUtilMixin, TokenizerUtilMixin, get_raw_dataset_loader
 
 if typing.TYPE_CHECKING:
     # solve the circular import
@@ -35,7 +35,7 @@ _InputsWithOptionNum = Union[List[Tuple[str, int]], List[Tuple[str, str, int]], 
 logger = getLogger(__name__)
 
 
-class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
+class Dataset(torch.utils.data.Dataset, TokenizerUtilMixin, ICLUtilMixin):
     r"""The base class representing a dataset for a specific task.
 
     Class Attributes:
@@ -139,13 +139,11 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
         self.subset_name = subset_name
         self.model = model
         self.set_tokenizer(model.tokenizer)
+        self.set_icl(args.kate, args.globale, args.ape, model)
 
         self.sample_num = args.sample_num
         self.max_num_shots = args.num_shots
         self.max_example_tokens = args.max_example_tokens
-        self.kate = args.kate
-        self.globale = args.globale
-        self.ape = args.ape
         self.cot = args.cot
         self.ranking_type = args.ranking_type
         self.model_type = model.model_type
@@ -448,11 +446,13 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
                 self.random_indice = np.random.choice(len(self.example_data), self.max_num_shots, replace=False)
 
         # 2. format the evaluation data
-        self.formatted_evaluation_data = [self._format_instance(data) for data in self.evaluation_data]
+        self.formatted_evaluation_data = map(self._format_instance, tqdm(self.evaluation_data, desc="Formatting"))
 
         # automatic instruction
         if self.ape is True:
-            instrction = ape(self.formatted_example_data, self.formatted_evaluation_data, self.model.get_ppl)
+            instrction = self.generate_ape(
+                self.formatted_example_data, self.formatted_evaluation_data, self.model.get_ppl
+            )
             # FIXME check instruction for each dataset
             self.instruction = self.instruction + "\n\n" + instrction
             self.instruction_template = self.jinja2_env.from_string(self.instruction)
@@ -651,7 +651,7 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
 
             # select demonstrations based on knn algorithm
             # TODO: Bugs in kate, order, filter
-            indices = knn_construct_examples(instance_source, self.formatted_example_data, self.max_num_shots)
+            indices = self.knn_construct_examples(instance_source, self.formatted_example_data, self.max_num_shots)
         else:
             indices = self.random_indice
 
@@ -659,7 +659,9 @@ class Dataset(torch.utils.data.Dataset, DatasetUtilMixin):
         if self.globale is True:
             # rank demonstrations based on global entropy
             labels = list(range(len(self.formatted_example_data[0]["options"])))
-            indices = global_entropy_ordering_strategy(indices, labels, self.formatted_example_data, self.model.get_ppl)
+            indices = self.global_entropy_ordering_strategy(
+                indices, labels, self.formatted_example_data, self.model.get_ppl
+            )
 
         # shuffle the examples using the `indice`
         if hasattr(self, "formatted_example_data"):

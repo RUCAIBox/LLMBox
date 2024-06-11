@@ -211,6 +211,23 @@ class ApiModel(Model):
             endpoint_args = ENDPOINT_ARGS[endpoint_name]
 
         generation_kwargs = {}
+
+        def set_args(key, value, extra_body):
+            if extra_body:
+                if "extra_body" not in generation_kwargs:
+                    generation_kwargs["extra_body"] = {}
+
+                if key in generation_kwargs["extra_body"] and generation_kwargs["extra_body"][key] != value:
+                    raise ValueError(f"Conflict value for {key}: {generation_kwargs['extra_body'][key]} vs {value}")
+
+                generation_kwargs["extra_body"][key] = value
+            else:
+
+                if key in generation_kwargs and generation_kwargs[key] != value:
+                    raise ValueError(f"Conflict value for {key}: {generation_kwargs[key]} vs {value}")
+
+                generation_kwargs[key] = value
+
         for key, details in endpoint_args.items():
             # ModelArguments (cmd) > extra_model_args > ModelArguments (default)
             if not self.args.passed_in_commandline(key):
@@ -225,22 +242,26 @@ class ApiModel(Model):
                 value = details.default
 
             # set alias after default values
-            if details.alias is not None:
-                key = details.alias
+            if details.transform_key is not None:
+                key = details.transform_key
 
             # type casting
             if details._type is not None and value is not None:
                 value = details._type(value)
 
             # transform
-            if details.transform is not None and value is not None:
-                value = details.transform(value)
+            if details.transform_value is not None and value is not None:
+                value = details.transform_value(value)
 
             # skip if no value
             if value is None and not details.nullable:
                 continue
 
-            generation_kwargs[key] = value
+            if details.needs is not None:
+                for need, need_value in details.needs.items():
+                    set_args(need, need_value, endpoint_args[need].extra_body)
+
+            set_args(key, value, details.extra_body)
 
         self.generation_kwargs = generation_kwargs
         self.multi_turn = extra_model_args.pop("multi_turn", False)

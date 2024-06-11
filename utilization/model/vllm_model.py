@@ -139,9 +139,6 @@ class vllmModel(Model):
             if value is None:
                 value = extra_model_args.pop(key, None)
 
-            if key == "stop":
-                print(value)
-
             if key == "max_tokens" and value is None:
                 value = 1024
             if value is not None:

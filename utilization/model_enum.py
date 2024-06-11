@@ -1,4 +1,5 @@
 import re
+from typing import List
 
 from .utils.generation_args import generation_arg
 
@@ -30,19 +31,25 @@ HUGGINGFACE_ARGS = {
 }
 
 ANTHROPIC_CHAT_COMPLETIONS_ARGS = {
-    "max_tokens": generation_arg(default=4096),
-    "stop": generation_arg(
-        alias="stop_sequences",
-        transform=lambda x: [i for i in x if not re.match(r"^\s*$", i)],
+    "max_tokens":
+    generation_arg(default=4096),
+    "stop":
+    generation_arg(
+        transform_key="stop_sequences",
+        transform_value=lambda x: [i for i in x if not re.match(r"^\s*$", i)],
     ),
-    "system": generation_arg(),
-    "temperature": generation_arg(),
-    "top_k": generation_arg(),
-    "top_p": generation_arg(),
+    "system":
+    generation_arg(),
+    "temperature":
+    generation_arg(),
+    "top_k":
+    generation_arg(),
+    "top_p":
+    generation_arg(),
 }
 
 DASHSCOPE_CHAT_COMPLETIONS_ARGS = {
-    "temperature": generation_arg(transform=lambda x: max(0.0001, x)),
+    "temperature": generation_arg(transform_value=lambda x: max(0.0001, x)),
     "top_p": generation_arg(),
     "top_k": generation_arg(),
     "max_tokens": generation_arg(default=1024),
@@ -82,14 +89,52 @@ OPENAI_COMPLETIONS_ARGS = {
 }
 
 QIANFAN_CHAT_COMPLETIONS_ARGS = {
-    "temperature": generation_arg(transform=lambda x: min(max(0.0001, x), 1.0), _type=float),
+    "temperature":
+    generation_arg(transform_value=lambda x: min(max(0.0001, x), 1.0), _type=float),
+    "top_p":
+    generation_arg(),
+    "top_k":
+    generation_arg(),
+    "penalty_score":
+    generation_arg(),
+    "stop":
+    generation_arg(),
+    "disable_search":
+    generation_arg(),
+    "enable_citation":
+    generation_arg(),
+    "max_tokens":
+    generation_arg(default=1024, transform_key="max_output_tokens", transform_value=lambda x: max(2, x), _type=int),
+}
+
+
+def logit_bias_to_logits_processors(logit_bias: dict) -> List[callable]:
+
+    def logits_processor(logits):
+        print(logits.shape)
+
+    return [logits_processor]
+
+
+VLLM_SERVED_CHAT_COMPLETIONS_ARGS = {
+    "n": generation_arg(),
+    "best_of": generation_arg(needs={"use_beam_search": True}),
+    "presence_penalty": generation_arg(),
+    "frequency_penalty": generation_arg(),
+    "repetition_penalty": generation_arg(),
+    "temperature": generation_arg(),
     "top_p": generation_arg(),
     "top_k": generation_arg(),
-    "penalty_score": generation_arg(),
+    "min_p": generation_arg(),
+    "seed": generation_arg(),
+    "use_beam_search": generation_arg(),
+    "length_penalty": generation_arg(),
+    "early_stopping": generation_arg(),
     "stop": generation_arg(),
-    "disable_search": generation_arg(),
-    "enable_citation": generation_arg(),
-    "max_tokens": generation_arg(default=1024, alias="max_output_tokens", transform=lambda x: max(2, x), _type=int),
+    "max_tokens": generation_arg(default=1024),
+    "logprobs": generation_arg(),
+    "echo": generation_arg(extra_body=True),
+    "logit_bias": generation_arg(transform_key="logits_processors", transform_value=logit_bias_to_logits_processors),
 }
 
 ENDPOINT_ARGS = {

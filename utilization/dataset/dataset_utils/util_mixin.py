@@ -10,7 +10,7 @@ from ...model.model_utils.conversation import Conversation, ConversationFormatte
 
 
 @dataclass
-class DatasetUtilMixin:
+class TokenizerUtilMixin:
 
     answer_prompt: str = "Answer:"
 
