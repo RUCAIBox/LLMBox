@@ -43,12 +43,9 @@ def dump_conversations(convs: List[Any], local: bool):
 
     if isinstance(convs[0], Conversation):
         if not local:
-            convs = [[str(m['content']) for m in p.messages] for p in convs]
+            convs = [p.messages for p in convs]
         else:
             convs = [p.apply_prompt_template() for p in convs]
-
-    if not isinstance(convs[0], str):
-        convs = [str(p) for p in convs]
 
     return convs
 
@@ -156,6 +153,13 @@ class PredictionWriter:
                 yield self._parse_log_results(json.loads(line))
 
 
+def _warn(e, lines):
+    get_len = lambda v: len(v) if hasattr(v, "__len__") else None
+    lines = {k: get_len(v) for k, v in lines.items()}
+    error = e.__class__.__name__ + ": " + str(e)
+    logger.warning(f"Failed to generate final predictions: {error}\n{lines}", stacklevel=2)
+
+
 def log_final_results(
     raw_predictions: List[str],
     processed_predictions: List[Union[str, float]],
@@ -176,22 +180,22 @@ def log_final_results(
 
     transposed_score_lists = [dict(zip(score_lists.keys(), values)) for values in zip(*score_lists.values())]
     if model_evaluation_method == "generation":
+        if isinstance(evaluation_instances[0], tuple):
+            evaluation_instances = ["".join(p) for p in evaluation_instances]
+
         # only generation tasks support self-consistency
         lines = {
-            "index": repeat_iter(range(len_evaluation_data), sample_num),
+            "index": list(repeat_iter(range(len_evaluation_data), sample_num)),
             "source": evaluation_instances,
             "raw_prediction": raw_predictions,
             "processed_prediction": processed_predictions,
-            "reference": repeat_iter(references, sample_num),
-            "metric": repeat_iter(transposed_score_lists, sample_num),
+            "reference": list(repeat_iter(references, sample_num)),
+            "metric": list(repeat_iter(transposed_score_lists, sample_num)),
         }
         try:
             return pd.DataFrame(lines).groupby("index").apply(to_dict(merge=["index", "source", "metric", "reference"]))
         except Exception as e:
-            get_len = lambda v: len(v) if hasattr(v, "__len__") else None
-            lines = {k: get_len(v) for k, v in lines.items()}
-            logger.warning(f"Failed to generate final predictions: {e}\n{lines}")
-            return None
+            _warn(e, lines)
 
     elif model_evaluation_method == "get_ppl":  # ranking
 
@@ -207,7 +211,9 @@ def log_final_results(
         *source_texts, target_text = zip(*evaluation_instances)
         source_text = ["".join(seg[sent_idx] for seg in source_texts) for sent_idx in range(len(source_texts[0]))]
         if use_normalization:
-            source_text, target_text, raw_predictions = source_text[::2], target_text[::2], raw_predictions[::2]
+            src_len = len(source_text) // 2
+            source_text, target_text, raw_predictions = source_text[:src_len], target_text[:src_len
+                                                                                           ], raw_predictions[:src_len]
         index, references, transposed_score_lists, option_nums = repeat_by_option(references, transposed_score_lists)
         lines = {
             "index": index,
@@ -227,27 +233,23 @@ def log_final_results(
                 merge_by_option = ["option"]
             return pd.DataFrame(lines).groupby("index").apply(to_dict(merge, merge_by_option))
         except Exception as e:
-            lines = {k: getattr(v, "__len__", lambda: None)() for k, v in lines.items()}
-            logger.warning(f"Failed to log_pgenerate final predictions: {e}\n{lines}")
-            return None
+            _warn(e, lines)
 
     elif model_evaluation_method == "get_prob":
 
         lines = {
             "index": list(range(len_evaluation_data)),
-            "source": map(lambda i: i[:-1], evaluation_instances),
+            "source": list(map(lambda i: "".join(i[:-1]), evaluation_instances)),
             "probabilites": raw_predictions,
             "prediction": processed_predictions,
             "reference": references,
             "metric": transposed_score_lists,
         }
         try:
-            return pd.DataFrame(lines).groupby("index").apply(to_dict())
+            return pd.DataFrame(lines).groupby("index").apply(to_dict(merge=lines.keys()))
         except Exception as e:
-            lines = {k: getattr(v, "__len__", lambda: None)() for k, v in lines.items()}
-            logger.warning(f"Failed to generate final predictions: {e}\n{lines}")
-            return None
+            _warn(e, lines)
 
     else:
         logger.debug(f"Failed to log predictions: processed_predictions={processed_predictions}")
-        return None
+    return None

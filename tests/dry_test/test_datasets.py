@@ -1,7 +1,9 @@
 import nltk
 import pytest
 
-from .fixtures import run_evaluate
+from utilization.utils.logging import list_datasets
+
+from .fixtures import *
 
 nltk.download('punkt')
 
@@ -20,7 +22,7 @@ datasets = {
     "commonsenseqa": [],
     "copa": [],
     "coqa": "skip",
-    # "crows_pairs": "does not support api model",
+    "crows_pairs": "does not support api model",
     "drop": [],
     "gaokao": [],
     "gsm8k": [],
@@ -57,7 +59,7 @@ datasets = {
     "webq": [],
     "wic": [],
     "winogender": [],
-    # "winograd": "does not support api model",
+    "winograd": "does not support api model",
     "winogrande": [],
     "wmt16:de-en": [],
     "wsc": [],
@@ -81,6 +83,14 @@ test_evaluation_data = {
         '答案：'
     )
 }
+
+datasets_to_test = set(list_datasets()) - {
+    "wmt10", "wmt13", "wmt14", "wmt15", "wmt16", "wmt17", "wmt18", "wmt19", "wmt21", "agieval_cot",
+    "agieval_single_choice"
+}
+for dataset in datasets_to_test:
+    if dataset not in datasets:
+        datasets[dataset] = []
 
 
 @pytest.mark.parametrize("dataset, extra_args", datasets.items())
