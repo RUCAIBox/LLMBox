@@ -53,7 +53,7 @@ datasets = {
     "triviaqa": [],
     "truthfulqa_mc": [],
     "tydiqa": [],
-    "vicuna_bench": "skip",
+    "vicuna_bench": "skip",  # gpteval
     "webq": [],
     "wic": [],
     "winogender": [],

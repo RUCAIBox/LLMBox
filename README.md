@@ -29,6 +29,10 @@ Utilization
 - **Quantization:** BitsAndBytes and GPTQ quantization are supported.
 
 
+## Documentations
+
+See [documentations](https://github.com/RUCAIBox/LLMBox/tree/main/docs) for more details.
+
 ## Quick Start
 
 ### Install
@@ -259,9 +263,7 @@ We welcome all contributions from bug fixes to new features and extensions.
 
 We expect all contributions discussed in the issue tracker and going through PRs.
 
-You can follow [model customization](https://github.com/RUCAIBox/LLMBox/tree/main/utilization#customize-model) and [dataset customization](https://github.com/RUCAIBox/LLMBox/tree/main/utilization#customize-dataset) to add new model provider or dataset.
-
-Make sure to format your code with `yapf --style .style.cfg` and `isort` before submitting a PR.
+For more details, view the [CONTRIBUTING](https://github.com/RUCAIBox/LLMBox/tree/main/docs/CONTRIBUTING.md) documentation.
 
 
 ## The Team

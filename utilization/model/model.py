@@ -39,7 +39,7 @@ class Model(ModelBackendMixin):
     model_backend: Literal["anthropic", "dashscope", "huggingface", "openai", "qianfan", "vllm"]
 
     model: Union[PreTrainedModel, "LLM", None] = None
-    tokenizer: Union[PreTrainedTokenizer, PreTrainedTokenizerFast, Encoding, None]
+    tokenizer: Union[PreTrainedTokenizer, PreTrainedTokenizerFast, Encoding, None] = None
     cacher: Optional["Cacher"] = None
     model_max_input_and_output: int
     support_cache: bool = True
@@ -176,6 +176,7 @@ class ApiModel(Model):
                 logger.warning(
                     f"Failed to load tokenizer from `{args.tokenizer_name_or_path}`. Please specify a valid tokenizer through `--tokenizer`."
                 )
+                self.tokenizer = None
         if args.model_name_or_path in API_MODELS:
             self.endpoint = API_MODELS[args.model_name_or_path]["endpoint"]
         else:

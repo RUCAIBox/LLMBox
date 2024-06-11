@@ -31,11 +31,16 @@ class MultipleChoiceDataset(Dataset):
         return order
 
     @property
-    def ranking_with_options(self):
+    def ranking_with_options(self) -> bool:
+        if not isinstance(self.ranking_type, str):
+            logger.warning("Only MultipleChoiceDataset should have ranking_type.")
+            return False
         return not self.ranking_type.endswith("no_option")
 
     @ranking_with_options.setter
     def ranking_with_options(self, value: bool):
+        if not isinstance(self.ranking_type, str):
+            raise RuntimeError("Only MultipleChoiceDataset should have ranking_type.")
         if value:
             # remove suffix
             if self.ranking_type.endswith("no_option"):

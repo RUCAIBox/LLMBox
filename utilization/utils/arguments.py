@@ -115,7 +115,7 @@ class ModelArguments(ModelBackendMixin):
         default=None,
         help="The Qianfan secret key",
     )
-    api_endpoint: Optional[str] = HfArg(
+    api_endpoint: Optional[Literal["completions", "chat/completions"]] = HfArg(
         default=None,
         help="The API endpoint",
     )
@@ -281,11 +281,11 @@ class ModelArguments(ModelBackendMixin):
                 )
             if self.tokenizer_name_or_path is None:
                 try:
-                    self.tokenizer_name_or_path = tiktoken.encoding_name_for_model(self.model_name_or_path)
-                except KeyError as e:
+                    self.tokenizer_name_or_path = tiktoken.encoding_for_model(self.model_name_or_path).name
+                except (KeyError, AttributeError) as e:
                     raise RuntimeError(
-                        "Unsupported tiktoken library version. Please update the tiktoken library to the latest version.\n\n  pip install tiktoken --upgrade"
-                    )
+                        "Unsupported tiktoken library version. Please update the tiktoken library to the latest version or manually specify the tokenizer.\n\n  pip install tiktoken --upgrade"
+                    ) from e
 
         # set `self.anthropic_api_key` from environment variables
         if "ANTHROPIC_API_KEY" in os.environ and self.anthropic_api_key is None:
@@ -413,8 +413,6 @@ class DatasetArguments:
         + ", ".join(list_datasets()),
         metadata={"metavar": "DATASET"},
     )
-    subset_names: ClassVar[Set[str]] = set()
-    """The name(s) of a/several subset(s) in a dataset, derived from `dataset_names` argument on initalization"""
     batch_size: batch_size_type = HfArg(
         default=1,
         aliases=["-bsz", "-b"],
@@ -453,7 +451,7 @@ class DatasetArguments:
     )
 
     ranking_type: Literal["generation", "ppl", "prob", "ppl_no_option"] = HfArg(
-        default="ppl_no_option",
+        default=None,
         help="The evaluation and prompting method for ranking task",
     )
     sample_num: int = HfArg(
@@ -507,13 +505,6 @@ class DatasetArguments:
     passed_in_commandline = passed_in_commandline
 
     def __post_init__(self):
-        for d in self.dataset_names:
-            if ":" in d:
-                if len(self.dataset_names) > 1:
-                    raise ValueError("Only one dataset can be specified when using subset names.")
-                self.dataset_names[0], subset_names = d.split(":")
-                self.subset_names = set(subset_names.split(","))
-
         # argparse encodes string with unicode_escape, decode it to normal string, e.g., "\\n" -> "\n"
         if isinstance(self.instruction, str):
             self.instruction = self.instruction.encode('utf-8').decode('unicode_escape')
@@ -621,7 +612,10 @@ def check_args(model_args: ModelArguments, dataset_args: DatasetArguments, evalu
     model_args.seed = int(evaluation_args.seed)
 
     if dataset_args.batch_size == 1 and model_args.prefix_caching:
-        logger.warning("Prefix caching is not supported for batch_size=1, automatically set prefix_caching to False.")
+        if model_args.is_local_model():
+            logger.warning(
+                "Prefix caching is not supported for batch_size=1, automatically set prefix_caching to False."
+            )
         model_args.prefix_caching = False
 
     # check models

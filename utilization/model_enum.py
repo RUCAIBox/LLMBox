@@ -430,7 +430,7 @@ API_MODELS = {
 
 ERROR_OVERVIEW = {
     "APIConnectionError":
-    "Cause: Issue connecting to our services.\nSolution: Check your network settings, proxy configuration, SSL certificates, or firewall rules.",
+    "Cause: Issue connecting to API model provider's services.\nSolution: Check your network settings, proxy configuration, SSL certificates, or firewall rules.",
     "APITimeoutError":
     "Cause: Request timed out.\nSolution: Retry your request after a brief wait and contact us if the issue persists.",
     "AuthenticationError":
@@ -440,13 +440,13 @@ ERROR_OVERVIEW = {
     "ConflictError":
     "Cause: The resource was updated by another request.\nSolution: Try to update the resource again and ensure no other requests are trying to update it."
     "InternalServerError"
-    "Cause: Issue on our side.\nSolution: Retry your request after a brief wait and contact us if the issue persists."
+    "Cause: Issue on API model provider's side.\nSolution: Retry your request after a brief wait and contact us if the issue persists."
     "NotFoundError"
     "Cause: Requested resource does not exist.\nSolution: Ensure you are the correct resource identifier.",
     "PermissionDeniedError":
     "Cause: You don't have access to the requested resource.\nSolution: Ensure you are using the correct API key, organization ID, resource ID and are not accessing from restricted areas.",
     "RateLimitError":
-    "Cause: You have hit your assigned rate limit.\nSolution: Pace your requests. Read more in our Rate limit guide.",
+    "Cause: You have hit your assigned rate limit.\nSolution: Pace your requests. Read more in API model provider's Rate limit guide.",
     "UnprocessableEntityError":
     "Cause: Unable to process the request despite the format being correct.\nSolution: Please try the request again.",
 }

@@ -28,10 +28,10 @@ jobs:
       - name: Install dependencies
         run: |
           pip install uv pip -U
-          uv pip install -r tests/requirements-tests.txt --system
+          uv pip install -r tests/requirements-tests.txt --system || uv pip install -r tests/requirements-tests.txt --system
           uv pip install vllm --no-build-isolation --system
       - name: Run tests
-        run: pytest --cov --junit-xml=test-results.xml --splits 10 --group ${{ matrix.group }} --reruns 3 --only-rerun PermissionError
+        run: pytest --cov --junit-xml=test-results.xml --splits 10 --group ${{ matrix.group }} --reruns 3 --only-rerun PermissionError --durations-path .github/.test_durations --splitting-algorithm least_duration
         env:
             GITHUB_ACTION: 1
       - name: Surface failing tests
@@ -81,6 +81,6 @@ jobs:
       - name: Run coverage
         run: |
           coverage combine coverage*/.coverage*
-          coverage report --fail-under=90
+          coverage report --fail-under=90 -i
           coverage xml -i
       - uses: codecov/codecov-action@v1

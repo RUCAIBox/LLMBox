@@ -13,10 +13,14 @@ ERROR_OVERVIEW = {
     "Failed to fetch subset names from Hugging Face Hub. Please check your internet connection or try hf-mirror mode with `--hf_mirror` (experimental).",
     "openai.types":
     UNSOPPORTED_LIBRARY.format(lib="openai"),
+    "anthropic.types":
+    UNSOPPORTED_LIBRARY.format(lib="anthropic"),
     "trust_remote_code":
     UNSOPPORTED_LIBRARY.format(lib="datasets"),
     "datasets.exceptions.DatasetGenerationError":
     "There is some issue when loading dataset with threading. Please try to disable threading with `--no_dataset_threading`.",
+    "assert logits_applied == logits.shape[0]":
+    "Current version of vLLM does not support prefix_caching. Try disable vLLM or disable prefix_caching.",
 }
 
 
