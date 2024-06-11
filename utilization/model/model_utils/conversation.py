@@ -228,13 +228,26 @@ class ConversationFormatter:
 class Conversation(_HFConversation):
 
     def __init__(
-        self, messages: Union[str, List[Dict[str, str]], None] = None, conversation_id=None, **deprecated_kwargs
+        self,
+        messages: Union[str, List[Dict[str, str]], None] = None,
+        conversation_id=None,
+        num_turns: int = 1,
+        num_shots: int = 0,
+        num_options: int = 1,
+        multi_turn_users: Optional[List[str]] = None,
+        formatter: Optional[ConversationFormatter] = None,
+        model_evaluation_method: Optional[Literal["get_ppl", "get_prob", "generation", "user_defined"]] = None,
+        split: Optional[bool] = None,
+        **deprecated_kwargs
     ):
         super().__init__(messages, conversation_id, **deprecated_kwargs)
-        self.num_turns = 1
-        self.num_shots = 0
-        self.num_options = 1
-        self.mt_users = []
+        self.num_turns = num_turns
+        self.num_shots = num_shots
+        self.num_options = num_options
+        self.mt_users = [] if multi_turn_users is None else multi_turn_users
+        self.formatter = formatter
+        self.model_evaluation_method = model_evaluation_method
+        self.split = split
 
     @classmethod
     def from_chat(cls, *, user: Optional[str] = None, assistant: Optional[str] = None) -> "Conversation":
