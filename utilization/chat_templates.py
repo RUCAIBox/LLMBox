@@ -81,6 +81,7 @@ DEFAULT_CHAT_CONFIGS: Dict[str, Union[Dict[str, Any], str]] = {
         "assistant_start": "",
         "assistant_end": " </s><s>[INST] ",
         "auto_leading_space": True,
+        "final_rstrip": False,
         "default_stops": [],
     },
     "chatml": {
@@ -91,6 +92,7 @@ DEFAULT_CHAT_CONFIGS: Dict[str, Union[Dict[str, Any], str]] = {
         "assistant_start": "<|im_start|>assistant\n",
         "assistant_end": "<|im_end|>\n",
         "auto_leading_space": True,
+        "final_rstrip": False,
         "default_stops": ["<|im_end|>"],
     },
     "zephyr": {
@@ -101,6 +103,7 @@ DEFAULT_CHAT_CONFIGS: Dict[str, Union[Dict[str, Any], str]] = {
         "assistant_start": "<|assistant|>\n",
         "assistant_end": "</s>\n",
         "auto_leading_space": True,
+        "final_rstrip": False,
         "default_stops": ["</s>"],
     },
     "phi3": {
@@ -111,6 +114,7 @@ DEFAULT_CHAT_CONFIGS: Dict[str, Union[Dict[str, Any], str]] = {
         "assistant_start": "<|assistant|>\n",
         "assistant_end": "<|end|>\n",
         "auto_leading_space": True,
+        "final_rstrip": False,
         "default_stops": ["<|end|>"],
     },
     "llama3": {
@@ -121,6 +125,7 @@ DEFAULT_CHAT_CONFIGS: Dict[str, Union[Dict[str, Any], str]] = {
         "assistant_start": "<|start_header_id|>assistant<|end_header_id|>\n\n",
         "assistant_end": "<|eot_id|>",
         "auto_leading_space": True,
+        "final_rstrip": False,
         "default_stops": ["<|eot_id|>"],
     },
     "alpaca": {
@@ -131,6 +136,7 @@ DEFAULT_CHAT_CONFIGS: Dict[str, Union[Dict[str, Any], str]] = {
         "assistant_start": "### Response:\n",
         "assistant_end": "\n\n",
         "auto_leading_space": True,
+        "final_rstrip": False,
         "default_stops": ["###"],
     }
 }
