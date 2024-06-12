@@ -24,6 +24,24 @@ from transformers.integrations.deepspeed import (
     unset_hf_deepspeed_config,
 )
 IGNORE_INDEX = -100
+def build_chat_template(args):
+    template = (
+        "{% for message in messages %}"  
+        "{% set content = message['content'] %}"
+        "{% if message['role'] == 'user' %}"  
+        "{{ bos_token + '[INST] ' + content.strip() + ' [/INST]' }}"
+        "{% elif message['role'] == 'system' %}"
+        "{{ '<<SYS>>\\n' + content.strip() + '\\n<</SYS>>\\n\\n' }}"
+        "{% elif message['role'] == 'assistant' %}"
+        "{{ ' '  + content.strip() + ' ' + eos_token }}"
+        "{% endif %}"
+        "{% endfor %}"
+    )
+    B_INST = args.B_INST
+    E_INST = args.E_INST
+    template = template.replace("[INST]", B_INST).replace("[/INST]", E_INST)
+    return template
+
 @dataclass
 class Arguments(TrainingArguments):
     model_name_or_path: str = HfArg(
@@ -106,6 +124,10 @@ class Arguments(TrainingArguments):
     qlora: Optional[bool] = HfArg(default=False, help="whether to train with QLoRA. This will enable LoRA automatically.")
     
     packing: Optional[bool] = HfArg(default=False, help="Whether to pack the input sequences to the maximum length of the model.")
+    
+    B_INST: Optional[str] = HfArg(default="[INST]", help="The beginning token for instruction.")
+    
+    E_INST: Optional[str] = HfArg(default="[/INST]", help="The ending token for instruction.")
 
 
 @dataclass
@@ -137,7 +159,7 @@ def train():
     if args.qlora:
         args.lora = True
 
-    config = AutoConfig.from_pretrained(args.model_name_or_path)
+    config = AutoConfig.from_pretrained(args.model_name_or_path, trust_remote_code=True)
     if args.rope_scaling_type != "none":
         config.rope_scaling = {
             "type" : args.rope_scaling_type,
@@ -158,9 +180,15 @@ def train():
         # use_fast=False, # some tokenizer has only one implementation
         legacy=False,  # refer to the issue:https://github.com/huggingface/transformers/pull/24565
         use_cache=False,
+        trust_remote_code=True
     )
     
-    tokenizer.pad_token = tokenizer.unk_token  # for llama-1
+    # set pad_token correctly so that it worked in collate_fn
+    if tokenizer.pad_token is None: 
+        if tokenizer.unk_token is None:
+            tokenizer.pad_token = tokenizer.bos_token # e.x. falcon
+        else:
+            tokenizer.pad_token = tokenizer.unk_token # e.x. llama
     
     if config._attn_implementation == "flash_attention_2" or args.qlora or args.bf16:
         load_type =  torch.bfloat16 
@@ -170,6 +198,7 @@ def train():
     model = AutoModelForCausalLM.from_pretrained(
         args.model_name_or_path,
         torch_dtype=load_type,
+        trust_remote_code=True,
         config=config,
         quantization_config=BitsAndBytesConfig(
             load_in_4bit=True,
@@ -192,6 +221,7 @@ def train():
     if model.get_output_embeddings().weight.size(0) != len(tokenizer):
         model.resize_token_embeddings(len(tokenizer))
 
+    tokenizer.chat_template = build_chat_template(args)
     kwargs = dict(
         model=model,
         args=args,
@@ -205,18 +235,20 @@ def train():
     trainer.save_model(args.output_dir+"/checkpoint-final")
     trainer.save_state()
     
-    if args.lora and args.lora_merge:
-        if is_deepspeed_zero3_enabled():
-            unset_hf_deepspeed_config()
-        subdir_list = os.listdir(args.output_dir)
-        for subdir in subdir_list:
-            if subdir.startswith("checkpoint"):
-                print("Merging model in ", args.output_dir+"/"+subdir)
-                peft_model = AutoPeftModelForCausalLM.from_pretrained(args.output_dir+"/"+subdir)
-                merged_model = peft_model.merge_and_unload()
-                save_path = args.output_dir+"/"+subdir+"-merged"
-                merged_model.save_pretrained(save_path)
-                tokenizer.save_pretrained(save_path)
+    if torch.distributed.get_rank() == 0:
+        if args.lora and args.lora_merge:
+            if is_deepspeed_zero3_enabled():
+                unset_hf_deepspeed_config()
+            subdir_list = os.listdir(args.output_dir)
+            for subdir in subdir_list:
+                if subdir.startswith("checkpoint"):
+                    print("Merging model in ", args.output_dir+"/"+subdir)
+                    peft_model = AutoPeftModelForCausalLM.from_pretrained(args.output_dir+"/"+subdir)
+                    merged_model = peft_model.merge_and_unload()
+                    save_path = args.output_dir+"/"+subdir+"-merged"
+                    merged_model.save_pretrained(save_path)
+                    tokenizer.save_pretrained(save_path)
+                    config.save_pretrained(save_path)
 
 
 def init():

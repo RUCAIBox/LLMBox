@@ -87,9 +87,12 @@ class SFTDataset:
         """Load data."""
         data_path = self.args.data_path
         if data_path.endswith('.jsonl'):
-            list_data_dict = [json.loads(l.strip()) for l in open(data_path)]
+            list_data_dict = [json.loads(l.strip()) for l in open(data_path, encoding='utf-8')]
         elif data_path.endswith('.json'):
-            list_data_dict = json.load(open(data_path))
+            try: # if it's really json format
+                list_data_dict = json.load(open(data_path, encoding='utf-8'))
+            except: # if it's a list of json
+                list_data_dict = [json.loads(l.strip()) for l in open(data_path, encoding='utf-8')]
         elif os.path.isdir(data_path):
             list_data_dict = load_from_disk(data_path)['train']
         else: 

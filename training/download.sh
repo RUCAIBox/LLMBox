@@ -1,6 +1,9 @@
 # custom wget args 
 wget_args="-nc" 
 
+if [ -z "$HF_ENDPOINT" ]; then
+    HF_ENDPOINT="https://huggingface.co"
+fi
 # check if there is $HF_TOKEN in the environment variables
 if [ -z "$HF_TOKEN" ]
 then
@@ -18,28 +21,28 @@ wget -P data/raw_train/alpaca/ https://github.com/tatsu-lab/stanford_alpaca/raw/
 
 
 echo "Downloading the dolly dataset..."
-wget -P data/raw_train/dolly/ https://huggingface.co/datasets/databricks/databricks-dolly-15k/resolve/main/databricks-dolly-15k.jsonl  $wget_args
+wget -P data/raw_train/dolly/ $HF_ENDPOINT/datasets/databricks/databricks-dolly-15k/resolve/main/databricks-dolly-15k.jsonl  $wget_args
 
 
 echo "Downloading the OpenAssistant data (oasst1)..."
-wget -P data/raw_train/openassistant/ https://huggingface.co/datasets/OpenAssistant/oasst1/resolve/main/2023-04-12_oasst_ready.trees.jsonl.gz  $wget_args
+wget -P data/raw_train/openassistant/ $HF_ENDPOINT/datasets/OpenAssistant/oasst1/resolve/main/2023-04-12_oasst_ready.trees.jsonl.gz  $wget_args
 gzip -d data/raw_train/openassistant/2023-04-12_oasst_ready.trees.jsonl.gz
 
 
 echo "Downloading ShareGPT dataset..."
-wget -P data/raw_train/sharegpt/ https://huggingface.co/datasets/anon8231489123/ShareGPT_Vicuna_unfiltered/resolve/main/HTML_cleaned_raw_dataset/sg_90k_part1_html_cleaned.json  $wget_args
-wget -P data/raw_train/sharegpt/ https://huggingface.co/datasets/anon8231489123/ShareGPT_Vicuna_unfiltered/resolve/main/HTML_cleaned_raw_dataset/sg_90k_part2_html_cleaned.json  $wget_args
+wget -P data/raw_train/sharegpt/ $HF_ENDPOINT/datasets/anon8231489123/ShareGPT_Vicuna_unfiltered/resolve/main/HTML_cleaned_raw_dataset/sg_90k_part1_html_cleaned.json  $wget_args
+wget -P data/raw_train/sharegpt/ $HF_ENDPOINT/datasets/anon8231489123/ShareGPT_Vicuna_unfiltered/resolve/main/HTML_cleaned_raw_dataset/sg_90k_part2_html_cleaned.json  $wget_args
 
 echo "Downloading LIMA dataset..."
-wget --header="Authorization: Bearer $HF_TOKEN" -P data/raw_train/lima/ https://huggingface.co/datasets/GAIR/lima/raw/main/train.jsonl  $wget_args
+wget --header="Authorization: Bearer $HF_TOKEN" -P data/raw_train/lima/ $HF_ENDPOINT/datasets/GAIR/lima/raw/main/train.jsonl  $wget_args
 
 
 echo "Downloading evol-instruct dataset..."
-wget -P data/raw_train/evol_instruct/ https://huggingface.co/datasets/WizardLM/WizardLM_evol_instruct_V2_196k/resolve/main/WizardLM_evol_instruct_V2_143k.json  $wget_args
+wget -P data/raw_train/evol_instruct/ $HF_ENDPOINT/datasets/cognitivecomputations/WizardLM_evol_instruct_V2_196k_unfiltered_merged_split/resolve/main/WizardLM_evol_instruct_V2_196k_unfiltered_merged_split.json  $wget_args
 
 
 echo "Downloading the Belle dataset..."
-wget -P data/raw_train/belle https://huggingface.co/datasets/BelleGroup/train_0.5M_CN/resolve/main/Belle_open_source_0.5M.json $wget_args
+wget -P data/raw_train/belle $HF_ENDPOINT/datasets/BelleGroup/train_0.5M_CN/resolve/main/Belle_open_source_0.5M.json $wget_args
 
 echo "Downloading the Flanv2 dataset..."
 python utils/download_flanv2.py

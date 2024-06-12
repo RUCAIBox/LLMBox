@@ -6,6 +6,7 @@ from auto_gptq import AutoGPTQForCausalLM, BaseQuantizeConfig
 from transformers.hf_argparser import HfArg
 from datasets import load_dataset
 import torch
+from accelerate.utils import set_seed
 import random
 
 @dataclass
@@ -81,7 +82,7 @@ class Arguments(TrainingArguments):
 
 def get_c4(num_samples, tokenizer, seqlen):
     traindata = load_dataset(
-            'allenai/c4', 'allenai--c4', data_files={'train': 'en/c4-train.00000-of-01024.json.gz'}, split='train', use_auth_token=False
+        'allenai/c4', data_files={'train': 'en/c4-train.00000-of-01024.json.gz'}, split='train', revision="607bd4c8450a42878aa9ddc051a65a055450ef87"
         )
     # If loading from Hugging Face encounters the ExpectedMoreSplits error, switch to local loading:
     # traindata = load_dataset('json', data_files='data/c4-train.00000-of-01024.json', split='train')
@@ -113,7 +114,7 @@ def quantize_and_save(args):
     quantize_config = BaseQuantizeConfig(bits=args.bits, group_size=args.group_size, desc_act=args.desc_act, damp_percent=args.damp_percent)
     model = AutoGPTQForCausalLM.from_pretrained(args.model_name_or_path, quantize_config=quantize_config, low_cpu_mem_usage=True, torch_dtype=torch_dtype, trust_remote_code=args.trust_remote_code)
     traindataset = get_c4(args.num_samples, tokenizer, args.seq_len)
-    model.quantize(traindataset, use_triton=args.use_triton, batch_size=args.batch_size, cache_examples_on_gpu=args.cache_examples)
+    model.quantize(traindataset, use_triton=args.use_triton, batch_size=args.batch_size, cache_examples_on_gpu=args.cache_examples_on_gpu)
     model.save_quantized(args.output_dir, use_safetensors=True)
     tokenizer.save_pretrained(args.output_dir)
 
