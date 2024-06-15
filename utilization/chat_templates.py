@@ -74,7 +74,7 @@ DEFAULT_CHAT_TEMPLATE = (
 #   - assistant_end: The string to append to the assistant message.
 #   - auto_leading_space: Whether to add a leading space when concatenating two
 #     strings if the first string does not end with a whitespace.
-#   - default_stops: A list of strings that indicate the end of a message.
+#   - default_stop: A list of strings that indicate the end of a message.
 #
 DEFAULT_CHAT_CONFIGS: Dict[str, Union[Dict[str, Any], str]] = {
     "base": {
