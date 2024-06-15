@@ -98,6 +98,8 @@ def resolve_generation_args(
         # overrides
         if key in extra_generation_args:
             extra = extra_generation_args.pop(key)
+            if value is None and not details.nullable:
+                continue
             if callable(extra):
                 overrided = extra(value, details)
                 for new_key, new_value in overrided.items():
