@@ -25,4 +25,12 @@ class NewModel(Model):
         return results
 ```
 
-And then, you should register your model in the [`load`](https://github.com/RUCAIBox/LLMBox/tree/main/utilization/model/load.py) file.
+And then, you should register your model with `register_model` decorator:
+
+```python
+@register_model(model_backend="new_provider")
+def load_new_model(args: "ModelArguments"):
+    logger.info(f"Loading OpenAI API model `{args.model_name_or_path}`.")
+
+    return NewModel(args)
+```
