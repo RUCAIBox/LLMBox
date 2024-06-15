@@ -49,7 +49,7 @@ class ConversationFormatter:
         chat_config: Dict[str, str],
         chat_template: str,
     ):
-        self.default_stops = chat_config.pop("default_stops", [])
+        self.default_stop = chat_config.pop("default_stop", [])
         self.auto_leading_space = chat_config.pop("auto_leading_space", True)
         self.final_lstrip = chat_config.pop("final_lstrip", True)
         self.final_rstrip = chat_config.pop("final_rstrip", True)

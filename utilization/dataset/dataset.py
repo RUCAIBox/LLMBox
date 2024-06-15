@@ -353,11 +353,11 @@ class Dataset(torch.utils.data.Dataset, TokenizerUtilMixin, ICLUtilMixin):
         self._extra_model_args = deepcopy(self.extra_model_args)
 
         # apply chat template
-        if self.conversation_formatter.default_stops:
+        if self.conversation_formatter.default_stop:
             if "stop" not in self._extra_model_args:
                 self._extra_model_args["stop"] = []
-            self._extra_model_args["stop"].extend(self.conversation_formatter.default_stops)
-        logger.debug(f"Chat template stops: {self.conversation_formatter.default_stops}")
+            self._extra_model_args["stop"].extend(self.conversation_formatter.default_stop)
+        logger.debug(f"Chat template stops: {self.conversation_formatter.default_stop}")
 
         # temperature
         if self.sample_num > 1 and self._extra_model_args.get("temperature", 0) == 0:

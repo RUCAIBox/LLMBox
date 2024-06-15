@@ -105,10 +105,11 @@ class F1(Metric):
 
     Args:
         `multiref_strategy`: Strategy to aggregate F1 scores for multiple references.
-        `force_number_match`: If reference contains numbers, prediction must matches all the numbers in the reference.
         `word_tokenize`: Tokenizer functions for different tokenization methods. Default: nltk.word_tokenize.
             DROP: https://github.com/EleutherAI/lm-evaluation-harness/blob/3196e907fa195b684470a913c7235ed7f08a4383/lm_eval/tasks/drop/utils.py#L193
             SQuAD: https://github.com/huggingface/datasets/blob/f96e74d5c633cd5435dd526adb4a74631eb05c43/metrics/squad_v2/evaluate.py#L80
+        `normalize_level`: Where to normalize the text. Default: both.
+        `align_bag`: How to align the bag of words. Default: counter.
 
     Return:
         "F1": float
