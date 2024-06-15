@@ -2,11 +2,12 @@
 
 ## Training
 
-[Training](https://github.com/RUCAIBox/LLMBox/tree/main/training)
+Tutorial: [Training](https://github.com/RUCAIBox/LLMBox/tree/main/training)
 
 ## Utilization
 
-[Utilization](https://github.com/RUCAIBox/LLMBox/tree/main/utilization)
+CLI Usage: [Utilization](https://github.com/RUCAIBox/LLMBox/tree/main/utilization)
+Reproduction: [test.sh](https://github.com/RUCAIBox/LLMBox/tree/main/test.sh)
 
 ### Datasets
 

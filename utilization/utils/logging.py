@@ -5,7 +5,7 @@ import pathlib
 import sys
 from dataclasses import fields
 from functools import lru_cache
-from typing import TYPE_CHECKING, Callable, List, Optional
+from typing import TYPE_CHECKING, List, Optional
 
 import coloredlogs
 
@@ -37,13 +37,17 @@ BUILTIN_DATASET = {
     "translation_dataset", "warn_once"
 }
 
-WARNED = set()
+LOGGED = set()
 
 
-def warn_once(logger: logging.Logger, msg: str, identifier: str) -> Callable[[str], None]:
-    if identifier not in WARNED:
-        logger.warning(msg)
-        WARNED.add(identifier)
+def log_once(call_log: callable, msg: str, identifier: str, stacklevel=2):
+    if identifier not in LOGGED:
+        call_log(msg, stacklevel=stacklevel)
+        LOGGED.add(identifier)
+
+
+def warn_once(logger: logging.Logger, msg: str, identifier: str):
+    log_once(logger.warning, msg, identifier, stacklevel=3)
 
 
 @lru_cache

@@ -79,9 +79,33 @@ class MyDataset(Dataset):
         self.example_data = load_raw_dataset_from_file("examples.json")
 ```
 
-## Formating the instances
+## Formatting the instances
 
 Then, format the instance by implementing the `instruction` attribute and `format_instance` method. The returned instance should be a dictionary with keys accessible in the instruction string. Both `jinja2` and `f-string` are supported for the instruction string.
+
+```mermaid
+flowchart LR
+    subgraph MyDataset
+    exam[("example\ndata")]
+    eval[("evaluation\ndata")]
+    in["instruction"]
+    fex(["format_instance"])
+    fev(["format_instance"])
+    end
+
+    fexam["formatted\nexample\ndata"]
+    feval["formatted\nevaluation\ndata"]
+    c([construct_instances])
+    eval --> fev
+    in -->|example_idx>=0| fex
+    in -->|turn_idx>=0| fev
+    exam --> fex
+    fex --> fexam
+    fev --> feval
+    feval -->|"construct\ninstance"| c
+    fexam -->|num_shots| c
+    c --> ei["evaluation\ninstance"]
+```
 
 The following table shows the keys that should be returned from the `format_instance` method and the keys that can be accessed in the instruction string:
 
@@ -115,6 +139,7 @@ The following table shows the keys that should be returned from the `format_inst
         <tr>
         <td class="s1" dir="ltr">source_idx</td>
         <td class="s1" dir="ltr"><code>int</code></td>
+        <td class="s1" dir="ltr">Index of correct context (winogrande)</td>
         </tr>
         <tr>
         <td class="s1" dir="ltr">options</td>
@@ -139,11 +164,28 @@ The following table shows the keys that should be returned from the `format_inst
         <td class="s1" dir="ltr"><code>int</code></td>
         </tr>
         <tr>
-        <td class="s1" dir="ltr" colspan="2" rowspan="5"><i>No need to return from format_instance</i></td>
+        <td class="s1" dir="ltr" colspan="2" rowspan="7"><i>No need to return from format_instance</i></td>
+        <td class="s1" dir="ltr">num_turns</td>
+        <td class="s1" dir="ltr"><code>int</code></td>
+        <td class="s1" dir="ltr">Total turns of multi-turn conversation (default: 0)</td>
+        </tr>
+        <tr>
+        <td class="s1" dir="ltr">turn_idx</td>
+        <td class="s1" dir="ltr"><code>int</code></td>
+        <td class="s1" dir="ltr">evaluation_data: 0..num_turns-1 (inclusive)<br>example_data: -1</td>
+        </tr>
+        <tr>
+        <td class="s1" dir="ltr">real_num_shots</td>
+        <td class="s1" dir="ltr"><code>int</code></td>
+        <td class="s2 softmerge" dir="ltr">
+            <div class="softmerge-inner">The num shots formatted as examples</div>
+        </td>
+        </tr>
+        <tr>
         <td class="s1" dir="ltr">example_idx</td>
         <td class="s1" dir="ltr"><code>int</code></td>
         <td class="s2 softmerge" dir="ltr">
-            <div class="softmerge-inner">The index of examples if greater or equal than 0. Equal to -1 if it is not formatting an example</div>
+            <div class="softmerge-inner">evaluation_data: -1<br>example_data: 0..real_num_shots-1 (inclusive)</div>
         </td>
         </tr>
         <tr>
@@ -163,13 +205,6 @@ The following table shows the keys that should be returned from the `format_inst
         <td class="s1" dir="ltr"><code>str</code></td>
         <td class="s2 softmerge" dir="ltr">
             <div class="softmerge-inner">Display name of current dataset</div>
-        </td>
-        </tr>
-        <tr>
-        <td class="s1" dir="ltr">real_num_shots</td>
-        <td class="s1" dir="ltr"><code>int</code></td>
-        <td class="s2 softmerge" dir="ltr">
-            <div class="softmerge-inner">The num shots formatted as examples</div>
         </td>
         </tr>
     </tbody>
@@ -244,7 +279,7 @@ And in `get_prob` method, this will generate one evaluation instance:
 ]
 ```
 
-### Formating Multiple-Context Dataset:
+### Formatting Multiple-Context Dataset:
 
 For datasets with multiple contexts (like `winogrande`), you can format the instance as follows:
 
@@ -270,7 +305,7 @@ which generates two evaluation instances:
 ]
 ```
 
-### Formating Generation Dataset:
+### Formatting Generation Dataset:
 
 ```python
 INSTRUCTION = """Answer the following question.
@@ -300,7 +335,30 @@ class MyDataset(GenerationDataset):
 
 To evaluate a pre-trained model that lacks instruction-following capabilities, you can provide an instruction explicitly by assigning a completion instruction `NO_INSTRUCTION = "{question}"` to the model, or pass an argument `--instruction "{question}"` in the command line.
 
-## Formating the references
+### Formatting Multi-Turn Dataset:
+
+For multi-turn datasets (like `mt_bench`), you can format the instance as follows:
+
+```python
+class MyDataset(GenerationDataset):
+
+    instruction = "{{source[turn_idx]}}"
+    metrics = [GPTEval(multi_turn=False)]
+    multi_turn = True
+    ...
+
+    def format_instance(self, instance):
+        return dict(
+            source=[instance["question_1"], instance["question_2"]]
+        )
+
+    def post_processing(self, predictions: List[Tuple[str, ...]]):
+        # By default, model outputs a tuple of predictions for each turn
+        # You can implement the post_processing method to return the last turn's assistant output
+        return [pred[-1] for pred in predictions]
+```
+
+## Formatting the references
 
 You can implement the `references` method to return the reference answers for evaluation.
 

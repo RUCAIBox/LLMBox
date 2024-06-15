@@ -5,6 +5,8 @@ from typing import TYPE_CHECKING, List, Tuple
 import torch
 from packaging import version
 
+from ..model_enum import VLLM_ARGS
+from ..utils import resolve_generation_args
 from .model import Model
 from .model_utils.conversation import Conversation
 
@@ -120,40 +122,26 @@ class vllmModel(Model):
         return ppls
 
     def set_generation_args(self, **extra_model_args):
-        generation_kwargs = {}
-        for key in [
-            "temperature",
-            "top_p",
-            "top_k",
-            "max_tokens",
-            "best_of",
-            "frequency_penalty",
-            "presence_penalty",
-            "repetition_penalty",
-            "length_penalty",
-            "early_stopping",
-            "stop",
-        ]:
-            # ModelArguments > extra_model_args
-            value = getattr(self.args, key, None)
-            if value is None:
-                value = extra_model_args.pop(key, None)
 
-            if key == "max_tokens" and value is None:
-                value = 1024
-            if value is not None:
-                generation_kwargs[key] = value
-        if generation_kwargs.get("best_of", 0) > 1:
-            generation_kwargs["use_beam_search"] = True
+        self.multi_turn = extra_model_args.pop("multi_turn", False)
+        generation_kwargs = resolve_generation_args(self.args, extra_model_args, VLLM_ARGS)
         self.generation_kwargs = SamplingParams(**generation_kwargs)
+
         if len(extra_model_args) > 0:
             logger.warning(f"Unused generation arguments: {extra_model_args}")
         return self.generation_kwargs
 
     def generation(self, batched_inputs: List[Conversation]) -> List[str]:
-        batched_inputs = [conv.to_model_prompt() for conv in batched_inputs]
-        results = self.model.generate(batched_inputs, sampling_params=self.generation_kwargs)
-        return [r.outputs[0].text for r in results]
+        num_turns = batched_inputs[0].num_turns
+        assert all(conv.num_turns == num_turns for conv in batched_inputs)
+
+        for turn_idx in range(num_turns):
+            batched_prompts = [conv.to_model_prompt() for conv in batched_inputs]
+            results = self.model.generate(batched_prompts, sampling_params=self.generation_kwargs)
+            for i, result in enumerate(results):
+                batched_inputs[i].add_multi_turn(assistant=result.outputs[0].text)
+
+        return [c.get_generation_results() for c in batched_inputs]
 
     def set_prob_args(self, **extra_model_args):
         self.prob_kwargs = SamplingParams(max_tokens=1, temperature=0)

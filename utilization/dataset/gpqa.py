@@ -17,9 +17,15 @@ INSTRUCTIONS = {
     """What is the correct answer to this question: {{ question }}{{ '\n\nChoices:\n' + options if options }}\n\nFormat your response as follows: "The correct answer is (insert answer here)".""",
     "five_shot_cot":
     """{{ 'Here are some example questions from experts. An explanation is given before the final answer. Answer the final question yourself, giving your reasoning beforehand.\n' if example_idx == 0 }}Question: {{ question }}{{ '\nChoices:\n' + options if options }}\n{{ 'The correct answer is' if example_idx >= 0 else ('Give step by step reasoning before you answer, and when you' + "'" + 're ready to answer, please use the format "The correct answer is (insert answer here)":\n') }}""",
-    "zero_shot_cot":
-    """What is the correct answer to this question: {{ question }}{{ '\n\nChoices:\n' + options if options }}\nLet's think step by step: __SEPARATOR__\n\nBased on the above, what is the single, most likely answer choice? Answer in the format "The correct answer is (insert answer here)".""",
-    "retrieval": "{{ bing }}\n\nQuestion: {{ question }}{{ '\n\nChoices:\n' + options if options }}"
+    "zero_shot_cot": (
+        "{% if turn_idx == 0 %}"
+        "What is the correct answer to this question: {{ question }}{{ '\n\nChoices:\n' + options if options }}\nLet's think step by step:"
+        "{% elif turn_idx == 1 %}"
+        '\n\nBased on the above, what is the single, most likely answer choice? Answer in the format "The correct answer is (insert answer here)".'
+        "{% endif %}"
+    ),
+    "retrieval":
+    "{{ bing }}\n\nQuestion: {{ question }}{{ '\n\nChoices:\n' + options if options }}"
 }
 
 
@@ -48,7 +54,7 @@ class GPQA(MultipleChoiceDataset):
             self.max_num_shots = 0
 
         if self.max_num_shots == 0 and self.cot == "base":
-            self.extra_model_args["multi_turn"] = True
+            self.multi_turn = True
 
         if self.max_num_shots != 0 and self.max_num_shots != 5:
             logger.warning("Only 0-shot and 5-shot are supported for GPQA, but got %d-shot.", self.max_num_shots)

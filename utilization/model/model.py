@@ -7,7 +7,7 @@ from tiktoken import Encoding
 from transformers import PreTrainedModel, PreTrainedTokenizer, PreTrainedTokenizerFast
 
 from ..model_enum import API_MODELS, ENDPOINT_ARGS, ERROR_OVERVIEW
-from ..utils import ModelArguments
+from ..utils import ModelArguments, resolve_generation_args
 from ..utils.arguments import ModelBackendMixin
 from .model_utils.conversation import Conversation
 from .model_utils.prefix_caching import Cacher
@@ -203,68 +203,15 @@ class ApiModel(Model):
     def set_generation_args(self, **extra_model_args):
         r"""Set the configurations for open-ended generation. This is useful because different datasets may have different requirements for generation."""
         if self.name in API_MODELS and "args" in API_MODELS[self.name]:
-            endpoint_args = API_MODELS[self.name]["args"]
+            endpoint_schema = API_MODELS[self.name]["args"]
         else:
             endpoint_name = self.model_backend + "/" + self.endpoint
             if endpoint_name not in ENDPOINT_ARGS:
                 raise ValueError(f"Endpoint {endpoint_name} is not supported.")
-            endpoint_args = ENDPOINT_ARGS[endpoint_name]
+            endpoint_schema = ENDPOINT_ARGS[endpoint_name]
 
-        generation_kwargs = {}
-
-        def set_args(key, value, extra_body):
-            if extra_body:
-                if "extra_body" not in generation_kwargs:
-                    generation_kwargs["extra_body"] = {}
-
-                if key in generation_kwargs["extra_body"] and generation_kwargs["extra_body"][key] != value:
-                    raise ValueError(f"Conflict value for {key}: {generation_kwargs['extra_body'][key]} vs {value}")
-
-                generation_kwargs["extra_body"][key] = value
-            else:
-
-                if key in generation_kwargs and generation_kwargs[key] != value:
-                    raise ValueError(f"Conflict value for {key}: {generation_kwargs[key]} vs {value}")
-
-                generation_kwargs[key] = value
-
-        for key, details in endpoint_args.items():
-            # ModelArguments (cmd) > extra_model_args > ModelArguments (default)
-            if not self.args.passed_in_commandline(key):
-                value = extra_model_args.pop(key, None)
-            else:
-                value = None
-            if value is None:
-                value = getattr(self.args, key, None)
-
-            # set default values
-            if value is None and details.default is not None:
-                value = details.default
-
-            # set alias after default values
-            if details.transform_key is not None:
-                key = details.transform_key
-
-            # type casting
-            if details._type is not None and value is not None:
-                value = details._type(value)
-
-            # transform
-            if details.transform_value is not None and value is not None:
-                value = details.transform_value(value)
-
-            # skip if no value
-            if value is None and not details.nullable:
-                continue
-
-            if details.needs is not None:
-                for need, need_value in details.needs.items():
-                    set_args(need, need_value, endpoint_args[need].extra_body)
-
-            set_args(key, value, details.extra_body)
-
-        self.generation_kwargs = generation_kwargs
         self.multi_turn = extra_model_args.pop("multi_turn", False)
+        self.generation_kwargs = resolve_generation_args(self.args, extra_model_args, endpoint_schema)
 
         if len(extra_model_args) > 0:
             logger.warning(f"Unused generation arguments: {extra_model_args}")
