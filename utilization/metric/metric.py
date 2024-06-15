@@ -1,7 +1,11 @@
 from logging import getLogger
-from typing import Dict, List
+from typing import TYPE_CHECKING, Dict, List
 
 import numpy as np
+
+if TYPE_CHECKING:
+    from ..dataset import Dataset
+    from ..utils import DatasetArguments, EvaluationArguments, ModelArguments
 
 logger = getLogger(__name__)
 
@@ -31,6 +35,12 @@ class Metric:
 
     def __repr__(self) -> str:
         return self.__class__.__name__ + "()"
+
+    def setup_metric(
+        self, model_args: "ModelArguments", dataset_args: "DatasetArguments", evaluation_args: "EvaluationArguments",
+        dataset: "Dataset"
+    ):
+        pass
 
     @property
     def last_score_lists(self) -> Dict[str, List[float]]:

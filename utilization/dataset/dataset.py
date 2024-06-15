@@ -27,7 +27,7 @@ if typing.TYPE_CHECKING:
     # solve the circular import
     from ..metric.metric import Metric
     from ..model.model import Model
-    from ..utils import DatasetArguments
+    from ..utils import DatasetArguments, EvaluationArguments, ModelArguments
 
 _InputsWithOptionNum = Union[List[Tuple[str, int]], List[Tuple[str, str, int]], List[Tuple[str, str, str, int]]]
 """Instance format for the `get_prob` model evaluation method. The tuple contains the source text and the number of options. If prefix_caching is enabled, the source text will be segmented into prefixes."""
@@ -224,13 +224,10 @@ class Dataset(torch.utils.data.Dataset, TokenizerUtilMixin, ICLUtilMixin):
         yield from self.evaluation_instances
 
     def format_instance(self, instance: dict) -> dict:
-        r"""Format the dataset instance into task source text, target text, and options (for ranking).
+        r"""Format the dataset instance into task format. See [docs](https://github.com/RUCAIBox/LLMBox/blob/main/docs/utilization/how-to-customize-dataset.md#formating-the-instances) for more details.
 
         Notes:
             The instance should not be mutated since the function might be called for multiple times when formatting examples.
-
-        Args:
-            instance (Dict): an instance dict of multiple key-value pairs.
 
         Returns:
             A dictionary with the following keys:
@@ -313,14 +310,14 @@ class Dataset(torch.utils.data.Dataset, TokenizerUtilMixin, ICLUtilMixin):
         if self.model.args.api_endpoint is not None:
             model_endpoint = self.model.args.model_backend + "/" + self.model.args.api_endpoint
             if model_endpoint in ENDPOINT_ARGS:
-                endpoint_args = ENDPOINT_ARGS[model_endpoint]
+                endpoint_schema = ENDPOINT_ARGS[model_endpoint]
                 methods = ["get_ppl", "get_prob", "generation"]
                 requireds = [
                     ("echo", "max_tokens", "logprobs"),
                     ("max_tokens", "temperature", "logit_bias"),
                     ("max_tokens", "temperature"),
                 ]
-                support = [m for m, r in zip(methods, requireds) if all(a in endpoint_args for a in r)]
+                support = [m for m, r in zip(methods, requireds) if all(a in endpoint_schema for a in r)]
                 if self.model_evaluation_method not in support:
                     warn_once(
                         logger,
@@ -369,17 +366,13 @@ class Dataset(torch.utils.data.Dataset, TokenizerUtilMixin, ICLUtilMixin):
                 f"Self-consistency only supports generation with temperature > 0, automatically set temperature = 1."
             )
 
-        if self.extra_model_args.get("multi_turn") and self.model.model_backend == "vllm":
-            raise ValueError(
-                f"We do not support multi-turn generation using vllm currently. Please set --vllm to False."
-            )
-
         if self.use_normalization and self.model_evaluation_method == "get_ppl":
             logger.warning("Normalization is only supported for PPL evaluation.")
 
         if self.multi_turn:
             assert self.model_evaluation_method == "generation", "Multi-turn is only supported for generation evaluation."
 
+        assert "multi_turn" not in self._extra_model_args, "Use `multi_turn` attribute instead of `multi_turn` in `extra_model_args`."
         self._extra_model_args["multi_turn"] = self.multi_turn
 
         logger.info(self.model.args)
@@ -416,13 +409,13 @@ class Dataset(torch.utils.data.Dataset, TokenizerUtilMixin, ICLUtilMixin):
     def construct_instances(self):
         r"""Construct and format all the instances of `evaluation_data`.
 
-        1. Format the example data with `format_instance`
-        2. Format the evaluation data with `format_instance`
-        3. For each instance
-            evaluation instance = instruction + examples + instance:
-            1. Dynamically construct the instruction and examples with `construct_instance`
-            2. Construct final `evaluation_instances` and `option_nums` based on the model evaluation method.
-        4. Apply self-consistency if needed.
+        1. `format_instance`: Format the example data into dictionaries
+        2. `format_instance`: Format the evaluation data into dictionaries
+        3. `generate_ape` if needed.
+        4. For each evalution instance
+            1. `construct_instance`: Construct `Conversation` format for each evaluation instance and examples
+            2. Apply normalization if needed.
+        5. Apply self-consistency if needed.
 
         Returns:
             List[str]: The list of final formatted instances.
@@ -555,6 +548,8 @@ class Dataset(torch.utils.data.Dataset, TokenizerUtilMixin, ICLUtilMixin):
         formatted_instance["source_idx"] = source_idx
         formatted_instance["target_idx"] = target_idx
         formatted_instance["example_idx"] = example_idx
+        formatted_instance["turn_idx"] = 0
+        formatted_instance["num_turns"] = 1
         dataset_extensions = ["dataset_name", "subset_name", "display_name", "real_num_shots"]
         for key in dataset_extensions:
             if key in formatted_instance and formatted_instance[key] != getattr(self, key):
@@ -569,6 +564,16 @@ class Dataset(torch.utils.data.Dataset, TokenizerUtilMixin, ICLUtilMixin):
                 source = self.instruction_template.render(formatted_instance)
             else:
                 source = self.instruction.format_map(formatted_instance)
+        elif self.multi_turn:
+            formatted_instance["num_turns"] = len(source)
+            new_source: List[str] = []
+            for turn_idx in range(formatted_instance["num_turns"]):
+                formatted_instance["turn_idx"] = turn_idx
+                if self.instruction_template.debug_info:
+                    new_source.append(self.instruction_template.render(formatted_instance))
+                else:
+                    new_source.append(self.instruction.format_map(formatted_instance))
+            source = new_source
 
         return {"source": source, "target": target, "options": options}
 
@@ -576,7 +581,7 @@ class Dataset(torch.utils.data.Dataset, TokenizerUtilMixin, ICLUtilMixin):
         self,
         instance: Dict[str, typing.Any],
     ) -> Tuple[List[Conversation], int]:
-        r"""Format one instance with the instruction and demonstration.
+        r"""Construct the final formatted Conversation instance for evaluation.
 
         Args:
             instance (dict): the pre-formatted source.
@@ -585,7 +590,7 @@ class Dataset(torch.utils.data.Dataset, TokenizerUtilMixin, ICLUtilMixin):
             Union[str, List[str]]: The final formatted instance. Return a list of formatted instances if the source is a list (in cases like winogrande).
         """
 
-        if self.model_type in {"chat"} and self.system_prompt:
+        if self.model_type == "chat" and self.system_prompt:
             convers = Conversation([{"role": "system", "content": self.system_prompt}])
         else:
             convers = Conversation()
@@ -599,6 +604,7 @@ class Dataset(torch.utils.data.Dataset, TokenizerUtilMixin, ICLUtilMixin):
         else:
             # FIXME new example format for quac, squad
             logger.warning(f"{self.display_name} has legacy examples format. Skipping the examples.")
+
         option_num = len(instance["options"]) if instance.get("options", None) else 1
         if isinstance(instance["source"], list):
             if self.model_evaluation_method == "get_ppl":
@@ -899,6 +905,13 @@ class DatasetCollection(torch.utils.data.Dataset):
                 yield {k: v[st:st + dlen] for k, v in obj.items()}
                 st += dlen
 
+    def setup_metrics(
+        self, model_args: "ModelArguments", dataset_args: "DatasetArguments", evaluation_args: "EvaluationArguments"
+    ):
+        for d in self._datasets:
+            for m in d.metrics:
+                m.setup_metric(model_args, dataset_args, evaluation_args, d)
+
     def log_final_results(
         self,
         raw_predictions: List[str],
@@ -988,7 +1001,7 @@ class DatasetCollection(torch.utils.data.Dataset):
         if reload_tokenizer:
             self._datasets[0].model._remove_tokenizer()
         return DatasetCollectionBatchSampler(
-            self, self.args.batch_size, self._datasets[0].model.model_backend == "vllm", self.args.auto_batch_size
+            self, self.args.batch_size, self._datasets[0].model.is_vllm_model(), self.args.auto_batch_size
         )
 
     def step(

@@ -3,7 +3,7 @@ from functools import cached_property
 from logging import getLogger
 
 from ..dataset_enum import GAOKAO_TASKS
-from ..metric import Gaokao_bench_metric
+from ..metric import GaokaoBenchMetric
 from .generation_dataset import GenerationDataset
 
 logger = getLogger(__name__)
@@ -59,7 +59,7 @@ class Gaokao(GenerationDataset):
     example_set = None
     evaluation_set = "test"
     load_args = ("RUCAIBox/gaokao-bench",)
-    metrics = [Gaokao_bench_metric()]
+    metrics = [GaokaoBenchMetric()]
     categorized_subsets = None  # weighted average score
 
     def init_arguments(self):

@@ -85,7 +85,7 @@ class AutoBatchSizeSampler(Sampler[List[int]]):
 
         batch_size = available_space // max_len
         batch_size = round_down(batch_size)
-        print("!!!", queries, current_batch, batch_size, available_space, max_len, self.first_max_len)
+        # print("!!!", queries, current_batch, batch_size, available_space, max_len, self.first_max_len)
         return current_batch >= batch_size
 
     def __iter__(self) -> Iterator[List[int]]:
@@ -183,7 +183,7 @@ class DatasetCollectionBatchSampler(Sampler[List[int]]):
                 yield from AutoBatchSizeSampler(
                     iterator,
                     self.batch_size if not self.vllm else total,
-                    self.auto_batch_size,
+                    self.auto_batch_size and not self.vllm,
                     start_from=accumulative
                 )
             accumulative += total

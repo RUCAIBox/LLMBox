@@ -25,6 +25,9 @@ class PassAtK(Metric):
             raise ValueError(f"Pass@K expects an integer, but got {type(k)}.")
         self.k = k
 
+    def setup_metric(self, model_args, dataset_args, evaluation_args, dataset):
+        self.k = dataset_args.pass_at_k
+
     def __call__(self, predictions, references):
         os.environ["TOKENIZERS_PARALLELISM"] = "false"
 

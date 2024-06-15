@@ -44,9 +44,6 @@ class Mbpp(GenerationDataset):
     extra_model_args = dict(stop=['\n[DONE]'], temperature=0.1)
     metrics = [PassAtK()]
 
-    def init_arguments(self):
-        self.metrics[0].set_k(k=self.args.pass_at_k)
-
     def load_raw_dataset(self, dataset_path, subset_name, evaluation_set, example_set):
         super().load_raw_dataset(dataset_path, subset_name, evaluation_set, example_set)
         self.example_data = EXAMPLARS
