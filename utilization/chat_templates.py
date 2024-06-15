@@ -5,9 +5,9 @@ __all__ = ["DEFAULT_CHAT_TEMPLATE", "DEFAULT_CHAT_CONFIGS", "add_space", "smart_
 
 def add_space(
     msg: str,
-    auto_leading_space: bool,
-    remove_space_between: bool,
     context: str,
+    auto_leading_space: bool = True,
+    remove_space_between: bool = True,
     starts: Optional[List[str]] = None,
     ends: Optional[List[str]] = None
 ) -> str:
@@ -15,8 +15,8 @@ def add_space(
         context_ends_special = False
         msg_starts_special = False
     else:
-        context_ends_special = any(context.endswith(e) for e in ends)
-        msg_starts_special = any(msg.startswith(s) for s in starts)
+        context_ends_special = any(context.endswith(e) for e in ends if len(e) > 0)
+        msg_starts_special = any(msg.startswith(s) for s in starts if len(s) > 0)
     if (auto_leading_space and msg and context)\
             and not (context[-1].isspace() or msg[0].isspace())\
             and not (context_ends_special and msg_starts_special):
@@ -30,7 +30,14 @@ def smart_space(parts: List[str], auto_leading_space: bool, remove_space_between
     rendered = ""
     for part in parts:
         if part:
-            rendered += add_space(part, auto_leading_space, remove_space_between, rendered, starts, ends)
+            rendered += add_space(
+                part,
+                rendered,
+                auto_leading_space=auto_leading_space,
+                remove_space_between=remove_space_between,
+                starts=starts,
+                ends=ends
+            )
     return rendered
 
 

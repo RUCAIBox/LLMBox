@@ -159,7 +159,7 @@ class ConversationFormatter:
             for seg in (system, examples, source, target):
                 if len(seg) > 0:
                     if len(result) > 0:
-                        seg = add_space(seg, True, result[-1])
+                        seg = add_space(seg, result[-1])
                     elif self.final_lstrip:
                         seg = seg.lstrip()
                     result += (seg,)
