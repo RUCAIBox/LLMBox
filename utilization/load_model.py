@@ -1,3 +1,4 @@
+from functools import wraps
 from logging import getLogger
 from typing import TYPE_CHECKING
 
@@ -10,6 +11,81 @@ if TYPE_CHECKING:
 
 logger = getLogger(__name__)
 
+__all__ = ["register_model", "load_model"]
+
+LOAD_REGISTERY = {}
+
+
+def register_model(model_backend):
+
+    def inner_decrator(fn):
+        LOAD_REGISTERY[model_backend] = fn
+        return fn
+
+    return inner_decrator
+
+
+@register_model(model_backend="openai")
+def load_openai(args: "ModelArguments"):
+    logger.info(f"Loading OpenAI API model `{args.model_name_or_path}`.")
+    from .model.openai_model import Openai
+
+    return Openai(args)
+
+
+@register_model(model_backend="anthropic")
+def load_anthropic(args: "ModelArguments"):
+    logger.info(f"Loading Anthropic API model `{args.model_name_or_path}`.")
+    from .model.anthropic_model import Anthropic
+
+    return Anthropic(args)
+
+
+@register_model(model_backend="dashscope")
+def load_dashscope(args: "ModelArguments"):
+    logger.info(f"Loading Dashscope (Aliyun) API model `{args.model_name_or_path}`.")
+    from .model.dashscope_model import Dashscope
+
+    return Dashscope(args)
+
+
+@register_model(model_backend="qianfan")
+def load_qianfan(args: "ModelArguments"):
+    logger.info(f"Loading Qianfan (Baidu) API model `{args.model_name_or_path}`.")
+    from .model.qianfan_model import Qianfan
+
+    return Qianfan(args)
+
+
+@register_model(model_backend="vllm")
+def load_vllm(args: "ModelArguments"):
+    try:
+        import vllm
+        logger.debug(f"vllm version: {vllm.__version__}")
+
+        from .model.vllm_model import vllmModel
+
+        return vllmModel(args)
+    except ModuleNotFoundError:
+        logger.warning(f"vllm has not been installed, falling back.")
+        return None
+    except ValueError as e:
+        if "are not supported for now" in str(e):
+            logger.warning(f"vllm has not supported the architecture of {args.model_name_or_path} for now.")
+            return None
+        elif "divisible by tensor parallel size" in str(e):
+            raise ValueError(f"Set an appropriate tensor parallel size via CUDA_VISIBLE_DEVICES: {e}")
+        else:
+            raise e
+
+
+@register_model(model_backend="huggingface")
+def load_huggingface(args: "ModelArguments"):
+    logger.info(f"Loading HuggingFace model `{args.model_name_or_path}`.")
+    from .model.huggingface_model import HuggingFaceModel
+
+    return HuggingFaceModel(args)
+
 
 @catch_error()
 def load_model(args: "ModelArguments") -> "Model":
@@ -21,48 +97,18 @@ def load_model(args: "ModelArguments") -> "Model":
     Returns:
         Model: Our class for model.
     """
-    if args.is_openai_model():
-        logger.info(f"Loading OpenAI API model `{args.model_name_or_path}`.")
-        from .model.openai_model import Openai
+    loads = args.model_backend
+    if loads not in LOAD_REGISTERY:
+        raise ValueError(f"Model backend `{loads}` is not supported.")
 
-        return Openai(args)
-    elif args.is_anthropic_model():
-        logger.info(f"Loading Anthropic API model `{args.model_name_or_path}`.")
-        from .model.anthropic_model import Anthropic
-
-        return Anthropic(args)
-    elif args.is_dashscope_model():
-        logger.info(f"Loading Dashscope (Aliyun) API model `{args.model_name_or_path}`.")
-        from .model.dashscope_model import Dashscope
-
-        return Dashscope(args)
-    elif args.is_qianfan_model():
-        logger.info(f"Loading Qianfan (Baidu) API model `{args.model_name_or_path}`.")
-        from .model.qianfan_model import Qianfan
-
-        return Qianfan(args)
+    if loads == "vllm":
+        loads = ["vllm", "huggingface"]
     else:
-        if args.vllm:
-            try:
-                import vllm
-                vllm.__version__
+        loads = [loads]
 
-                from .model.vllm_model import vllmModel
+    for load in loads:
+        model = LOAD_REGISTERY[load](args)
+        if model is not None:
+            return model
 
-                return vllmModel(args)
-            except ModuleNotFoundError:
-                args.vllm = False
-                args.model_backend = "huggingface"
-                logger.warning(f"vllm has not been installed, falling back to huggingface.")
-            except ValueError as e:
-                if "are not supported for now" in str(e):
-                    args.vllm = False
-                    args.model_backend = "huggingface"
-                    logger.warning(f"vllm has not supported the architecture of {args.model_name_or_path} for now.")
-                elif "divisible by tensor parallel size" in str(e):
-                    raise ValueError(f"Set an appropriate tensor parallel size via CUDA_VISIBLE_DEVICES: {e}")
-                else:
-                    raise e
-        from .model.huggingface_model import HuggingFaceModel
-
-        return HuggingFaceModel(args)
+    raise ValueError(f"Model backend `{loads}` is not supported.")

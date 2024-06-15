@@ -5,6 +5,7 @@ os.environ["HF_UPDATE_DOWNLOAD_COUNTS"] = "FALSE"
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
 # this file only initializes .utils modules to avoid early import of torch
+from .load_model import register_model
 from .utils import DatasetArguments, EvaluationArguments, ModelArguments, parse_argument
 
 if TYPE_CHECKING:
@@ -48,5 +49,6 @@ def register_dataset(name: str):
 
 
 __all__ = [
-    "get_evaluator", "parse_argument", "ModelArguments", "DatasetArguments", "EvaluationArguments", "register_dataset"
+    "get_evaluator", "parse_argument", "ModelArguments", "DatasetArguments", "EvaluationArguments", "register_dataset",
+    "register_model"
 ]
