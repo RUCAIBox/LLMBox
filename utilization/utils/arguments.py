@@ -256,17 +256,21 @@ class ModelArguments(ModelBackendMixin):
     }
 
     def __post_init__(self):
-        if self.vllm is None:
-            self.vllm = not self.prefix_caching
 
-        # set _model_impl first
+        # ============= Set model_backend =============
         if self.model_backend is None:
             if self.model_name_or_path in API_MODELS:
                 self.model_backend = API_MODELS[self.model_name_or_path]["model_backend"]
-            elif self.vllm:
-                self.model_backend = "vllm"
-            else:
+            elif self.vllm is not None:
+                self.model_backend = "vllm" if self.vllm else "huggingface"
+            elif self.prefix_caching is not None:
+                # unless explicitly set backend to vllm, prefix_caching uses huggingface backend
                 self.model_backend = "huggingface"
+            else:
+                # try to load with vllm first
+                self.model_backend = "vllm"
+
+        # ============= Init api keys and tokenizers =============
 
         # set `self.openai_api_key` and `openai.api_key` from environment variables
         if "OPENAI_API_KEY" in os.environ and self.openai_api_key is None:
@@ -282,10 +286,12 @@ class ModelArguments(ModelBackendMixin):
             if self.tokenizer_name_or_path is None:
                 try:
                     self.tokenizer_name_or_path = tiktoken.encoding_for_model(self.model_name_or_path).name
-                except (KeyError, AttributeError) as e:
+                except AttributeError as e:
                     raise RuntimeError(
                         "Unsupported tiktoken library version. Please update the tiktoken library to the latest version or manually specify the tokenizer.\n\n  pip install tiktoken --upgrade"
                     ) from e
+                except KeyError as e:
+                    self.tokenizer_name_or_path = "cl100k_base"
 
         # set `self.anthropic_api_key` from environment variables
         if "ANTHROPIC_API_KEY" in os.environ and self.anthropic_api_key is None:
@@ -322,34 +328,29 @@ class ModelArguments(ModelBackendMixin):
             if self.tokenizer_name_or_path is None:
                 self.tokenizer_name_or_path = "cl100k_base"
 
-        if self.is_local_model():
-            if self.model_type == "chat":
-                if not re.search(r"chat|instruct", self.model_name_or_path.lower()):
-                    logger.warning(
-                        f"Model {self.model_name_or_path} seems to be a base model, you can set --model_type to `base` or `instruction` to use base format."
-                    )
-            else:
-                if re.search(r"chat|instruct", self.model_name_or_path.lower()):
-                    logger.warning(
-                        f"Model {self.model_name_or_path} seems to be a chat-based model, you can set --model_type to `chat` to use chat format."
-                    )
-
         if self.tokenizer_name_or_path is None:
             self.tokenizer_name_or_path = self.model_name_or_path
 
+        # ============= Init model type =============
+
         if self.model_name_or_path in API_MODELS:
             auto_model_type = API_MODELS[self.model_name_or_path]["model_type"]
+        elif self.is_local_model():
+            auto_model_type = "chat" if re.search(r"chat|instruct", self.model_name_or_path.lower()) else "base"
         else:
             auto_model_type = None
 
+        # set auto_model_type
         if self.model_type is None and auto_model_type is not None:
             self.model_type = auto_model_type
         elif self.model_type is None and auto_model_type is None:
-            self.model_type = "chat"
+            self.model_type = "chat"  # default model_type is "chat"
         elif auto_model_type is not None and self.model_type != auto_model_type:
             logger.warning(
                 f"Model {self.model_name_or_path} seems to be a {auto_model_type} model, but get model_type {self.model_type}."
             )
+
+        # ============= Init api endpoint =============
 
         if self.model_name_or_path in API_MODELS:
             auto_endpoint = API_MODELS[self.model_name_or_path]["endpoint"]
@@ -361,19 +362,33 @@ class ModelArguments(ModelBackendMixin):
         if self.api_endpoint is None:
             self.api_endpoint = auto_endpoint
 
+        # ============= Resolve vLLM and local inference backend =============
+
         # try to load as vllm model. If failed, fallback to huggingface model.
         # See `model/load.py` for details.
-        if not self.is_local_model():
-            self.vllm = False
-        elif self.is_vllm_model():
-            self.vllm = True
 
-        if self.vllm:
+        if self.is_vllm_model():
             self.vllm_gpu_memory_utilization = 0.9
+            if self.prefix_caching is None:
+                # prefix_caching is still experimental
+                self.prefix_caching = False
 
-        if self.prefix_caching is None:
-            # prefix caching of vllm is still experimental
-            self.prefix_caching = not self.vllm
+        elif self.is_huggingface_model():
+            if self.prefix_caching is None:
+                self.prefix_caching = True
+
+        # argparse encodes string with unicode_escape, decode it to normal string, e.g., "\\n" -> "\n"
+        if self.stop is not None:
+            if isinstance(self.stop, str):
+                self.stop = [self.stop]
+            for idx in range(len(self.stop)):
+                self.stop[idx] = self.stop[idx].encode('utf-8').decode('unicode_escape')
+        if self.system_prompt is not None:
+            self.system_prompt = self.system_prompt.encode('utf-8').decode('unicode_escape')
+        if self.chat_template is not None:
+            self.chat_template = self.chat_template.encode('utf-8').decode('unicode_escape')
+
+        # ============= Set chat model and chat-templates =============
 
         if self.model_type != "chat":
             if self.system_prompt:
@@ -393,15 +408,6 @@ class ModelArguments(ModelBackendMixin):
                     logger.info(f"Automatically set chat_template to {config_name}.")
                     break
 
-        # argparse encodes string with unicode_escape, decode it to normal string, e.g., "\\n" -> "\n"
-        if self.stop is not None:
-            if isinstance(self.stop, str):
-                self.stop = [self.stop]
-            for idx in range(len(self.stop)):
-                self.stop[idx] = self.stop[idx].encode('utf-8').decode('unicode_escape')
-        if self.system_prompt is not None:
-            self.system_prompt = self.system_prompt.encode('utf-8').decode('unicode_escape')
-
 
 @dataclass
 class DatasetArguments:
@@ -414,7 +420,7 @@ class DatasetArguments:
         metadata={"metavar": "DATASET"},
     )
     batch_size: batch_size_type = HfArg(
-        default=1,
+        default="16:auto",
         aliases=["-bsz", "-b"],
         help=
         "The evaluation batch size. Specify an integer (e.g., '10') to use a fixed batch size for all iterations. Alternatively, append ':auto' (e.g., '10:auto') to start with the specified batch size and automatically adjust it in subsequent iterations to maintain constant CUDA memory usage",
@@ -493,7 +499,6 @@ class DatasetArguments:
     )
 
     continue_from: ClassVar[int] = 0
-    proxy_port: ClassVar[int] = None
 
     # set in `set_logging` with format "{evaluation_results_dir}/{log_filename}.json"
     evaluation_results_path: ClassVar[Optional[str]] = None
@@ -600,14 +605,12 @@ def check_args(model_args: ModelArguments, dataset_args: DatasetArguments, evalu
             os.environ.pop("CUDA_VISIBLE_DEVICES")
 
     # vllm still has some bugs in ranking task
-    if model_args.is_local_model() and all(d not in DEFAULT_VLLM_DATASETS for d in dataset_args.dataset_names
-                                           ) and not model_args.passed_in_commandline("vllm"):
-        model_args.vllm = False
+    if model_args.is_vllm_model() and not model_args.passed_in_commandline("vllm") and any(
+        d not in DEFAULT_VLLM_DATASETS for d in dataset_args.dataset_names
+    ):
         model_args.model_backend = "huggingface"
-
-    # copy arguments
-    if evaluation_args.proxy_port:
-        dataset_args.proxy_port = evaluation_args.proxy_port
+        if not model_args.passed_in_commandline("prefix_caching"):
+            model_args.prefix_caching = True
 
     model_args.seed = int(evaluation_args.seed)
 
