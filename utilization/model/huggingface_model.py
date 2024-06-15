@@ -10,7 +10,8 @@ from transformers.models.auto import AutoModelForCausalLM, AutoTokenizer
 from transformers.tokenization_utils import PreTrainedTokenizer
 from transformers.tokenization_utils_fast import PreTrainedTokenizerFast
 
-from ..utils import ModelArguments
+from ..model_enum import HUGGINGFACE_ARGS
+from ..utils import GenerationArg, ModelArguments, resolve_generation_args
 from .model import Model
 from .model_utils.conversation import Conversation
 from .model_utils.keywords_criteria import KeyWordsCriteria
@@ -524,69 +525,36 @@ class HuggingFaceModel(Model):
         return ppls
 
     def set_generation_args(self, **extra_model_args):
-        self.stop_id_sequences = []
-
-        generation_kwargs = {}
-        for key in [
-            "temperature",
-            "top_p",
-            "top_k",
-            "max_tokens",
-            "best_of",
-            "repetition_penalty",
-            "length_penalty",
-            "early_stopping",
-            "no_repeat_ngram_size",
-            "stop",
-        ]:
-            # ModelArguments (cmd) > extra_model_args > ModelArguments (default)
-            if not self.args.passed_in_commandline(key):
-                value = extra_model_args.pop(key, None)
-            if value is None:
-                value = getattr(self.args, key, None)
-
-            if key == "max_tokens":
-                if value is None:
-                    value = 1024
-                else:
-                    # if `max_tokens` is provided, ensure the maximum length of input
-                    self.model_max_input = self.model_max_input_and_output - value
-
-            if value is not None:
-                if key == "max_tokens":
-                    generation_kwargs["max_new_tokens"] = value
-                elif key == "best_of":
-                    generation_kwargs["num_beams"] = value
-                elif key == "temperature":
-                    if value > 0:
-                        generation_kwargs["temperature"] = value
-                        generation_kwargs["do_sample"] = True
-                    else:
-                        generation_kwargs["do_sample"] = False
-                elif key == "stop":
-                    self.stop_id_sequences.extend(
-                        self._tokenize_postfix(
-                            value,  # type: ignore
-                            add_dummy_prefix=True,
-                            padding=False,
-                        )
-                    )
-                    generation_kwargs["stopping_criteria"] = [KeyWordsCriteria(self.stop_id_sequences)]
-                else:
-                    generation_kwargs[key] = value
-
-        generation_kwargs["pad_token_id"] = self.tokenizer.pad_token_id
-        generation_kwargs["eos_token_id"] = self.tokenizer.eos_token_id
 
         self.multi_turn = extra_model_args.pop("multi_turn", False)
+        if self.model_type != "chat" and self.multi_turn:
+            raise ValueError(
+                "The multi_turn is only available for chat-based model. Please use a chat model and set `--model_type chat`."
+            )
 
-        if self.model_type != "chat":
-            if self.multi_turn:
-                raise ValueError(
-                    "The multi_turn is only available for chat-based model. Please use a chat model and set `--model_type chat`."
+        self.stop_id_sequences = []
+
+        def add_stop(value, details: GenerationArg):
+            self.stop_id_sequences.extend(
+                self._tokenize_postfix(
+                    value,  # type: ignore
+                    add_dummy_prefix=True,
+                    padding=False,
                 )
+            )
+            return {"stopping_criteria": [KeyWordsCriteria(self.stop_id_sequences)]}
 
-        self.generation_kwargs = generation_kwargs
+        self.generation_kwargs = resolve_generation_args(
+            self.args,
+            extra_model_args,
+            HUGGINGFACE_ARGS,
+            extra_generation_args={
+                "stop": add_stop,
+                "pad_token_id": self.tokenizer.pad_token_id,
+                "eos_token_id": self.tokenizer.eos_token_id,
+            },
+        )
+
         if len(extra_model_args) > 0:
             logger.warning(f"Unused generation arguments: {extra_model_args}")
         return self.generation_kwargs
@@ -595,7 +563,7 @@ class HuggingFaceModel(Model):
         self,
         batched_inputs: List[str],
         prefix_cache: SequenceCache,
-    ) -> List[str]:
+    ) -> Tuple[List[str], SequenceCache]:
 
         caches = self.get_cache(batched_inputs, prefix_cache, save_token_ids=True, save_next_logits=True)
         prefix_cache = SequenceCache.pad_and_stack(caches)
@@ -607,6 +575,7 @@ class HuggingFaceModel(Model):
         generation_kwargs = self.generation_kwargs.copy()
         if "max_new_tokens" in generation_kwargs:
             generation_kwargs["max_new_tokens"] -= 1
+
         batch_outputs = self.model.generate(
             inputs=inputs,
             attention_mask=attention_mask,
@@ -628,18 +597,15 @@ class HuggingFaceModel(Model):
         Returns:
             List[str]: The list of generation results.
         """
-
+        # batched_inputs: List[Conversation], batched_prompts: List[str] or List[List[str]]
         batched_prompts = [i.to_model_prompt() for i in batched_inputs]
-        if isinstance(batched_prompts[0], str):
-            prompts: List[str] = batched_prompts
-        else:
+        num_turns = batched_inputs[0].num_turns
+        assert all(conv.num_turns == num_turns for conv in batched_inputs)
+        if not isinstance(batched_prompts[0], str):
             grouped_prompts = list(map(list, zip(*batched_prompts)))
-            prompts: List[str] = ["".join(pg[i] for pg in grouped_prompts) for i in range(len(grouped_prompts[0]))]
             cache_level = len(grouped_prompts)
 
-        if self.model_type == "chat" and self.multi_turn:
-            return self._multi_turn_generation(batched_inputs)
-        elif use_cache and self.use_cache:
+        if use_cache and self.use_cache:
             # if cache is available, generation_with_cache
             prefix_cache, cached_num = self.cacher.get_cache()
             if prefix_cache is not None and cached_num == cache_level - 1:
@@ -652,42 +618,10 @@ class HuggingFaceModel(Model):
             self.cacher.step()
             return []
 
-        results = self._generation(prompts)
-        results = [conv[-1]["content"] if isinstance(conv, Conversation) else conv for conv in results]
-        return results
+        for turn_idx in range(num_turns):
+            batched_inputs = self._generation(batched_inputs, turn_idx + 1)
 
-    def _multi_turn_generation(self, batched_mt_inputs: List[Conversation]) -> List[Tuple[str, ...]]:
-        """Multi-turn generation
-
-        Args:
-            batched_mt_inputs (List[Conversation]): Batched multi-turn inputs.
-
-        Returns:
-            List[Tuple[str, ...]]: [Batch Turn]
-        """
-        batch_size = len(batched_mt_inputs)
-        max_turn = max(conv.num_turns for conv in batched_mt_inputs)
-
-        answers = self._generation(history_conversations)
-        responses = [[conv[-1]["content"]] for conv in answers]
-
-        for turn_idx in range(1, max_turn):
-            cur_turn = [mt_input[turn_idx] if len(mt_input) > turn_idx else None for mt_input in batched_mt_inputs]
-            next_batch = []
-            for conv, turn in zip(history_conversations, cur_turn):
-                if turn is not None:
-                    conv.add_message({"role": "user", "content": turn})
-                    next_batch.append(conv)
-
-            answers = self._generation(next_batch)
-
-            for idx, (r, turn) in enumerate(zip(responses, cur_turn)):
-                if turn is not None:
-                    conv = answers.pop(0)
-                    r.append(conv[-1]["content"])
-                    history_conversations[idx] = conv
-
-        return [tuple(r) for r in responses]
+        return [c.get_generation_results() for c in batched_inputs]
 
     def _generation(
         self,

@@ -246,7 +246,7 @@ class SequenceCache(DynamicCache):
 
     def to_legacy_cache(self) -> Optional[Tuple[Tuple[torch.Tensor, torch.Tensor], ...]]:
         """Converts the `DynamicCache` instance into the its equivalent in the legacy cache format."""
-        if any(s == 0 for s in self.key_cache[0].shape):
+        if len(self.key_cache) == 0 or any(s == 0 for s in self.key_cache[0].shape):
             return None
 
         legacy_cache = ()
