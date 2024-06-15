@@ -13,7 +13,7 @@ def multi_ref_aggregation(scores, multiref_strategy):
     return func(scores)
 
 
-class Gaokao_bench_metric(Metric):
+class GaokaoBenchMetric(Metric):
     r""" Calculate the Gaokao-Bench score.
 
     Return:

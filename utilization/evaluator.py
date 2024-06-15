@@ -8,7 +8,7 @@ from .utils.arguments import DatasetArguments, EvaluationArguments, ModelArgumen
 from .utils.catch_error import catch_error
 from .utils.dynamic_stride_tqdm import dynamic_stride_tqdm
 from .utils.log_results import PredictionWriter
-from .utils.logging import set_logging
+from .utils.logging import log_once, set_logging
 from .utils.random import set_seed
 
 logger = getLogger(__name__)
@@ -61,6 +61,7 @@ class Evaluator:
             evaluation_data=evaluation_data,
             example_data=example_data,
         )
+        self.dataset.setup_metrics(self.model_args, self.dataset_args, self.evaluation_args)
         self.writer.write_metainfo(self.model_args, self.dataset_args, self.evaluation_args)
 
     @catch_error(True)
@@ -107,11 +108,14 @@ class Evaluator:
         if self.evaluation_args.continue_from:
             raw_predictions.extend(self.writer.load_continue())
         for batch in dataloader:
+            log_once(logger.debug, f"batch_size {len(batch)}, first instance in batch:\n{batch[0]}", "fbi")
             batch_results = call_model(batch)
             if len(batch) != len(batch_results) and len(batch_results) != 0:
                 raise RuntimeError(
                     f"The number of results {len(batch_results)} should be equal to the number of samples in the batch {len(batch)}."
                 )
+            if len(batch_results) > 0:
+                log_once(logger.debug, f"first output in batch:\n{batch_results[0]}", "fbo")
             raw_predictions.extend(batch_results)
             self.dataset.step(self.writer, dataloader, batch_results)
 

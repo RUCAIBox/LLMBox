@@ -1,6 +1,6 @@
 from functools import cached_property
 
-from ..metric import Word_Accuracy
+from ..metric import WordAccuracy
 from .generation_dataset import GenerationDataset
 
 
@@ -20,9 +20,7 @@ class Lambada(GenerationDataset):
     example_set = None
     load_args = ("EleutherAI/lambada_openai", "default")
     extra_model_args = dict(max_tokens=5, temperature=0)
-
-    def init_arguments(self):
-        self.metrics = [Word_Accuracy(self.tokenizer)]
+    metrics = [WordAccuracy()]
 
     def format_instance(self, instance):
 
