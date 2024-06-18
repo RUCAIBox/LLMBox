@@ -1,6 +1,6 @@
 from functools import cached_property
 
-from ..metric import Perspective_api
+from ..metric import PerspectiveApi
 from .generation_dataset import GenerationDataset
 
 
@@ -22,9 +22,7 @@ class Real_toxicity_prompts(GenerationDataset):
     evaluation_set = "train"
     load_args = ("allenai/real-toxicity-prompts",)
     extra_model_args = dict(temperature=0, stop='\n\n')
-
-    def init_arguments(self):
-        self.metrics = [Perspective_api(api_key=self.args.perspective_api_key, proxy_port=self.args.proxy_port)]
+    metrics = [PerspectiveApi()]
 
     def format_instance(self, instance):
         return instance

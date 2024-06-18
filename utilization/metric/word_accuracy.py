@@ -1,4 +1,4 @@
-from typing import Dict, Union
+from typing import TYPE_CHECKING, Dict, Union
 
 import numpy as np
 import tiktoken
@@ -6,16 +6,23 @@ from transformers import PreTrainedTokenizer, PreTrainedTokenizerFast
 
 from .metric import Metric
 
+if TYPE_CHECKING:
+    from ..dataset import Dataset
+    from ..utils.arguments import DatasetArguments, EvaluationArguments, ModelArguments
 
-class Word_Accuracy(Metric):
+
+class WordAccuracy(Metric):
     r""" For those tasks only require to predict curtain number words, calculate the Accuracy score.
 
     Return
         "Accuracy": float
     """
 
-    def __init__(self, tokenizer: Union[tiktoken.Encoding, PreTrainedTokenizer, PreTrainedTokenizerFast]):
-        self.tokenizer = tokenizer
+    def setup_metric(
+        self, model_args: "ModelArguments", dataset_args: "DatasetArguments", evaluation_args: "EvaluationArguments",
+        dataset: "Dataset"
+    ):
+        self.tokenizer = dataset.tokenizer
 
     def __call__(self, predictions, references) -> Dict[str, float]:
         if isinstance(self.tokenizer, tiktoken.Encoding):

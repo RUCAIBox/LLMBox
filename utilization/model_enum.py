@@ -7,8 +7,8 @@ VLLM_ARGS = {
     "temperature": generation_arg(),
     "top_p": generation_arg(),
     "top_k": generation_arg(),
-    "max_tokens": generation_arg(),
-    "best_of": generation_arg(),
+    "max_tokens": generation_arg(default=1024),
+    "best_of": generation_arg(needs=lambda b, _: {"use_beam_search": b > 1}),
     "frequency_penalty": generation_arg(),
     "presence_penalty": generation_arg(),
     "repetition_penalty": generation_arg(),
@@ -18,11 +18,11 @@ VLLM_ARGS = {
 }
 
 HUGGINGFACE_ARGS = {
-    "temperature": generation_arg(),
+    "temperature": generation_arg(needs=lambda t, _: {"do_sample": t > 0}),
     "top_p": generation_arg(),
     "top_k": generation_arg(),
-    "max_tokens": generation_arg(),
-    "best_of": generation_arg(),
+    "max_tokens": generation_arg(default=1024, transform_key="max_new_tokens"),
+    "best_of": generation_arg(transform_key="num_beams"),
     "repetition_penalty": generation_arg(),
     "length_penalty": generation_arg(),
     "early_stopping": generation_arg(),
@@ -89,22 +89,15 @@ OPENAI_COMPLETIONS_ARGS = {
 }
 
 QIANFAN_CHAT_COMPLETIONS_ARGS = {
-    "temperature":
-    generation_arg(transform_value=lambda x: min(max(0.0001, x), 1.0), _type=float),
-    "top_p":
-    generation_arg(),
-    "top_k":
-    generation_arg(),
-    "penalty_score":
-    generation_arg(),
-    "stop":
-    generation_arg(),
-    "disable_search":
-    generation_arg(),
-    "enable_citation":
-    generation_arg(),
+    "temperature": generation_arg(transform_value=lambda x: min(max(0.0001, float(x)), 1.0)),
+    "top_p": generation_arg(),
+    "top_k": generation_arg(),
+    "penalty_score": generation_arg(),
+    "stop": generation_arg(),
+    "disable_search": generation_arg(),
+    "enable_citation": generation_arg(),
     "max_tokens":
-    generation_arg(default=1024, transform_key="max_output_tokens", transform_value=lambda x: max(2, x), _type=int),
+    generation_arg(default=1024, transform_key="max_output_tokens", transform_value=lambda x: max(2, int(x))),
 }
 
 

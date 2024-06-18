@@ -348,8 +348,9 @@ def load_datasets(
 ) -> DatasetCollection:
 
     # batch size for vllm is set after model is loaded
-    if model.model_backend == "vllm":
+    if model.is_vllm_model():
         args.batch_size = -1
+        args.auto_batch_size = False
         logger.info("Setting batch_size to -1, since vllm can automatically planning the optimal batch and order.")
 
     if model.args.prefix_caching and model.model_backend != "huggingface":

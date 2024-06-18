@@ -1,13 +1,20 @@
+import datetime
+import os
 import re
-import time
 from logging import getLogger
-from typing import Literal
+from typing import TYPE_CHECKING, Dict, List, Literal, Tuple
 
 import numpy as np
 import openai
 from tqdm import tqdm
 
+from ..utils.log_results import PredictionWriter
+from ..utils.logging import DEFAULT_DATETIME_FORMAT
 from .metric import Metric
+
+if TYPE_CHECKING:
+    from ..dataset import Dataset
+    from ..utils.arguments import DatasetArguments, EvaluationArguments, ModelArguments
 
 logger = getLogger(__name__)
 
@@ -37,8 +44,9 @@ class GPTEval(Metric):
 
         self.multi_turn = multi_turn
         self.type = type
+        self.gpteval_model = "gpt-3.5-turbo"
         self.model_args = ModelArguments(
-            model_name_or_path="gpt-3.5-turbo",  # use it to judge the model.
+            model_name_or_path=self.gpteval_model,  # use it to judge the model.
             max_tokens=1024,
             temperature=0,
             openai_api_key=openai.api_key
@@ -46,13 +54,23 @@ class GPTEval(Metric):
         self.min_scoring = 1
         self.max_scoring = 10
 
-    def __call__(self, predictions, references):
+    def setup_metric(
+        self, model_args: "ModelArguments", dataset_args: "DatasetArguments", evaluation_args: "EvaluationArguments",
+        dataset: "Dataset"
+    ):
+        execution_time = datetime.datetime.now().strftime(DEFAULT_DATETIME_FORMAT)
+        log_filename = f"{self.gpteval_model}-gpteval-{execution_time}.json"
+        gpteval_path = os.path.join(evaluation_args.evaluation_results_dir, log_filename)
+        self.gpteval_writer = PredictionWriter(gpteval_path)
+
+    def __call__(self, predictions: List[Tuple[str, str]], references: List[Dict[str, str]]):
 
         # load gpteval model after the predictions of dataset are generated
         from ..load_model import load_model
 
         self.model = load_model(self.model_args)
         self.model.set_generation_args()
+        logger.info(f"GPTEval results will be saved to {self.gpteval_writer.evaluation_path}")
 
         if self.type == "single":
             ratings = self._get_single_ratings(predictions, references)
@@ -71,8 +89,9 @@ class GPTEval(Metric):
             logger.warning(f"Failed to generate GPTEval response: {e}")
             return [str(self.min_scoring)]
 
-    def _get_single_ratings(self, predictions, references):
+    def _get_single_ratings(self, predictions: List[Tuple[str, str]], references: List[Dict[str, str]]):
         responses = []
+        lines_iter = iter(zip(range(len(references)), predictions, references))
         for pred, refer in tqdm(zip(predictions, references), desc="Judging", total=len(predictions)):
             if "ref_answer_1" not in refer:
                 user_prompt = SINGLE_JUDGE_PROMPT_MT.format(
@@ -89,7 +108,9 @@ class GPTEval(Metric):
                 ) if self.multi_turn else SINGLE_JUDGE_PROMPT_MATH.format(
                     question=refer["turns"][0], ref_answer_1=refer["ref_answer_1"], answer=pred
                 )
-            responses.extend(self._generation(user_prompt))
+            resp = self._generation(user_prompt)
+            self.gpteval_writer.log_batch_results([resp], False, lines_iter)
+            responses.extend(resp)
 
         ratings = []
         for response in responses:
@@ -107,14 +128,16 @@ class GPTEval(Metric):
                 logger.warning(f"Failed to extract rating from response: {response}")
         return ratings
 
-    def _get_pairwise_ratings(self, predictions, references):
+    def _get_pairwise_ratings(self, predictions: List[Tuple[str, str]], references: List[Dict[str, str]]):
         responses = []
+        lines_iter = iter(zip(range(len(references)), predictions, references))
         for pred, refer in tqdm(zip(predictions, references), desc="Judging", total=len(predictions)):
             current_prompt = PAIRWISE_JUDGE_PROMPT.format(
                 question=refer["instruction"], answer_a=refer["output"], answer_b=pred
             )
-            responses.extend(self._generation(current_prompt))
-            time.sleep(5)
+            resp = self._generation(current_prompt)
+            self.gpteval_writer.log_batch_results([resp], False, lines_iter)
+            responses.extend(resp)
 
         ratings = []
         for response in responses:

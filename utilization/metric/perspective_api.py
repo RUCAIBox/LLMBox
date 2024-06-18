@@ -1,5 +1,6 @@
 import time
 from logging import getLogger
+from typing import TYPE_CHECKING
 
 import httplib2
 import numpy as np
@@ -8,13 +9,22 @@ from tqdm import tqdm
 
 from .metric import Metric
 
+if TYPE_CHECKING:
+    from ..dataset import Dataset
+    from ..utils import DatasetArguments, EvaluationArguments, ModelArguments
+
 logger = getLogger(__name__)
 
 
-class Perspective_api(Metric):
+class PerspectiveApi(Metric):
     r"""Call api to get the perspective toxic score."""
 
-    def __init__(self, api_key: str, proxy_port: int):
+    def setup_metric(
+        self, model_args: "ModelArguments", dataset_args: "DatasetArguments", evaluation_args: "EvaluationArguments",
+        dataset: "Dataset"
+    ):
+        api_key = dataset_args.perspective_api_key
+        proxy_port = evaluation_args.proxy_port
         if proxy_port is None:
             http = httplib2.Http(timeout=10, disable_ssl_certificate_validation=False)
         else:

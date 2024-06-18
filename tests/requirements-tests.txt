@@ -37,3 +37,4 @@ language_data
 google-api-python-client
 immutabledict
 langdetect
+scipy

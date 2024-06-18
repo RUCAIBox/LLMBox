@@ -39,7 +39,7 @@ def test_no_smart_space(conversation: Conversation):
         "assistant_start": "",
         "assistant_end": "",
         "auto_leading_space": False,
-        "default_stops": [],
+        "default_stop": [],
     }
     formatter = ConversationFormatter(prompt_config, DEFAULT_CHAT_TEMPLATE)
     conversation.set_formatter(formatter)
@@ -58,7 +58,7 @@ def test_smart_space(conversation: Conversation):
         "assistant_start": "",
         "assistant_end": "",
         "auto_leading_space": True,
-        "default_stops": [],
+        "default_stop": [],
     }
     formatter = ConversationFormatter(prompt_config, DEFAULT_CHAT_TEMPLATE)
     conversation[2]["content"] = " This is an assistant message."  # extra leading space
@@ -80,7 +80,7 @@ def test_final_strip(conversation: Conversation):
         "auto_leading_space": True,
         "final_lstrip": False,
         "final_rstrip": False,
-        "default_stops": [],
+        "default_stop": [],
     }
     formatter = ConversationFormatter(prompt_config, DEFAULT_CHAT_TEMPLATE)
     conversation.set_formatter(formatter)

@@ -16,16 +16,12 @@ class Mt_bench(GenerationDataset):
         reference: ["You are in second place.", "Uncertain."]
     """
 
-    instruction = "{source}"
+    instruction = "{{source[turn_idx]}}"
     example_set = None
     evaluation_set = "train"
     load_args = ("HuggingFaceH4/mt_bench_prompts",)
     metrics = [GPTEval(multi_turn=True, type="single")]
-    extra_model_args = {"multi_turn": True}
-
-    def init_arguments(self):
-        # TODO add prefix caching
-        self.prefix_caching = False
+    multi_turn = True
 
     def load_raw_dataset(self, dataset_path, subset_name, evaluation_set, example_set):
         super().load_raw_dataset(dataset_path, subset_name, evaluation_set, example_set)
@@ -38,12 +34,7 @@ class Mt_bench(GenerationDataset):
         self.evaluation_data = new_evaluation_data
 
     def format_instance(self, instance):
-        # TODO return a list of questions instead of using __SEPARATOR__
-        return dict(
-            source=instance["question_1"].strip() + "__SEPARATOR__" + instance["question_2"].strip(),
-            target="",
-            num_turns=2,
-        )
+        return dict(source=[instance["question_1"].strip(), instance["question_2"].strip()])
 
     @cached_property
     def references(self):

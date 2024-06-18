@@ -42,9 +42,6 @@ class Humaneval(GenerationDataset):
     extra_model_args = dict(max_tokens=512, temperature=0.1)
     metrics = [PassAtK()]
 
-    def init_arguments(self):
-        self.metrics[0].set_k(k=self.args.pass_at_k)
-
     def format_instance(self, instance):
         source_text = instance["prompt"].strip()
         target_text = instance["canonical_solution"]

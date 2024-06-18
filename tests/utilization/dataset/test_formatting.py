@@ -385,3 +385,41 @@ def test_formatting(get_dataset, dataset_name, num_shots, cot, ranking_type):
     formatted_instance = "".join(p for p in formatted_instance if isinstance(p, str))
 
     assert formatted_instance == eval_instance
+
+
+def test_multi_turn(get_dataset):
+    dataset = get_dataset(dataset_name="mt_bench", num_shots=0, ranking_type="generation")
+
+    assert dataset.evaluation_instances[0].messages == [{
+        "content":
+        "Compose an engaging travel blog post about a recent trip to Hawaii, highlighting cultural experiences and must-see attractions.",
+        "role": "user",
+    }]
+    dataset.evaluation_instances[0].add_multi_turn(assistant="The fake model response.")
+    assert dataset.evaluation_instances[0].messages == [{
+        "content":
+        "Compose an engaging travel blog post about a recent trip to Hawaii, highlighting cultural experiences and must-see attractions.",
+        "role": "user",
+    }, {
+        "content": "The fake model response.",
+        "role": "assistant",
+    }, {
+        "content": "Rewrite your previous response. Start every sentence with the letter A.",
+        "role": "user",
+    }]
+
+    dataset.evaluation_instances[0].add_multi_turn(assistant="A fake model response.")
+    assert dataset.evaluation_instances[0].messages == [{
+        "content":
+        "Compose an engaging travel blog post about a recent trip to Hawaii, highlighting cultural experiences and must-see attractions.",
+        "role": "user",
+    }, {
+        "content": "The fake model response.",
+        "role": "assistant",
+    }, {
+        "content": "Rewrite your previous response. Start every sentence with the letter A.",
+        "role": "user",
+    }, {
+        "content": "A fake model response.",
+        "role": "assistant",
+    }]

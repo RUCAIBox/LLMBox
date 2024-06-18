@@ -49,7 +49,7 @@ class ConversationFormatter:
         chat_config: Dict[str, str],
         chat_template: str,
     ):
-        self.default_stops = chat_config.pop("default_stops", [])
+        self.default_stop = chat_config.pop("default_stop", [])
         self.auto_leading_space = chat_config.pop("auto_leading_space", True)
         self.final_lstrip = chat_config.pop("final_lstrip", True)
         self.final_rstrip = chat_config.pop("final_rstrip", True)
@@ -159,7 +159,7 @@ class ConversationFormatter:
             for seg in (system, examples, source, target):
                 if len(seg) > 0:
                     if len(result) > 0:
-                        seg = add_space(seg, True, result[-1])
+                        seg = add_space(seg, result[-1])
                     elif self.final_lstrip:
                         seg = seg.lstrip()
                     result += (seg,)
@@ -300,9 +300,6 @@ class Conversation(_HFConversation):
         seg: Optional[Literal["system", "examples", "source", "target"]] = None,
     ) -> Union[List[Dict[str, str]], Dict[str, List[Dict[str, str]]]]:
         """Get splitted segments of the conversation to cache the KV of them."""
-        assert len(
-            self.mt_users
-        ) == self.num_turns - 1, "`get_segs` is only available before adding assistant responses."
 
         # system
         example_st = 0
@@ -312,8 +309,8 @@ class Conversation(_HFConversation):
         else:
             system = []
 
-        # few-shots example
-        example_ed = example_st + self.num_shots * 2
+        # few-shots example (and previous turns of conversation)
+        example_ed = example_st + self.num_shots * 2 + (self.num_turns - len(self.mt_users) - 1) * 2
         examples = self.messages[example_st:example_ed]
         assert all(msg["role"] == "user" for msg in examples[::2]) and all(
             msg["role"] == "assistant" for msg in examples[1::2]
@@ -336,6 +333,17 @@ class Conversation(_HFConversation):
             return results[seg]
         return results
 
+    def get_generation_results(self) -> Union[str, Tuple[str, ...]]:
+        if self.num_turns > 1:
+            multi_turn_st = int(self.messages[0]["role"] == "system") + self.num_shots * 2
+            # transform to tuples for hashability
+            results = tuple(msg["content"] for msg in self.messages[multi_turn_st:] if msg["role"] == "assistant")
+            assert len(results) == self.num_turns
+            return results
+        else:
+            assert self.messages[-1]["role"] == "assistant"
+            return self.messages[-1]["content"]
+
     def set_formatter(
         self,
         formatter: ConversationFormatter,
@@ -344,7 +352,7 @@ class Conversation(_HFConversation):
     ):
         self.formatter = formatter
         self.model_evaluation_method = model_evaluation_method
-        self.split = split
+        self.split = split and self.get_segs_num() > 1
 
     def to_model_prompt(
         self,
