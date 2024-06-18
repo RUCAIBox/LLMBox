@@ -45,7 +45,7 @@ echo "Downloading the Belle dataset..."
 wget -P data/raw_train/belle $HF_ENDPOINT/datasets/BelleGroup/train_0.5M_CN/resolve/main/Belle_open_source_0.5M.json $wget_args
 
 echo "Downloading the Flanv2 dataset..."
-python utils/download_flanv2.py
+wget -P data/raw_train/flanv2 $HF_ENDPOINT/datasets/hamishivi/tulu_mix_store/resolve/main/flan_v2_resampled_50k.jsonl $wget_args
 
 echo "Processing..."
 python utils/process.py

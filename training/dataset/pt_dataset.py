@@ -16,22 +16,30 @@ class PTDataset:
         self.tokenizer = tokenizer
         data_path = args.data_path
         
-        #! if not the same setting, e.g. tokenizer max length changes, we need to reprocess the data, so we don't load the saved pth directly here
-        pth_file = data_path + f"_{tokenizer.model_max_length}.pth"
+        pth_file = f"{data_path}.pth"
+        retokenize = False
+        if os.path.exists(pth_file):
+            data_dict = torch.load(pth_file)
+            prev_tokenizer_config = data_dict['tokenizer_config']
+            current_tokenizer_config = str(tokenizer)
+            if prev_tokenizer_config != current_tokenizer_config:
+                retokenize = True
+            else:
+                print("Loading tokenized data from cache")
+                self.input_ids = data_dict['input_ids']
+                self.labels = data_dict['labels']
+        else:
+            retokenize = True
 
-        if not os.path.exists(pth_file):
-            self.input_ids, self.labels = self.process()
+        if retokenize:
+            self.input_ids, self.labels = self.process(self.tokenizer)
             if self.args.packing:
-                self.input_ids = self.group_texts(self.input_ids)
-                self.labels = self.input_ids.copy()
+                self.input_ids, self.labels = self.group_texts(self.input_ids)
 
             if torch.distributed.get_rank() == 0:
-                checkpoint = {'input_ids': self.input_ids, 'labels': self.labels}
+                checkpoint = {'input_ids': self.input_ids, 'labels': self.labels, 'tokenizer_config': str(tokenizer)}
                 torch.save(checkpoint, pth_file)
-        else:
-            data_dict = torch.load(pth_file)
-            self.input_ids = data_dict['input_ids']
-            self.labels = data_dict['labels']
+
 
         self.shuffle_index = list(range(len(self.input_ids)))
         random.shuffle(self.shuffle_index)
