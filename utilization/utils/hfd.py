@@ -37,6 +37,8 @@ def huggingface_download(
     path: str,
     hfd_cache_path: str,
     mirror: bool = True,
+    hf_username: Optional[str] = None,
+    hf_token: Optional[str] = None,
     old: str = "https://huggingface.co",
     new: str = "https://hf-mirror.com",
 ) -> Optional[str]:
@@ -60,7 +62,13 @@ def huggingface_download(
     logger.debug(f"Downloading {path} to {repo_path}")
 
     mirror_flag = " --mirror" if mirror else ""
-    command = f"bash {hfd_cli.as_posix()} {path} --dataset --local-dir {repo_path.as_posix()}"
+    if hf_username and hf_token:
+        auth = f" --hf_username {hf_username} --hf_token {hf_token}"
+    elif hf_token:
+        auth = f" --hf_token {hf_token}"
+    else:
+        auth = ""
+    command = f"bash {hfd_cli.as_posix()} {path} --dataset --local-dir {repo_path.as_posix()}{auth}"
     os.system(command + mirror_flag)
 
     update_script(load_script_path, mirror, old, new)
