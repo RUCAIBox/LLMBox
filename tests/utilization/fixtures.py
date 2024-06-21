@@ -10,6 +10,8 @@ from utilization.load_dataset import load_dataset
 from utilization.model.model_utils.conversation import Conversation
 from utilization.model.openai_model import Openai
 from utilization.utils.arguments import DatasetArguments, EvaluationArguments, ModelArguments
+from utilization.utils.dynamic_stride_tqdm import dynamic_stride_tqdm
+from utilization.utils.log_results import PredictionWriter
 
 
 @pytest.fixture
@@ -37,7 +39,7 @@ def conversation():
 @pytest.fixture
 def get_openai_model():
 
-    def openai_model(chat_template):
+    def openai_model(chat_template, model_backend="huggingface"):
         args = ModelArguments(
             model_name_or_path="fake_model",
             model_type="chat",
@@ -48,8 +50,13 @@ def get_openai_model():
             api_endpoint="completions"
         )
         model = Openai(args)
-        args.model_backend = "huggingface"
-        model.model_backend = "huggingface"
+        args.model_backend = model_backend
+        model.model_backend = model_backend
+
+        model.get_ppl = lambda x: [(0, 1)] * len(x)
+        model.generation = lambda x: [""] * len(x)
+        model.get_prob = lambda x: [[1 / p[1]] * p[1] for p in x]
+
         return model
 
     return openai_model
@@ -64,17 +71,21 @@ def get_dataset(get_openai_model):
         cot: Optional[str] = None,
         chat_template: Optional[str] = None,
         ranking_type: Optional[str] = None,
+        batch_size: int = 1,
+        model_backend = "huggingface",
+        **kwargs
     ):
 
         args = DatasetArguments(
             dataset_names=[dataset_name],
             num_shots=num_shots,
-            batch_size=1,
+            batch_size=batch_size,
             cot=cot,
             ranking_type=ranking_type,
+            **kwargs,
         )
         evaluation_args = EvaluationArguments()
-        openai_model = get_openai_model(chat_template)
+        openai_model = get_openai_model(chat_template, model_backend)
 
         ds = list(load_dataset(dataset_name, args, openai_model, evaluation_args))
 

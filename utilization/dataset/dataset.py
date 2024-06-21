@@ -3,7 +3,7 @@ from collections import OrderedDict, defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from copy import deepcopy
 from functools import cached_property
-from itertools import chain, islice
+from itertools import chain, islice, zip_longest
 from logging import getLogger
 from pprint import pformat
 from typing import Dict, Iterator, List, Literal, Optional, Tuple, Union
@@ -835,8 +835,9 @@ class DatasetCollection(torch.utils.data.Dataset):
         self._datasets_mapping = datasets
         self._cur_idx = 0
         self.args = self._datasets[0].args
+        ref_iter = lambda d: chain.from_iterable(repeat_iter([r], op) for r, op in zip(d.references, d.option_nums))
         self._lines_iter = chain.from_iterable(
-            zip(range(d.len()), d.evaluation_instances, repeat_iter(d.references, d.sample_num)) for d in self._datasets
+            zip_longest(range(d.len()), d.evaluation_instances, ref_iter(d)) for d in self._datasets
         )
         self._idx_mapping = []
         for i, d in enumerate(self._datasets):
