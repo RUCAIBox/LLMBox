@@ -566,6 +566,16 @@ class EvaluationArguments:
         default=None,
         help="The path to the evaluation results to continue from",
     )
+    hf_username: Optional[str] = HfArg(
+        default=None,
+        help="The Hugging Face username for accessing to gated repositories",
+    )
+    hf_token: Optional[str] = HfArg(
+        default=None,
+        help="The Hugging Face token for accessing to gated repositories",
+    )
+
+    _redact = {"hf_token"}
 
     _argument_group_name = "evaluation arguments"
 
@@ -584,6 +594,13 @@ class EvaluationArguments:
                 openai.http_client = httpx.Client(proxies=f"http://localhost:{self.proxy_port}")
             except Exception:
                 pass
+        if os.environ.get("HF_TOKEN", None):
+            self.hf_token = os.environ["HF_TOKEN"]
+        elif os.environ.get("HF_TOKEN_PATH", None):
+            try:
+                self.hf_token = open(os.environ["HF_TOKEN_PATH"]).read().strip()
+            except Exception:
+                self.hf_token = None
 
 
 def check_args(model_args: ModelArguments, dataset_args: DatasetArguments, evaluation_args: EvaluationArguments):
@@ -728,7 +745,9 @@ def parse_argument(args: Optional[List[str]] = None,
         check_args(model_args, dataset_args, evaluation_args)
 
     # log arguments and environment variables
-    redact_dict = {f"--{arg}": get_redacted(getattr(model_args, arg, "")) for arg in model_args._redact}
+    redact_dict = {}
+    redact_dict.update({f"--{arg}": get_redacted(getattr(model_args, arg, "")) for arg in model_args._redact})
+    redact_dict.update({f"--{arg}": get_redacted(getattr(evaluation_args, arg, "")) for arg in evaluation_args._redact})
     for key, value in redact_dict.items():
         if key in args:
             args[args.index(key) + 1] = repr(value)

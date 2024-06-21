@@ -241,10 +241,26 @@ def load_dataset(
         if dcls.load_args is None:
             continue
         elif len(dcls.load_args) > 0:
-            cache_paths.append(huggingface_download(dcls.load_args[0], args.hfd_cache_path, mirror=args.hf_mirror))
+            cache_paths.append(
+                huggingface_download(
+                    dcls.load_args[0],
+                    args.hfd_cache_path,
+                    hf_username=evaluation_args.hf_username,
+                    hf_token=evaluation_args.hf_token,
+                    mirror=args.hf_mirror
+                )
+            )
         else:
             # dynamically set load_args for wmt datasets, in order to support wmt series datasets
-            cache_paths.append(huggingface_download(dataset_name, args.hfd_cache_path, mirror=args.hf_mirror))
+            cache_paths.append(
+                huggingface_download(
+                    dataset_name,
+                    args.hfd_cache_path,
+                    hf_username=evaluation_args.hf_username,
+                    hf_token=evaluation_args.hf_token,
+                    mirror=args.hf_mirror
+                )
+            )
     available_subsets_by_cls = get_subsets(dataset_name, dataset_classes, args, cache_paths)
     expanded_cmd_subset_names = expand_cmd_subset_names(cmd_subset_names, dataset_classes)
 
