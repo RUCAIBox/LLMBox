@@ -72,7 +72,7 @@ def get_dataset(get_openai_model):
         chat_template: Optional[str] = None,
         ranking_type: Optional[str] = None,
         batch_size: int = 1,
-        model_backend = "huggingface",
+        model_backend="huggingface",
         **kwargs
     ):
 

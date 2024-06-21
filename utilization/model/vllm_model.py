@@ -48,15 +48,8 @@ class vllmModel(Model):
         self.args = args
 
         logger.info(f"Trying to load {args.model_name_or_path} using vllm...")
-        self.vllm_version = version.parse(vllm.__version__)
-        if args.prefix_caching:
-            if self.is_legacy_vllm():
-                logger.warning(
-                    f"vllm version ({vllm.__version__}) is lower than 0.4.0, prefix_caching is not supported."
-                )
-            else:
-                kwargs["enable_prefix_caching"] = True
-                self.use_cache = True
+        if args.prefix_caching is not None:
+            kwargs["enable_prefix_caching"] = args.prefix_caching
 
         self.model = LLM(
             model=args.model_name_or_path,
@@ -77,10 +70,21 @@ class vllmModel(Model):
         )
         self.tokenizer.chat_template = args.chat_template
 
-    def is_legacy_vllm(self):
-        return self.vllm_version < version.parse("0.4.0")
+    @property
+    def use_cache(self):
+        return self.model.llm_engine.cache_config.enable_prefix_caching
+
+    @use_cache.setter
+    def use_cache(self, value):
+        self.model.llm_engine.cache_config.enable_prefix_caching = value
 
     def set_ppl_args(self, **extra_model_args):
+        if self.use_cache:
+            logger.warning(
+                "Prefix caching is enabled for vllm. However, it is a known issue for vllm to return logprobs with prefix caching enabled. See https://github.com/vllm-project/vllm/issues/3914 for details."
+            )
+            self.use_cache = False
+
         self.ppl_kwargs = SamplingParams(max_tokens=1, prompt_logprobs=0)
         if len(extra_model_args) > 0:
             logger.warning(f"Unused generation arguments: {extra_model_args}")
@@ -144,6 +148,12 @@ class vllmModel(Model):
         return [c.get_generation_results() for c in batched_inputs]
 
     def set_prob_args(self, **extra_model_args):
+        if self.use_cache:
+            logger.warning(
+                "Prefix caching is enabled for vllm. However, it is a known issue for vllm to return logprobs with prefix caching enabled. See https://github.com/vllm-project/vllm/issues/3914 for details."
+            )
+            self.use_cache = False
+
         self.prob_kwargs = SamplingParams(max_tokens=1, temperature=0)
         self.candidate_ids = extra_model_args.pop("candidate_ids", None)
 
