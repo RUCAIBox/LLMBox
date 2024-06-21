@@ -148,6 +148,8 @@ class Dataset(torch.utils.data.Dataset, TokenizerUtilMixin, ICLUtilMixin):
         self.ranking_type = args.ranking_type
         self.model_type = model.model_type
         self.prefix_caching = model.args.prefix_caching
+        if self.prefix_caching is None:
+            self.prefix_caching = True
         self.instance_format = "{source}{target}"
         if args.instruction:
             self.instruction = args.instruction

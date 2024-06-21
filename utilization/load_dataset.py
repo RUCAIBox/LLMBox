@@ -369,12 +369,6 @@ def load_datasets(
         args.auto_batch_size = False
         logger.info("Setting batch_size to -1, since vllm can automatically planning the optimal batch and order.")
 
-    if model.args.prefix_caching and model.model_backend != "huggingface":
-        logger.warning(
-            "Prefix caching is only available for HuggingFaceModel. Automatically set prefix_caching to False"
-        )
-        model.args.prefix_caching = False
-
     # get all the dataset classes
     datasets = []
     for d in args.dataset_names:

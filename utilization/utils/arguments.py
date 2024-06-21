@@ -82,7 +82,7 @@ class ModelArguments(ModelBackendMixin):
         default="auto",
         help="The device map for model and data",
     )
-    prefix_caching: bool = HfArg(
+    prefix_caching: Optional[bool] = HfArg(
         default=None,
         help="Whether to cache prefix in get_ppl mode",
     )
@@ -369,13 +369,6 @@ class ModelArguments(ModelBackendMixin):
 
         if self.is_vllm_model():
             self.vllm_gpu_memory_utilization = 0.9
-            if self.prefix_caching is None:
-                # prefix_caching is still experimental
-                self.prefix_caching = False
-
-        elif self.is_huggingface_model():
-            if self.prefix_caching is None:
-                self.prefix_caching = True
 
         # argparse encodes string with unicode_escape, decode it to normal string, e.g., "\\n" -> "\n"
         if self.stop is not None:
@@ -626,16 +619,11 @@ def check_args(model_args: ModelArguments, dataset_args: DatasetArguments, evalu
         d not in DEFAULT_VLLM_DATASETS for d in dataset_args.dataset_names
     ):
         model_args.model_backend = "huggingface"
-        if not model_args.passed_in_commandline("prefix_caching"):
-            model_args.prefix_caching = True
 
     model_args.seed = int(evaluation_args.seed)
 
-    if dataset_args.batch_size == 1 and model_args.prefix_caching:
-        if model_args.is_local_model():
-            logger.warning(
-                "Prefix caching is not supported for batch_size=1, automatically set prefix_caching to False."
-            )
+    if dataset_args.batch_size == 1 and model_args.prefix_caching is None and model_args.is_huggingface_model():
+        logger.warning("Prefix caching is not supported for batch_size=1, automatically set prefix_caching to False.")
         model_args.prefix_caching = False
 
     # check models
@@ -644,14 +632,6 @@ def check_args(model_args: ModelArguments, dataset_args: DatasetArguments, evalu
         dataset_args.batch_size = 1
         logger.warning(
             f"chat/completions endpoint model {model_args.model_name_or_path} doesn't support batch_size > 1, automatically set batch_size to 1."
-        )
-
-    # vllm has its own prefix caching mechanism
-    if model_args.prefix_caching and "expandable_segments" not in os.environ.get(
-        "PYTORCH_CUDA_ALLOC_CONF", ""
-    ) and model_args.is_huggingface_model():
-        logger.warning(
-            f"Prefix caching might results in cuda memory fragmentation, which can be mitigated by setting `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True`. See https://pytorch.org/docs/stable/notes/cuda.html#environment-variables for details."
         )
 
     # check dataset
@@ -675,7 +655,7 @@ def check_args(model_args: ModelArguments, dataset_args: DatasetArguments, evalu
             "Instruction does not include any variable, so the input remains unchanged across the insatnces. Try to use f-string or jinja2 format to include variables like `{source}` or `{problem}`. See dataset documentation for details."
         )
 
-    if evaluation_args.dry_run and model_args.prefix_caching:
+    if evaluation_args.dry_run:
         model_args.prefix_caching = False
 
     args_ignored = set()
