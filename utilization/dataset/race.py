@@ -40,10 +40,6 @@ class Race(MultipleChoiceDataset):
     use_normalization = True
     normalization_prompt = "Article:\n\nQ: \nA:"
 
-    def init_arguments(self):
-        # TODO
-        self.prefix_caching = False
-
     def format_instance(self, instance):
         instance["target_idx"] = ord(instance["answer"]) - 65
         return instance

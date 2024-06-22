@@ -25,8 +25,10 @@ def add_space(
 
 
 def smart_space(parts: List[str], auto_leading_space: bool, remove_space_between: bool, seq: List[str]) -> str:
-    starts = [seq[role + "_start"] for role in ["system", "user", "assistant"]]
-    ends = [seq[role + "_end"] for role in ["system", "user", "assistant"]]
+    starts = [seq[role + "_start"] for role in ["system", "user", "assistant"] if (role + "_start") in seq]
+    ends = [seq[role + "_end"] for role in ["system", "user", "assistant"] if (role + "_end") in seq]
+    if "bos_token" in seq:
+        ends.append(seq["bos_token"])
     rendered = ""
     for part in parts:
         if part:
@@ -56,7 +58,7 @@ DEFAULT_CHAT_TEMPLATE = (
     "{%- set data.parts = data.parts + [seq[message['role'] + '_end']] -%}"
     "{%- endfor -%}"
     ""
-    "{%- if add_generation_prompt -%}"
+    "{%- if add_gen_prompt -%}"
     "{%- set data.parts = data.parts + [seq['assistant_start']] -%}"
     "{%- endif -%}"
     ""
@@ -69,7 +71,7 @@ DEFAULT_CHAT_TEMPLATE = (
 #   - messages: A list of dictionaries with the following keys:
 #   - seq: A dictionary with the `starts` and `ends` sequences of each role.
 #   - smart_space: A filter that controls the leading space of a string.
-#   - add_generation_prompt: Whether to prepend assistant_start after entire chat message.
+#   - add_gen_prompt: Whether to prepend assistant_start after entire chat message.
 #
 # or a dictionary with the following keys:
 #   - all_start: The string to prepend to the entire chat message.
@@ -97,13 +99,12 @@ DEFAULT_CHAT_CONFIGS: Dict[str, Union[Dict[str, Any], str]] = {
         "default_stop": [],
     },
     "llama2": {
-        "all_start": "<s>[INST] ",
         "system_start": "<<SYS>>\n",
         "system_end": "\n<</SYS>>\n\n",
-        "user_start": "",
+        "user_start": "<s>[INST] ",
         "user_end": " [/INST] ",
         "assistant_start": "",
-        "assistant_end": " </s><s>[INST] ",
+        "assistant_end": " </s>",
         "auto_leading_space": True,
         "final_rstrip": False,
         "remove_space_between": True,
@@ -134,6 +135,7 @@ DEFAULT_CHAT_CONFIGS: Dict[str, Union[Dict[str, Any], str]] = {
         "default_stop": ["</s>"],
     },
     "phi3": {
+        "all_start": "<s>",
         "system_start": "<|system|>\n",
         "system_end": "<|end|>\n",
         "user_start": "<|user|>\n",

@@ -1,4 +1,5 @@
 import time
+from functools import cached_property
 from logging import getLogger
 from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Tuple, Type, Union
 
@@ -49,6 +50,43 @@ class Model(ModelBackendMixin):
         self.args = args
         self.name = args.model_name_or_path
         self.model_type = args.model_type
+
+    @cached_property
+    def chat_template(self) -> Dict[str, Any]:
+        """Get the chat template for this model. Return a dictionary with the following keys:
+
+        - chat_template (str): The chat template name.
+        - special_tokens_map (optional, Dict[str, str]): The special tokens map."""
+        use_tokenizer = self.args.chat_template == "tokenizer"
+        if self.args.chat_template is not None and not use_tokenizer:
+            return {"chat_template": self.args.chat_template}
+
+        if self.is_local_model() and self.model_type == "chat":
+            special_tokens_map = getattr(self.tokenizer, "special_tokens_map", None)
+            tokenizer_template = getattr(self.tokenizer, "chat_template", None)
+            logger.debug(
+                f"Tokenizer template: {tokenizer_template}, special tokens map: {special_tokens_map}, use_tokenizer: {use_tokenizer}"
+            )
+            if tokenizer_template is not None and use_tokenizer:
+                logger.info(f"Automatically load chat_template to {tokenizer_template}.")
+                template = {"chat_template": tokenizer_template}
+                if special_tokens_map is not None:
+                    template["special_tokens_map"] = special_tokens_map
+                return template
+
+            from ..chat_templates import DEFAULT_CHAT_CONFIGS
+
+            model_name = self.name.lower().replace("-", "").replace("_", "")
+            logger.debug(f"model_name: {model_name}, DEFAULT_CHAT_CONFIGS: {DEFAULT_CHAT_CONFIGS.keys()}")
+            for config_name in DEFAULT_CHAT_CONFIGS:
+                if config_name in model_name:
+                    logger.info(f"Automatically set chat_template to {config_name}.")
+                    template = {"chat_template": config_name}
+                    if special_tokens_map is not None:
+                        template["special_tokens_map"] = special_tokens_map
+                    return template
+
+        return {"chat_template": None}
 
     def set_cacher(self, cacher: Any = None):
         r"""Set the cacher for this model. The cacher is used to cache the generated results for the model."""

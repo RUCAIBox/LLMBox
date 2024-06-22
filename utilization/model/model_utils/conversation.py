@@ -1,5 +1,6 @@
 from copy import deepcopy
 from functools import lru_cache
+from logging import getLogger
 from pprint import pformat
 from typing import Dict, Iterator, List, Literal, NewType, Optional, Tuple, Union
 
@@ -29,6 +30,8 @@ GenInputSplited = NewType(
     List[Union[Tuple[str, str], Tuple[str, str]]],
 )
 
+logger = getLogger(__name__)
+
 
 @lru_cache
 def _compile_jinja_template(chat_template):
@@ -48,17 +51,27 @@ class ConversationFormatter:
         self,
         chat_config: Dict[str, str],
         chat_template: str,
+        special_tokens_map: Optional[Dict[str, Union[str, List[str]]]] = None,
     ):
         self.default_stop = chat_config.pop("default_stop", [])
         self.auto_leading_space = chat_config.pop("auto_leading_space", True)
         self.final_lstrip = chat_config.pop("final_lstrip", True)
         self.final_rstrip = chat_config.pop("final_rstrip", True)
 
+        # api model does not need bos_token
+        if "bos_token" not in chat_config:
+            chat_config["bos_token"] = ""
+
         self.sequences = chat_config
         self.chat_template = chat_template
+        self.special_tokens_map = special_tokens_map or {}
 
     @classmethod
-    def from_chat_template(cls, chat_template: Optional[str]) -> "ConversationFormatter":
+    def from_chat_template(
+        cls,
+        chat_template: Optional[str],
+        special_tokens_map: Optional[Dict[str, Union[str, List[str]]]] = None,
+    ) -> "ConversationFormatter":
         if chat_template is None:
             chat_template = "base"
 
@@ -66,24 +79,30 @@ class ConversationFormatter:
             chat_config = DEFAULT_CHAT_CONFIGS[chat_template]
             chat_template = DEFAULT_CHAT_TEMPLATE
         else:
-            chat_config = {}
+            chat_config = {"final_rstrip": False}
 
         if not isinstance(chat_config, dict):
             chat_config = {}
             chat_template = chat_config
 
-        return cls(chat_config=chat_config, chat_template=chat_template)
+        if special_tokens_map is not None:
+            for key, value in special_tokens_map.items():
+                if key not in chat_config:
+                    chat_config[key] = value
+
+        return cls(chat_config=chat_config, chat_template=chat_template, special_tokens_map=special_tokens_map)
 
     @staticmethod
     def _apply_prompt_template(
         conversation: Union["Conversation", List[Dict[str, str]], List["Conversation"]],
         prompt_template: str,
-        add_generation_prompt: bool,
-        remove_generation_prompt: bool,
+        add_gen_prompt: bool,
+        remove_gen_prompt: bool,
         final_lstrip: bool,
         final_rstrip: bool,
         auto_leading_space: bool,
         sequences: Optional[Dict[str, str]],
+        special_tokens_map: Dict[str, Union[str, List[str]]],
     ) -> str:
         if isinstance(conversation, list):
             if len(conversation) == 0:
@@ -97,24 +116,30 @@ class ConversationFormatter:
         else:
             raise ValueError("Invalid conversation format")
 
-        add_generation_prompt = add_generation_prompt and messages[-1]["role"] != "assistant"
+        add_gen_prompt = add_gen_prompt and messages[-1]["role"] != "assistant"
 
         compiled_template = _compile_jinja_template(prompt_template)
 
-        rendered = compiled_template.render(
-            messages=messages,
-            auto_leading_space=auto_leading_space,
-            add_generation_prompt=add_generation_prompt,
-            seq=sequences,
-        )
+        try:
+            rendered = compiled_template.render(
+                messages=messages,
+                auto_leading_space=auto_leading_space,
+                add_gen_prompt=add_gen_prompt,
+                seq=sequences,
+                **special_tokens_map,
+            )
+        except TemplateError as e:
+            logger.error(f"Error in applying prompt template: {prompt_template}\nmessages={messages}\nseq={sequences}")
+            raise e
         if final_lstrip:
             rendered = rendered.lstrip()
         if final_rstrip:
             rendered = rendered.rstrip()
-        if remove_generation_prompt and messages[0]["role"] == "assistant" and rendered.startswith(
-            sequences['assistant_start']
-        ):
-            rendered = rendered[len(sequences['assistant_start']):]
+        if remove_gen_prompt and messages[0]["role"] == "assistant" and len(messages) == 1:
+            if rendered.startswith(sequences['assistant_start']):
+                rendered = rendered[len(sequences['assistant_start']):]
+            if rendered.endswith(sequences['assistant_end']):
+                rendered = rendered[:-len(sequences['assistant_end'])]
 
         return rendered
 
@@ -122,8 +147,8 @@ class ConversationFormatter:
         self,
         conversation: Union["Conversation", List[Dict[str, str]], List["Conversation"]],
         *,
-        add_generation_prompt: bool = False,
-        remove_generation_prompt: bool = False,
+        add_gen_prompt: bool = False,
+        remove_gen_prompt: bool = False,
         final_lstrip: Optional[bool] = None,
         final_rstrip: Optional[bool] = None,
     ) -> str:
@@ -137,12 +162,13 @@ class ConversationFormatter:
         return self._apply_prompt_template(
             conversation=conversation,
             prompt_template=self.chat_template,
-            add_generation_prompt=add_generation_prompt,
-            remove_generation_prompt=remove_generation_prompt,
+            add_gen_prompt=add_gen_prompt,
+            remove_gen_prompt=remove_gen_prompt,
             auto_leading_space=self.auto_leading_space,
             final_lstrip=final_lstrip,
             final_rstrip=final_rstrip,
             sequences=self.sequences,
+            special_tokens_map=self.special_tokens_map,
         )
 
     def _get_segs(self, conversations: List["Conversation"], max_turns: int = 1) -> Iterator[tuple]:
@@ -152,9 +178,9 @@ class ConversationFormatter:
             system = self.apply_prompt_template(conv.get_segs("system"), **kwargs)
             examples = self.apply_prompt_template(conv.get_segs("examples"), **kwargs)
             source = self.apply_prompt_template(
-                conv.get_segs("source")[:max_turns * 2 - 1], add_generation_prompt=True, **kwargs
+                conv.get_segs("source")[:max_turns * 2 - 1], add_gen_prompt=True, **kwargs
             )
-            target = self.apply_prompt_template(conv.get_segs("target"), remove_generation_prompt=True, **kwargs)
+            target = self.apply_prompt_template(conv.get_segs("target"), remove_gen_prompt=True, **kwargs)
             result = ()
             for seg in (system, examples, source, target):
                 if len(seg) > 0:
@@ -166,7 +192,13 @@ class ConversationFormatter:
             if self.final_rstrip:
                 result = result[:-1] + (result[-1].rstrip(),)
 
-            assert seg_num is None or seg_num == len(result)
+            # check prefix caching segments
+            if seg_num is not None and seg_num != len(result):
+                if conv.is_normalized:
+                    result = ("",) * (seg_num - len(result)) + result
+                else:
+                    raise ValueError(f"seg_num in conversation is not consistent: len({result}) != {seg_num}")
+
             seg_num = len(result)
             yield result + (conv.num_options,)
 
@@ -238,6 +270,7 @@ class Conversation(_HFConversation):
         formatter: Optional[ConversationFormatter] = None,
         model_evaluation_method: Optional[Literal["get_ppl", "get_prob", "generation", "user_defined"]] = None,
         split: Optional[bool] = None,
+        is_normalized: bool = False,
         **deprecated_kwargs
     ):
         super().__init__(messages, conversation_id, **deprecated_kwargs)
@@ -248,6 +281,7 @@ class Conversation(_HFConversation):
         self.formatter = formatter
         self.model_evaluation_method = model_evaluation_method
         self.split = split
+        self.is_normalized = is_normalized
 
     @classmethod
     def from_chat(cls, *, user: Optional[str] = None, assistant: Optional[str] = None) -> "Conversation":

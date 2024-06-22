@@ -156,7 +156,7 @@ class Dataset(torch.utils.data.Dataset, TokenizerUtilMixin, ICLUtilMixin):
         self.jinja2_env = jinja2.Environment()
         self.jinja2_env.globals.update(zip=zip)
         self.system_prompt = model.args.system_prompt
-        self.conversation_formatter = ConversationFormatter.from_chat_template(model.args.chat_template)
+        self.conversation_formatter = ConversationFormatter.from_chat_template(**model.chat_template)
 
         self._init_arguments()
 
@@ -368,7 +368,7 @@ class Dataset(torch.utils.data.Dataset, TokenizerUtilMixin, ICLUtilMixin):
                 f"Self-consistency only supports generation with temperature > 0, automatically set temperature = 1."
             )
 
-        if self.use_normalization and self.model_evaluation_method == "get_ppl":
+        if self.use_normalization and self.model_evaluation_method != "get_ppl":
             logger.warning("Normalization is only supported for PPL evaluation.")
 
         if self.multi_turn:
@@ -468,8 +468,10 @@ class Dataset(torch.utils.data.Dataset, TokenizerUtilMixin, ICLUtilMixin):
 
         self.total_prefix_num = conversations[0].get_segs_num()
         if self.total_prefix_num <= 1 and self.prefix_caching and self.model.is_huggingface_model():
-            logger.warning(
-                f"Setting prefix_caching to False, since the total prefix number is {self.total_prefix_num}."
+            warn_once(
+                logger,
+                f"Setting prefix_caching to False, since the total prefix number is {self.total_prefix_num}.",
+                identifier=f"total_prefix_num{self.total_prefix_num}"
             )
             self.prefix_caching = False
 
@@ -837,7 +839,13 @@ class DatasetCollection(torch.utils.data.Dataset):
         self._datasets_mapping = datasets
         self._cur_idx = 0
         self.args = self._datasets[0].args
-        ref_iter = lambda d: chain.from_iterable(repeat_iter([r], op) for r, op in zip(d.references, d.option_nums))
+
+        def ref_iter(d):
+            if d.model_evaluation_method == "get_ppl":
+                return chain.from_iterable(repeat_iter([r], op) for r, op in zip(d.references, d.option_nums))
+            else:
+                return d.references
+
         self._lines_iter = chain.from_iterable(
             zip_longest(range(d.len()), d.evaluation_instances, ref_iter(d)) for d in self._datasets
         )

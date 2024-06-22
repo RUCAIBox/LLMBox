@@ -31,10 +31,6 @@ class Arc(MultipleChoiceDataset):
     use_normalization = True
     normalization_prompt = "Question: \nAnswer:"
 
-    def init_arguments(self):
-        # TODO
-        self.prefix_caching = False
-
     def format_instance(self, instance):
         if instance["answerKey"].isdigit():
             instance["target_idx"] = ord(instance["answerKey"]) - ord("1")
