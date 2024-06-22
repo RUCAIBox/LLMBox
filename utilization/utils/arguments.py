@@ -562,6 +562,10 @@ class EvaluationArguments:
         default=None,
         help="The Hugging Face token for accessing to gated repositories",
     )
+    inference_only: bool = HfArg(
+        default=False,
+        help="Whether to skip metrics evaluation and only do inference",
+    )
 
     _redact = {"hf_token"}
 
