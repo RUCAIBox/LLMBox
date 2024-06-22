@@ -119,6 +119,11 @@ class Evaluator:
             raw_predictions.extend(batch_results)
             self.dataset.step(self.writer, dataloader, batch_results)
 
+        if self.evaluation_args.inference_only:
+            logger.warning(
+                f"Inference only mode, skip evaluation. Evaluate with flag `--continue_from {self.dataset_args.evaluation_results_path}`"
+            )
+            return {}
         if len(raw_predictions) != self.dataset.len():
             raise RuntimeError(
                 f"The number of results {len(raw_predictions)} should be equal to the number of samples in the dataset {self.dataset.len()}."
