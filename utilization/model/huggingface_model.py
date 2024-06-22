@@ -1,5 +1,6 @@
 import gc
 import json
+import os
 from logging import getLogger
 from typing import Iterator, List, Optional, Tuple, Union
 
@@ -30,7 +31,12 @@ _PostfixEncoding = Tuple[torch.Tensor, torch.Tensor, Optional[torch.Tensor], Lis
 
 def load_tokenizer(tokenizer_name_or_path: str, use_fast: bool, max_length: int = LARGE_POSITIVE):
     tokenizer = AutoTokenizer.from_pretrained(
-        tokenizer_name_or_path, use_fast=use_fast, padding_side="left", truncation_side="left", add_eos_token=False
+        tokenizer_name_or_path,
+        use_fast=use_fast,
+        padding_side="left",
+        truncation_side="left",
+        add_eos_token=False,
+        add_bos_token=False,  # add in chat_template
     )
 
     # TODO: [Important]!!! check for each tokenizer
@@ -160,6 +166,11 @@ class HuggingFaceModel(Model):
         self.model_max_input_and_output = self.tokenizer.model_max_length
 
         # model tests
+
+        if args.prefix_caching and "expandable_segments" not in os.environ.get("PYTORCH_CUDA_ALLOC_CONF", ""):
+            logger.warning(
+                f"Prefix caching might results in cuda memory fragmentation, which can be mitigated by setting `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True`. See https://pytorch.org/docs/stable/notes/cuda.html#environment-variables for details."
+            )
 
         try:
             self.model(position_ids=None)
@@ -451,6 +462,8 @@ class HuggingFaceModel(Model):
         self.loss_fct = CrossEntropyLoss(reduction="none")
         self.model_max_input = self.model_max_input_and_output - 1
         self.max_option_tokens = extra_model_args.pop("max_option_tokens", 128)
+
+        extra_model_args.pop("multi_turn", None)  # ignore
         if len(extra_model_args) > 0:
             logger.warning(f"Unused ppl arguments: {extra_model_args}")
 
@@ -504,10 +517,15 @@ class HuggingFaceModel(Model):
         if self.tokenizer.is_fast and self.support_char_to_token:
             src_lengths = [len("".join(pg[:-1])) for pg in batched_inputs]
             tgt_starts = [batched_encodings.char_to_token(i, l) for i, l in enumerate(src_lengths)]
-        if tgt_starts[0] is None:
-            src_prompts = ["".join(pg[:-1]) for pg in batched_inputs]
+        if any(st is None for st in tgt_starts):
+            src_prompts = ["".join(pg[:-1]) for pg, st in zip(batched_inputs, tgt_starts) if st is None]
             src_batched_encodings = self.tokenizer(src_prompts, truncation=True, return_attention_mask=False)
-            tgt_starts = [len(src_input_ids) for src_input_ids in src_batched_encodings.input_ids]
+
+            for i, src_ids in zip(
+                (i for i, st in enumerate(tgt_starts) if st is None),
+                src_batched_encodings.input_ids,
+            ):
+                tgt_starts[i] = len(src_ids)
             self.support_char_to_token = False
         ed = len(batched_encodings["input_ids"][0])
 
@@ -691,6 +709,7 @@ class HuggingFaceModel(Model):
 
         self.constant_option_num = extra_model_args.pop("constant_option_num", False)
 
+        extra_model_args.pop("multi_turn", None)  # ignore
         if len(extra_model_args) > 0:
             logger.warning(f"Unused prob arguments: {extra_model_args}")
 

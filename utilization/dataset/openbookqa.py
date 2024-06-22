@@ -28,10 +28,6 @@ class OpenBookQA(MultipleChoiceDataset):
     use_normalization = True
     normalization_prompt = "Q: \nA:"
 
-    def init_arguments(self):
-        # TODO
-        self.prefix_caching = False
-
     def format_instance(self, instance):
         instance["target_idx"] = ord(instance["answerKey"]) - 65
         instance["options"] = instance["choices"]['text']

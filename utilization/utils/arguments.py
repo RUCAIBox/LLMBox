@@ -191,7 +191,7 @@ class ModelArguments(ModelBackendMixin):
     chat_template: Optional[str] = HfArg(
         default=None,
         help=
-        "The chat template for local chat-based models. Support model default chate template (choose from 'base', 'llama2', 'chatml', 'zephyr', 'phi3', 'llama3', 'alpaca', ...) or standard HuggingFace tokenizers chat template",
+        "The chat template for local chat-based models. Support model default chate template (choose from 'base', 'tokenizer', 'llama2', 'chatml', 'zephyr', 'phi3', 'llama3', 'alpaca', ...) or standard HuggingFace tokenizers chat template",
     )
 
     bnb_config: Optional[str] = HfArg(default=None, help="JSON string for BitsAndBytesConfig parameters.")
@@ -380,6 +380,9 @@ class ModelArguments(ModelBackendMixin):
             self.system_prompt = self.system_prompt.encode('utf-8').decode('unicode_escape')
         if self.chat_template is not None:
             self.chat_template = self.chat_template.encode('utf-8').decode('unicode_escape')
+            if self.chat_template.endswith('jinja') and os.path.exists(self.chat_template):
+                with open(self.chat_template, "r") as f:
+                    self.chat_template = f.read()
 
         # ============= Set chat model and chat-templates =============
 
@@ -392,14 +395,6 @@ class ModelArguments(ModelBackendMixin):
                 raise ValueError(
                     "The chat_template is only available for chat-based model. Please use a chat model and set `--model_type chat`."
                 )
-
-        model_name = self.model_name_or_path.lower().replace("-", "").replace("_", "")
-        if self.is_local_model() and self.chat_template is None and self.model_type == "chat":
-            for config_name in DEFAULT_CHAT_CONFIGS:
-                if config_name in model_name:
-                    self.chat_template = config_name
-                    logger.info(f"Automatically set chat_template to {config_name}.")
-                    break
 
 
 @dataclass

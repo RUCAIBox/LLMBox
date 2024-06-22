@@ -68,7 +68,7 @@ class Openai(ApiModel):
         self.ppl_kwargs = dict(echo=True, max_tokens=0, logprobs=0)
 
         if len(extra_model_args) > 0:
-            logger.warning(f"Unused generation arguments: {extra_model_args}")
+            logger.warning(f"Unused ppl arguments: {extra_model_args}")
         return self.ppl_kwargs
 
     def set_prob_args(self, **extra_model_args):
@@ -85,7 +85,7 @@ class Openai(ApiModel):
         self.constant_option_num = extra_model_args.pop("constant_option_num", False)
 
         if len(extra_model_args) > 0:
-            logger.warning(f"Unused generation arguments: {extra_model_args}")
+            logger.warning(f"Unused prob arguments: {extra_model_args}")
         return self.prob_kwargs
 
     def _get_label_ids(self, option_num: Optional[int]) -> Tuple[List[int], List[str]]:

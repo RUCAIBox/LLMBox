@@ -41,7 +41,7 @@ class vllmModel(Model):
 
     model_backend = "vllm"
 
-    _repr = ["model_type", "model_backend", "candidate_ids"]
+    _repr = ["model_type", "model_backend", "candidate_ids", "multi_turn", "use_cache"]
 
     def __init__(self, args: "ModelArguments", **kwargs):
         super().__init__(args)
@@ -60,6 +60,7 @@ class vllmModel(Model):
             quantization="gptq" if args.gptq else None,
             trust_remote_code=True,
             seed=args.seed,
+            max_logprobs=40,  # https://github.com/vllm-project/vllm/issues/5299
             **kwargs
         )  # type: ignore
         self.tokenizer = self.model.get_tokenizer()
@@ -68,7 +69,11 @@ class vllmModel(Model):
             self.model.llm_engine.model_config.max_model_len,
             getattr(args, "max_length") or 1e10
         )
-        self.tokenizer.chat_template = args.chat_template
+        if hasattr(self.tokenizer, "add_bos_token"):
+            # add in chat_template
+            setattr(self.tokenizer, "add_bos_token", False)
+        if hasattr(self.tokenizer, "add_eos_token"):
+            setattr(self.tokenizer, "add_eos_token", False)
 
     @property
     def use_cache(self):
@@ -86,8 +91,10 @@ class vllmModel(Model):
             self.use_cache = False
 
         self.ppl_kwargs = SamplingParams(max_tokens=1, prompt_logprobs=0)
+
+        extra_model_args.pop("multi_turn", None)  # ignore
         if len(extra_model_args) > 0:
-            logger.warning(f"Unused generation arguments: {extra_model_args}")
+            logger.warning(f"Unused ppl arguments: {extra_model_args}")
         return self.ppl_kwargs
 
     def get_ppl(self, batched_inputs):
@@ -157,8 +164,10 @@ class vllmModel(Model):
         self.prob_kwargs = SamplingParams(max_tokens=1, temperature=0)
         self.candidate_ids = extra_model_args.pop("candidate_ids", None)
 
+        extra_model_args.pop("multi_turn", None)  # ignore
+        extra_model_args.pop("constant_option_num", None)  # ignore
         if len(extra_model_args) > 0:
-            logger.warning(f"Unused generation arguments: {extra_model_args}")
+            logger.warning(f"Unused prob arguments: {extra_model_args}")
         return self.prob_kwargs
 
     def _set_candidate_ids(self, option_num: int):
@@ -187,7 +196,7 @@ class vllmModel(Model):
                 cur_candidate_ids = self.word_labels[:option_num] + self.token_labels[:option_num]
             else:
                 cur_candidate_ids = self.candidate_ids
-            prob = torch.tensor([result.outputs[0].logprobs[0][idx] for idx in cur_candidate_ids])
+            prob = torch.tensor([result.outputs[0].logprobs[0][idx].logprob for idx in cur_candidate_ids])
             prob = torch.softmax(prob, dim=0).tolist()
             answers.append(prob)
         return answers

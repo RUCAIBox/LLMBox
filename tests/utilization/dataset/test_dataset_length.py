@@ -7,9 +7,11 @@ from torch.utils.data import DataLoader
 from ..fixtures import DatasetCollection, PredictionWriter, dynamic_stride_tqdm, get_dataset, get_openai_model
 
 datasets = [
-    ("mmlu:abstract_algebra", 4),
-    ("gpqa", 4),
-    ("gsm8k", 1),
+    ("mmlu:abstract_algebra", 4, "ppl_no_option"),
+    ("mmlu:abstract_algebra", 4, "ppl"),
+    ("mmlu:abstract_algebra", 1, "prob"),
+    ("openbookqa", 4, "ppl_no_option"),  # acc:norm
+    ("gsm8k", 1, "generation"),
 ]
 
 
@@ -24,16 +26,16 @@ class FakeWriter(PredictionWriter):
         self.f.write("\n")
 
 
-@pytest.mark.parametrize("dataset, num_options", datasets)
-def test_dataset_length(get_dataset, dataset, num_options):
-    d = get_dataset(dataset, 0, batch_size=16, model_backend="openai")
+@pytest.mark.parametrize("dataset, num_options, ranking_type", datasets)
+def test_dataset_length(get_dataset, dataset, num_options, ranking_type):
+    d = get_dataset(dataset, 0, batch_size=16, model_backend="openai", ranking_type=ranking_type)
     dataset = DatasetCollection({dataset: d})
     assert len(list(dataset._lines_iter)) == len(list(dataset))
 
     dataset = DatasetCollection({dataset: d})
     num_instances = len(list(dataset))
     num_questions = len(dataset.evaluation_data)
-    assert num_instances == num_questions * num_options
+    assert num_instances == num_questions * num_options * (2 if dataset.name == "openbookqa" else 1)
     assert num_instances == sum(dataset.strides)
     assert num_questions == len(dataset.strides)
     assert dataset._lines_iter
