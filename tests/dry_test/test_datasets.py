@@ -9,7 +9,7 @@ nltk.download('punkt')
 
 datasets = {
     "agieval": [],
-    "alpaca_eval": "skip",
+    "alpaca_eval": ["--inference_only", "--openai_api_key", "fake-key"],
     "anli": [],
     "arc": [],
     "bbh": [],
@@ -36,7 +36,7 @@ datasets = {
     "mbpp": ["--pass_at_k", "1"],
     "mmlu": [],
     "mrpc": [],
-    "mt_bench": "skip",
+    "mt_bench": ["--inference_only", "--openai_api_key", "fake-key"],
     "nq": [],
     "openbookqa": [],
     "penguins_in_a_table": [],
@@ -55,7 +55,7 @@ datasets = {
     "triviaqa": [],
     "truthfulqa_mc": [],
     "tydiqa": [],
-    "vicuna_bench": "skip",  # gpteval
+    "vicuna_bench": ["--inference_only", "--openai_api_key", "fake-key"],
     "webq": [],
     "wic": [],
     "winogender": [],

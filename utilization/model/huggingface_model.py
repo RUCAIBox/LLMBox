@@ -188,6 +188,7 @@ class HuggingFaceModel(Model):
         except ValueError:
             self.support_cache = True
 
+        self.support_cache = self.support_cache and args.prefix_caching is True
         self.support_char_to_token = True
 
     @property

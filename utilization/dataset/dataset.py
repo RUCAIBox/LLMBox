@@ -147,7 +147,7 @@ class Dataset(torch.utils.data.Dataset, TokenizerUtilMixin, ICLUtilMixin):
         self.cot = args.cot
         self.ranking_type = args.ranking_type
         self.model_type = model.model_type
-        self.prefix_caching = model.args.prefix_caching
+        self.prefix_caching = model.support_cache
         if self.prefix_caching is None:
             self.prefix_caching = True
         self.instance_format = "{source}{target}"
@@ -322,8 +322,7 @@ class Dataset(torch.utils.data.Dataset, TokenizerUtilMixin, ICLUtilMixin):
                 support = [m for m, r in zip(methods, requireds) if all(a in endpoint_schema for a in r)]
                 if self.model_evaluation_method not in support:
                     warn_once(
-                        logger,
-                        f"Model {self.model.args.model_name_or_path} does not support {self.model_evaluation_method}, "
+                        logger, f"Model {self.model.name} does not support {self.model_evaluation_method}, "
                         f"automatically switch to {support[0]}.",
                         identifier=self.model_evaluation_method + support[0]
                     )

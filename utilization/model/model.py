@@ -105,6 +105,7 @@ class Model(ModelBackendMixin):
 
     @property
     def use_cache(self) -> bool:
+        """Whether to use the cache for this model. This should be used during iterating the dataset."""
         return self.support_cache and self.cacher is not None
 
     @use_cache.setter
