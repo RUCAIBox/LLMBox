@@ -1,7 +1,7 @@
 import os
 import sys
 
-sys.path.append(".")
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 from utilization import DatasetArguments, ModelArguments, get_evaluator, register_dataset

@@ -5,7 +5,7 @@ import qianfan
 from qianfan.resources.typing import QfResponse
 
 from ..utils import ModelArguments
-from .model import ApiModel, RaiseError, RetryError, SkipError
+from .model import ApiModel, RaiseError, RetryError, SkipError, ensure_type
 
 logger = getLogger(__name__)
 
@@ -51,6 +51,7 @@ class Qianfan(ApiModel):
             return RaiseError
 
     @staticmethod
+    @ensure_type(str)
     def _get_assistant(msg: QfResponse) -> str:
         return msg.body["result"]
 

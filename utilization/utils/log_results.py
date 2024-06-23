@@ -61,6 +61,8 @@ class PredictionWriter:
         model_args: "ModelArguments",
         dataset_args: "DatasetArguments",
         evaluation_args: "EvaluationArguments",
+        continue_from: Optional[str] = None,
+        load_continue_from: bool = True,
     ):
         self.model_args = model_args
         self.dataset_args = dataset_args
@@ -76,11 +78,16 @@ class PredictionWriter:
                 f.write(json.dumps(metainfo, ensure_ascii=False) + "\n")
 
         self.continue_from_instance = None
-        self.continue_from_path = self.evaluation_args.continue_from
+        if not load_continue_from:
+            self.continue_from_path = None
+            return
+
+        self.continue_from_path = continue_from or self.evaluation_args.continue_from
         if self.continue_from_path:
             self.continue_from_instance = self.check_continue()
 
-        if self.continue_from_instance is not None:
+        # load num instances
+        if self.continue_from_instance is not None and continue_from is None:
             self.dataset_args.continue_from = self.continue_from_instance
 
     def alive(self):

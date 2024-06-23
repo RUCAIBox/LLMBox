@@ -97,6 +97,8 @@
     "tests/utilization/model/test_apply_prompt_template.py::test_no_smart_space": 0.0017823278903961182,
     "tests/utilization/model/test_apply_prompt_template.py::test_smart_space": 0.0016713934019207954,
     "tests/utilization/model/test_apply_prompt_template.py::test_tokenizer_chat_template": 0.5478693814948201,
+    "tests/utilization/model/test_ensure_type.py::test_ensure_type_list": 0.0005008839070796967,
+    "tests/utilization/model/test_ensure_type.py::test_ensure_type_str": 0.3512640204280615,
     "tests/utilization/model/test_to_model_prompt.py::test_to_model_prompt[generation-False]": 0.0020645475015044212,
     "tests/utilization/model/test_to_model_prompt.py::test_to_model_prompt[generation-True]": 0.0018382547423243523,
     "tests/utilization/model/test_to_model_prompt.py::test_to_model_prompt[get_ppl-False]": 0.0018322393298149109,

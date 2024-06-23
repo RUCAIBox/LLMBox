@@ -554,6 +554,10 @@ class EvaluationArguments:
         default=None,
         help="The path to the evaluation results to continue from",
     )
+    gpteval_continue_from: Optional[str] = HfArg(
+        default=None,
+        help="The path to the GPTEval evaluation results to continue from",
+    )
     hf_username: Optional[str] = HfArg(
         default=None,
         help="The Hugging Face username for accessing to gated repositories",

@@ -1,9 +1,10 @@
+import os
 import sys
 
 import torch
 from transformers import LlamaForCausalLM
 
-sys.path.append(".")
+sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))
 from utilization import DatasetArguments, ModelArguments, get_evaluator
 
 
