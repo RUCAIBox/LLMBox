@@ -37,7 +37,7 @@ class FakeModel(ApiModel):
 
 def test_ensure_type_str():
 
-    args = ModelArguments(model_name_or_path="gpt-3.5-turbo")
+    args = ModelArguments(model_name_or_path="gpt-3.5-turbo", openai_api_key="fake-key")
     model = FakeModel(args)
 
     with pytest.raises(EnsureTypeError):
@@ -48,7 +48,7 @@ def test_ensure_type_str():
 
 def test_ensure_type_list():
 
-    args = ModelArguments(model_name_or_path="gpt-3.5-turbo")
+    args = ModelArguments(model_name_or_path="gpt-3.5-turbo", openai_api_key="fake-key")
     model = FakeModel(args)
 
     with pytest.raises(EnsureTypeError):
