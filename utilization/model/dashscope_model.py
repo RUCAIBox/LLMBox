@@ -5,7 +5,7 @@ import dashscope
 from dashscope.api_entities.dashscope_response import GenerationResponse
 
 from ..utils import ModelArguments
-from .model import ApiModel, RaiseError, RetryError, SkipError
+from .model import ApiModel, RaiseError, RetryError, SkipError, ensure_type
 
 logger = getLogger(__name__)
 
@@ -60,6 +60,7 @@ class Dashscope(ApiModel):
             return RaiseError
 
     @staticmethod
+    @ensure_type(str)
     def _get_assistant(msg: GenerationResponse) -> str:
         if msg.output.choices:
             return msg.output.choices[0].message.content

@@ -1,11 +1,13 @@
 import time
-from functools import cached_property
+from functools import cached_property, wraps
 from logging import getLogger
 from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Tuple, Type, Union
 
 import tiktoken
 from tiktoken import Encoding
 from transformers import PreTrainedModel, PreTrainedTokenizer, PreTrainedTokenizerFast
+
+from utilization.utils.logging import passed_in_commandline
 
 from ..model_enum import API_MODELS, ENDPOINT_ARGS, ERROR_OVERVIEW
 from ..utils import ModelArguments, resolve_generation_args
@@ -186,6 +188,38 @@ class RaiseError(Exception):
     pass
 
 
+class EnsureTypeError(Exception):
+    """Ensure the type of the return value."""
+
+    pass
+
+
+class SkipResponse(str):
+    pass
+
+
+def ensure_type(type_):
+    """Ensure the type of the return value. If the return value is not the expected type, raise an EnsureTypeError."""
+
+    def decorator(func):
+
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            if len(args) == 1 and len(kwargs) == 0 and func.__name__ == "_get_assistant" and isinstance(
+                args[0], SkipResponse
+            ):
+                return str(args[0])
+
+            results = func(*args, **kwargs)
+            if not isinstance(results, type_):
+                raise EnsureTypeError(f"Expected {type_}, but got {type(results)}. {func.__name__}: {args}, {kwargs}")
+            return results
+
+        return wrapper
+
+    return decorator
+
+
 class ApiModel(Model):
 
     model_backend: Literal["anthropic", "dashscope", "openai", "qianfan"]
@@ -201,8 +235,13 @@ class ApiModel(Model):
     endpoint: Literal["completions", "chat/completions"]
 
     _retry_errors: Tuple[Type[Exception], ...]
+    """Retry the current request for max_retry_times. Most likely due to rate limit or internet issues."""
+
     _raise_errors: Tuple[Type[Exception], ...]
+    """Retry the current request for once and then skip. If the error persists, raise the error. Due with most complicated issues."""
+
     _skip_errors: Tuple[Type[Exception], ...]
+    """Skip the current request whenever catches these errors. Most likely due to inappropriate content."""
 
     def __init__(self, args: ModelArguments):
         super().__init__(args)
@@ -219,6 +258,9 @@ class ApiModel(Model):
             self.endpoint = API_MODELS[args.model_name_or_path]["endpoint"]
         else:
             self.endpoint = "chat/completions"
+        self._retries_before_raise = 0
+        if EnsureTypeError not in self._raise_errors:
+            self._raise_errors = self._raise_errors + (EnsureTypeError,)
 
     def _completions(self, *, prompt, model, **kwargs):
         """completions endpoint adapter."""
@@ -293,7 +335,9 @@ class ApiModel(Model):
             try:
                 if self.endpoint == "completions":
                     assert not multi_turn
-                    return self._completions(prompt=prompt, model=self.name, **model_kwargs)
+                    results = self._completions(prompt=prompt, model=self.name, **model_kwargs)
+                    self._retries_before_raise = 0
+                    return results
                 elif self.endpoint == "chat/completions":
                     assert (len(prompt) == 1), "Chat completions does not support batch input."
                     conversation = prompt[0]
@@ -319,10 +363,9 @@ class ApiModel(Model):
                         results.append(response)
                         content = self._get_assistant(response)
                         conversation.add_multi_turn(assistant=content)
+                    self._retries_before_raise = 0
                     return results
 
-                # reset retry_times counter
-                retry_times = 0
             except self._retry_errors as e:
                 logger.warning(f"Receive {e.__class__.__name__}: {str(e)}, retrying...")
                 retry_times += 1
@@ -333,11 +376,19 @@ class ApiModel(Model):
                 error_msg = e.__class__.__name__ + ": " + str(e)
                 if e.__class__.__name__ in ERROR_OVERVIEW:
                     error_msg += "\n" + ERROR_OVERVIEW.get(e.__class__.__name__)
-                raise ConnectionError(error_msg)
+                self._retries_before_raise += 1
+                if self._retries_before_raise > self.max_retry_times:
+                    raise ConnectionError(error_msg)
+                elif self._retries_before_raise == 1:
+                    logger.warning(f"Receive {e.__class__.__name__}: {str(e)}, retrying...")
+                    time.sleep(1)
+                else:
+                    logger.warning(f"Receive {e.__class__.__name__}: {str(e)}, skipping...")
+                    return [SkipResponse()]
 
             except self._skip_errors as e:
                 logger.warning(f"Receive {e.__class__.__name__}: {str(e)}, skipping...")
-                return [""]
+                return [SkipResponse()]
 
             except Exception as e:
                 logger.warning(f"Receive {e.__class__.__name__}: {str(e)}, retrying...")

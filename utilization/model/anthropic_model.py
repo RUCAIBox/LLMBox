@@ -5,7 +5,7 @@ import anthropic
 from anthropic.types import Message
 
 from ..utils import ModelArguments
-from .model import ApiModel
+from .model import ApiModel, ensure_type
 
 logger = getLogger(__name__)
 
@@ -38,9 +38,11 @@ class Anthropic(ApiModel):
 
         self.model = anthropic.Anthropic(api_key=args.anthropic_api_key, base_url=base_url)
 
+    @ensure_type(list)
     def _chat_completions(self, *, messages, model, **kwargs):
         return self.model.messages.create(messages=messages, model=model, **kwargs)
 
     @staticmethod
+    @ensure_type(str)
     def _get_assistant(msg: Message) -> str:
         return msg.content[0].text

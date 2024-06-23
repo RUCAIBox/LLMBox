@@ -1,15 +1,14 @@
 import os
 import re
-from copy import copy
 from logging import getLogger
-from typing import Any, List, Optional, Tuple, Union
+from typing import List, Optional, Tuple, Union
 
 import openai
 from openai.types import CompletionChoice
 from openai.types.chat.chat_completion import Choice
 
 from ..utils import ModelArguments
-from .model import ApiModel
+from .model import ApiModel, SkipResponse, ensure_type
 
 logger = getLogger(__name__)
 
@@ -41,6 +40,7 @@ class Openai(ApiModel):
 
         self.model = openai.OpenAI(api_key=openai.api_key, base_url=base_url)
 
+    @ensure_type(list)
     def _chat_completions(self, *, messages, model, **kwargs):
         results = openai.chat.completions.create(messages=messages, model=model, **kwargs)
         if hasattr(results, "choices"):
@@ -48,6 +48,7 @@ class Openai(ApiModel):
         else:
             raise ValueError(f"Unexpected response from OpenAI API: {results}")
 
+    @ensure_type(list)
     def _completions(self, **kwargs):
         results = openai.completions.create(**kwargs)
         if hasattr(results, "choices"):
@@ -56,11 +57,14 @@ class Openai(ApiModel):
             raise ValueError(f"Unexpected response from OpenAI API: {results}")
 
     @staticmethod
+    @ensure_type(str)
     def _get_assistant(msg: Union[List[Choice], CompletionChoice]) -> str:
         if isinstance(msg, CompletionChoice):
             return msg.text
-        else:
+        elif isinstance(msg, list) and len(msg) > 0:
             return msg[0].message.content
+        else:
+            return None
 
     def set_ppl_args(self, **extra_model_args):
         r"""Set the configurations for PPL score calculation."""

@@ -1,8 +1,9 @@
 import datetime
 import os
 import re
+from itertools import zip_longest
 from logging import getLogger
-from typing import TYPE_CHECKING, Dict, List, Literal, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Literal, Tuple
 
 import numpy as np
 import openai
@@ -49,7 +50,7 @@ class GPTEval(Metric):
             model_name_or_path=self.gpteval_model,  # use it to judge the model.
             max_tokens=1024,
             temperature=0,
-            openai_api_key=openai.api_key
+            openai_api_key=openai.api_key,
         )
         self.min_scoring = 1
         self.max_scoring = 10
@@ -60,8 +61,16 @@ class GPTEval(Metric):
     ):
         execution_time = datetime.datetime.now().strftime(DEFAULT_DATETIME_FORMAT)
         log_filename = f"{self.gpteval_model}-gpteval-{execution_time}.json"
-        gpteval_path = os.path.join(evaluation_args.evaluation_results_dir, log_filename)
-        self.gpteval_writer = PredictionWriter(gpteval_path)
+        self.gpteval_path = os.path.join(evaluation_args.evaluation_results_dir, log_filename)
+
+        self.gpteval_writer = PredictionWriter(self.gpteval_path)
+        self.gpteval_writer.write_metainfo(
+            model_args,
+            dataset_args,
+            evaluation_args,
+            evaluation_args.gpteval_continue_from,
+            load_continue_from=evaluation_args.gpteval_continue_from is not None,
+        )
 
     def __call__(self, predictions: List[Tuple[str, str]], references: List[Dict[str, str]]):
 
@@ -72,10 +81,16 @@ class GPTEval(Metric):
         self.model.set_generation_args()
         logger.info(f"GPTEval results will be saved to {self.gpteval_writer.evaluation_path}")
 
+        if self.gpteval_writer.continue_from_path:
+            logger.warning(f"GPTEval continue from {self.gpteval_writer.continue_from_path}")
+            continue_from = list(self.gpteval_writer.load_continue())
+        else:
+            continue_from = []
+
         if self.type == "single":
-            ratings = self._get_single_ratings(predictions, references)
+            ratings = self._get_single_ratings(predictions, references, continue_from)
         elif self.type == "pairwise":
-            ratings = self._get_pairwise_ratings(predictions, references)
+            ratings = self._get_pairwise_ratings(predictions, references, continue_from)
         else:
             raise ValueError(f"{self.type} does not exists, please check the type")
         score_list = np.array(ratings)
@@ -85,14 +100,24 @@ class GPTEval(Metric):
     def _generation(self, prompt):
         try:
             return self.model.generation([prompt])
-        except openai.BadRequestError as e:  # continue to generate the response
-            logger.warning(f"Failed to generate GPTEval response: {e}")
-            return [str(self.min_scoring)]
+        except ConnectionError as e:  # continue to generate the response
+            if "BadRequest" in str(e) or "inappropriate" in str(e):
+                logger.warning(f"Failed to generate GPTEval response: {e}")
+                return [str(self.min_scoring)]
 
-    def _get_single_ratings(self, predictions: List[Tuple[str, str]], references: List[Dict[str, str]]):
+            logger.error(f"Failed to generate GPTEval response: {e}\n--gpteval_continue_from {self.gpteval_path}")
+            raise e
+
+    def _get_single_ratings(
+        self,
+        predictions: List[Tuple[str, str]],
+        references: List[Dict[str, str]],
+        continue_from: List[Any],
+    ):
         responses = []
         lines_iter = iter(zip(range(len(references)), predictions, references))
-        for pred, refer in tqdm(zip(predictions, references), desc="Judging", total=len(predictions)):
+        dataloader = zip_longest(predictions, references, continue_from)
+        for pred, refer, con in tqdm(dataloader, desc="Judging", total=len(predictions)):
             if "ref_answer_1" not in refer:
                 user_prompt = SINGLE_JUDGE_PROMPT_MT.format(
                     question_1=refer["question_1"], answer_1=pred[0], question_2=refer["question_2"], answer_2=pred[1]
@@ -108,7 +133,12 @@ class GPTEval(Metric):
                 ) if self.multi_turn else SINGLE_JUDGE_PROMPT_MATH.format(
                     question=refer["turns"][0], ref_answer_1=refer["ref_answer_1"], answer=pred
                 )
-            resp = self._generation(user_prompt)
+            if con is None:
+                resp = self._generation(user_prompt)
+            elif isinstance(con, list):
+                resp = con
+            else:
+                raise ValueError(f"Invalid continue_from: {con}")
             self.gpteval_writer.log_batch_results([resp], False, lines_iter)
             responses.extend(resp)
 
@@ -128,14 +158,25 @@ class GPTEval(Metric):
                 logger.warning(f"Failed to extract rating from response: {response}")
         return ratings
 
-    def _get_pairwise_ratings(self, predictions: List[Tuple[str, str]], references: List[Dict[str, str]]):
+    def _get_pairwise_ratings(
+        self,
+        predictions: List[Tuple[str, str]],
+        references: List[Dict[str, str]],
+        continue_from: List[Any],
+    ):
         responses = []
         lines_iter = iter(zip(range(len(references)), predictions, references))
-        for pred, refer in tqdm(zip(predictions, references), desc="Judging", total=len(predictions)):
+        dataloader = zip_longest(predictions, references, continue_from)
+        for pred, refer, con in tqdm(dataloader, desc="Judging", total=len(predictions)):
             current_prompt = PAIRWISE_JUDGE_PROMPT.format(
                 question=refer["instruction"], answer_a=refer["output"], answer_b=pred
             )
-            resp = self._generation(current_prompt)
+            if con is None:
+                resp = self._generation(current_prompt)
+            elif isinstance(con, list):
+                resp = con
+            else:
+                raise ValueError(f"Invalid continue_from: {con}")
             self.gpteval_writer.log_batch_results([resp], False, lines_iter)
             responses.extend(resp)
 
@@ -150,7 +191,9 @@ class GPTEval(Metric):
                     ratings.append(1.0)
                 else:
                     ratings.append(0.5)
+            elif "Assistant A is better" in response or "Assistant A is the better" in response:
+                ratings.append(0)
             else:
-                logger.warning(f"Failed to extract rating from response: {response}")
+                logger.warning(f"Failed to extract rating from response (rating=0.5): {response}")
                 ratings.append(0.5)
         return ratings
