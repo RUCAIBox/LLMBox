@@ -8,7 +8,8 @@
 
 - CLI Usage: [Utilization](https://github.com/RUCAIBox/LLMBox/tree/main/utilization)
 - Reproduction: [test.sh](https://github.com/RUCAIBox/LLMBox/blob/main/test.sh)
-<!-- - [Example: Benchmarking LLaMA-3](https://github.com/RUCAIBox/LLMBox/blob/main/docs/examples/benchmarking_llama3.md) -->
+- [Benchmarking LLaMA-3](https://github.com/RUCAIBox/LLMBox/blob/main/docs/utilization/benchmarking_llama3.md)
+    - Full test scripts: [benchmarking_llama3.sh](https://github.com/RUCAIBox/LLMBox/tree/main/docs/examples/benchmarking_llama3.sh).
 - [Trouble Shooting: Debug an evaluation run](https://github.com/RUCAIBox/LLMBox/blob/main/docs/trouble_shooting/debug_evaluation_run.md)
 
 ### Datasets
@@ -16,8 +17,13 @@
 - [Supported datasets](https://github.com/RUCAIBox/LLMBox/blob/main/docs/utilization/supported-datasets.md)
 - [How to load datasets with subsets](https://github.com/RUCAIBox/LLMBox/blob/main/docs/utilization/how-to-load-datasets-with-subsets.md)
 - [How to load datasets from HuggingFace](https://github.com/RUCAIBox/LLMBox/blob/main/docs/utilization/how-to-load-datasets-from-huggingface.md)
+
+- [How to load dataset GPQA](https://github.com/RUCAIBox/LLMBox/blob/main/docs/utilization/how-to-load-dataset-gpqa.md)
+- [Example: run_gpt_eval.py](https://github.com/RUCAIBox/LLMBox/blob/main/docs/examples/run_gpt_eval.py)
+
 - [How to customize dataset](https://github.com/RUCAIBox/LLMBox/blob/main/docs/utilization/how-to-customize-dataset.md)
-- [Example: Customize dataset](https://github.com/RUCAIBox/LLMBox/blob/main/docs/examples/customize_dataset.py)
+    - [Example: customize_dataset.py](https://github.com/RUCAIBox/LLMBox/blob/main/docs/examples/customize_dataset.py)
+
 
 ### Models
 

@@ -130,6 +130,8 @@ CUDA_VISIBLE_DEVICES=0 python inference.py \
   --ranking_type ppl_no_option
 ```
 
+See [benchmarking LLaMA3](https://github.com/RUCAIBox/LLMBox/blob/main/docs/utilization/benchmarking_llama3.md) for more examples.
+
 <table>
     <tr>
         <td colspan=4 align="center"><b>Performance</b></td>
