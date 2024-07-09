@@ -127,7 +127,7 @@ files=$(git lfs ls-files | cut -d ' ' -f 3-)
 declare -a urls
 
 while IFS= read -r file; do
-    if [ ! $file ]; then
+    if [ -z "$file" ]; then
         continue
     fi
     url="$HF_ENDPOINT/$MODEL_ID/resolve/main/$file"
@@ -148,7 +148,7 @@ done <<< "$files"
 
 for url_file in "${urls[@]}"; do
     IFS='|' read -r url file <<< "$url_file"
-    if [[ -n "$file" ]]; then
+    if [[ -z "$file" ]]; then
         continue
     fi
     printf "${YELLOW}Start downloading ${file}.\n${NC}"
