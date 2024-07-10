@@ -6,7 +6,6 @@ from typing import Dict, Iterator, List, Literal, NewType, Optional, Tuple, Unio
 
 from jinja2.exceptions import TemplateError
 from jinja2.sandbox import ImmutableSandboxedEnvironment
-from transformers.pipelines.conversational import Conversation as _HFConversation
 
 from ...chat_templates import DEFAULT_CHAT_CONFIGS, DEFAULT_CHAT_TEMPLATE, add_space, smart_space
 
@@ -257,12 +256,11 @@ class ConversationFormatter:
             raise ValueError(f"Invalid model_evaluation_method: {model_evaluation_method}")
 
 
-class Conversation(_HFConversation):
+class Conversation:
 
     def __init__(
         self,
         messages: Union[str, List[Dict[str, str]], None] = None,
-        conversation_id=None,
         num_turns: int = 1,
         num_shots: int = 0,
         num_options: int = 1,
@@ -273,7 +271,7 @@ class Conversation(_HFConversation):
         is_normalized: bool = False,
         **deprecated_kwargs
     ):
-        super().__init__(messages, conversation_id, **deprecated_kwargs)
+        self.messages = messages if isinstance(messages, list) else []
         self.num_turns = num_turns
         self.num_shots = num_shots
         self.num_options = num_options
@@ -395,6 +393,7 @@ class Conversation(_HFConversation):
 
         if self.num_turns < max_turns:
             return None
+        assert self.formatter is not None, "Please set formatter before converting to model prompt."
 
         return self.formatter.to_model_prompts(
             [self],
@@ -456,6 +455,4 @@ class Conversation(_HFConversation):
         return self
 
     def __repr__(self):
-        output = f"Conversation id: {self.uuid}\n"
-        output += pformat(self.messages)
-        return output
+        return "Conversation(\n" + pformat(self.messages) + ")"
