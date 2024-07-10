@@ -269,7 +269,6 @@ class Conversation:
         model_evaluation_method: Optional[Literal["get_ppl", "get_prob", "generation", "user_defined"]] = None,
         split: Optional[bool] = None,
         is_normalized: bool = False,
-        **deprecated_kwargs
     ):
         self.messages = messages if isinstance(messages, list) else []
         self.num_turns = num_turns
@@ -453,6 +452,19 @@ class Conversation:
         # add a copy of other messages
         self.messages.extend(messages)
         return self
+
+    def __iter__(self):
+        for message in self.messages:
+            yield message
+
+    def __getitem__(self, item):
+        return self.messages[item]
+
+    def __setitem__(self, key, value):
+        self.messages[key] = value
+
+    def __len__(self):
+        return len(self.messages)
 
     def __repr__(self):
         return "Conversation(\n" + pformat(self.messages) + ")"
