@@ -86,7 +86,7 @@ class MultipleChoiceDataset(Dataset):
         option_regex = [re.compile(matches.format(op=chr(ord("A") + i))) for i in range(max_option_num)]
 
         for text, option_num in zip(predictions, self.option_nums):
-            label_found = option_regex[option_num - 1].findall(text.strip().split("\n")[0])
+            label_found = option_regex[option_num - 1].findall(text)
             if not label_found:
                 labels.append(-1)
             else:

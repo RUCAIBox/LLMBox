@@ -3,6 +3,7 @@ import logging
 import os
 import pathlib
 import sys
+from collections import defaultdict
 from dataclasses import fields
 from functools import lru_cache
 from typing import TYPE_CHECKING, List, Optional
@@ -37,17 +38,17 @@ BUILTIN_DATASET = {
     "translation_dataset", "warn_once"
 }
 
-LOGGED = set()
+LOGGED = defaultdict(int)
 
 
-def log_once(call_log: callable, msg: str, identifier: str, stacklevel=2):
-    if identifier not in LOGGED:
+def log_once(call_log: callable, msg: str, identifier: str, log_times=1, stacklevel=2):
+    if LOGGED.get(identifier, 0) < log_times:
         call_log(msg, stacklevel=stacklevel)
-        LOGGED.add(identifier)
+        LOGGED[identifier] += 1
 
 
-def warn_once(logger: logging.Logger, msg: str, identifier: str):
-    log_once(logger.warning, msg, identifier, stacklevel=3)
+def warn_once(logger: logging.Logger, msg: str, identifier: str, log_times=1):
+    log_once(logger.warning, msg, identifier, log_times=log_times, stacklevel=3)
 
 
 @lru_cache
