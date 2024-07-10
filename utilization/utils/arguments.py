@@ -367,7 +367,7 @@ class ModelArguments(ModelBackendMixin):
         # try to load as vllm model. If failed, fallback to huggingface model.
         # See `model/load.py` for details.
 
-        if self.is_vllm_model():
+        if self.is_vllm_model() and self.vllm_gpu_memory_utilization is None:
             self.vllm_gpu_memory_utilization = 0.9
 
         # argparse encodes string with unicode_escape, decode it to normal string, e.g., "\\n" -> "\n"
