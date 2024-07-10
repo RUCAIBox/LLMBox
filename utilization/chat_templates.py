@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 __all__ = ["DEFAULT_CHAT_TEMPLATE", "DEFAULT_CHAT_CONFIGS", "add_space", "smart_space"]
 
@@ -24,18 +24,20 @@ def add_space(
     return msg
 
 
-def smart_space(parts: List[str], auto_leading_space: bool, remove_space_between: bool, seq: List[str]) -> str:
+def smart_space(
+    parts: List[Tuple[str, bool]], auto_leading_space: bool, remove_space_between: bool, seq: List[str]
+) -> str:
     starts = [seq[role + "_start"] for role in ["system", "user", "assistant"] if (role + "_start") in seq]
     ends = [seq[role + "_end"] for role in ["system", "user", "assistant"] if (role + "_end") in seq]
     if "bos_token" in seq:
         ends.append(seq["bos_token"])
     rendered = ""
     for part in parts:
-        if part:
+        if part[0]:
             rendered += add_space(
-                part,
+                part[0],
                 rendered,
-                auto_leading_space=auto_leading_space,
+                auto_leading_space=auto_leading_space and part[1],
                 remove_space_between=remove_space_between,
                 starts=starts,
                 ends=ends
@@ -49,17 +51,18 @@ DEFAULT_CHAT_TEMPLATE = (
     "{%- set data = namespace(parts=[]) -%}"
     ""
     "{%- if 'all_start' in seq -%}"
-    "{%- set data.parts = data.parts + [seq['all_start']] -%}"
+    "{%- set data.parts = data.parts + [(seq['all_start'], False)] -%}"
     "{%- endif -%}"
     ""
     "{%- for message in messages -%}"
-    "{%- set data.parts = data.parts + [seq[message['role'] + '_start']] -%}"
-    "{%- set data.parts = data.parts + [message['content']] -%}"
-    "{%- set data.parts = data.parts + [seq[message['role'] + '_end']] -%}"
+    "{%- set data.parts = data.parts + [(seq[message['role'] + '_start'], False)] -%}"
+    "{%- set data.parts = data.parts + [(message['content'], True)] -%}"
+    "{%- set data.parts = data.parts + [(seq[message['role'] + '_end'], False)] -%}"
     "{%- endfor -%}"
     ""
     "{%- if add_gen_prompt -%}"
-    "{%- set data.parts = data.parts + [seq['assistant_start']] -%}"
+    "{%- set data.parts = data.parts + [(seq['assistant_start'], False)] -%}"
+    "{%- set data.parts = data.parts + [(seq['generation_prompt'], True)] -%}"
     "{%- endif -%}"
     ""
     "{{ data.parts | smart_space(auto_leading_space, remove_space_between, seq) }}"
@@ -135,7 +138,6 @@ DEFAULT_CHAT_CONFIGS: Dict[str, Union[Dict[str, Any], str]] = {
         "default_stop": ["</s>"],
     },
     "phi3": {
-        "all_start": "<s>",
         "system_start": "<|system|>\n",
         "system_end": "<|end|>\n",
         "user_start": "<|user|>\n",
@@ -145,7 +147,7 @@ DEFAULT_CHAT_CONFIGS: Dict[str, Union[Dict[str, Any], str]] = {
         "auto_leading_space": True,
         "final_rstrip": False,
         "remove_space_between": True,
-        "default_stop": ["<|end|>"],
+        "default_stop": ["<|end|>", "<|endoftext|>"],
     },
     "llama3": {
         "system_start": "<|start_header_id|>system<|end_header_id|>\n\n",
