@@ -25,6 +25,15 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: 3.8.18
+      - name: Cache datasets
+        id: cache-datasets
+        uses: actions/cache@v3
+        env:
+          cache-name: cache-datasets
+        with:
+          path: ~/.cache/huggingface/datasets
+          key: datasets
+          restore-keys: datasets
       - name: Install dependencies
         run: |
           pip install uv pip -U
