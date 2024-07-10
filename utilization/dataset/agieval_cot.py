@@ -24,7 +24,7 @@ INSTRUCTIONS = {
     "mcq_en_nocot_zero_shot":
     "{{ passage if passage }}Q: {{ question }} Answer Choices: {{ options_text }}\nA: Among A through {{ max_option_letter }}, the answer is",
     "mcq_en_nocot_few_shot":
-    "Question. {{ passage if passage }} {{ question }}\Choose from the following options: {{ options_text }}\nThe answer is therefore",
+    "Question. {{ passage if passage }} {{ question }}\nChoose from the following options: {{ options_text }}\nThe answer is therefore",
     "mcq_en_cot_zero_shot":
     "{{ passage if passage }}Q: {{ question }} Answer Choices: {{ options_text }}\nLet's think step by step.",
     "mcq_en_cot_few_shot":
