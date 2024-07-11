@@ -7,11 +7,11 @@ def add_space(
     msg: str,
     context: str,
     auto_leading_space: bool = True,
-    remove_space_between: bool = True,
+    no_space_between: bool = True,
     starts: Optional[List[str]] = None,
     ends: Optional[List[str]] = None
 ) -> str:
-    if starts is None or ends is None or remove_space_between is False:
+    if starts is None or ends is None or no_space_between is False:
         context_ends_special = False
         msg_starts_special = False
     else:
@@ -24,9 +24,7 @@ def add_space(
     return msg
 
 
-def smart_space(
-    parts: List[Tuple[str, bool]], auto_leading_space: bool, remove_space_between: bool, seq: List[str]
-) -> str:
+def smart_space(parts: List[Tuple[str, bool]], auto_leading_space: bool, no_space_between: bool, seq: List[str]) -> str:
     starts = [seq[role + "_start"] for role in ["system", "user", "assistant"] if (role + "_start") in seq]
     ends = [seq[role + "_end"] for role in ["system", "user", "assistant"] if (role + "_end") in seq]
     if "bos_token" in seq:
@@ -38,7 +36,7 @@ def smart_space(
                 part[0],
                 rendered,
                 auto_leading_space=auto_leading_space and part[1],
-                remove_space_between=remove_space_between,
+                no_space_between=no_space_between,
                 starts=starts,
                 ends=ends
             )
@@ -65,7 +63,7 @@ DEFAULT_CHAT_TEMPLATE = (
     "{%- set data.parts = data.parts + [(seq['generation_prompt'], True)] -%}"
     "{%- endif -%}"
     ""
-    "{{ data.parts | smart_space(auto_leading_space, remove_space_between, seq) }}"
+    "{{ data.parts | smart_space(auto_leading_space, no_space_between, seq) }}"
 )
 
 # Chat configs format:
@@ -86,7 +84,9 @@ DEFAULT_CHAT_TEMPLATE = (
 #   - assistant_end: The string to append to the assistant message.
 #   - auto_leading_space: Whether to add a leading space when concatenating two
 #     strings if the first string does not end with a whitespace.
+#   - no_space_between: Whether to not add the leading space between special tokens.
 #   - default_stop: A list of strings that indicate the end of a message.
+#   - merge_system_to_user: Whether to convert system message to part of next user message.
 #
 DEFAULT_CHAT_CONFIGS: Dict[str, Union[Dict[str, Any], str]] = {
     "base": {
@@ -98,7 +98,7 @@ DEFAULT_CHAT_CONFIGS: Dict[str, Union[Dict[str, Any], str]] = {
         "assistant_end": "\n\n",
         "auto_leading_space": True,
         "final_rstrip": True,
-        "remove_space_between": False,
+        "no_space_between": False,
         "default_stop": [],
     },
     "llama2": {
@@ -110,7 +110,7 @@ DEFAULT_CHAT_CONFIGS: Dict[str, Union[Dict[str, Any], str]] = {
         "assistant_end": " </s>",
         "auto_leading_space": True,
         "final_rstrip": False,
-        "remove_space_between": True,
+        "no_space_between": True,
         "default_stop": [],
     },
     "chatml": {
@@ -122,7 +122,7 @@ DEFAULT_CHAT_CONFIGS: Dict[str, Union[Dict[str, Any], str]] = {
         "assistant_end": "<|im_end|>\n",
         "auto_leading_space": True,
         "final_rstrip": False,
-        "remove_space_between": True,
+        "no_space_between": True,
         "default_stop": ["<|im_end|>"],
     },
     "zephyr": {
@@ -134,7 +134,7 @@ DEFAULT_CHAT_CONFIGS: Dict[str, Union[Dict[str, Any], str]] = {
         "assistant_end": "</s>\n",
         "auto_leading_space": True,
         "final_rstrip": False,
-        "remove_space_between": True,
+        "no_space_between": True,
         "default_stop": ["</s>"],
     },
     "phi3": {
@@ -146,7 +146,7 @@ DEFAULT_CHAT_CONFIGS: Dict[str, Union[Dict[str, Any], str]] = {
         "assistant_end": "<|end|>\n",
         "auto_leading_space": True,
         "final_rstrip": False,
-        "remove_space_between": True,
+        "no_space_between": True,
         "default_stop": ["<|end|>", "<|endoftext|>"],
     },
     "llama3": {
@@ -158,7 +158,7 @@ DEFAULT_CHAT_CONFIGS: Dict[str, Union[Dict[str, Any], str]] = {
         "assistant_end": "<|eot_id|>",
         "auto_leading_space": True,
         "final_rstrip": False,
-        "remove_space_between": True,
+        "no_space_between": True,
         "default_stop": ["<|eot_id|>"],
     },
     "alpaca": {
@@ -170,7 +170,19 @@ DEFAULT_CHAT_CONFIGS: Dict[str, Union[Dict[str, Any], str]] = {
         "assistant_end": "\n\n",
         "auto_leading_space": True,
         "final_rstrip": False,
-        "remove_space_between": False,
+        "no_space_between": False,
         "default_stop": ["###"],
+    },
+    "gemma": {
+        "all_start": "<bos>",
+        "merge_system_to_user": True,
+        "user_start": "<start_of_turn>user\n",
+        "user_end": "<end_of_turn>",
+        "assistant_start": "<start_of_turn>model\n",
+        "assistant_end": "<end_of_turn>",
+        "auto_leading_space": True,
+        "final_rstrip": False,
+        "no_space_between": True,
+        "default_stop": ["<end_of_turn>", "<start_of_turn>"],
     }
 }
