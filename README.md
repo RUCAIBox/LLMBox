@@ -20,11 +20,11 @@ Training
 
 Utilization
 
+- **Blazingly Fast:** By managing the KV Cache of prefixes, we can speed up local inference by up to 6x.
 - **Comprehensive Evaluation:** 56+ commonly used [datasets](https://github.com/RUCAIBox/LLMBox/blob/main/docs/utilization/supported-datasets.md) and benchmarks in evaluating LLMs.
 - **Evaluation Methods:** Accurately reproduce results from original papers of OpenAI, LLaMA, Mistral, and other models.
 - **In-Context Learning:** We support various ICL strategies, including [`KATE`](https://aclanthology.org/2022.deelio-1.10/), [`GlobalE`](https://aclanthology.org/2022.acl-long.556/), and [`APE`](https://arxiv.org/abs/2211.01910).
 - **Chain-of-Thought:** For some datasets, we support three types of CoT evaluation: `base`, [`least-to-most`](https://arxiv.org/abs/2205.10625), and [`pal`](https://arxiv.org/abs/2211.10435).
-- **Prefix Caching:** By managing the KV Cache of prefixes, we can speed up local inference by up to 6x.
 - **vLLM and Flash Attention Support:** We also support [`vLLM`](https://github.com/vllm-project/vllm) and [`Flash Attention`](https://github.com/Dao-AILab/flash-attention) for efficient inference.
 - **Quantization:** BitsAndBytes and GPTQ quantization are supported.
 
