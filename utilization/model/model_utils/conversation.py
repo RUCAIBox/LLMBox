@@ -57,6 +57,7 @@ class ConversationFormatter:
         self.final_lstrip = chat_config.pop("final_lstrip", True)
         self.final_rstrip = chat_config.pop("final_rstrip", True)
         self.merge_system_to_user = chat_config.pop("merge_system_to_user", False)
+        self.system_user_sep = chat_config.pop("system_user_sep", "\n")
 
         # api model does not need bos_token
         if "bos_token" not in chat_config:
@@ -379,8 +380,10 @@ class Conversation:
     def _merge_system_to_user(self):
         """Whether to convert system message to part of next user message."""
         if self.merge_system_to_user and self.messages[0]["role"] == "system":
-            self.messages[1]["content"] = self.messages[0]["content"] + self.messages[1]["content"]
+            msg = self.messages[0]["content"] + self.system_user_sep + self.messages[1]["content"]
+
             self.messages.pop(0)
+            self.messages[0]["content"] = msg
 
     def set_formatter(
         self,
@@ -392,6 +395,7 @@ class Conversation:
         self.model_evaluation_method = model_evaluation_method
         self.split = split and self.get_segs_num() > 1
         self.merge_system_to_user = self.formatter.merge_system_to_user
+        self.system_user_sep = self.formatter.system_user_sep
         self._merge_system_to_user()
 
     def to_model_prompt(

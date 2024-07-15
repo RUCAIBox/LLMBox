@@ -176,10 +176,11 @@ DEFAULT_CHAT_CONFIGS: Dict[str, Union[Dict[str, Any], str]] = {
     "gemma": {
         "all_start": "<bos>",
         "merge_system_to_user": True,
+        "system_user_sep": "\n",
         "user_start": "<start_of_turn>user\n",
-        "user_end": "<end_of_turn>",
+        "user_end": "<end_of_turn>\n",
         "assistant_start": "<start_of_turn>model\n",
-        "assistant_end": "<end_of_turn>",
+        "assistant_end": "<end_of_turn>\n",
         "auto_leading_space": True,
         "final_rstrip": False,
         "no_space_between": True,

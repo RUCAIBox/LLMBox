@@ -72,6 +72,23 @@ def test_phi3(conversation: Conversation):
     )
 
 
+def test_gemma(conversation: Conversation):
+    formatter = ConversationFormatter.from_chat_template("gemma")
+    conversation.set_formatter(formatter)
+    formatted_conversation = conversation.apply_prompt_template()
+    assert formatted_conversation == (
+        "<bos><start_of_turn>user\n"
+        "This is a system message.\n"
+        "This is a user message.<end_of_turn>\n"
+        "<start_of_turn>model\n"
+        "This is an assistant message.<end_of_turn>\n"
+        "<start_of_turn>user\n"
+        "This is the second user message.<end_of_turn>\n"
+        "<start_of_turn>model\n"
+        "This is the second assistant message.<end_of_turn>\n"
+    )
+
+
 def test_no_smart_space(conversation: Conversation):
     prompt_config = {
         "system_start": "",
