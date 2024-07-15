@@ -315,6 +315,8 @@ Specify the random seed, logging directory, evaluation results directory, and ot
 
 ## Supported Models
 
+🔥 New models supported: `Llama3` series, `Gemma2` series.
+
 <table>
   <tr>
       <td><b>Backend</b></td>
@@ -325,18 +327,23 @@ Specify the random seed, logging directory, evaluation results directory, and ot
   <tr>
       <td>Huggingface</td>
       <td>AutoModelForCasualLM</td>
-      <td><code>Llama-2-7b-hf</code></td>
+      <td><code>Llama-2-7b-hf</code>, <code>Meta-Llama3-8B-Instruct</code></td>
       <td><code>generation</code>, <code>get_ppl</code>, <code>get_prob</code></td>
   </tr>
   <tr>
-      <td rowspan=2>OpenAI</td>
+      <td rowspan=3>OpenAI<br><code>openai>=1.0.0</code></td>
       <td>Chat Completion Models</td>
-      <td><code>gpt-4-0125-preview</code>, <code>deepseek-chat</code></td>
+      <td><code>gpt-4o</code>, <code>gpt-4-0125-preview</code></td>
       <td><code>generation</code>
   </tr>
   <tr>
       <td>Completion Models (Legacy)</td>
       <td><code>davinci-002</code></td>
+      <td><code>generation</code>, <code>get_ppl</code>, <code>get_prob</code></td>
+  </tr>
+  <tr>
+      <td>OpenAI-compatible APIs*</td>
+      <td><code>llama-3-sonar-small-32k-chat</code>, <code>deepseek-chat</code></td>
       <td><code>generation</code>, <code>get_ppl</code>, <code>get_prob</code></td>
   </tr>
   <tr>
@@ -358,9 +365,9 @@ Specify the random seed, logging directory, evaluation results directory, and ot
       <td><code>generation</code></td>
   </tr>
   <tr>
-      <td>vLLM</td>
+      <td>vLLM<br><code>vllm>=0.4.3</code></td>
       <td>LLM</td>
-      <td><code>Llama-2-7b-hf</code></td>
+      <td><code>Llama-2-7b-hf</code>, <code>Meta-Llama3-8B-Instruct</code></td>
       <td><code>generation</code>, <code>get_ppl</code>, <code>get_prob</code></td>
   </tr>
 </table>
@@ -414,13 +421,13 @@ Chat templates are used to formatting conversational messages to text input for 
 python inference.py -m Meta-Llama-3-8B-Instruct -d gsm8k --model_type chat --chat_template llama3 -shots 8 -sys "You are a helpful assistant."
 ```
 
-You don't need to specify the chat template for hosted models.
+You don't need to specify the chat template for hosted commercial APIs.
 
 ```bash
 python inference.py -m gpt-3.5-turbo -d gsm8k --model_type chat -shots 8 -sys "You are a helpful assistant."
 ```
 
-You can customize the [chat template](https://github.com/RUCAIBox/LLMBox/blob/main/utilization/chat_templates.py) for local chat-based models. We provide a set of chat templates for different models. You can specify a jinja2 chat template with the `--chat_template` argument. It works in the same way as the [tokenizers](https://huggingface.co/docs/transformers/main/en/chat_templating).
+For more details, view [how to use chat template](https://github.com/RUCAIBox/LLMBox/blob/main/docs/utilization/how-to-use-chat-template.md).
 
 
 ## Change Log
