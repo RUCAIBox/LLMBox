@@ -93,6 +93,7 @@
     "tests/utilization/dataset/test_formatting.py::test_multi_turn": 5.1760842725634575,
     "tests/utilization/model/test_apply_prompt_template.py::test_base": 0.0028072865679860115,
     "tests/utilization/model/test_apply_prompt_template.py::test_final_strip": 0.0016121016815304756,
+    "tests/utilization/model/test_apply_prompt_template.py::test_gemma": 0.009262016043066978,
     "tests/utilization/model/test_apply_prompt_template.py::test_llama2": 0.0018699830397963524,
     "tests/utilization/model/test_apply_prompt_template.py::test_no_smart_space": 0.0017823278903961182,
     "tests/utilization/model/test_apply_prompt_template.py::test_phi3": 0.009263357031159103,

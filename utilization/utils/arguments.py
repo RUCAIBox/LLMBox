@@ -336,7 +336,8 @@ class ModelArguments(ModelBackendMixin):
         if self.model_name_or_path in API_MODELS:
             auto_model_type = API_MODELS[self.model_name_or_path]["model_type"]
         elif self.is_local_model():
-            auto_model_type = "chat" if re.search(r"chat|instruct", self.model_name_or_path.lower()) else "base"
+            # gemma uses it: instruction-tuned
+            auto_model_type = "chat" if re.search(r"chat|instruct|it", self.model_name_or_path.lower()) else "base"
         else:
             auto_model_type = None
 
