@@ -48,7 +48,7 @@ python inference.py -m internlm/internlm2-chat-7b -d gsm8k --chat_template chatm
 
 In the above examples, we use our own chat templates, which are needed for some evaluation setups (e.g., `ppl_no_option`). It is because a more fine-grained control is needed for those setups.
 
-However, you can still use the chat template that comes with the tokenizer. For example, if you are using the `Meta-Llama3-8B-Instruct` model, you can use the chat
+However, you can still use the chat template that comes with the [tokenizer](https://github.com/RUCAIBox/LLMBox/blob/main/docs/utilization/how-to-use-chat-template.md). For example, if you are using the `Meta-Llama3-8B-Instruct` model, you can use the chat
 
 ```bash
 python inference.py -m Meta-Llama3-8B-Instruct -d gsm8k --chat_template tokenizer
