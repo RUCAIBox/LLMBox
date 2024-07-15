@@ -28,6 +28,7 @@
 ### Models
 
 - [How to customize model](https://github.com/RUCAIBox/LLMBox/blob/main/docs/utilization/how-to-customize-model.md)
+- [How to use chat template](https://github.com/RUCAIBox/LLMBox/blob/main/docs/utilization/how-to-use-chat-template.md)
 - [Example: Customize HuggingFace model](https://github.com/RUCAIBox/LLMBox/blob/main/docs/examples/customize_huggingface_model.py)
 
 ## Trouble Shooting
