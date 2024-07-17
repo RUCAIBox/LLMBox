@@ -37,7 +37,7 @@ See [documentations](https://github.com/RUCAIBox/LLMBox/tree/main/docs) for more
 
 ### Install
 
-```python
+```bash
 git clone https://github.com/RUCAIBox/LLMBox.git && cd LLMBox
 pip install -r requirements.txt
 ```
@@ -45,6 +45,27 @@ pip install -r requirements.txt
 If you are only evaluating the OpenAI (or OpenAI compatible like DeepSeek, Perplexity) models, you can install the minimal requirements `requirements-openai.txt`.
 
 For installation problem, see [trouble shooting](https://github.com/RUCAIBox/LLMBox/tree/main/docs/trouble_shooting/vllm_no_module_name_packaging.md).
+
+<details>
+<summary><b>Update LLMBox</b></summary>
+
+Currently, you can simply pull the latest repository from GitHub to update LLMBox.
+
+```bash
+git pull
+```
+
+If you are facing a merge conflict, please try to drop, stash, or commit your local changes first.
+
+```bash
+git checkout local_changes && git add -p && git commit -m "local changes"
+git checkout main
+git pull
+```
+
+The above commands show how to commit your local changes to a new branch, and then update the LLMBox.
+
+</details>
 
 ### Quick Start with Training
 
@@ -60,7 +81,7 @@ bash bash/run_7b_ds3.sh
 
 To utilize your model, or evaluate an existing model, you can run the following command:
 
-```python
+```bash
 python inference.py -m gpt-3.5-turbo -d copa  # --num_shot 0 --model_type chat
 ```
 
@@ -205,7 +226,7 @@ We by default enable prefix caching for efficient evaluation. vLLM is also suppo
 You can also use the following command to use vllm:
 
 
-```python
+```bash
 python inference.py -m ../Llama-2-7b-hf -d mmlu:abstract_algebra,anatomy --vllm True  # --prefix_caching False --flash_attention False
 ```
 
