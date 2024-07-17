@@ -74,7 +74,7 @@ You can start with training a SFT model based on LLaMA-2 (7B) with deepspeed3:
 ```bash
 cd training
 bash download.sh
-bash bash/run_7b_ds3.sh
+bash bash/run_ds3.sh
 ```
 
 ### Quick Start with Utilization
