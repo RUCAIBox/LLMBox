@@ -244,6 +244,11 @@ API_MODELS = {
         "model_type": "chat",
         "model_backend": "openai",
     },
+    "claude-3-5-sonnet-20240620": {
+        "endpoint": "chat/completions",
+        "model_type": "chat",
+        "model_backend": "anthropic",
+    },
     "claude-3-opus-20240229": {
         "endpoint": "chat/completions",
         "model_type": "chat",
