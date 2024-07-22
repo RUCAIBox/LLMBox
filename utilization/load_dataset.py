@@ -6,7 +6,7 @@ import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from itertools import zip_longest
 from logging import getLogger
-from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Set, Type
+from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Set, Tuple, Type
 
 from datasets import DownloadConfig, get_dataset_config_names
 
@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 
 logger = getLogger(__name__)
 
-__all__ = ["load_datasets", "register_dataset"]
+__all__ = ["load_datasets"]
 
 ABSTRACT_DATASET = {"Dataset", "GenerationDataset", "MultipleChoiceDataset", "SquadDataset"}
 REGISTERY = {}
@@ -311,16 +311,15 @@ def load_dataset(
                 logger.info(f"Loading remaining subsets ...")
                 logging.disable(logging.INFO)
 
+                def _load_subset(idx: int, subset: str) -> Tuple[str, Dataset]:
+                    return (
+                        dataset_name + ":" + subset,
+                        dataset_cls(dataset_name, args, model, subset, evaluation_data, example_data, load_idx=idx)
+                    )
+
                 # load the remaining datasets in parallel
-                with ThreadPoolExecutor(max_workers=len(cmd_subset_names)) as executor:
-                    res = [
-                        executor.submit(
-                            lambda s: (
-                                dataset_name + ":" + s,
-                                dataset_cls(dataset_name, args, model, s, evaluation_data, example_data)
-                            ), s
-                        ) for s in cmd_subset_names
-                    ]
+                with ThreadPoolExecutor(max_workers=8) as executor:
+                    res = [executor.submit(_load_subset, i + 1, s) for i, s in enumerate(cmd_subset_names)]
                 datasets = dict([first_dataset] + [f.result() for f in as_completed(res)])
                 logging.disable(logging.NOTSET)
             else:

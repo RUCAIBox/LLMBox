@@ -57,9 +57,10 @@ class AutoBatchSizeSampler(Sampler[List[int]]):
         self.batch_size = batch_size
         self.auto_batch_size = auto_batch_size
         self.first_max_len = None
-        self.index_offset = index_offset
         self.data_order = [[]]
+        self.index_offset = index_offset
         """The data indices to yield (batches of indices). In convenience of the `__iter__` method, the indices are offset-based: `range(index_offset, index_offset + total)`."""
+        logger.debug(self)
 
         if not self.auto_batch_size:
             for i in range(0, total, self.batch_size):
@@ -104,6 +105,9 @@ class AutoBatchSizeSampler(Sampler[List[int]]):
 
     def __iter__(self) -> Iterator[List[int]]:
         yield from self.data_order
+
+    def __repr__(self) -> str:
+        return f"AutoBatchSizeSampler(batch_size={self.batch_size}, auto_batch_size={self.auto_batch_size}, index_offset={self.index_offset})"
 
 
 class DatasetCollectionBatchSampler(Sampler[List[int]]):
@@ -181,6 +185,7 @@ class DatasetCollectionBatchSampler(Sampler[List[int]]):
         # iterate over the dataset groups
         for group_total, init_model, self._forward_call in zip(*self._splitted):
             iterator, total_prefix_num = init_model()
+            logger.debug("New sub-collection, total iteration: %d", total)
             if total_prefix_num > 1 and model.support_cache:
                 sampler = CachePrefixSampler(
                     data=iterator,

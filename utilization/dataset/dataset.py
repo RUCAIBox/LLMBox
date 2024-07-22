@@ -125,6 +125,7 @@ class Dataset(torch.utils.data.Dataset, TokenizerUtilMixin, ICLUtilMixin):
         subset_name: Optional[str] = None,
         evaluation_data: Optional[List[typing.Any]] = None,
         example_data: Optional[List[typing.Any]] = None,
+        load_idx: int = 0,
     ):
         r"""This should be called by the subclass.
 
@@ -148,6 +149,7 @@ class Dataset(torch.utils.data.Dataset, TokenizerUtilMixin, ICLUtilMixin):
         self.ranking_type = args.ranking_type
         self.model_type = model.model_type
         self.prefix_caching = model.support_cache
+        self.tqdm_position = load_idx
         if self.prefix_caching is None:
             self.prefix_caching = True
         self.instance_format = "{source}{target}"
@@ -440,7 +442,10 @@ class Dataset(torch.utils.data.Dataset, TokenizerUtilMixin, ICLUtilMixin):
                 self.random_indice = np.random.choice(len(self.example_data), self.max_num_shots, replace=False)
 
         # 2. format the evaluation data
-        self.formatted_evaluation_data = map(self._format_instance, tqdm(self.evaluation_data, desc="Formatting"))
+        self.formatted_evaluation_data = map(
+            self._format_instance,
+            tqdm(self.evaluation_data, desc=f"Formatting {self.display_name}", position=self.tqdm_position)
+        )
 
         # automatic instruction
         if self.ape is True:

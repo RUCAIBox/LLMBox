@@ -1,8 +1,6 @@
 import sys
-from typing import Dict, List, Optional
 
 import pytest
-from torch import NoneType, Value
 
 sys.path.append('.')
 
