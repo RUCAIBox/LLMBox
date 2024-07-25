@@ -296,7 +296,16 @@ class CachePrefixSampler(Sampler[List[int]], Cacher):
     Consider a batch of data indexed from 0 to 7 with cache level 2. Assume data
     0~3 have the same prefix and 4~7 have the same prefix. We need to yield the
     data 0 and 4 to cache the prefix, and then yield 0~7 to generate with the cache.
-    Notes that the data 0 and 4 will be yielded twice in total."""
+    Notes that the data 0 and 4 will be yielded twice in total.
+
+    Args:
+        data: The data to sample from.
+        total: The total length of data.
+        total_prefix_num: The number of prefixes to cache.
+        batch_size: The maximum batch size.
+        auto_batch_size: Whether to automatically adjust the batch size based on the maximum length of the data.
+        index_offset: The  offset of indices to yield.
+        """
 
     def __init__(
         self,
@@ -305,14 +314,14 @@ class CachePrefixSampler(Sampler[List[int]], Cacher):
         total_prefix_num: int,
         batch_size: int,
         auto_batch_size: bool = False,
-        start_from: int = 0,
+        index_offset: int = 0,
     ):
 
         # split data into (src,) and (src, tgt)
         self.total_prefix_num = total_prefix_num
         self.joined_data = [[] for _ in range(self.total_prefix_num)]
         self.cache_levels = [0] * total
-        self.start_from = start_from
+        self.index_offset = index_offset
 
         # the batch_size for the kvcache is smaller than the batch_size to avoid OOM
         cache_batch_size = (batch_size + 1) // 2
@@ -394,7 +403,7 @@ class CachePrefixSampler(Sampler[List[int]], Cacher):
                         order_idx_by_cache[i] = -1
 
         for o in data_order_with_cache:
-            o = [i + self.start_from for i in o]
+            o = [i + self.index_offset for i in o]
 
         return data_order_with_cache
 

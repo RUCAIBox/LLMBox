@@ -52,20 +52,26 @@ class ConversationFormatter:
         chat_template: str,
         special_tokens_map: Optional[Dict[str, Union[str, List[str]]]] = None,
     ):
-        self.default_stop = chat_config.pop("default_stop", [])
-        self.auto_leading_space = chat_config.pop("auto_leading_space", True)
-        self.final_lstrip = chat_config.pop("final_lstrip", True)
-        self.final_rstrip = chat_config.pop("final_rstrip", True)
-        self.merge_system_to_user = chat_config.pop("merge_system_to_user", False)
-        self.system_user_sep = chat_config.pop("system_user_sep", "\n")
+        sequences = deepcopy(chat_config)
+        self.default_stop = sequences.pop("default_stop", [])
+        self.auto_leading_space = sequences.pop("auto_leading_space", True)
+        self.final_lstrip = sequences.pop("final_lstrip", True)
+        self.final_rstrip = sequences.pop("final_rstrip", True)
+        self.merge_system_to_user = sequences.pop("merge_system_to_user", False)
+        self.system_user_sep = sequences.pop("system_user_sep", "\n")
 
         # api model does not need bos_token
-        if "bos_token" not in chat_config:
-            chat_config["bos_token"] = ""
+        if "bos_token" not in sequences:
+            sequences["bos_token"] = ""
 
-        self.sequences = chat_config
+        if special_tokens_map is not None:
+            for key, value in special_tokens_map.items():
+                if key not in sequences:
+                    sequences[key] = value
+
+        self.sequences = sequences
         self.chat_template = chat_template
-        self.special_tokens_map = special_tokens_map or {}
+        self.special_tokens_map = deepcopy(special_tokens_map or {})
 
     @classmethod
     def from_chat_template(
@@ -85,11 +91,6 @@ class ConversationFormatter:
         if not isinstance(chat_config, dict):
             chat_config = {}
             chat_template = chat_config
-
-        if special_tokens_map is not None:
-            for key, value in special_tokens_map.items():
-                if key not in chat_config:
-                    chat_config[key] = value
 
         return cls(chat_config=chat_config, chat_template=chat_template, special_tokens_map=special_tokens_map)
 

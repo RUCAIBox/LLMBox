@@ -82,11 +82,12 @@ class PredictionWriter:
             self.continue_from_path = None
             return
 
+        # load num instances
         self.continue_from_path = continue_from or self.evaluation_args.continue_from
         if self.continue_from_path:
             self.continue_from_instance = self.check_continue()
 
-        # load num instances
+        # set num instances in dataset_args
         if self.continue_from_instance is not None and continue_from is None:
             self.dataset_args.continue_from = self.continue_from_instance
 
