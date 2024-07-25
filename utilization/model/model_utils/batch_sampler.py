@@ -43,38 +43,53 @@ def info_dataset_group(
 
 class AutoBatchSizeSampler(Sampler[List[int]]):
 
-    def __init__(self, data, batch_size: int, auto_batch_size: bool, start_from: int = 0):
+    def __init__(self, data, batch_size: int, auto_batch_size: bool, index_offset: int = 0):
+        """Sampler that automatically adjusts the batch size based on the maximum length of the data.
+
+        Args:
+            data: The data to sample from.
+            batch_size: The maximum batch size.
+            auto_batch_size: Whether to automatically adjust the batch size based on the maximum length of the data.
+            index_offset: The  offset of indices to yield.
+        """
         self.data = [src.to_model_prompt() if hasattr(src, "to_model_prompt") else src for src in data]
         total = len(self.data)
         self.batch_size = batch_size
         self.auto_batch_size = auto_batch_size
         self.first_max_len = None
+        self.index_offset = index_offset
         self.data_order = [[]]
-        self.start_from = start_from
+        """The data indices to yield (batches of indices). In convenience of the `__iter__` method, the indices are offset-based: `range(index_offset, index_offset + total)`."""
 
         if not self.auto_batch_size:
             for i in range(0, total, self.batch_size):
-                st = i + self.start_from
-                ed = min(i + self.batch_size, total) + self.start_from
+                st = i + self.index_offset
+                ed = min(i + self.batch_size, total) + self.index_offset
                 self.data_order[-1].extend(range(st, ed))
                 if len(self.data_order[-1]) == self.batch_size:
                     self.data_order.append([])
         else:
             for i in range(total):
-                self.data_order[-1].append(i + self.start_from)
+                self.data_order[-1].append(i + self.index_offset)
                 if self.check_new_batch(self.data_order[-1], i + 1):
                     self.data_order.append([])
+
+        # remove the last empty batches
         while self.data_order[-1] == []:
             self.data_order.pop()
-        logger.debug(f"AutoBatchSizeSampler: {len(self.data_order)} batches starting from {self.start_from}")
+        logger.debug(f"AutoBatchSizeSampler: {len(self.data_order)} batches starting from {self.index_offset}")
 
-    def check_new_batch(self, queries: List[int], next_data: int) -> bool:
+    def check_new_batch(self, offset_query_indices: List[int], next_data: int) -> bool:
         """Check the condition to start a new batch."""
 
-        current_batch = len(queries)
+        current_batch = len(offset_query_indices)
         if not self.auto_batch_size:
             return current_batch > self.batch_size
-        max_len = max(len(self.data[q - self.start_from]) for q in queries)
+
+        # data: 0-based
+        # offset_query_indices: offset-based
+        # next_data: 0-based
+        max_len = max(len(self.data[q - self.index_offset]) for q in offset_query_indices)
         if next_data < len(self.data):
             max_len = max(len(self.data[next_data]), max_len)
 
@@ -85,7 +100,6 @@ class AutoBatchSizeSampler(Sampler[List[int]]):
 
         batch_size = available_space // max_len
         batch_size = round_down(batch_size)
-        # print("!!!", queries, current_batch, batch_size, available_space, max_len, self.first_max_len)
         return current_batch >= batch_size
 
     def __iter__(self) -> Iterator[List[int]]:
@@ -162,17 +176,19 @@ class DatasetCollectionBatchSampler(Sampler[List[int]]):
 
     def __iter__(self) -> Iterator[List[int]]:
         model = self.dataset_collection._datasets[0].model
-        accumulative = 0
-        for total, init_model, self._forward_call in zip(*self._splitted):
+        accumulative_offset = 0
+
+        # iterate over the dataset groups
+        for group_total, init_model, self._forward_call in zip(*self._splitted):
             iterator, total_prefix_num = init_model()
             if total_prefix_num > 1 and model.support_cache:
                 sampler = CachePrefixSampler(
                     data=iterator,
-                    total=total,
+                    total=group_total,
                     total_prefix_num=total_prefix_num,
                     batch_size=self.batch_size,
                     auto_batch_size=self.auto_batch_size,
-                    start_from=accumulative,
+                    index_offset=accumulative_offset,
                 )
                 model.set_cacher(sampler)
                 yield from sampler
@@ -182,11 +198,11 @@ class DatasetCollectionBatchSampler(Sampler[List[int]]):
                 # dynamic batch size for vLLM
                 yield from AutoBatchSizeSampler(
                     iterator,
-                    self.batch_size if not self.vllm else total,
+                    self.batch_size if not self.vllm else group_total,
                     self.auto_batch_size and not self.vllm,
-                    start_from=accumulative
+                    index_offset=accumulative_offset
                 )
-            accumulative += total
+            accumulative_offset += group_total
 
     def call_model(self, *args, **kwargs) -> List[Any]:
         """Route the model to call the corresponding `model_evaluation_method`"""

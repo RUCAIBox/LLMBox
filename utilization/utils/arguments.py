@@ -488,6 +488,7 @@ class DatasetArguments:
     )
 
     continue_from: ClassVar[int] = 0
+    """The number of instances (lines) in .json file to resume from. This is set in `PredictionWriter.write_metainfo`."""
 
     # set in `set_logging` with format "{evaluation_results_dir}/{log_filename}.json"
     evaluation_results_path: ClassVar[Optional[str]] = None
