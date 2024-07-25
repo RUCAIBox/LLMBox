@@ -7,6 +7,8 @@ from typing import Dict, Iterator, List, Literal, NewType, Optional, Tuple, Unio
 from jinja2.exceptions import TemplateError
 from jinja2.sandbox import ImmutableSandboxedEnvironment
 
+import copy
+
 from ...chat_templates import DEFAULT_CHAT_CONFIGS, DEFAULT_CHAT_TEMPLATE, add_space, smart_space
 
 # legacy types
@@ -77,6 +79,7 @@ class ConversationFormatter:
             chat_template = "base"
 
         if chat_template in DEFAULT_CHAT_CONFIGS:
+            chat_config = copy.deepcopy(DEFAULT_CHAT_CONFIGS[chat_template])
             chat_config = DEFAULT_CHAT_CONFIGS[chat_template]
             chat_template = DEFAULT_CHAT_TEMPLATE
         else:

@@ -74,7 +74,7 @@ class AutoBatchSizeSampler(Sampler[List[int]]):
         current_batch = len(queries)
         if not self.auto_batch_size:
             return current_batch > self.batch_size
-        max_len = max(len(self.data[q]) for q in queries)
+        max_len = max(len(self.data[q - self.start_from]) for q in queries)
         if next_data < len(self.data):
             max_len = max(len(self.data[next_data]), max_len)
 
