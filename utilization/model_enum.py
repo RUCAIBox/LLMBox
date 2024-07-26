@@ -4,7 +4,7 @@ from typing import List
 from .utils.generation_args import generation_arg
 
 VLLM_ARGS = {
-    "temperature": generation_arg(),
+    "temperature": generation_arg(default=0),
     "top_p": generation_arg(),
     "top_k": generation_arg(),
     "max_tokens": generation_arg(default=1024),
