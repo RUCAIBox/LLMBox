@@ -1038,7 +1038,9 @@ class DatasetCollection(torch.utils.data.Dataset):
                 r, f = zip(*[(metric_results[name + ":" + n], f) for n, f in GAOKAO_TASKS_SCORE.items()])
                 metric_results[name + "[Weighted Average]"] = avg_metrics(r, f, average_method="weighted")
 
-            metric_results[name + "[Marco Average]"] = avg_metrics([r for k, r in metric_results.items() if k.startswith(name + ":")])
+            metric_results[name + "[Marco Average]"] = avg_metrics([
+                r for k, r in metric_results.items() if k.startswith(name + ":")
+            ])
 
         self.log_final_results(raw_predictions, predictions, score_lists)
         return metric_results

@@ -288,6 +288,12 @@ We expect all contributions discussed in the issue tracker and going through PRs
 
 For more details, view the [CONTRIBUTING](https://github.com/RUCAIBox/LLMBox/tree/main/docs/CONTRIBUTING.md) documentation.
 
+---
+
+We thank the following contributors for their contributions to LLMBox:
+
+- [@xansar](https://github.com/xansar) for fixing multiple complex issues like batch sampler and self-consistency.
+
 
 ## The Team
 
