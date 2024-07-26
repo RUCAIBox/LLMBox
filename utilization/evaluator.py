@@ -1,5 +1,4 @@
 from logging import getLogger
-from statistics import mode
 from typing import Any, Callable, Dict, List, Optional
 
 from .load_dataset import load_datasets
@@ -129,24 +128,9 @@ class Evaluator:
                 f"The number of results {len(raw_predictions)} should be equal to the number of samples in the dataset {self.dataset.len()}."
             )
 
-        # post processing and self-consistency
-        predictions = self.dataset.post_processing(raw_predictions)
-        if len(predictions) != self.dataset.len(option_num=False, normalization=False):
-            raise RuntimeError(
-                f"The number of results {len(predictions)} should be equal to the number of samples in the dataset {self.dataset.len(option_num=False, normalization=False)}."
-            )
-
-        step = self.dataset.len(option_num=False, sample_num=False, normalization=False)
-        if self.dataset_args.pass_at_k:
-            mode_predictions = [predictions[i::step] for i in range(step)]
-        elif len(predictions) // step > 1:
-            mode_predictions = [mode(predictions[i::step]) for i in range(step)]
-        else:
-            mode_predictions = predictions
-
         # calculate metric
-        metric_results, last_score_lists = self.dataset.calculate_metric(mode_predictions)
-        self.dataset.log_final_results(raw_predictions, predictions, last_score_lists)
+        metric_results = self.dataset.calculate_metric(raw_predictions)
+
         msg = f"Evaluation finished successfully:\nevaluation results: {self.dataset_args.evaluation_results_path}"
         for display_name, result in metric_results.items():
             if result is None:

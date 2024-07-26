@@ -220,10 +220,10 @@ class Dataset(torch.utils.data.Dataset, TokenizerUtilMixin, ICLUtilMixin):
         return len(self.evaluation_instances)
 
     def __getitem__(self, idx):
-        return self.evaluation_instances[idx]
+        return deepcopy(self.evaluation_instances[idx])
 
     def __iter__(self):
-        yield from self.evaluation_instances
+        yield from deepcopy(self.evaluation_instances)
 
     def format_instance(self, instance: dict) -> dict:
         r"""Format the dataset instance into task format. See [docs](https://github.com/RUCAIBox/LLMBox/blob/main/docs/utilization/how-to-customize-dataset.md#formating-the-instances) for more details.
@@ -832,6 +832,17 @@ class Dataset(torch.utils.data.Dataset, TokenizerUtilMixin, ICLUtilMixin):
 
 
 class DatasetCollection(torch.utils.data.Dataset):
+    r"""The dataset collection class that combines multiple datasets into one.
+
+    Args:
+        - datasets: A dictionary of dataset instances. The keys are the dataset names and the values are the dataset instances.
+
+    Examples:
+        Assume a DatasetCollection composed of two datasets: `sub1` and `sub2`. Each dataset has different number of evaluation instances.
+        - Two subets: `[sub1, sub2]`
+        - Two subsets with self-consistency = 3: `[sub1, sub1, sub1, sub2, sub2, sub2]`
+        - Two subsets with normalization: `[sub1, sub1-norm, sub2, sub2-norm]`
+    """
 
     def __init__(self, datasets: Dict[str, Dataset]):
         super().__init__()
@@ -951,9 +962,6 @@ class DatasetCollection(torch.utils.data.Dataset):
         except Exception as e:
             logger.warning(f"Failed to log predictions: {e}")
 
-    def post_processing(self, predictions: List[Union[str, float]]):
-        return sum((d.post_processing(p) for d, p in zip(self._datasets, self._split_by_subset(predictions))), [])
-
     def __getitem__(self, idx):
         if self.args.continue_from:
             idx += self.args.continue_from
@@ -975,14 +983,39 @@ class DatasetCollection(torch.utils.data.Dataset):
     def __getattr__(self, attr):
         return getattr(self._datasets[self._cur_idx], attr)
 
-    def calculate_metric(self, predictions) -> Tuple[Dict[str, Dict[str, float]], List[Dict[str, List[float]]]]:
-        results = OrderedDict()
+    def calculate_metric(self, raw_predictions: List[Union[str, float]]) -> Dict[str, Dict[str, float]]:
+        r"""Post-process predictions and calculate the metric scores."""
+
+        metric_results = OrderedDict()
+        predictions = []
+        agg_predictions = []
         score_lists = []
-        splitted = self._split_by_subset(predictions, option_num=False, normalization=False, sample_num=False)
-        grouped_display_names = defaultdict(list)  # group by dataset
-        for n, d, p in zip(self.display_names, self._datasets, splitted):
-            subset_results, score_list = d.calculate_metric(p)
-            results.update(subset_results)
+        grouped_display_names = defaultdict(list)
+
+        for n, d, p in zip(self.display_names, self._datasets, self._split_by_subset(raw_predictions)):
+            # post process
+            preds = d.post_processing(p)
+
+            # aggregate self-consistency or pass@k
+            step = d.len(option_num=False, sample_num=False, normalization=False)
+            if self.args.pass_at_k:
+                # [inst1, inst2, inst1, inst2] -> [[inst1, inst1], [inst2, inst2]]
+                agg_preds = [preds[i::step] for i in range(step)]
+            elif len(preds) // step > 1:
+                from statistics import mode
+
+                # [inst1, inst2, inst1, inst2] -> [mode([inst1, inst1]), mode([inst2, inst2])]
+                agg_preds = [mode(preds[i::step]) for i in range(step)]
+            else:
+                # [inst1, inst2]
+                agg_preds = preds
+
+            predictions.extend(preds)
+            agg_predictions.extend(agg_preds)
+
+            # calculate metric
+            subset_results, score_list = d.calculate_metric(agg_preds)
+            metric_results.update(subset_results)
             score_lists.append(score_list)
             grouped_display_names[d.dataset_name].append(n)
 
@@ -995,19 +1028,20 @@ class DatasetCollection(torch.utils.data.Dataset):
                         # skip if not all subsets of a category are available
                         continue
                     fstr = f"{name}[{cat.title().replace('_', ' ')} Macro Average]"
-                    results[fstr] = avg_metrics([results[n] for n in c])
+                    metric_results[fstr] = avg_metrics([metric_results[n] for n in c])
 
             if name == "gaokao":
-                r, f = zip(*[(results[name + ":" + n], f) for n, f in GAOKAO_CHINESE_TASKS_SCORE.items()])
-                results[name + "[Chinese Weighted Average]"] = avg_metrics(r, f, average_method="weighted")
-                r, f = zip(*[(results[name + ":" + n], f) for n, f in GAOKAO_ENGLISH_TASKS_SCORE.items()])
-                results[name + "[English Weighted Average]"] = avg_metrics(r, f, average_method="weighted")
-                r, f = zip(*[(results[name + ":" + n], f) for n, f in GAOKAO_TASKS_SCORE.items()])
-                results[name + "[Weighted Average]"] = avg_metrics(r, f, average_method="weighted")
+                r, f = zip(*[(metric_results[name + ":" + n], f) for n, f in GAOKAO_CHINESE_TASKS_SCORE.items()])
+                metric_results[name + "[Chinese Weighted Average]"] = avg_metrics(r, f, average_method="weighted")
+                r, f = zip(*[(metric_results[name + ":" + n], f) for n, f in GAOKAO_ENGLISH_TASKS_SCORE.items()])
+                metric_results[name + "[English Weighted Average]"] = avg_metrics(r, f, average_method="weighted")
+                r, f = zip(*[(metric_results[name + ":" + n], f) for n, f in GAOKAO_TASKS_SCORE.items()])
+                metric_results[name + "[Weighted Average]"] = avg_metrics(r, f, average_method="weighted")
 
-            results[name + "[Marco Average]"] = avg_metrics([r for k, r in results.items() if k.startswith(name + ":")])
+            metric_results[name + "[Marco Average]"] = avg_metrics([r for k, r in metric_results.items() if k.startswith(name + ":")])
 
-        return results, score_lists
+        self.log_final_results(raw_predictions, predictions, score_lists)
+        return metric_results
 
     def get_batch_sampler(self, reload_tokenizer: bool = False):
         if reload_tokenizer:

@@ -121,7 +121,7 @@ def get_subsets(
                 found_config = True
                 break
             except Exception as e:
-                logger.info(f"Failed when trying to get_dataset_config_names({path}): {e}")
+                logger.info(f"Failed when trying to get_dataset_config_names({path}): {e}. Trying another method...")
 
         logger.debug(f"get_dataset_config_names({path}): {s}")
 
