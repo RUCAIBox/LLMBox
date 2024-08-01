@@ -148,10 +148,10 @@ class Dataset(torch.utils.data.Dataset, TokenizerUtilMixin, ICLUtilMixin):
         self.cot = args.cot
         self.ranking_type = args.ranking_type
         self.model_type = model.model_type
-        self.prefix_caching = model.support_cache
+        self.hf_prefix_caching = model.support_cache and model.is_huggingface_model()
         self.tqdm_position = load_idx
-        if self.prefix_caching is None:
-            self.prefix_caching = True
+        if self.hf_prefix_caching is None:
+            self.hf_prefix_caching = True
         self.instance_format = "{source}{target}"
         if args.instruction:
             self.instruction = args.instruction
@@ -471,13 +471,13 @@ class Dataset(torch.utils.data.Dataset, TokenizerUtilMixin, ICLUtilMixin):
             self._log_instance(logger.debug, conversations[1], 1)
 
         self.total_prefix_num = conversations[0].get_segs_num()
-        if self.total_prefix_num <= 1 and self.prefix_caching and self.model.is_huggingface_model():
+        if self.total_prefix_num <= 1 and self.hf_prefix_caching and self.model.is_huggingface_model():
             warn_once(
                 logger,
                 f"Setting prefix_caching to False, since the total prefix number is {self.total_prefix_num}.",
                 identifier=f"total_prefix_num{self.total_prefix_num}"
             )
-            self.prefix_caching = False
+            self.hf_prefix_caching = False
 
         if self.model_evaluation_method == "generation":
             # generation endpoint supports Conversation
@@ -486,7 +486,7 @@ class Dataset(torch.utils.data.Dataset, TokenizerUtilMixin, ICLUtilMixin):
             # to legacy format
             evaluation_instances = self.conversation_formatter.to_model_prompts(
                 conversations=conversations,
-                split=self.prefix_caching,
+                split=self.hf_prefix_caching,
                 model_evaluation_method=self.model_evaluation_method,
             )
 
@@ -636,7 +636,7 @@ class Dataset(torch.utils.data.Dataset, TokenizerUtilMixin, ICLUtilMixin):
         for conv in convers:
             conv.set_num_options(option_num)
             conv.set_num_shots(self.real_num_shots)
-            conv.set_formatter(self.conversation_formatter, self.model_evaluation_method, self.prefix_caching)
+            conv.set_formatter(self.conversation_formatter, self.model_evaluation_method, self.hf_prefix_caching)
         return convers, option_num
 
     def construct_examples(self, instance: Optional[Dict[str, typing.Any]] = None) -> Conversation:

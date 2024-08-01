@@ -150,7 +150,7 @@ class DatasetCollectionBatchSampler(Sampler[List[int]]):
                     def wrapper():
                         # use a callback function to index the entire group
                         kwargs = group_datasets[group_idx][0]._init_model()
-                        use_cache = all(d.prefix_caching for d in group_datasets[group_idx])
+                        use_cache = all(d.hf_prefix_caching for d in group_datasets[group_idx])
                         total_prefix_num = group_datasets[group_idx][0].total_prefix_num if use_cache else 0
                         info_dataset_group(
                             group_datasets[group_idx], group_lengths[group_idx], model._aggregate_model_attr(), kwargs,

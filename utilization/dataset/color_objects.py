@@ -28,7 +28,7 @@ class Color_objects(GenerationDataset):
 
     def init_arguments(self):
         # TODO fix color_objects prefix_caching
-        self.prefix_caching = False
+        self.hf_prefix_caching = False
 
     def format_instance(self, instance):
         return dict(inputs=instance["inputs"], target=instance["targets"][0])

@@ -41,7 +41,7 @@ class Agieval_single_choice(MultipleChoiceDataset):
 
     def init_arguments(self):
         # FIXME
-        self.prefix_caching = False
+        self.hf_prefix_caching = False
 
         text = ""
         text += "zh" if self.subset_name in AGIEVAL_ZH_PROMPT_TASKS else "en"

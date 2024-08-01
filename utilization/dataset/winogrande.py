@@ -33,9 +33,9 @@ class WinoGrande(MultipleChoiceDataset):
             )
             self.ranking_with_options = False
 
-        if self.prefix_caching:
+        if self.hf_prefix_caching:
             logger.warning(f"Winogrande does not support prefix_caching, automatically set prefix_caching = False.")
-            self.prefix_caching = False
+            self.hf_prefix_caching = False
 
     def format_instance(self, instance):
         question, completion = instance['sentence'].split('_')
