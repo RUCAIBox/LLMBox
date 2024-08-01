@@ -68,7 +68,7 @@ class vllmModel(Model):
         self.tokenizer.truncation_side = "left"
         self.tokenizer.model_max_length = min(
             self.model.llm_engine.model_config.max_model_len,
-            getattr(args, "max_length", 1e10)
+            getattr(args, "max_length", None) or 1e10,
         )
         if hasattr(self.tokenizer, "add_bos_token"):
             # add in chat_template
