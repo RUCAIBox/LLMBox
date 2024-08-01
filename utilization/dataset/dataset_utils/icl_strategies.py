@@ -126,7 +126,7 @@ def knn_construct_examples(
 
     instance_embedding = paraphrase_encode(instance_query)
     distances = [torch.norm(instance_embedding - embedding) for embedding in example_embeddings]
-    indice = torch.topk(torch.tensor(distances), k, largest=False).indices
+    indice = list(torch.topk(torch.tensor(distances), k, largest=False).indices)
     return indice
 
 
