@@ -133,6 +133,7 @@ class ModelArguments(ModelBackendMixin):
     )
     max_length: Optional[int] = HfArg(
         default=None,
+        aliases=["--max_model_len"],
         help="The maximum number of tokens of model input sequence",
     )
     temperature: float = HfArg(
