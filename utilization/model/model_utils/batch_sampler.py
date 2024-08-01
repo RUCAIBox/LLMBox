@@ -185,7 +185,7 @@ class DatasetCollectionBatchSampler(Sampler[List[int]]):
         # iterate over the dataset groups
         for group_total, init_model, self._forward_call in zip(*self._splitted):
             iterator, total_prefix_num = init_model()
-            logger.debug("New sub-collection, total iteration: %d", total)
+            logger.debug("New sub-collection, total iteration: %d", group_total)
             if total_prefix_num > 1 and model.support_cache:
                 sampler = CachePrefixSampler(
                     data=iterator,
