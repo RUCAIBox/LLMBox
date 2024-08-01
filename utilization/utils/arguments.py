@@ -11,11 +11,10 @@ from typing import Callable, ClassVar, Dict, List, Literal, Optional, Set, Tuple
 
 import tiktoken
 
-from ..chat_templates import DEFAULT_CHAT_CONFIGS
 from ..dataset_enum import DEFAULT_VLLM_DATASETS
 from ..model_enum import (
     ANTHROPIC_CHAT_COMPLETIONS_ARGS, API_MODELS, DASHSCOPE_CHAT_COMPLETIONS_ARGS, HUGGINGFACE_ARGS,
-    QIANFAN_CHAT_COMPLETIONS_ARGS, VLLM_ARGS
+    OPENAI_CHAT_COMPLETIONS_ARGS, QIANFAN_CHAT_COMPLETIONS_ARGS, VLLM_ARGS
 )
 from .hf_argparser import HfArg, HfArgumentParser
 from .logging import filter_none_repr, get_redacted, list_datasets, log_levels, passed_in_commandline, set_logging
@@ -246,7 +245,7 @@ class ModelArguments(ModelBackendMixin):
     _model_specific_arguments: ClassVar[Dict[str, Set[str]]] = {
         "anthropic": {"anthropic_api_key"} | set(ANTHROPIC_CHAT_COMPLETIONS_ARGS),
         "dashscope": {"dashscope_api_key"} | set(DASHSCOPE_CHAT_COMPLETIONS_ARGS),
-        "openai": set(),  # openai model is used for gpt-eval metrics, not specific arguments
+        "openai": set(OPENAI_CHAT_COMPLETIONS_ARGS),
         "qianfan": {"qianfan_access_key", "qianfan_secret_key"} | set(QIANFAN_CHAT_COMPLETIONS_ARGS),
         "vllm": {"vllm", "prefix_caching", "flash_attention", "gptq", "vllm_gpu_memory_utilization", "chat_template"}
         | set(VLLM_ARGS),
@@ -675,8 +674,10 @@ def check_args(model_args: ModelArguments, dataset_args: DatasetArguments, evalu
         if hasattr(model_args, arg):
             # Ellipsis is just a placeholder that never equals to any default value of the argument
             if model_args.__dataclass_fields__[arg].hash:
-                logger.warning(f"Argument `{arg}` is not supported for model `{model_args.model_name_or_path}`")
-            setattr(model_args, arg, None)
+                logger.warning(f"Argument `{arg}` is not supported for model `{model_args.model_name_or_path}` ({model_args.model_backend})")
+            # to ensure we can pass arguments to GPTEval with any model
+            if arg not in model_args._model_specific_arguments["openai"]:
+                setattr(model_args, arg, None)
 
 
 DESCRIPTION_STRING = r"""LLMBox is a comprehensive library for implementing LLMs, including a unified training pipeline and comprehensive model evaluation. LLMBox is designed to be a one-stop solution for training and utilizing LLMs. Through a pratical library design, we achieve a high-level of flexibility and efficiency in both training and utilization stages.
