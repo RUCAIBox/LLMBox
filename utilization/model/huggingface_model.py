@@ -177,7 +177,7 @@ class HuggingFaceModel(Model):
         except TypeError:
             logger.warning(f"Cannot set `position_ids` for {self.name}. Set `support_position_ids` to False.")
             self.support_position_ids = False
-        except ValueError:
+        except Exception:
             self.support_position_ids = True
 
         try:
@@ -185,7 +185,7 @@ class HuggingFaceModel(Model):
         except TypeError:
             logger.warning(f"Cannot set `use_cache` for {self.name}. Set `support_cache` to False.")
             self.support_cache = False
-        except ValueError:
+        except Exception:
             self.support_cache = True
 
         self.support_cache = self.support_cache and args.prefix_caching is True
