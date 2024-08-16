@@ -11,7 +11,6 @@ from typing import Callable, ClassVar, Dict, List, Literal, Optional, Set, Tuple
 
 import tiktoken
 
-from ..chat_templates import DEFAULT_CHAT_CONFIGS
 from ..dataset_enum import DEFAULT_VLLM_DATASETS
 from ..model_enum import (
     ANTHROPIC_CHAT_COMPLETIONS_ARGS, API_MODELS, DASHSCOPE_CHAT_COMPLETIONS_ARGS, HUGGINGFACE_ARGS,
@@ -488,7 +487,6 @@ class DatasetArguments:
     )
 
     continue_from: ClassVar[int] = 0
-    """The number of instances (lines) in .json file to resume from. This is set in `PredictionWriter.write_metainfo`."""
 
     # set in `set_logging` with format "{evaluation_results_dir}/{log_filename}.json"
     evaluation_results_path: ClassVar[Optional[str]] = None
@@ -514,6 +512,9 @@ class DatasetArguments:
                 raise ValueError(
                     f"Invalid batch size: {self.batch_size}. Specify an integer (e.g., '10') to use a fixed batch size for all iterations. Alternatively, append ':auto' (e.g., '10:auto') to start with the specified batch size and automatically adjust it in subsequent iterations to maintain constant CUDA memory usage"
                 )
+
+        if self.hf_mirror:
+            os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
 
 
 @dataclass
@@ -571,6 +572,18 @@ class EvaluationArguments:
     inference_only: bool = HfArg(
         default=False,
         help="Whether to skip metrics evaluation and only do inference",
+    )
+    hfd_exclude_pattern: str = HfArg(
+        default=None,
+        help="The exclude pattern for datasets downloaded with hfd.sh",
+    )
+    hfd_include_pattern: str = HfArg(
+        default=None,
+        help="The include pattern for datasets downloaded with hfd.sh",
+    )
+    hfd_skip_check: bool = HfArg(
+        default=False,
+        help="Whether to skip the check of hfd.sh",
     )
 
     _redact = {"hf_token"}

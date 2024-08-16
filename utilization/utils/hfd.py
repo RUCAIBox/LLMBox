@@ -41,6 +41,7 @@ def huggingface_download(
     hf_token: Optional[str] = None,
     old: str = "https://huggingface.co",
     new: str = "https://hf-mirror.com",
+    evaluation_args=None,
 ) -> Optional[str]:
     """Download a dataset from Hugging Face Hub to a local directory using hfd.sh."""
 
@@ -62,14 +63,23 @@ def huggingface_download(
     logger.debug(f"Downloading {path} to {repo_path}")
 
     mirror_flag = " --mirror" if mirror else ""
+
     if hf_username and hf_token:
         auth = f" --hf_username {hf_username} --hf_token {hf_token}"
     elif hf_token:
         auth = f" --hf_token {hf_token}"
     else:
         auth = ""
+
+    if evaluation_args is not None:
+        if evaluation_args.hfd_exclude_pattern is not None:
+            auth += f" --exclude-pattern {evaluation_args.hfd_exclude_pattern}"
+        if evaluation_args.hfd_include_pattern is not None:
+            auth += f" --include-pattern {evaluation_args.hfd_include_pattern}"
+
     command = f"bash {hfd_cli.as_posix()} {path} --dataset --local-dir {repo_path.as_posix()}{auth}"
-    os.system(command + mirror_flag)
+    if not evaluation_args.hfd_skip_check:
+        os.system(command + mirror_flag)
 
     update_script(load_script_path, mirror, old, new)
 
