@@ -112,6 +112,7 @@ def get_subsets(
             paths = [str(get_script_path(cache_path))] + paths
 
         found_config = False
+        s = None
         for path in paths:
             if path is None:
                 continue
@@ -121,7 +122,11 @@ def get_subsets(
                 found_config = True
                 break
             except Exception as e:
-                logger.info(f"Failed when trying to get_dataset_config_names({path}): {e}. Trying another method...")
+                logger.info(f"Failed when trying to get_dataset_config_names({path}): {e}")
+        if s is None:
+            raise RuntimeError(
+                f"Failed to get dataset config names for {dataset_cls}. Please check the dataset path or the internet connection. If you have problem connecting to HuggingFace, you can set `--hf_mirror` to use a mirror site."
+            )
 
         logger.debug(f"get_dataset_config_names({path}): {s}")
 
@@ -238,7 +243,7 @@ def load_dataset(
     dataset_classes = import_dataset_classes(dataset_name)
     cache_paths = []
     for dcls in dataset_classes:
-        if dcls.load_args is None:
+        if not isinstance(dcls.load_args, tuple):
             continue
         elif len(dcls.load_args) > 0:
             cache_paths.append(
@@ -247,7 +252,8 @@ def load_dataset(
                     args.hfd_cache_path,
                     hf_username=evaluation_args.hf_username,
                     hf_token=evaluation_args.hf_token,
-                    mirror=args.hf_mirror
+                    mirror=args.hf_mirror,
+                    evaluation_args=evaluation_args,
                 )
             )
         else:
@@ -258,7 +264,8 @@ def load_dataset(
                     args.hfd_cache_path,
                     hf_username=evaluation_args.hf_username,
                     hf_token=evaluation_args.hf_token,
-                    mirror=args.hf_mirror
+                    mirror=args.hf_mirror,
+                    evaluation_args=evaluation_args,
                 )
             )
     available_subsets_by_cls = get_subsets(dataset_name, dataset_classes, args, cache_paths)
