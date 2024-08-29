@@ -37,6 +37,7 @@ def load_tokenizer(tokenizer_name_or_path: str, use_fast: bool, max_length: int 
         truncation_side="left",
         add_eos_token=False,
         add_bos_token=False,  # add in chat_template
+        trust_remote_code=True,
     )
 
     # TODO: [Important]!!! check for each tokenizer
@@ -86,23 +87,8 @@ def get_model_max_length(
 def load_hf_model(args: ModelArguments) -> Tuple[PreTrainedModel, Union[PreTrainedTokenizer, PreTrainedTokenizerFast]]:
     logger.info(f"Loading {args.model_name_or_path} using Hugging Face Transformers...")
 
-    # https://github.com/meta-llama/llama/issues/380#issuecomment-1656714118
-    if args.torch_dtype == "auto":
-        try:
-            with open(args.model_name_or_path + "/config.json") as f:
-                config = json.load(f)
-            if "torch_dtype" in config:
-                if config["torch_dtype"] == "float32":
-                    torch_dtype = "float16"
-                else:
-                    torch_dtype = config["torch_dtype"]
-        except:
-            torch_dtype = "float16"
-    else:
-        torch_dtype = args.torch_dtype
-
     model_kwargs = dict(
-        torch_dtype=getattr(torch, torch_dtype),
+        torch_dtype=getattr(torch, args.torch_dtype),
         device_map=args.device_map,
         load_in_4bit=args.load_in_4bit,
         load_in_8bit=args.load_in_8bit,
@@ -153,16 +139,31 @@ class HuggingFaceModel(Model):
     def __init__(self, args: ModelArguments):
         super().__init__(args)
 
+        # https://github.com/meta-llama/llama/issues/380#issuecomment-1656714118
+        if args.torch_dtype == "auto":
+            torch_dtype = "float16"
+            try:
+                with open(args.model_name_or_path + "/config.json") as f:
+                    config = json.load(f)
+                if "torch_dtype" in config and config["torch_dtype"] != "float32":
+                    torch_dtype = config["torch_dtype"]
+            except:
+                pass
+        else:
+            torch_dtype = args.torch_dtype
+        args.torch_dtype = torch_dtype
+
         if getattr(args, "load_hf_model", None) is not None:
             _load_hf_model = args.load_hf_model
         else:
             _load_hf_model = load_hf_model
+
         self.model, self._tokenizer = _load_hf_model(args)
         if self._tokenizer.model_max_length is None:
             logger.warning(f"`model_max_length` is not set for {self.name}. Set to default {DEFAULT_MODEL_MAX_LENGTH}.")
             self._tokenizer.model_max_length = DEFAULT_MODEL_MAX_LENGTH
 
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.device = self.model.device if torch.cuda.is_available() else "cpu"
         self.model_max_input_and_output = self.tokenizer.model_max_length
 
         # model tests
@@ -443,8 +444,7 @@ class HuggingFaceModel(Model):
         last_logits = torch.cat(prefix_cache.next_logits, dim=0).to(logits.device)
         shift_logits = torch.cat([last_logits, logits[:, :-1]], dim=-2)
         labels[labels == self.tokenizer.pad_token_id] = -100
-        probs = self.loss_fct(shift_logits.view(-1, vocab_size),
-                              labels.view(-1)).view(labels.size(0), -1)
+        probs = self.loss_fct(shift_logits.view(-1, vocab_size), labels.view(-1)).view(labels.size(0), -1)
 
         if exact_match:
             greedy_tokens = torch.argmax(shift_logits, dim=-1)
