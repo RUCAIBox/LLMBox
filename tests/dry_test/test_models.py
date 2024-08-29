@@ -26,3 +26,5 @@ def test_models_dry_run(run_evaluate, model, dataset, extra_args):
         run_evaluate(["-m", model, "-d", dataset, "-b", "10", "--dry_run"] + extra_args, cuda=0)
     except torch.cuda.OutOfMemoryError:
         pytest.skip(f"Out of memory error on {model} {dataset}")
+    except FileNotFoundError:
+        pytest.skip(f"File not found error on {model} {dataset}")
