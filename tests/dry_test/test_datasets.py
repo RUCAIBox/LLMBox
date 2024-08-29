@@ -1,11 +1,11 @@
 import nltk
 import pytest
-
 from utilization.utils.logging import list_datasets
 
 from .fixtures import *
 
 nltk.download('punkt')
+nltk.download('punkt_tab')
 
 datasets = {
     "agieval": [],
