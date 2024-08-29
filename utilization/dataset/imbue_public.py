@@ -24,7 +24,7 @@ class ImbuePublic(MultipleChoiceDataset):
     instruction = "{{question}}{{'\n' + options if options}}\nAnswer:"
     evaluation_set = "train"
     example_set = None
-    load_args = ("imbue/high_quality_public_evaluations", )
+    load_args = ("imbue/high_quality_public_evaluations",)
     category_column = "original_dataset"
 
     def format_instance(self, instance):

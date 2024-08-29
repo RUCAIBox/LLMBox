@@ -25,11 +25,10 @@ class ImbueCode(MultipleChoiceDataset):
     instruction = "{{question}}{{'\n' + options if options}}\nAnswer:"
     evaluation_set = "train"
     example_set = None
-    load_args = ("imbue/code-comprehension", )
+    load_args = ("imbue/code-comprehension",)
 
     def format_instance(self, instance):
-        instance["target_idx"] = instance["choices"].index(
-            instance["correct_answer"])
+        instance["target_idx"] = instance["choices"].index(instance["correct_answer"])
         instance["options"] = instance["choices"]
         return instance
 
