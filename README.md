@@ -276,7 +276,7 @@ python inference.py -m model -d dataset --cot least_to_most  # --base or --pal
 
 For a more detailed instruction on model utilization, view the [utilization](https://github.com/RUCAIBox/LLMBox/tree/main/utilization) documentation.
 
-<!-- For a full list of evaluation results, view our paper. -->
+For a full list of evaluation results, see our paper [LLMBox: A Comprehensive Library for Large Language Models](https://aclanthology.org/2024.acl-demos.37.pdf).
 
 ## Contributing
 
@@ -308,4 +308,11 @@ LLMBox uses [MIT License](./LICENSE).
 If you find LLMBox useful for your research or development, please cite the following papers:
 
 ```
+@inproceedings{tang2024llmbox,
+  title={LLMBox: A Comprehensive Library for Large Language Models},
+  author={Tang, Tianyi and Yiwen, Hu and Li, Bingqian and Luo, Wenyang and Qin, ZiJing and Sun, Haoxiang and Wang, Jiapeng and Xu, Shiyi and Cheng, Xiaoxue and Guo, Geyang and others},
+  booktitle={Proceedings of the 62nd Annual Meeting of the Association for Computational Linguistics (Volume 3: System Demonstrations)},
+  pages={388--399},
+  year={2024}
+}
 ```
