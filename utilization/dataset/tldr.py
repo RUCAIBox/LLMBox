@@ -16,7 +16,7 @@ class TLDR(GenerationDataset):
     """
 
     instruction = "{source}"
-    evaluation_set = "train"
+    evaluation_set = "test"
     example_set = None
     metrics = [Rouge()]
     load_args = ("CarperAI/openai_summarize_tldr",)
