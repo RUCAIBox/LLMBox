@@ -20,6 +20,8 @@ Some datasets support Chain-of-Thought reasoning. For example, Grade School Math
 
 ## Supported Datasets
 
+- 🔥 Recently supported datasets: `imbue_code`, `imbue_public`, and `imbue_private`.
+
 <table>
   <tr>
       <td><b>Dataset</b></td>
