@@ -21,7 +21,7 @@ Training
 Utilization
 
 - **Blazingly Fast:** By managing the KV Cache of prefixes, we can speed up local inference by up to 6x 🚀.
-- **Comprehensive Evaluation:** 56+ commonly used [datasets](https://github.com/RUCAIBox/LLMBox/blob/main/docs/utilization/supported-datasets.md) and benchmarks in evaluating LLMs.
+- **Comprehensive Evaluation:** 59+ commonly used [datasets](https://github.com/RUCAIBox/LLMBox/blob/main/docs/utilization/supported-datasets.md) and benchmarks in evaluating LLMs.
 - **Evaluation Methods:** Accurately reproduce results from original papers of OpenAI, LLaMA, Mistral, and other models.
 - **In-Context Learning:** We support various ICL strategies, including [`KATE`](https://aclanthology.org/2022.deelio-1.10/), [`GlobalE`](https://aclanthology.org/2022.acl-long.556/), and [`APE`](https://arxiv.org/abs/2211.01910).
 - **Chain-of-Thought:** For some datasets, we support three types of CoT evaluation: `base`, [`least-to-most`](https://arxiv.org/abs/2205.10625), and [`pal`](https://arxiv.org/abs/2211.10435).
@@ -140,7 +140,7 @@ For more details, view the [training](https://github.com/RUCAIBox/LLMBox/tree/ma
 
 We provide a broad support on Huggingface models (e.g. `LLaMA-3`, `Mistral`, or the model you are building on), OpenAI, Anthropic, QWen and other OpenAI-compatible models for further utilization. Full list of model backends: [here](https://github.com/RUCAIBox/LLMBox/tree/main/utilization#supported-models).
 
-Currently a total of 56+ commonly used datasets are supported, including: `HellaSwag`, `MMLU`, `GSM8K`, `GPQA`, `AGIEval`, `CEval`, and `CMMLU`. Full list of datasets: [here](https://github.com/RUCAIBox/LLMBox/blob/main/docs/utilization/supported-datasets.md).
+Currently a total of 59+ commonly used datasets are supported, including: `HellaSwag`, `MMLU`, `GSM8K`, `GPQA`, `AGIEval`, `CEval`, and `CMMLU`. Full list of datasets: [here](https://github.com/RUCAIBox/LLMBox/blob/main/docs/utilization/supported-datasets.md).
 
 ```bash
 CUDA_VISIBLE_DEVICES=0 python inference.py \

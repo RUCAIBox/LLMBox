@@ -1,6 +1,12 @@
 # Supported Datasets of LLMBox
 
-We currently support 56+ commonly used datasets for LLMs. Each dataset is either a multiple-choice dataset or a generation dataset.
+We currently support 59+ commonly used datasets for LLMs.
+
+## Understanding Evaluation Type
+
+Each dataset is either a multiple-choice dataset or a generation dataset. You can find the difference between them at [here](https://github.com/RUCAIBox/LLMBox/tree/main/utilization#dataset-arguments)
+
+## Understanding Subsets
 
 Some datasets have multiple subsets. For example, Massive Multitask Language Understanding (`mmlu`) dataset contains 57 different subsets categorized into four categories: `stem`, `social_sciences`, `humanities`, and `other`.
 
@@ -8,9 +14,9 @@ While some other dataset is a subset of another dataset. For example, Choice Of 
 
 See how to [load datasets with subsets](https://github.com/RUCAIBox/LLMBox/tree/main/docs/utilization/how-to-load-datasets-with-subsets.md).
 
-Some datasets support Chain-of-Thought reasoning. For example, Grade School Math 8K (`gsm8k`) supports three types of CoT: `base`, `least_to_most`, and `pal`.
+## Understanding CoT
 
-You can find the supported datasets in the following table.
+Some datasets support Chain-of-Thought reasoning. For example, Grade School Math 8K (`gsm8k`) supports three types of CoT: `base`, `least_to_most`, and `pal`.
 
 ## Supported Datasets
 
@@ -177,7 +183,7 @@ You can find the supported datasets in the following table.
   <tr>
       <td>Google-Proof Q&A (<code>GPQA</code>)</td>
       <td><code>gpqa_main</code> (default), <code>gpqa_extended</code>, ...</td>
-      <td>MultipleChoiceDataset</td>
+      <td>MultipleChoice</td>
       <td>✅</td>
       <td></td>
   </tr>
@@ -213,6 +219,27 @@ You can find the supported datasets in the following table.
       <td>Instruction-Following Evaluation (<code>ifeval</code>)</td>
       <td>/</td>
       <td>Generation</td>
+      <td></td>
+      <td></td>
+  </tr>
+  <tr>
+      <td><a href="https://huggingface.co/datasets/imbue/code-comprehension">Imbue Code Comprehension</a> (<code>imbue_code</code>)</td>
+      <td>/</td>
+      <td>MultipleChoice</td>
+      <td></td>
+      <td></td>
+  </tr>
+  <tr>
+      <td><a href="https://huggingface.co/datasets/imbue/high_quality_private_evaluations">Imbue High Quality Private Evaluations</a> (<code>imbue_private</code>)</td>
+      <td>/</td>
+      <td>MultipleChoice</td>
+      <td></td>
+      <td></td>
+  </tr>
+  <tr>
+      <td><a href="https://huggingface.co/datasets/imbue/high_quality_public_evaluations">Imbue High Quality Public Evaluations</a> (<code>imbue_public</code>)</td>
+      <td>/</td>
+      <td>MultipleChoice</td>
       <td></td>
       <td></td>
   </tr>
