@@ -444,9 +444,37 @@ Some datasets support Chain-of-Thought reasoning. For example, Grade School Math
       <td></td>
   </tr>
   <tr>
+      <td>A Multilingual Dataset for Causal Commonsense Reasoning (<code>xcopa</code>)</td>
+      <td><code>et</code>, <code>zh</code>, ...</td>
+      <td>MultipleChoice</td>
+      <td></td>
+      <td></td>
+  </tr>
+  <tr>
+      <td>Large-Scale Multilingual Abstractive Summarization (<code>xlsum</code>)</td>
+      <td><code>english</code>, <code>french</code>, ...</td>
+      <td>Generation</td>
+      <td></td>
+      <td></td>
+  </tr>
+  <tr>
+      <td>Cross-lingual Natural Language Inference (<code>xnli</code>)</td>
+      <td><code>en</code>, <code>es</code>, ...</td>
+      <td>MultipleChoice</td>
+      <td></td>
+      <td></td>
+  </tr>
+  <tr>
       <td>Extreme Summarization (<code>xsum</code>)</td>
       <td>/</td>
       <td>Generation</td>
+      <td></td>
+      <td></td>
+  </tr>
+  <tr>
+      <td>Crosslingual Winograd (<code>xwinograd</code>)</td>
+      <td><code>en</code>, <code>fr</code>, ...</td>
+      <td>MultipleChoice</td>
       <td></td>
       <td></td>
   </tr>
