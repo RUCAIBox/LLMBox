@@ -9,14 +9,14 @@ class Xwinograd(MultipleChoiceDataset):
     """The dataset of XWinograd.
 
     Multilingual winograd schema challenge as used in Crosslingual Generalization through Multitask Finetuning.
-    
+
     Example:
         "sentence": "The city councilmen refused the demonstrators a permit because _ feared violence.",
         "option1": "the demonstrators",
         "option2": "The city councilmen",
         "answer": 2
 
-    Note: 
+    Note:
         If you encounter network connectivity issues, we recommend copying this dataset and replacing the URL below in 'Muennighoff/xwinograd/xwinograd.py' with an accessible mirror site URL.
         Currently, we are unable to provide alternative solutions for network issues.
         Original: _URL = "https://huggingface.co/datasets/Muennighoff/xwinograd/raw/main/test/{lang}.jsonl"
@@ -34,7 +34,20 @@ class Xwinograd(MultipleChoiceDataset):
     def format_instance(self, instance):
         instance["lang"] = self.language
         instance["label"] = int(instance["answer"]) - 1
-        instance["options"] = [instance["option1"], instance["option2"]]
+        sentence = instance["sentence"].strip()
+
+        def format_option(option):
+            if self.subset_name != "en":
+                return option
+            elif sentence.startswith("_"):
+                return option[0].upper() + option[1:]
+            else:
+                return option[0].lower() + option[1:]
+
+        instance["options"] = [
+            sentence.replace("_", format_option(instance["option1"])),
+            sentence.replace("_", format_option(instance["option2"])),
+        ]
         return instance
 
     @property
