@@ -615,6 +615,7 @@ class Dataset(torch.utils.data.Dataset, TokenizerUtilMixin, ICLUtilMixin):
             if self.model_evaluation_method == "get_ppl":
                 # multi-context get_ppl compares each contexts with completion
                 convers = [convers.add(user=s, assistant=instance["target"]) for s in instance["source"]]
+                option_num = len(instance["source"])  # override option_num
             elif self.evaluation_type == "generation":
                 # multi-turn conversations
                 convers.add_multi_turn(users=instance["source"])
