@@ -187,7 +187,7 @@ Some datasets support Chain-of-Thought reasoning. For example, Grade School Math
       <td><code>gpqa_main</code> (default), <code>gpqa_extended</code>, ...</td>
       <td>MultipleChoice</td>
       <td>✅</td>
-      <td></td>
+      <td>[Tutorial](https://github.com/RUCAIBox/LLMBox/blob/main/docs/utilization/how-to-load-dataset-gpqa.md)</td>
   </tr>
   <tr>
       <td>Grade School Math 8K (<code>gsm8k</code>)</td>
