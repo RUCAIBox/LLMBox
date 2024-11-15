@@ -242,6 +242,11 @@ python inference.py -m model -d dataset --load_in_4bits  # --load_in_8_bits or -
 
 Various types of evaluation methods are supported:
 
+<details>
+<summary><b>[Click for details] Generation, GetPPL, and GetProb</b></summary>
+
+</br>
+
 <table>
     <tr>
         <td><b>Dataset</b></td>
@@ -300,8 +305,9 @@ A: _
    └→ [A B C D]</code></pre></p></td>
     </tr>
 </table>
+</details>
 
-You can use --instruction to pass a jinja template to override the default instruction.
+You can use `--instruction` to pass a jinja template to override the default instruction.
 
 By default, we use the `get_ppl` method with `ppl_no_option` ranking type for `MultipleChoiceDataset` and the `generation` method for `GenerationDataset`. You can also use the following command to use the `get_prob` method or `ppl` variant of `get_ppl` for MultipleChoiceDataset:
 
