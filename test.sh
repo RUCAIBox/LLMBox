@@ -1,3 +1,9 @@
+# This is a legacy test file. For the latest information, please view:
+#  - https://github.com/RUCAIBox/LLMBox/blob/main/docs/examples/benchmarking_llama3.sh
+#  - https://github.com/RUCAIBox/LLMBox/blob/main/docs/examples/customize_huggingface_model.py
+#  - https://github.com/RUCAIBox/LLMBox/blob/main/docs/examples/customize_dataset.py
+#  - https://github.com/RUCAIBox/LLMBox/blob/main/docs/utilization/supported-datasets.md
+
 python inference.py -m /home/tangtianyi/meta-llama/Llama-2-7b-hf -d copa --model_type base # 77
 python inference.py -m /home/tangtianyi/meta-llama/Llama-2-7b-hf -d copa --model_type base --vllm False -b 10 # 76
 python inference.py -m /home/tangtianyi/meta-llama/Llama-2-7b-hf -d copa --model_type base -shots 64 # 89
