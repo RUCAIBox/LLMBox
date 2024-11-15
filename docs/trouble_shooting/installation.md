@@ -1,4 +1,16 @@
-# [Trouble Shooting] No module named packaging when installing vllm
+# Installation Trouble Shooting
+
+## Flash Attention
+
+To install flash attention, you should use the following command:
+
+```bash
+pip install flash-attn --no-build-isolation
+```
+
+See more information at [flash attention](https://github.com/Dao-AILab/flash-attention).
+
+## No module named packaging when installing vllm
 
 When installing LLMBox, some of dependencies may not be installed correctly, especially the `vLLM` and `Flash Attention` module.
 
@@ -12,7 +24,7 @@ It often fails even after installing the `packaging` module. This is because com
 
 Since it often fails to install the `packaging` module in the isolated environment, you can install the `packaging` module manually.
 
-## Solution
+### Solution
 
 1. Remove `vllm` and `flash_attention` from the `requirements.txt` file.
 2. Upgrade the pip module: `pip install --upgrade pip`.
