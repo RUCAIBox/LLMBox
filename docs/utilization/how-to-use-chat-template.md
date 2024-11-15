@@ -32,7 +32,7 @@ Currently we support 7 chat templates including `base` (default), `llama3`, `cha
 }
 ```
 
-When loading a chat-based model, we try to match the model with the chat template by the model's name. For example, the `Meta-Llama3-8B-Instruct` model will be matched with the `llama3` chat template.
+When loading a chat-based model, we try to **match the model with the chat template by the model's name**. For example, model with name `Meta-Llama3-8B-Instruct`, `meta-llama3-8b-instruct`, or `Meta-Llama3-72B-Instruct` will be matched with the `llama3` chat template.
 
 ### Specify a supported chat template
 
