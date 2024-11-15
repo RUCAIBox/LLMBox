@@ -246,22 +246,62 @@ Various types of evaluation methods are supported:
     <tr>
         <td><b>Dataset</b></td>
         <td><b>Evaluation Method</b></td>
-        <td><b>Variants (Ranking Type)</b></td>
+        <td><b>Instruction</b></td>
     </tr>
     <tr>
-        <td><b>GenerationDataset</b></td>
-        <td colspan=2><code>generation</code></td>
+        <td><p><b>Generation</b></p>
+        <p><pre><code>{
+  "question":
+    "when was ...",
+  "answer": [
+    '14 December 1972',
+    'December 1972'
+  ]
+}</code></pre></p></td>
+        <td><p><code>generation</code></p><p>Generate based on the source text</p></td>
+        <td><p><pre><code>Q: When was ...?
+A: ________</code></pre></p></td>
     </tr>
     <tr>
-        <td rowspan=2><b>MultipleChoiceDataset</b></td>
-        <td><code>get_ppl</code></td>
-        <td><code>ppl_no_option</code>, <code>ppl</code></td>
+        <td rowspan=3><p><b>MultipleChoice</b></p>
+<pre><code>{
+  "question":
+    "What is the ...?",
+  "choices": [
+    "The first",
+    "The second",
+    ...
+  ],
+  "answer": 3
+}</code></pre></td>
+        <td rowspan=2><p><code>get_ppl</code></p><p>Calculate perplexity of the option text based on the source text</p></td>
+        <td><p style="text-align: center;"><code>ppl_no_option</code></p>
+<p><pre><code>Q: What is ...?
+A: The first
+   └--ppl--┘</code></pre></p></td>
     </tr>
     <tr>
-        <td><code>get_prob</code></td>
-        <td><code>prob</code></td>
+        <td><p style="text-align: center;"><code>ppl</code></p>
+<p><pre><code style="border-style: solid;">Q: What is ...?
+A. The first
+B. The second
+C. ...
+A: A. The first
+   └----ppl---┘</code></pre></p></td>
+    </tr>
+    <tr>
+        <td><p><code>get_prob</code></p><p>Get the probability of each option label</p></td>
+        <td><p style="text-align: center;"><code>prob</code></p>
+<p><pre><code>Q: What is ...?
+A. The first
+B. The second
+C. ...
+A: _
+   └→ [A B C D]</code></pre></p></td>
     </tr>
 </table>
+
+You can use --instruction to pass a jinja template to override the default instruction.
 
 By default, we use the `get_ppl` method with `ppl_no_option` ranking type for `MultipleChoiceDataset` and the `generation` method for `GenerationDataset`. You can also use the following command to use the `get_prob` method or `ppl` variant of `get_ppl` for MultipleChoiceDataset:
 
