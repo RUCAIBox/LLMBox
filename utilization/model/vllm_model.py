@@ -124,10 +124,7 @@ class vllmModel(Model):
                 tgt_st_eds.append((len(src_input_ids), len(input_ids)))
 
         for result, (tgt_start, tgt_end) in zip(results, tgt_st_eds):
-            if self.is_legacy_vllm():
-                ppl = [next(iter(r.values())) if r else None for r in result.prompt_logprobs]
-            else:
-                ppl = [next(iter(r.values())).logprob if r else None for r in result.prompt_logprobs]
+            ppl = [next(iter(r.values())).logprob if r else None for r in result.prompt_logprobs]
             ppl = -sum(ppl[tgt_start:])
             ppls.append((ppl, tgt_end - tgt_start))
         return ppls
@@ -147,7 +144,7 @@ class vllmModel(Model):
         assert all(conv.num_turns == num_turns for conv in batched_inputs)
 
         for turn_idx in range(num_turns):
-            batched_prompts = [conv.to_model_prompt() for conv in batched_inputs]
+            batched_prompts = ["".join(conv.to_model_prompt()) for conv in batched_inputs]
             results = self.model.generate(batched_prompts, sampling_params=self.generation_kwargs)
             for i, result in enumerate(results):
                 batched_inputs[i].add_multi_turn(assistant=result.outputs[0].text)
