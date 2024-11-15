@@ -21,6 +21,7 @@ Some datasets support Chain-of-Thought reasoning. For example, Grade School Math
 ## Supported Datasets
 
 - 🔥 Recently supported datasets: `imbue_code`, `imbue_public`, and `imbue_private`.
+- The evaluation code can be found here: [benchmarking llama3](https://github.com/RUCAIBox/LLMBox/blob/main/docs/utilization/benchmarking_llama3.md).
 
 <table>
   <tr>
@@ -187,7 +188,7 @@ Some datasets support Chain-of-Thought reasoning. For example, Grade School Math
       <td><code>gpqa_main</code> (default), <code>gpqa_extended</code>, ...</td>
       <td>MultipleChoice</td>
       <td>✅</td>
-      <td>[Tutorial](https://github.com/RUCAIBox/LLMBox/blob/main/docs/utilization/how-to-load-dataset-gpqa.md)</td>
+      <td><a href="https://github.com/RUCAIBox/LLMBox/blob/main/docs/utilization/how-to-load-dataset-gpqa.md">Tutorial</a></td>
   </tr>
   <tr>
       <td>Grade School Math 8K (<code>gsm8k</code>)</td>
