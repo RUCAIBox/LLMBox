@@ -294,6 +294,7 @@ def load_dataset(
             f"{dataset_name} - available_subsets: {available_subsets}, load_args: {dataset_cls.load_args}, final subset_names: {cmd_subset_names}"
         )
 
+        first_dataset_name = None
         if len(cmd_subset_names
                ) > 1 and accepts_subset(dataset_cls.load_args, overwrite_subset=len(expanded_cmd_subset_names) > 0):
             # Example: race:middle,high (several subsets) , super_glue (all the subsets)
@@ -310,10 +311,10 @@ def load_dataset(
             if evaluation_args.dataset_threading and len(cmd_subset_names) > 2:
 
                 # load the first dataset in the main thread (only show the INFO log message for the first dataset)
-                first_dataset = cmd_subset_names.pop(0)
+                first_dataset_name = cmd_subset_names.pop(0)
                 first_dataset = (
-                    dataset_name + ":" + first_dataset,
-                    dataset_cls(dataset_name, args, model, first_dataset, evaluation_data, example_data)
+                    dataset_name + ":" + first_dataset_name,
+                    dataset_cls(dataset_name, args, model, first_dataset_name, evaluation_data, example_data)
                 )
                 logger.info(f"Loading remaining subsets ...")
                 logging.disable(logging.INFO)
@@ -359,7 +360,8 @@ def load_dataset(
             yield {dataset_name: dataset_cls(dataset_name, args, model, None, evaluation_data, example_data)}
 
         expanded_cmd_subset_names.difference_update(cmd_subset_names)
-
+        if first_dataset_name is not None:
+            expanded_cmd_subset_names.discard(first_dataset_name)
 
 @catch_error()
 def load_datasets(
