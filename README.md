@@ -263,7 +263,14 @@ Various types of evaluation methods are supported:
     'December 1972'
   ]
 }</code></pre></p></td>
-        <td><p><code>generation</code></p><p>Generate based on the source text</p></td>
+    <td><p><code>generation</code></p><p>Generate based on the source text</p><p>Example: <a href='https://github.com/meta-llama/llama3/blob/bb55334adcedfa9f5da66d2e1ed64e6f3dbd82ed/eval_details.md#gsm8k'>GSM8K</a>, <a href='https://github.com/meta-llama/llama3/blob/bb55334adcedfa9f5da66d2e1ed64e6f3dbd82ed/eval_details.md#humaneval'>HumanEval</a></p><p>Notes: <code>vLLM</code> generally generates faster than <code>transformers</code> but has different default parameters. Users may need to adjust sampling parameters like <code>temperature</code> and <code>length_penalty</code> for optimal results.
+
+
+
+
+
+
+</p></td>
         <td><p><pre><code>Q: When was ...?
 A: ________</code></pre></p></td>
     </tr>
@@ -279,7 +286,7 @@ A: ________</code></pre></p></td>
   ],
   "answer": 3
 }</code></pre></td>
-        <td rowspan=2><p><code>get_ppl</code></p><p>Calculate perplexity of the option text based on the source text</p></td>
+        <td rowspan=2><p><code>get_ppl</code></p><p>Calculate perplexity of the option text based on the source text (i.e. compute log-likelihood over the suffix)</p><p>Example: <a href='https://github.com/meta-llama/llama3/blob/bb55334adcedfa9f5da66d2e1ed64e6f3dbd82ed/eval_details.md#winogrande'>WinoGrande</a>, <a href='https://github.com/meta-llama/llama3/blob/bb55334adcedfa9f5da66d2e1ed64e6f3dbd82ed/eval_details.md#boolq'>BoolQ</a></p></td>
         <td><p style="text-align: center;"><code>ppl_no_option</code></p>
 <p><pre><code>Q: What is ...?
 A: The first
@@ -295,7 +302,7 @@ A: A. The first
    └----ppl---┘</code></pre></p></td>
     </tr>
     <tr>
-        <td><p><code>get_prob</code></p><p>Get the probability of each option label</p></td>
+        <td><p><code>get_prob</code></p><p>Get the probability of each option label (i.e. over choice characters)</p><p>Example: <a href='https://github.com/meta-llama/llama3/blob/bb55334adcedfa9f5da66d2e1ed64e6f3dbd82ed/eval_details.md#mmlu'>MMLU</a>, <a href='https://github.com/meta-llama/llama3/blob/bb55334adcedfa9f5da66d2e1ed64e6f3dbd82ed/eval_details.md#arc-challenge'>ARC-Challange</a></p></td>
         <td><p style="text-align: center;"><code>prob</code></p>
 <p><pre><code>Q: What is ...?
 A. The first
