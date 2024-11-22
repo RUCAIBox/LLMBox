@@ -276,7 +276,7 @@ A: ________</code></pre></p></td>
   ],
   "answer": 3
 }</code></pre></td>
-        <td rowspan=2><p><code>get_ppl</code></p><p>Calculate perplexity of the option text based on the source text (i.e. compute log-likelihood over the suffix)</p><p>Example: <a href='https://github.com/meta-llama/llama3/blob/bb55334adcedfa9f5da66d2e1ed64e6f3dbd82ed/eval_details.md#winogrande'>WinoGrande</a>, <a href='https://github.com/meta-llama/llama3/blob/bb55334adcedfa9f5da66d2e1ed64e6f3dbd82ed/eval_details.md#boolq'>BoolQ</a></p></td>
+        <td rowspan=2><p><code>get_ppl</code></p><p>Calculate perplexity of the option text based on the source text (i.e. compute log-likelihood over the suffix)</p><p>Example: <a href='https://github.com/meta-llama/llama3/blob/bb55334adcedfa9f5da66d2e1ed64e6f3dbd82ed/eval_details.md#winogrande'>WinoGrande</a>, <a href='https://github.com/meta-llama/llama3/blob/bb55334adcedfa9f5da66d2e1ed64e6f3dbd82ed/eval_details.md#boolq'>BoolQ</a></p><p>Notes: Some datasets, such as ARC, OpenbookQA, and RACE use <a href='https://arxiv.org/pdf/2005.14165'>normalized accuracy</a> when evaluated with the <code>get_ppl</code> method.</p></td>
         <td><p style="text-align: center;"><code>ppl_no_option</code></p>
 <p><pre><code>Q: What is ...?
 A: The first
