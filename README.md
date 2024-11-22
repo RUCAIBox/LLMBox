@@ -242,9 +242,6 @@ python inference.py -m model -d dataset --load_in_4bits  # --load_in_8_bits or -
 
 Various types of evaluation methods are supported:
 
-<details>
-<summary><b>[Click for details] Generation, GetPPL, and GetProb</b></summary>
-
 </br>
 
 <table>
@@ -263,15 +260,8 @@ Various types of evaluation methods are supported:
     'December 1972'
   ]
 }</code></pre></p></td>
-    <td><p><code>generation</code></p><p>Generate based on the source text</p><p>Example: <a href='https://github.com/meta-llama/llama3/blob/bb55334adcedfa9f5da66d2e1ed64e6f3dbd82ed/eval_details.md#gsm8k'>GSM8K</a>, <a href='https://github.com/meta-llama/llama3/blob/bb55334adcedfa9f5da66d2e1ed64e6f3dbd82ed/eval_details.md#humaneval'>HumanEval</a></p><p>Notes: <code>vLLM</code> generally generates faster than <code>transformers</code> but has different default parameters. Users may need to adjust sampling parameters like <code>temperature</code> and <code>length_penalty</code> for optimal results.
-
-
-
-
-
-
-</p></td>
-        <td><p><pre><code>Q: When was ...?
+    <td><p><code>generation</code></p><p>Generate based on the source text</p><p>Example: <a href='https://github.com/meta-llama/llama-models/blob/main/models/llama3_1/eval_details.md#arc-challenge'>ARC-Challenge</a> (extract choice characters like A, B, C, D from model generation), <a href='https://github.com/meta-llama/llama3/blob/bb55334adcedfa9f5da66d2e1ed64e6f3dbd82ed/eval_details.md#gsm8k'>GSM8K</a>, <a href='https://github.com/meta-llama/llama3/blob/bb55334adcedfa9f5da66d2e1ed64e6f3dbd82ed/eval_details.md#humaneval'>HumanEval</a></p><p>Notes: <code>vLLM</code> generally generates faster than <code>transformers</code> but has different default parameters. Users may need to adjust sampling parameters like <code>temperature</code> and <code>length_penalty</code> for optimal results.</p></td>
+        <td><p style="text-align: center;"><code>generation</code></p><p><pre><code>Q: When was ...?
 A: ________</code></pre></p></td>
     </tr>
     <tr>
@@ -312,7 +302,8 @@ A: _
    └→ [A B C D]</code></pre></p></td>
     </tr>
 </table>
-</details>
+
+You can find more evaluation details for each dataset at [supported datasets](https://github.com/RUCAIBox/LLMBox/blob/main/docs/utilization/supported-datasets.md).
 
 You can use `--instruction` to pass a jinja template to override the default instruction.
 
