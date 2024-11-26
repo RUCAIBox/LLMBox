@@ -255,6 +255,15 @@ A: _
     </tr>
 </table>
 
+GetPPL:
+
+![get_ppl](https://github.com/user-attachments/assets/5b420450-223e-4bb6-a92e-feb7c0ddc5b0)
+
+GetProb:
+
+![get_prob](https://github.com/user-attachments/assets/53b3253b-9c08-4a06-bc2d-43c03ac68611)
+
+
 ```text
 --ranking_type {ppl,prob,ppl_no_option}
                       The evaluation and prompting method for ranking task
