@@ -263,6 +263,7 @@ GetProb:
 
 ![get_prob](https://github.com/user-attachments/assets/53b3253b-9c08-4a06-bc2d-43c03ac68611)
 
+Illustration source: [imbue](https://imbue.com/research/70b-carbs)
 
 ```text
 --ranking_type {ppl,prob,ppl_no_option}
