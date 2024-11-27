@@ -456,7 +456,7 @@ class DatasetArguments:
     kate: bool = HfArg(default=False, aliases=["-kate"], help="Whether to use KATE as an ICL strategy")
     globale: bool = HfArg(default=False, aliases=["-globale"], help="Whether to use GlobalE as an ICL strategy")
     ape: bool = HfArg(default=False, aliases=["-ape"], help="Whether to use APE as an ICL strategy")
-    cot: Optional[Literal["base", "least_to_most", "pal", "retrieval", "retrieval_content"]] = HfArg(
+    cot: Optional[Literal["base", "least_to_most", "pal", "retrieval", "retrieval_content", "k0_math"]] = HfArg(
         default=None,
         help="The method to prompt. Only available for some specific datasets (e.g., GSM8K, GPQA).",
     )
