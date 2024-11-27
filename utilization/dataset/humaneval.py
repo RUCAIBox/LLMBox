@@ -22,6 +22,48 @@ IMPORT_HELPER = [
     "from collections import *",
 ]
 
+# Base model may generate a new question and answer it itself. We need to remove the new question or run example.
+stop_words = ["def ", "```", "\nif", "\n#"]
+
+def _truncate_code_at_stopwords(code, stop_words):
+
+    # add a newline at the end to facilitate the search
+    if not code.endswith("\n"):
+        code += "\n"
+
+    # initialize the stop indices
+    min_stop_idx = len(code)
+    return_statement_idx = 0
+
+    # find the return statement
+    match_obj = re.search(r"^\s+return[^\n]*\n", code, re.MULTILINE)
+    if match_obj:
+        return_statement_idx = match_obj.end()
+    else:
+        return "# No return statement found\n"
+
+    # find the first stop word after the return statement
+    for stop_word in stop_words:
+        find_stop_from = -1
+        while True:
+            stop_index = code.find(stop_word, find_stop_from + 1)
+            if stop_index == -1:
+                break
+            if return_statement_idx <= stop_index:
+                min_stop_idx = min(min_stop_idx, stop_index)
+                break
+            else:
+                find_stop_from = stop_index
+
+    code = code[:min_stop_idx]
+
+    # remove repeated "def" statements if any
+    def_line = re.search(r"def[^\n]*\n", code)
+    if def_line is not None:
+        code = code[def_line.end():]
+
+    return code.rstrip()
+
 
 class Humaneval(GenerationDataset):
     """The dataset of HumanEval.
@@ -50,44 +92,6 @@ class Humaneval(GenerationDataset):
 
     @staticmethod
     def post_processing(predictions):
-
-        # Base model may generate a new question and answer it itself. We need to remove the new question or run example.
-        stop_words = ["def ", "```", "\nif", "\n#"]
-
-        def _truncate_code_at_stopwords(code, stop_words):
-
-            # initialize the stop indices
-            min_stop_idx = len(code)
-            return_statement_idx = 0
-
-            # find the return statement
-            match_obj = re.search(r"^\s+return[^\n]*\n", code, re.MULTILINE)
-            if match_obj:
-                return_statement_idx = match_obj.end()
-            else:
-                return "# No return statement found\n"
-
-            # find the first stop word after the return statement
-            for stop_word in stop_words:
-                find_stop_from = -1
-                while True:
-                    stop_index = code.find(stop_word, find_stop_from + 1)
-                    if stop_index == -1:
-                        break
-                    if return_statement_idx <= stop_index:
-                        min_stop_idx = min(min_stop_idx, stop_index)
-                        break
-                    else:
-                        find_stop_from = stop_index
-
-            code = code[:min_stop_idx]
-
-            # remove repeated "def" statements if any
-            def_line = re.search(r"def[^\n]*\n", code)
-            if def_line is not None:
-                code = code[def_line.end():]
-
-            return code
 
         return [_truncate_code_at_stopwords(prediction, stop_words) for prediction in predictions]
 
