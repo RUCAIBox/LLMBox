@@ -74,7 +74,7 @@ def get_git_revision(base_path) -> str:
                 return git_hash.readline().strip()
         else:
             return ref.strip()
-    except FileNotFoundError:
+    except Exception:
         return "Not a git repository"
 
 
