@@ -244,14 +244,14 @@ class SequenceCache(DynamicCache):
 
         return cache
 
-    def to_legacy_cache(self) -> Optional[Tuple[Tuple[torch.Tensor, torch.Tensor], ...]]:
+    def to_legacy_cache(self) -> Optional[DynamicCache]:
         """Converts the `DynamicCache` instance into the its equivalent in the legacy cache format."""
         if len(self.key_cache) == 0 or any(s == 0 for s in self.key_cache[0].shape):
             return None
 
-        legacy_cache = ()
-        for layer_idx in range(len(self)):
-            legacy_cache += ((self.key_cache[layer_idx], self.value_cache[layer_idx]),)
+        legacy_cache = DynamicCache()
+        legacy_cache.key_cache = self.key_cache
+        legacy_cache.value_cache = self.value_cache
         return legacy_cache
 
     def __repr__(self) -> str:
