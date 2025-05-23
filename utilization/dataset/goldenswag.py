@@ -24,7 +24,7 @@ class Goldenswag(MultipleChoiceDataset):
 
     instruction = "{{ preprocess(activity_label + ': ' + ctx_a + ' ' + ctx_b.capitalize()) }}{{'\n' + options + '\nAnswer:' if options}}"
     evaluation_set = "validation"
-    example_set = "train"
+    example_set = None
     load_args = ("PleIAs/GoldenSwag",)
 
     def init_arguments(self):
