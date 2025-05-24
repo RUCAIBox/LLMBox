@@ -27,7 +27,7 @@ logger = getLogger(__name__)
 
 __all__ = ["load_datasets", "register_dataset"]
 
-ABSTRACT_DATASET = {"Dataset", "GenerationDataset", "MultipleChoiceDataset", "SquadDataset"}
+ABSTRACT_DATASET = {"Dataset", "GenerationDataset", "MultipleChoiceDataset", "SquadDataset", "ValidationPerplexityDataset"}
 REGISTERY = {}
 
 
@@ -244,8 +244,10 @@ def load_dataset(
     cache_paths = []
     for dcls in dataset_classes:
         if not isinstance(dcls.load_args, tuple):
+            logger.debug(f"Skip HFD: {dcls.load_args}")
             continue
         elif len(dcls.load_args) > 0:
+            logger.debug(f"HFD: {dcls.load_args[0]}")
             cache_paths.append(
                 huggingface_download(
                     dcls.load_args[0],
@@ -257,6 +259,7 @@ def load_dataset(
                 )
             )
         else:
+            logger.debug(f"HFD: {dataset_name}")
             # dynamically set load_args for wmt datasets, in order to support wmt series datasets
             cache_paths.append(
                 huggingface_download(

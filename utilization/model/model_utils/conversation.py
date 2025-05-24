@@ -191,7 +191,7 @@ class ConversationFormatter:
                     elif self.final_lstrip:
                         seg = seg.lstrip()
                     result += (seg,)
-            if self.final_rstrip:
+            if self.final_rstrip and len(result) > 0:
                 result = result[:-1] + (result[-1].rstrip(),)
 
             # check prefix caching segments
@@ -212,7 +212,10 @@ class ConversationFormatter:
         else:
             results = PPLInput([])
             for *segs, _ in self._get_segs(conversations):
-                results.append(("".join(segs[:-1]), segs[-1]))
+                if len(segs) > 0:
+                    results.append(("".join(segs[:-1]), segs[-1]))
+                else:
+                    results.append(("", ))
         return results
 
     def _to_prob_prompts(self, conversations: List["Conversation"], split: bool) -> Union[ProbInput, ProbInputSplited]:
@@ -334,6 +337,12 @@ class Conversation:
         seg: Optional[Literal["system", "examples", "source", "target"]] = None,
     ) -> Union[List[Dict[str, str]], Dict[str, List[Dict[str, str]]]]:
         """Get splitted segments of the conversation to cache the KV of them."""
+
+        if len(self.messages) == 0:
+            if seg:
+                return []
+            else:
+                return {"system": [], "examples": [], "source": [], "target": []}
 
         # system
         example_st = 0

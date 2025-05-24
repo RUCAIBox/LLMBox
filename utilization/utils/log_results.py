@@ -217,7 +217,10 @@ def log_final_results(
             return zip(*wrapper())
 
         *source_texts, target_text = zip(*evaluation_instances)
-        source_text = ["".join(seg[sent_idx] for seg in source_texts) for sent_idx in range(len(source_texts[0]))]
+        if len(source_texts) > 0:
+            source_text = ["".join(seg[sent_idx] for seg in source_texts) for sent_idx in range(len(source_texts[0]))]
+        else:
+            source_text = ["" for _ in range(len(target_text))]
         if use_normalization:
             src_len = len(source_text) // 2
             source_text, target_text, raw_predictions = source_text[:src_len], target_text[:src_len

@@ -19,6 +19,7 @@ if TYPE_CHECKING:
     from .gpteval import GPTEval as _GPTEval
     from .ifeval import IFEval as _IFEval
     from .pass_at_k import PassAtK as _PassAtK
+    from .perplexity import PPL as _PPL
     from .perspective_api import PerspectiveApi as _PerspectiveApi
     from .rouge import Rouge as _Rouge
     from .word_accuracy import WordAccuracy as _WordAccuracy
@@ -52,5 +53,6 @@ GPTEval: Type["_GPTEval"] = lazy_import("gpteval", "GPTEval")
 IFEval: Type["_IFEval"] = lazy_import("ifeval", "IFEval")
 PassAtK: Type["_PassAtK"] = lazy_import("pass_at_k", "PassAtK")
 PerspectiveApi: Type["_PerspectiveApi"] = lazy_import("perspective_api", "PerspectiveApi")
+PPL: Type["_PPL"] = lazy_import("perplexity", "PPL")
 Rouge: Type["_Rouge"] = lazy_import("rouge", "Rouge")
 WordAccuracy: Type["_WordAccuracy"] = lazy_import("word_accuracy", "WordAccuracy")
