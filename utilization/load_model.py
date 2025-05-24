@@ -87,6 +87,14 @@ def load_huggingface(args: "ModelArguments"):
     return HuggingFaceModel(args)
 
 
+@register_model(model_backend="megatron")
+def load_megatron(args: "ModelArguments"):
+    logger.info(f"Loadding Megatron model `{args.model_name_or_path}` from {args.megatron_path}.")
+    from .model.megatron_model import MegatronModel
+
+    return MegatronModel(args)
+
+
 @catch_error()
 def load_model(args: "ModelArguments") -> "Model":
     r"""Load corresponding model class.
