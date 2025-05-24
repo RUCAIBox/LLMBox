@@ -1,6 +1,8 @@
 import argparse
 import os
 import sys
+import socket
+import importlib
 from logging import getLogger
 from typing import Iterator, List, Optional, Tuple, Union
 
@@ -17,6 +19,11 @@ from .model_utils.keywords_criteria import KeyWordsCriteria
 logger = getLogger(__name__)
 
 _MultiTurnResults = Tuple[str, ...]
+
+def find_free_port() -> str:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(("", 0))  # Bind to a free port assigned by the OS
+        return str(s.getsockname()[1])
 
 
 class MegatronModel(Model):
@@ -39,7 +46,6 @@ class MegatronModel(Model):
         from megatron.training.arguments import add_megatron_arguments
         from megatron.training.checkpointing import load_checkpoint
         from megatron.training.initialize import initialize_megatron
-        from pretrain_gpt import model_provider
 
         parser = argparse.ArgumentParser(description='Megatron-LM Arguments',
                                          allow_abbrev=False)
@@ -48,7 +54,7 @@ class MegatronModel(Model):
         if "MASTER_ADDR" not in os.environ:
             os.environ["MASTER_ADDR"] = "localhost"
         if "MASTER_PORT" not in os.environ:
-            os.environ["MASTER_PORT"] = "12355"
+            os.environ["MASTER_PORT"] = find_free_port()
 
         extra_args = []
 
@@ -61,6 +67,8 @@ class MegatronModel(Model):
         # checkpoint step
         if args.megatron_ckpt_step:
             extra_args.extend(["--ckpt-step", str(args.megatron_ckpt_step)])
+
+        assert torch.cuda.device_count() == 1, f"LLMBox currently only support evaluate MegatronModel without TP."
 
         megatron_args = [
             "--tensor-model-parallel-size",
@@ -89,6 +97,15 @@ class MegatronModel(Model):
         initialize_megatron(parsed_args=megatron_args)
 
         # Set up model and load checkpoint
+        if args.megatron_model_provider is None:
+            if megatron_args.spec == ["megatron.core.models.mamba.mamba_layer_specs", "mamba_stack_spec"]:
+                megatron_model_provider = "pretrain_mamba"
+            else:
+                megatron_model_provider = "pretrain_gpt"
+        else:
+            megatron_model_provider = args.megatron_model_provider
+
+        model_provider = importlib.import_module(megatron_model_provider).model_provider
         model = get_model(model_provider, wrap_with_ddp=False)
         load_checkpoint(model, None, None)
         model = model[0]
