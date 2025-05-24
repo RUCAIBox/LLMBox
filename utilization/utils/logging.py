@@ -120,7 +120,10 @@ def _format_dataset_names(dataset_names: List[str]) -> str:
 
 def _format_path(model_args, dataset_args, evaluation_args):
 
-    model_name = model_args.model_name_or_path.strip("/").split("/")[-1]
+    if model_args.model_backend == "megatron":
+        model_name = model_args.model_name_or_path.strip("/").split("/")[-2] + f"--iter_{model_args.megatron_ckpt_step:07d}"
+    else:
+        model_name = model_args.model_name_or_path.strip("/").split("/")[-1]
     dataset_name = _format_dataset_names(dataset_args.dataset_names)
     num_shots = str(dataset_args.num_shots)
     execution_time = datetime.datetime.now().strftime(DEFAULT_DATETIME_FORMAT)

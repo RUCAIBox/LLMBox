@@ -178,7 +178,7 @@ def get_raw_dataset_loader(
                         dataset_path, "default", split=split, data_dir=relpath(dataset_path), **load_kwargs
                     )
 
-            elif ".cache" in dataset_path:
+            elif "cache" in dataset_path:
 
                 _path = load_args[0] if len(load_args) >= 1 else dataset_name
                 logger.debug(f"Loading from a cache dir: {_path}, {subset_name}")
