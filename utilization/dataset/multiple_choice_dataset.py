@@ -8,6 +8,8 @@ import numpy as np
 from ..metric import Accuracy
 from .dataset import Dataset
 
+__all__ = ["MultipleChoiceDataset"]
+
 logger = getLogger(__name__)
 
 LARGE_POSITIVE = int(1e10)

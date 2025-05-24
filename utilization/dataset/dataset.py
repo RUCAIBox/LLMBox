@@ -42,7 +42,7 @@ class Dataset(torch.utils.data.Dataset, TokenizerUtilMixin, ICLUtilMixin):
         - `name (str)`: The name of this dataset.
         - `instruction (str)`: Dataset-specific instruction for this task.
         - `metrics (List)`: The metric functions used for evaluation.
-        - `evaluation_type (Literal['ranking', 'generation', 'user_defined'])`: The type of evaluation for the dataset.
+        - `evaluation_type (Literal['ranking', 'generation', 'perplexity', 'user_defined'])`: The type of evaluation for the dataset.
         - `evaluation_set (str)`: The evaluation split of the dataset. Evaluation data will be automatically loaded.
         - `example_set (Optional[str])`: The example split of the dataset. Example data will be automatically loaded if this is not None.
         - `load_args (Union[Tuple[str], Tuple[str, str], Tuple[()]])`: Arguments for loading the dataset with huggingface `load_dataset`.
@@ -66,7 +66,7 @@ class Dataset(torch.utils.data.Dataset, TokenizerUtilMixin, ICLUtilMixin):
     metrics: List["Metric"]
     r"""The metric functions used for evaluation."""
 
-    evaluation_type: Literal["ranking", "generation", "user_defined"]
+    evaluation_type: Literal["ranking", "generation", "perplexity", "user_defined"]
     r"""The type of evaluation for the dataset."""
 
     evaluation_set: str = None
@@ -276,11 +276,13 @@ class Dataset(torch.utils.data.Dataset, TokenizerUtilMixin, ICLUtilMixin):
                 return "generation"
         elif self.evaluation_type == "generation":
             return "generation"
+        elif self.evaluation_type == "perplexity":
+            return "get_ppl"
         elif self.evaluation_type == "user_defined":
             return "user_defined"
         else:
             raise ValueError(
-                f"We only support three evaluation types: `ranking`, `generation`, and `user_defined`, but got `{self.evaluation_type}`."
+                f"We only support three evaluation types: `ranking`, `generation`, `perplexity`, and `user_defined`, but got `{self.evaluation_type}`."
             )
 
     @model_evaluation_method.setter

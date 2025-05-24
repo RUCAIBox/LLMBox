@@ -97,7 +97,10 @@ class TokenizerUtilMixin:
     def _log_instance(self, log: Callable, instance: Conversation, idx: int):
         formatter = getattr(self, "conversation_formatter", None)
         if isinstance(formatter, ConversationFormatter):
-            istr = formatter.apply_prompt_template(instance, add_gen_prompt=True)
+            if len(instance) > 0:
+                istr = formatter.apply_prompt_template(instance, add_gen_prompt=True)
+            else:
+                istr = ""
             log(f"Formatted evaluation instance {idx}\n" + pformat(istr, width=100))
         else:
             for i, seg in enumerate(instance):
