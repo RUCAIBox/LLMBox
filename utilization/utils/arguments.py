@@ -37,7 +37,7 @@ LOADER = Callable[["ModelArguments"], Tuple["PreTrainedModel", Union["PreTrained
 
 class ModelBackendMixin:
 
-    model_backend: Literal["anthropic", "dashscope", "huggingface", "openai", "qianfan", "vllm"]
+    model_backend: Literal["anthropic", "dashscope", "huggingface", "openai", "qianfan", "vllm", "megatron"]
 
     def is_openai_model(self) -> bool:
         return self.model_backend == "openai"
@@ -57,9 +57,12 @@ class ModelBackendMixin:
     def is_vllm_model(self) -> bool:
         return self.model_backend == "vllm"
 
+    def is_megatron_model(self) -> bool:
+        return self.model_backend == "megatron"
+
     def is_local_model(self) -> bool:
         """Backed by Huggingface or vLLM model."""
-        return self.is_huggingface_model() or self.is_vllm_model()
+        return self.is_huggingface_model() or self.is_vllm_model() or self.is_megatron_model()
 
 
 @dataclass
@@ -73,7 +76,7 @@ class ModelArguments(ModelBackendMixin):
         default=None,
         help="The type of the model",
     )
-    model_backend: Literal["anthropic", "dashscope", "huggingface", "openai", "qianfan", "vllm"] = HfArg(
+    model_backend: Literal["anthropic", "dashscope", "huggingface", "openai", "qianfan", "vllm", "megatron"] = HfArg(
         default=None,
         help="The model backend",
     )
@@ -117,6 +120,14 @@ class ModelArguments(ModelBackendMixin):
     api_endpoint: Optional[Literal["completions", "chat/completions"]] = HfArg(
         default=None,
         help="The API endpoint",
+    )
+    megatron_path: str = HfArg(
+        default=None,
+        help='The path to megatron repository.',
+    )
+    megatron_ckpt_step: str = HfArg(
+        default=None,
+        help='The iteration of megatron checkpoint to load. Default as latest_checkpointed_iteration.txt.',
     )
 
     tokenizer_name_or_path: str = HfArg(
@@ -268,6 +279,24 @@ class ModelArguments(ModelBackendMixin):
             else:
                 # try to load with vllm first
                 self.model_backend = "vllm"
+                
+        if self.model_backend == "megatron":
+            assert os.path.exists(self.megatron_path)
+            if self.megatron_ckpt_step is None:
+                if not os.path.exists(os.path.join(self.model_name_or_path, "latest_checkpointed_iteration.txt")):
+                    # xxx/checkpoint/iter_xxxx
+                    assert os.path.exists(os.path.join(self.model_name_or_path, os.pardir, "latest_checkpointed_iteration.txt"))
+                    self.megatron_ckpt_step = int(re.match(r'iter_(\d+)', os.path.basename(self.model_name_or_path))[1])
+                    self.model_name_or_path = os.path.join(self.model_name_or_path, os.pardir)
+                else:
+                    # xxx/checkpoint
+                    with open(os.path.exists(os.path.join(self.model_name_or_path, "latest_checkpointed_iteration.txt"))) as f:
+                        self.megatron_ckpt_step = f.read().strip()
+            elif isinstance(self.megatron_ckpt_step, str):
+                self.megatron_ckpt_step = int(re.match(r'.*?(\d+)', self.megatron_ckpt_step)[1])
+
+            assert self.megatron_ckpt_step is not None
+            assert os.path.exists(os.path.join(self.model_name_or_path, f"iter_{self.megatron_ckpt_step:07d}"))
 
         # ============= Init api keys and tokenizers =============
 
