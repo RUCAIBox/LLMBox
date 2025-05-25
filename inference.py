@@ -12,6 +12,9 @@ def main():
         initalize=False,
     )
     evaluator.evaluate()
+    
+    import torch
+    torch.distributed.destroy_process_group()
 
 
 if __name__ == "__main__":
