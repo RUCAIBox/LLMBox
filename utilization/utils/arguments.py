@@ -129,6 +129,10 @@ class ModelArguments(ModelBackendMixin):
         default=None,
         help='The iteration of megatron checkpoint to load. Default as latest_checkpointed_iteration.txt.',
     )
+    megatron_model_provider: str = HfArg(
+        default=None,
+        help='Which script to load model_provider from. Default None means it will be automatically identified from the checkpoint.',
+    )
 
     tokenizer_name_or_path: str = HfArg(
         default=None,
