@@ -31,7 +31,7 @@ HUGGINGFACE_ARGS = {
 }
 
 MEGATRON_ARGS = {
-    "temperature": generation_arg(needs=lambda t, _: {"top_k": 1, "temperature": 1} if t == 0 else {}),
+    "temperature": generation_arg(needs=lambda t, _: {"top_k": 1} if t == 0 else {}),
     "top_p": generation_arg(),
     "top_k": generation_arg(),
     "max_tokens": generation_arg(default=1024, transform_key="max_new_tokens"),
