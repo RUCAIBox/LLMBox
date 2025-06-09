@@ -76,7 +76,6 @@ def _prepare_special_tokens(generation_config: GenerationConfig, device: Optiona
         if token is None:
             return token
 
-        device = device if device is not None else self.device
         if isinstance(token, torch.Tensor):
             return token.to(device)
         return torch.tensor(token, device=device, dtype=torch.long)
@@ -105,7 +104,7 @@ def _has_unfinished_sequences(this_peer_finished: bool, synced_gpus: bool, devic
         # The following logic allows an early break if all peers finished generating their sequence
         this_peer_finished_flag = torch.tensor(0.0 if this_peer_finished else 1.0, device=device)
         # send 0.0 if we finished, 1.0 otherwise
-        dist.all_reduce(this_peer_finished_flag, op=dist.ReduceOp.SUM)
+        torch.distributed.all_reduce(this_peer_finished_flag, op=torch.distributed.ReduceOp.SUM)
         # did all peers finish? the reduced sum will be 0.0 then
         if this_peer_finished_flag.item() == 0.0:
             return False

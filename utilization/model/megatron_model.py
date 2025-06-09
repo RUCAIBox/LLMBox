@@ -10,6 +10,7 @@ from types import MethodType
 import torch
 from torch import nn
 from torch.nn import CrossEntropyLoss
+from transformers import Cache
 from transformers.generation.configuration_utils import GenerationConfig as TransformersGenerationConfig
 
 from ..model_enum import MEGATRON_ARGS
@@ -22,6 +23,8 @@ from .model_utils.megatron_generation_utils import megatron_generate, gpt_prepar
 logger = getLogger(__name__)
 
 _MultiTurnResults = Tuple[str, ...]
+_PostfixEncoding = Tuple[torch.Tensor, torch.Tensor, Optional[torch.Tensor], List[int], List[int]]
+"""`tuple(input_ids, attention_mask, input_pos, prefix_lengths, input_lengths)`"""
 
 def find_free_port() -> str:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -344,6 +347,98 @@ class MegatronModel(Model):
                                   dtype=batch_logits.dtype).tolist())
         return answers
 
+    def _tokenize_postfix(
+        self,
+        batched_inputs: List[str],
+        prefix_cache: Optional[Cache] = None,
+        *,
+        device: Optional[str] = None,
+        add_dummy_prefix: bool = False,
+        dummy_prefix: str = "text ",
+        padding: bool = True,
+        reserve_tokens: int = 0,
+    ) -> Union[List[List[int]], _PostfixEncoding]:
+        """Tokenize the inputs as postfix. If `prefix_cache` is provided, the attention_mask of the prefix will be concatenated with the input attention_mask and the position_ids of the input will be calculated based on the length of the prefix.
+
+        Args:
+            batched_inputs (`List[str]`): Batched inputs to be tokenized as postfix.
+            prefix_cache (`Optional[SequenceCache]`, optional): The SequenceCache of prefix. Defaults to None.
+            device (`Optional[str]`, optional): Target device of returned tensors. Defaults to None.
+            add_prefix (`bool`, optional): If no `prefix_cache` is provided, use this to add a dummy prefix and remove it after tokenization. Defaults to False.
+            padding (`bool`, optional): Whether to pad the sequence (to right) and return in tensor. Defaults to True.
+
+        Returns:
+            - If `padding` is True:
+                `_PostfixEncoding`: Encoding of postfix with padding.
+            - If `padding` is False:
+                `List[List[int]]`: A list of tokenized inputs without padding.
+        """
+
+        batch_size = len(batched_inputs)
+        _to = dict(dtype=torch.long, device=self.device)
+        if device is not None:
+            _to["device"] = torch.device(device)
+
+        # tokenize the postfix like a postfix. this is useful to handle tokenizers like llama
+        if prefix_cache is not None and len(prefix_cache.last_texts) == batch_size:
+            batched_inputs = [l + p for l, p in zip(prefix_cache.last_texts, batched_inputs)]
+        elif add_dummy_prefix:
+            batched_inputs = [dummy_prefix + p for p in batched_inputs]
+
+        # use the same tokenizer, but different padding strategy
+        batched_encodings = self.tokenizer(batched_inputs)
+
+        if self.tokenizer.is_fast:
+
+            def char_to_token(i, char_index):
+                return batched_encodings.char_to_token(i, char_index)
+        else:
+
+            def char_to_token(i, char_index):
+                return len(self.tokenizer(batched_inputs[i][:char_index]).input_ids)
+
+        # remove the prefix from the input_ids and get the batched_ids for postfix
+        if prefix_cache is not None and prefix_cache.last_texts is not None:
+            ids_starts = [char_to_token(i, len(l)) for i, l in enumerate(prefix_cache.last_texts)]
+        elif add_dummy_prefix:
+            char_index = len(dummy_prefix)
+            ids_starts = [char_to_token(i, char_index) for i in range(batch_size)]
+        else:
+            ids_starts = [0] * batch_size
+        if prefix_cache:
+            ids_ends = [
+                self.model_max_input - reserve_tokens - prefix_len for prefix_len in prefix_cache.real_seq_length
+            ]
+        else:
+            ids_ends = [self.model_max_input - reserve_tokens] * batch_size
+        batched_ids = [ids[st:ed] for ids, st, ed in zip(batched_encodings["input_ids"], ids_starts, ids_ends)]
+        input_lengths = [len(seq) for seq in batched_ids]
+        if any(l == 0 for l in input_lengths):
+            logger.warning(
+                "The prefix is too long for the model. Please reduce the length of the prefix (e.g. `--max_example_tokens`)"
+            )
+        max_input_len = max(input_lengths)
+        if not padding:
+            return batched_ids
+
+        # pad the input_ids and attention_mask
+        input_ids = torch.full((batch_size, max_input_len), self.tokenizer.pad_token_id, **_to)
+        attention_mask = torch.zeros((batch_size, max_input_len), **_to)
+        for i, ids in enumerate(batched_ids):
+            input_ids[i, :len(ids)] = torch.tensor(ids, **_to)
+            attention_mask[i, :len(ids)] = 1
+
+        if prefix_cache is not None:
+            prefix_mask, input_pos, prefix_lengths = self._get_prefix_mask(prefix_cache, max_input_len, device=device)
+
+            # concatenate the prefix and input attention_mask
+            attention_mask = torch.cat([prefix_mask, attention_mask], dim=1).to(**_to)  # type: ignore
+        else:
+            prefix_lengths = [0] * batch_size
+            input_pos = None
+
+        return input_ids, attention_mask, input_pos, prefix_lengths, input_lengths
+
     def set_generation_args(self, **extra_model_args):
 
         self.multi_turn = extra_model_args.pop("multi_turn", False)
@@ -361,6 +456,7 @@ class MegatronModel(Model):
                     add_dummy_prefix=True,
                     padding=False,
                 ))
+            print(self.stop_id_sequences, value)
             return {
                 "stopping_criteria":
                 [KeyWordsCriteria(self.stop_id_sequences)]
@@ -374,6 +470,7 @@ class MegatronModel(Model):
                 "stop": add_stop,
                 "pad_token_id": self.tokenizer.pad_token_id,
                 "eos_token_id": self.tokenizer.eos_token_id,
+                "max_length": self.tokenizer.model_max_length,
             },
         )
         self.stopping_criteria = generation_kwargs.pop('stopping_criteria', [])
