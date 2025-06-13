@@ -300,7 +300,8 @@ class ModelArguments(ModelBackendMixin):
                 self.megatron_ckpt_step = int(re.match(r'.*?(\d+)', self.megatron_ckpt_step)[1])
 
             assert self.megatron_ckpt_step is not None
-            assert os.path.exists(os.path.join(self.model_name_or_path, f"iter_{self.megatron_ckpt_step:07d}"))
+            checkpoint_path = os.path.join(self.model_name_or_path, f"iter_{self.megatron_ckpt_step:07d}")
+            assert os.path.exists(checkpoint_path), f"Megatron-LM checkpoint {checkpoint_path} not found"
 
         # ============= Init api keys and tokenizers =============
 

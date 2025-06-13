@@ -92,6 +92,7 @@ class MegatronModel(Model):
             "--use-checkpoint-args",
             "--no-load-rng",
             "--no-load-optim",
+            "--flash-decode",
             "--exit-on-missing-checkpoint",
             *extra_args
         ]
@@ -99,7 +100,9 @@ class MegatronModel(Model):
         megatron_args.rank = int(os.getenv('RANK', '0'))
         megatron_args.world_size = int(
             os.getenv("WORLD_SIZE", str(torch.cuda.device_count())))
-
+        if args.tokenizer_name_or_path is not None:
+            megatron_args.tokenizer_model = args.tokenizer_name_or_path
+            megatron_args.use_tokenizer_model_from_checkpoint_args = False
         initialize_megatron(parsed_args=megatron_args)
 
         # Set up model and load checkpoint
