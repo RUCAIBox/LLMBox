@@ -40,7 +40,7 @@ class GaokaoBenchMetric(Metric):
             return score if answer[0] == refs[0] else 0
         else:
             target = [_ for _ in refs[0]]
-            pred = answer[0]
+            pred = set(answer[0])
             correct_count = 0
             for _ in pred:
                 if _ in target:
